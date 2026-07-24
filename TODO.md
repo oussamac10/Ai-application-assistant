@@ -10,37 +10,37 @@ Fully functional form templates, versions (editable drafts, immutable published,
 
 ## Acceptance Criteria
 
-- [ ] Phase 1 TODO details are archived in `docs/progress/phase-1-foundation.md`
-- [ ] root `TODO.md` contains only the current Phase 2 task and concise history
-- [ ] work is performed on `feature/form-definitions`
-- [ ] all required models exist
-- [ ] database constraints are implemented
-- [ ] Alembic upgrade succeeds
-- [ ] Alembic downgrade succeeds
-- [ ] templates can be created, listed, and read
-- [ ] draft versions can be created
-- [ ] fields can be added to drafts
-- [ ] fields are returned in deterministic order
-- [ ] translated labels are stored separately
-- [ ] choice options use canonical values
-- [ ] field configurations are validated deterministically
-- [ ] published versions cannot be modified
-- [ ] archived versions cannot be modified
-- [ ] versions can be cloned into independent drafts
-- [ ] publication validation works
-- [ ] required API endpoints work
-- [ ] fictional development fixture exists
-- [ ] backend tests pass
-- [ ] existing frontend tests pass
-- [ ] Ruff linting passes
-- [ ] Ruff formatting check passes
-- [ ] mypy passes
-- [ ] ESLint passes
-- [ ] TypeScript type checking passes
-- [ ] documentation is updated
-- [ ] ADR is created
-- [ ] no session, answer, AI, OCR, upload, or PDF functionality was implemented
-- [ ] `TODO.md` contains final verification results
+- [x] Phase 1 TODO details are archived in `docs/progress/phase-1-foundation.md`
+- [x] root `TODO.md` contains only the current Phase 2 task and concise history
+- [x] work is performed on `feature/form-definitions`
+- [x] all required models exist
+- [x] database constraints are implemented
+- [x] Alembic upgrade succeeds
+- [x] Alembic downgrade succeeds
+- [x] templates can be created, listed, and read
+- [x] draft versions can be created
+- [x] fields can be added to drafts
+- [x] fields are returned in deterministic order
+- [x] translated labels are stored separately
+- [x] choice options use canonical values
+- [x] field configurations are validated deterministically
+- [x] published versions cannot be modified
+- [x] archived versions cannot be modified
+- [x] versions can be cloned into independent drafts
+- [x] publication validation works
+- [x] required API endpoints work
+- [x] fictional development fixture exists
+- [x] backend tests pass
+- [x] existing frontend tests pass
+- [x] Ruff linting passes
+- [x] Ruff formatting check passes
+- [x] mypy passes
+- [x] ESLint passes
+- [x] TypeScript type checking passes
+- [x] documentation is updated
+- [x] ADR is created
+- [x] no session, answer, AI, OCR, upload, or PDF functionality was implemented
+- [x] `TODO.md` contains final verification results
 
 ## Planned Steps
 
