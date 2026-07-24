@@ -16,6 +16,15 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     DATABASE_URL: str | None = None
 
+    FORM_SESSION_TTL_HOURS: int = 24
+    SESSION_TOKEN_SECRET: str | None = None
+
+    @model_validator(mode="after")
+    def validate_session_secret(self) -> "Settings":
+        if not self.SESSION_TOKEN_SECRET:
+            self.SESSION_TOKEN_SECRET = "unsafe-dev-fallback-secret-key-12345678"
+        return self
+
     @model_validator(mode="before")
     @classmethod
     def assemble_db_connection(cls, data: Any) -> Any:

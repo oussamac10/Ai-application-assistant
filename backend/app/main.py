@@ -10,6 +10,19 @@ from app.forms.services import (
     StateConflictError,
     ValidationError,
 )
+from app.sessions.api.routes import router as sessions_router
+from app.sessions.services import (
+    ResourceNotFoundError as SessionResourceNotFoundError,
+)
+from app.sessions.services import (
+    StateConflictError as SessionStateConflictError,
+)
+from app.sessions.services import (
+    UnauthorizedError,
+)
+from app.sessions.services import (
+    ValidationError as SessionValidationError,
+)
 
 app = FastAPI(
     title="AI Form Assistant API",
@@ -26,9 +39,23 @@ async def resource_not_found_handler(
     return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
+@app.exception_handler(SessionResourceNotFoundError)
+async def session_resource_not_found_handler(
+    request: Request, exc: SessionResourceNotFoundError
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
 @app.exception_handler(StateConflictError)
 async def state_conflict_handler(
     request: Request, exc: StateConflictError
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(SessionStateConflictError)
+async def session_state_conflict_handler(
+    request: Request, exc: SessionStateConflictError
 ) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
@@ -48,6 +75,22 @@ async def validation_handler(request: Request, exc: ValidationError) -> JSONResp
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
+@app.exception_handler(SessionValidationError)
+async def session_validation_handler(
+    request: Request, exc: SessionValidationError
+) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(UnauthorizedError)
+async def unauthorized_handler(
+    request: Request, exc: UnauthorizedError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=401, content={"detail": "Invalid session credentials"}
+    )
+
+
 # Set up CORS middleware - in dev, allow localhost frontend
 app.add_middleware(
     CORSMiddleware,
@@ -59,3 +102,4 @@ app.add_middleware(
 
 app.include_router(health_router, prefix="/api")
 app.include_router(forms_router, prefix="/api")
+app.include_router(sessions_router, prefix="/api")

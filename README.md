@@ -11,17 +11,22 @@ The AI Form Assistant bridges the language gap by allowing users to complete for
 
 It guides the user through the form one field at a time, normalizing, validating, and confirming answers.
 
-## Current MVP Phase: MVP Phase 2 — Form Definitions
+## Current MVP Phase: MVP Phase 3 — Temporary Form Sessions
 
-This repository contains the foundation layer and the Form Definitions implementation of MVP Phase 2. It establishes:
-* Multilingual, versioned form definitions in the backend.
-* Database models for FormTemplate, FormVersion, FormField, FormFieldTranslation, FormFieldOption, FormFieldOptionTranslation.
-* Business services logic for draft field additions, cloning, and publishing validations.
-* REST API endpoints under `/api/forms`, `/api/form-versions`, `/api/form-fields`.
-* A CLI developer fixture loader command to populate the database with a multilingual "Basic Registration" template.
-* Full test coverage and type-safe verification with Mypy and Ruff.
+This repository contains the implementation of MVP Phase 3. It establishes:
+* Secure, temporary, anonymous form sessions connected to one immutable published form version.
+* Opaque public identifiers (`public_id`) and cryptographically secure ownership tokens for authentication and access.
+* Database models for FormSession with CheckConstraints and indexing.
+* Business service validations, status transition rules, and expiration tracking.
+* A CLI cleanup command (`python -m app.commands.cleanup_expired_sessions`) to mark expired sessions.
+* REST API endpoints:
+  - `POST /api/form-versions/{version_id}/sessions` (Create session)
+  - `GET /api/form-sessions/{session_id}` (Read session, requires header `X-Session-Token`)
+  - `POST /api/form-sessions/{session_id}/start` (Transition to `in_progress`, requires header `X-Session-Token`)
+  - `POST /api/form-sessions/{session_id}/cancel` (Transition to `cancelled`, requires header `X-Session-Token`)
+* Full test coverage and type-safe checks.
 
-*Note: In Phase 2, form sessions, user answers, AI integration, OCR, file uploads, and PDF exports are omitted.*
+*Note: In Phase 3, user answers, AI integration, OCR, file uploads, and PDF exports are omitted.*
 
 ---
 
@@ -93,6 +98,7 @@ pip install -r requirements.txt
 * **Type Check**: `mypy app`
 * **Initialize alembic**: Already initialized. To run migrations: `alembic upgrade head`
 * **Load Fixture**: `python -m app.commands.load_fixture` (loads the Basic Registration multilingual template version 1 and publishes it)
+* **Cleanup Expired Sessions**: `python -m app.commands.cleanup_expired_sessions` (scans and marks expired open sessions as expired)
 
 ### Frontend Commands (from `./frontend`)
 

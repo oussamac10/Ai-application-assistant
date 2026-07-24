@@ -13,6 +13,7 @@ from app.forms.models import (  # noqa: F401
     FormTemplate,
     FormVersion,
 )
+from app.sessions.models import FormSession  # noqa: F401
 
 # This is the Alembic Config object, which provides access to the
 # values within the .ini file in use.

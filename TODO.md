@@ -2,34 +2,34 @@
 
 ## Current Task
 
-Implementing multilingual, versioned form definitions in the backend (MVP Phase 2).
+Implementing secure, temporary, anonymous form sessions connected to one immutable published form version (MVP Phase 3).
 
 ## Goal
 
-Fully functional form templates, versions (editable drafts, immutable published, archived), deterministic configuration validation, cloning, REST endpoints, CLI fixture loader, migrations, and backend tests.
+Create secure, temporary form sessions with opaque public identifiers, ownership token hashes, status workflow transitions, expiration logic, and access controls.
 
 ## Acceptance Criteria
 
-- [x] Phase 1 TODO details are archived in `docs/progress/phase-1-foundation.md`
-- [x] root `TODO.md` contains only the current Phase 2 task and concise history
-- [x] work is performed on `feature/form-definitions`
-- [x] all required models exist
-- [x] database constraints are implemented
-- [x] Alembic upgrade succeeds
-- [x] Alembic downgrade succeeds
-- [x] templates can be created, listed, and read
-- [x] draft versions can be created
-- [x] fields can be added to drafts
-- [x] fields are returned in deterministic order
-- [x] translated labels are stored separately
-- [x] choice options use canonical values
-- [x] field configurations are validated deterministically
-- [x] published versions cannot be modified
-- [x] archived versions cannot be modified
-- [x] versions can be cloned into independent drafts
-- [x] publication validation works
+- [x] Phase 2 TODO details are archived in `docs/progress/phase-2-form-definitions.md`
+- [x] root `TODO.md` contains only the current Phase 3 task and concise history
+- [x] work is performed on `feature/form-sessions`
+- [x] session model and migration exist
+- [x] migration upgrade succeeds
+- [x] migration downgrade succeeds
+- [x] sessions can only be created for published versions
+- [x] raw ownership tokens are never stored
+- [x] token is returned only during creation
+- [x] session-specific requests require a valid token
+- [x] invalid tokens return generic unauthorized responses
+- [x] source language is copied from the form version
+- [x] output language is validated against the form version
+- [x] expiration is calculated by the backend
+- [x] expired sessions cannot be modified
+- [x] cleanup command works and is idempotent
+- [x] status transitions are deterministic
+- [x] progress values cannot be controlled by clients
 - [x] required API endpoints work
-- [x] fictional development fixture exists
+- [x] sensitive values are excluded from responses and logs
 - [x] backend tests pass
 - [x] existing frontend tests pass
 - [x] Ruff linting passes
@@ -39,48 +39,53 @@ Fully functional form templates, versions (editable drafts, immutable published,
 - [x] TypeScript type checking passes
 - [x] documentation is updated
 - [x] ADR is created
-- [x] no session, answer, AI, OCR, upload, or PDF functionality was implemented
+- [x] no answers, AI, OCR, upload, PDF, or authentication functionality was implemented
 - [x] `TODO.md` contains final verification results
 
 ## Planned Steps
 
-- [x] Create SQLAlchemy database models for FormTemplate, FormVersion, FormField, FormFieldTranslation, FormFieldOption, FormFieldOptionTranslation
-- [x] Generate and run Alembic migration for the form tables
-- [x] Implement configuration validations for all field types (String, Person Name, Integer, Decimal, Money, Date, Choices)
-- [x] Implement database repositories for database operations on templates and versions
-- [x] Create Pydantic schemas for requests and responses
-- [x] Implement draft field creation and patch modification services (protecting published/archived versions)
-- [x] Implement version publishing validation service and status updates
-- [x] Implement draft cloning business logic service (creating independent copies)
-- [x] Create API routes for template, version, field, publish, and clone endpoints
-- [x] Register API routes in backend/app/main.py
-- [x] Write CLI command to load the "Basic Registration" development fixture
-- [x] Add backend unit tests for templates, versions, fields, cloning, publishing, and error states
-- [x] Verify formatting, linting, type-checking, and tests pass successfully
-- [x] Update README.md and documentation (form-model.md, architecture.md, decisions ADR)
+- [x] Create a new Git branch `feature/form-sessions`
+- [x] Create SQLAlchemy database model for FormSession in backend/app/sessions/models.py
+- [x] Generate and run Alembic migration for the form_sessions table
+- [x] Implement secure cryptographically random token generator and HMAC hashing utilities in backend/app/sessions/security.py
+- [x] Create repository for session database operations in backend/app/sessions/repositories.py
+- [x] Create Pydantic schemas in backend/app/sessions/schemas.py with camelCase aliases
+- [x] Implement session creation and retrieval services with language and token validation in backend/app/sessions/services.py
+- [x] Implement transition logic and lifecycle services in backend/app/sessions/validation.py or services
+- [x] Create FastAPI routes for creating, starting, and cancelling sessions, plus reading sessions in backend/app/sessions/api/routes.py
+- [x] Register new sessions router and configure global exception handlers in backend/app/main.py
+- [x] Implement the command line CLI script for cleanup of expired sessions in backend/app/commands/cleanup_expired_sessions.py
+- [x] Write backend unit tests for sessions (creation, auth, transitions, expiration, CLI cleanup, API responses) in backend/tests/sessions/test_sessions.py
+- [x] Run formatting, linting, type checks, and verify all tests pass
+- [x] Write decisions ADR and update documentation (session-model.md, architecture.md, privacy.md, security.md, testing.md, README.md)
 
 ## Files Expected to Change
 
 - `TODO.md`
 - `backend/app/main.py`
-- `backend/app/forms/models.py`
-- `backend/app/forms/repositories.py`
-- `backend/app/forms/schemas.py`
-- `backend/app/forms/services.py`
-- `backend/app/forms/validation/config_validation.py`
-- `backend/app/forms/api/routes.py`
-- `backend/app/commands/load_fixture.py`
-- `backend/tests/forms/test_forms.py`
-- `docs/form-model.md`
+- `backend/pyproject.toml`
+- `backend/app/sessions/models.py`
+- `backend/app/sessions/repositories.py`
+- `backend/app/sessions/schemas.py`
+- `backend/app/sessions/services.py`
+- `backend/app/sessions/security.py`
+- `backend/app/sessions/api/routes.py`
+- `backend/app/commands/cleanup_expired_sessions.py`
+- `backend/tests/sessions/test_sessions.py`
+- `docs/session-model.md`
 - `docs/architecture.md`
-- `docs/decisions/0001-immutable-form-versions.md`
+- `docs/privacy.md`
+- `docs/security.md`
+- `docs/testing.md`
 - `README.md`
 
 ## Decisions and Assumptions
 
-- Deleting a template does not delete versions automatically (no DB-level CASCADE from Template to Version to prevent silent loss of published history).
-- Pydantic v2 schemas will use alias generator or custom fields for JSON API compatibility if needed, mapping camelCase from client to snake_case.
-- Python 3.12 virtual environment is activated for test execution.
+- FormSession status transitions will be strictly validated against the allowed matrix:
+  - `session_created` -> `in_progress` or `cancelled` or `expired`
+  - `in_progress` -> `cancelled` or `expired`
+- Inactive/expired/cancelled sessions are terminal and cannot be modified or resumed.
+- Ownership token hashes will be stored in PostgreSQL using HMAC SHA-256 with server-side config setting `SESSION_TOKEN_SECRET`.
 
 ## Blockers
 
@@ -88,16 +93,15 @@ Fully functional form templates, versions (editable drafts, immutable published,
 
 ## Verification
 
-- [x] Backend tests pass (16/16 passed)
+- [x] Backend tests pass (23/23 passed)
 - [x] Frontend tests pass (4/4 passed)
-- [x] Linting passes (Ruff and ESLint clean)
-- [x] Formatting passes (Ruff clean)
+- [x] Linting passes (Ruff and Next.js ESLint clean)
+- [x] Formatting passes (Ruff format clean)
 - [x] Type checking passes (Mypy and tsc clean)
-- [x] Acceptance criteria were manually verified (Basic Registration fixture loaded and verified)
+- [x] Acceptance criteria were manually verified
 
 ## Completed
 
-- Switched to Git branch `feature/form-definitions`
-- Archived Phase 1 TODOs in `docs/progress/phase-1-foundation.md`
-- Reset root `TODO.md` for Phase 2
-- Implemented all Phase 2 requirements (database models, repository, business logic, endpoints, fixture loader, backend unit tests, architecture docs, ADR)
+- Switched to Git branch `feature/form-sessions`
+- Archived Phase 2 TODOs in `docs/progress/phase-2-form-definitions.md`
+- Reset root `TODO.md` for Phase 3
