@@ -7,7 +7,13 @@
   "outputLanguage": "fr",
   "input": "Élodie Dupont",
   "expected": {
-    "normalizedValue": {"fullName": "Élodie Dupont"},
+    "normalizedValue": {
+      "fullName": "Élodie Dupont"
+    },
     "requiresClarification": false
-  }
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

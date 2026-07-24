@@ -9,5 +9,9 @@
   "expected": {
     "normalizedValue": "Flat 4, 22 Baker Street, London, W1U 3BW",
     "requiresClarification": false
-  }
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

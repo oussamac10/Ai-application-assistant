@@ -7,7 +7,15 @@
   "outputLanguage": "de",
   "input": "I earn about 2 500 EUR per month",
   "expected": {
-    "normalizedValue": {"amount": 2500, "currency": "EUR", "period": "monthly"},
+    "normalizedValue": {
+      "amount": 2500,
+      "currency": "EUR",
+      "period": "monthly"
+    },
     "requiresClarification": false
-  }
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

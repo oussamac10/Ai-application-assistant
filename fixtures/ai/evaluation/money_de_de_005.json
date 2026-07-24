@@ -7,7 +7,15 @@
   "outputLanguage": "de",
   "input": "My salary is $3,200 per month",
   "expected": {
-    "normalizedValue": {"amount": 3200, "currency": "USD", "period": "monthly"},
+    "normalizedValue": {
+      "amount": 3200,
+      "currency": "USD",
+      "period": "monthly"
+    },
     "requiresClarification": false
-  }
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

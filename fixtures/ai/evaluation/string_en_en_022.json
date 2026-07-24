@@ -9,5 +9,9 @@
   "expected": {
     "normalizedValue": "10 Downing Street",
     "requiresClarification": false
-  }
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

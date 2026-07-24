@@ -71,27 +71,37 @@ def _check_normalized_value(expected: dict[str, Any], actual_value: object) -> b
 async def run_evaluation(
     fixtures_dir: pathlib.Path,
     verbose: bool = False,
-) -> tuple[int, int]:
-    """Run all evaluation fixtures and return (passed, total)."""
+    provider_override: str | None = None,
+) -> tuple[int, int, int, int]:
+    """Run all evaluation fixtures and return (passed, failed, skipped, errors)."""
     from app.ai.schemas import ExtractionRequest
+    from app.core.config import settings
+
+    if provider_override:
+        settings.AI_PROVIDER = provider_override
 
     provider = build_provider()
+    provider_key = "mock" if type(provider).__name__ == "MockAIProvider" else "ollama"
     fixtures = _load_fixtures(fixtures_dir)
 
     if not fixtures:
         print(f"No fixtures found in {fixtures_dir}")
-        return 0, 0
+        return 0, 0, 0, 0
 
     passed = 0
     failed = 0
+    skipped = 0
     errors = 0
 
     for fixture in fixtures:
         path_label = pathlib.Path(fixture["_path"]).name
-        if type(provider).__name__ == "MockAIProvider" and fixture.get("skip_mock"):
+        supported_providers = fixture.get("supportedProviders", ["mock", "ollama"])
+        if provider_key not in supported_providers:
+            skipped += 1
             if verbose:
                 print(f"[SKIP] {fixture.get('description', path_label)}")
             continue
+
         try:
             request = ExtractionRequest(
                 fieldType=fixture["fieldType"],
@@ -134,9 +144,13 @@ async def run_evaluation(
             errors += 1
             print(f"[ERROR] {path_label}: {exc}")
 
-    total = passed + failed + errors
-    print(f"\nResults: {passed}/{total} passed, {failed} failed, {errors} errors")
-    return passed, total
+    total = len(fixtures)
+    evaluated = passed + failed + errors
+    print(
+        f"\nResults: {passed} passed, {failed} failed, {skipped} skipped, "
+        f"{errors} errors (total: {total}, evaluated: {evaluated})"
+    )
+    return passed, failed, skipped, errors
 
 
 def main() -> None:
@@ -154,11 +168,23 @@ def main() -> None:
         action="store_true",
         help="Print all results, not just failures.",
     )
+    parser.add_argument(
+        "--provider",
+        type=str,
+        choices=["mock", "ollama"],
+        help="Override the AI provider to evaluate.",
+    )
     args = parser.parse_args()
 
-    passed, total = asyncio.run(run_evaluation(args.fixtures_dir, verbose=args.verbose))
+    passed, failed, skipped, errors = asyncio.run(
+        run_evaluation(
+            args.fixtures_dir,
+            verbose=args.verbose,
+            provider_override=args.provider,
+        )
+    )
 
-    if total == 0 or passed < total:
+    if failed > 0 or errors > 0 or passed == 0:
         sys.exit(1)
 
 

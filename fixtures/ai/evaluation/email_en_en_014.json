@@ -9,5 +9,9 @@
   "expected": {
     "normalizedValue": "alice.smith@example.com",
     "requiresClarification": false
-  }
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

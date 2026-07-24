@@ -7,8 +7,17 @@
   "outputLanguage": "fr",
   "input": "1500",
   "expected": {
-    "normalizedValue": {"amount": 1500},
+    "normalizedValue": {
+      "amount": 1500
+    },
     "requiresClarification": true,
-    "uncertainties": ["currency", "period"]
-  }
+    "uncertainties": [
+      "currency",
+      "period"
+    ]
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

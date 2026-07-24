@@ -7,7 +7,15 @@
   "outputLanguage": "ar",
   "input": "٢٥٠٠ يورو شهريًا",
   "expected": {
-    "normalizedValue": {"amount": 2500, "currency": "EUR", "period": "monthly"},
+    "normalizedValue": {
+      "amount": 2500,
+      "currency": "EUR",
+      "period": "monthly"
+    },
     "requiresClarification": false
-  }
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

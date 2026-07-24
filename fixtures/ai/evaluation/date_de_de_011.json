@@ -10,5 +10,7 @@
     "normalizedValue": "1990-04-12",
     "requiresClarification": false
   },
-  "skip_mock": true
+  "supportedProviders": [
+    "ollama"
+  ]
 }

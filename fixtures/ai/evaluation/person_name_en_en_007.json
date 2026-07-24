@@ -7,7 +7,13 @@
   "outputLanguage": "en",
   "input": "Alice Smith",
   "expected": {
-    "normalizedValue": {"fullName": "Alice Smith"},
+    "normalizedValue": {
+      "fullName": "Alice Smith"
+    },
     "requiresClarification": false
-  }
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

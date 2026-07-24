@@ -9,5 +9,9 @@
   "expected": {
     "normalizedValue": "FR",
     "requiresClarification": false
-  }
+  },
+  "supportedProviders": [
+    "mock",
+    "ollama"
+  ]
 }

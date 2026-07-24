@@ -22,16 +22,21 @@ def test_mock_provider_passes_all_fixtures() -> None:
     Fixtures testing language-understanding (e.g. Arabic numerals → ISO date)
     are skipped under MockAIProvider.
     """
-    passed, total = asyncio.run(run_evaluation(_FIXTURES_DIR, verbose=False))
-    assert total >= 15
-    assert (
-        passed == total
-    ), f"MockAIProvider passed only {passed}/{total} evaluation fixtures"
+    passed, failed, skipped, errors = asyncio.run(
+        run_evaluation(_FIXTURES_DIR, verbose=False)
+    )
+    assert passed >= 15
+    assert failed == 0
+    assert errors == 0
 
 
 def test_evaluation_returns_zero_when_no_fixtures(
     tmp_path: pathlib.Path,
 ) -> None:
-    passed, total = asyncio.run(run_evaluation(tmp_path, verbose=False))
+    passed, failed, skipped, errors = asyncio.run(
+        run_evaluation(tmp_path, verbose=False)
+    )
     assert passed == 0
-    assert total == 0
+    assert failed == 0
+    assert skipped == 0
+    assert errors == 0

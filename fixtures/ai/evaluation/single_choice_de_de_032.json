@@ -18,5 +18,7 @@
     "normalizedValue": "employed",
     "requiresClarification": false
   },
-  "skip_mock": true
+  "supportedProviders": [
+    "ollama"
+  ]
 }
