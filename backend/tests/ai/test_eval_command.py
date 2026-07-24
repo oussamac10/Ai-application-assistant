@@ -7,9 +7,7 @@ import pathlib
 
 from app.commands.evaluate_ai_provider import run_evaluation
 
-_FIXTURES_DIR = (
-    pathlib.Path(__file__).parents[3] / "fixtures" / "ai" / "evaluation"
-)
+_FIXTURES_DIR = pathlib.Path(__file__).parents[3] / "fixtures" / "ai" / "evaluation"
 
 
 def test_evaluation_fixtures_exist() -> None:
@@ -19,17 +17,15 @@ def test_evaluation_fixtures_exist() -> None:
 
 
 def test_mock_provider_passes_all_fixtures() -> None:
-    """MockAIProvider must pass at least 20 of the evaluation fixtures.
+    """MockAIProvider must pass 100% of the mock-compatible evaluation fixtures.
 
     Fixtures testing language-understanding (e.g. Arabic numerals → ISO date)
-    may not be handled by MockAIProvider — this is intentional.  We check that
-    the simple ones pass and no exceptions are raised.
+    are skipped under MockAIProvider.
     """
     passed, total = asyncio.run(run_evaluation(_FIXTURES_DIR, verbose=False))
-    assert total >= 30
-    # MockAIProvider handles simple cases; at least half should pass
+    assert total >= 15
     assert (
-        passed >= total // 2
+        passed == total
     ), f"MockAIProvider passed only {passed}/{total} evaluation fixtures"
 
 

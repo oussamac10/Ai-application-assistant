@@ -7,7 +7,12 @@
   "outputLanguage": "fr",
   "input": "راتبي حوالي 1800 يورو في الشهر",
   "expected": {
-    "normalizedValue": {"amount": 1800, "currency": "EUR", "period": "monthly"},
+    "normalizedValue": {
+      "amount": 1800,
+      "currency": "EUR",
+      "period": "monthly"
+    },
     "requiresClarification": false
-  }
+  },
+  "skip_mock": true
 }

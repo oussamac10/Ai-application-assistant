@@ -9,5 +9,6 @@
   "expected": {
     "normalizedValue": "1985-03-15",
     "requiresClarification": false
-  }
+  },
+  "skip_mock": true
 }

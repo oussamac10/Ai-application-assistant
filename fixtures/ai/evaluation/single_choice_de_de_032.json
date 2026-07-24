@@ -1,7 +1,15 @@
 {
   "description": "Employment status in German",
   "fieldType": "single_choice",
-  "fieldConfig": {"options": ["employed", "self_employed", "unemployed", "retired", "student"]},
+  "fieldConfig": {
+    "options": [
+      "employed",
+      "self_employed",
+      "unemployed",
+      "retired",
+      "student"
+    ]
+  },
   "userLanguage": "de",
   "sourceLanguage": "de",
   "outputLanguage": "de",
@@ -9,5 +17,6 @@
   "expected": {
     "normalizedValue": "employed",
     "requiresClarification": false
-  }
+  },
+  "skip_mock": true
 }

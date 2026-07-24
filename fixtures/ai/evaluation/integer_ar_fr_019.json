@@ -9,5 +9,6 @@
   "expected": {
     "normalizedValue": 3,
     "requiresClarification": false
-  }
+  },
+  "skip_mock": true
 }

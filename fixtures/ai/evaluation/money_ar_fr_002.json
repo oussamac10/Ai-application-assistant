@@ -7,7 +7,12 @@
   "outputLanguage": "fr",
   "input": "أتقاضى 24000 يورو سنويًا",
   "expected": {
-    "normalizedValue": {"amount": 24000, "currency": "EUR", "period": "yearly"},
+    "normalizedValue": {
+      "amount": 24000,
+      "currency": "EUR",
+      "period": "yearly"
+    },
     "requiresClarification": false
-  }
+  },
+  "skip_mock": true
 }

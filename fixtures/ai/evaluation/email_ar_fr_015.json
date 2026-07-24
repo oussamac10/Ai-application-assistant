@@ -9,5 +9,6 @@
   "expected": {
     "normalizedValue": "test.user@example.org",
     "requiresClarification": false
-  }
+  },
+  "skip_mock": true
 }

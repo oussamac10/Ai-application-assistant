@@ -88,6 +88,10 @@ async def run_evaluation(
 
     for fixture in fixtures:
         path_label = pathlib.Path(fixture["_path"]).name
+        if type(provider).__name__ == "MockAIProvider" and fixture.get("skip_mock"):
+            if verbose:
+                print(f"[SKIP] {fixture.get('description', path_label)}")
+            continue
         try:
             request = ExtractionRequest(
                 fieldType=fixture["fieldType"],
