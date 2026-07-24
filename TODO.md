@@ -2,87 +2,85 @@
 
 ## Current Task
 
-Initialize Git repository, configure remote origin to `https://github.com/oussamac10/Ai-application-assistant.git`, add versioning rule to `AGENTS.md`, and commit/push all foundation changes.
+Implementing multilingual, versioned form definitions in the backend (MVP Phase 2).
 
 ## Goal
 
-Git repository initialized, remote origin set, AGENTS.md rule added, and changes pushed to structured branch and tagged.
+Fully functional form templates, versions (editable drafts, immutable published, archived), deterministic configuration validation, cloning, REST endpoints, CLI fixture loader, migrations, and backend tests.
 
 ## Acceptance Criteria
 
-- [x] `TODO.md` was created before implementation
-- [x] `docker compose up --build` starts all three services
-- [x] the frontend is accessible
-- [x] the backend is accessible
-- [x] `/api/health` returns `{"status":"ok"}`
-- [x] `/api/health/database` confirms the PostgreSQL connection
-- [x] the frontend displays the backend connection status
-- [x] backend tests pass
-- [x] frontend tests pass
-- [x] Ruff linting passes
-- [x] Ruff formatting check passes
-- [x] mypy passes
-- [x] ESLint passes
-- [x] TypeScript type checking passes
-- [x] README documentation is complete
-- [x] no future product functionality was implemented
-- [x] `TODO.md` contains the final verification results
+- [ ] Phase 1 TODO details are archived in `docs/progress/phase-1-foundation.md`
+- [ ] root `TODO.md` contains only the current Phase 2 task and concise history
+- [ ] work is performed on `feature/form-definitions`
+- [ ] all required models exist
+- [ ] database constraints are implemented
+- [ ] Alembic upgrade succeeds
+- [ ] Alembic downgrade succeeds
+- [ ] templates can be created, listed, and read
+- [ ] draft versions can be created
+- [ ] fields can be added to drafts
+- [ ] fields are returned in deterministic order
+- [ ] translated labels are stored separately
+- [ ] choice options use canonical values
+- [ ] field configurations are validated deterministically
+- [ ] published versions cannot be modified
+- [ ] archived versions cannot be modified
+- [ ] versions can be cloned into independent drafts
+- [ ] publication validation works
+- [ ] required API endpoints work
+- [ ] fictional development fixture exists
+- [ ] backend tests pass
+- [ ] existing frontend tests pass
+- [ ] Ruff linting passes
+- [ ] Ruff formatting check passes
+- [ ] mypy passes
+- [ ] ESLint passes
+- [ ] TypeScript type checking passes
+- [ ] documentation is updated
+- [ ] ADR is created
+- [ ] no session, answer, AI, OCR, upload, or PDF functionality was implemented
+- [ ] `TODO.md` contains final verification results
 
 ## Planned Steps
 
-- [x] Inspect existing implementation
-- [x] Create root-level environment config and ignore files (`.env.example`, `.gitignore`)
-- [x] Set up backend environment (requirements.txt, pyproject.toml, Dockerfile, Alembic configuration)
-- [x] Implement backend core configuration, database session, and endpoints (`/api/health`, `/api/health/database`)
-- [x] Add backend unit tests and verify they pass
-- [x] Set up frontend environment (package.json, tsconfig.json, tailwind/postcss configurations, Dockerfile)
-- [x] Implement frontend client services and pages with connection check status, loading, and error states
-- [x] Add frontend unit tests and verify they pass
-- [x] Create Docker Compose configuration (`docker-compose.yml`)
-- [x] Verify local execution via `docker compose up --build`
-- [x] Create CI workflow (`.github/workflows/ci.yml`)
-- [x] Format, lint, and run type checks on backend and frontend
-- [x] Update `README.md` documentation
-- [x] Perform final verification and update `TODO.md`
-- [x] Initialize Git repository and configure remote origin
-- [x] Add versioning/git committing rule to `.agents/AGENTS.md`
-- [x] Commit and push the monorepo foundation to main branch under version tag v0.1.0
+- [x] Create SQLAlchemy database models for FormTemplate, FormVersion, FormField, FormFieldTranslation, FormFieldOption, FormFieldOptionTranslation
+- [x] Generate and run Alembic migration for the form tables
+- [x] Implement configuration validations for all field types (String, Person Name, Integer, Decimal, Money, Date, Choices)
+- [x] Implement database repositories for database operations on templates and versions
+- [x] Create Pydantic schemas for requests and responses
+- [x] Implement draft field creation and patch modification services (protecting published/archived versions)
+- [x] Implement version publishing validation service and status updates
+- [x] Implement draft cloning business logic service (creating independent copies)
+- [x] Create API routes for template, version, field, publish, and clone endpoints
+- [x] Register API routes in backend/app/main.py
+- [x] Write CLI command to load the "Basic Registration" development fixture
+- [x] Add backend unit tests for templates, versions, fields, cloning, publishing, and error states
+- [x] Verify formatting, linting, type-checking, and tests pass successfully
+- [x] Update README.md and documentation (form-model.md, architecture.md, decisions ADR)
 
 ## Files Expected to Change
 
 - `TODO.md`
-- `docker-compose.yml`
-- `.env.example`
-- `.gitignore`
-- `README.md`
-- `backend/Dockerfile`
-- `backend/requirements.txt`
-- `backend/pyproject.toml`
-- `backend/alembic.ini`
 - `backend/app/main.py`
-- `backend/app/core/config.py`
-- `backend/app/database/session.py`
-- `backend/app/api/health.py`
-- `backend/tests/test_health.py`
-- `frontend/Dockerfile`
-- `frontend/package.json`
-- `frontend/tsconfig.json`
-- `frontend/tailwind.config.ts`
-- `frontend/postcss.config.js`
-- `frontend/next.config.ts`
-- `frontend/src/app/layout.tsx`
-- `frontend/src/app/page.tsx`
-- `frontend/src/services/api.ts`
-- `frontend/src/app/page.test.tsx`
-- `frontend/vitest.config.ts`
-- `.github/workflows/ci.yml`
+- `backend/app/forms/models.py`
+- `backend/app/forms/repositories.py`
+- `backend/app/forms/schemas.py`
+- `backend/app/forms/services.py`
+- `backend/app/forms/validation/config_validation.py`
+- `backend/app/forms/api/routes.py`
+- `backend/app/commands/load_fixture.py`
+- `backend/tests/forms/test_forms.py`
+- `docs/form-model.md`
+- `docs/architecture.md`
+- `docs/decisions/0001-immutable-form-versions.md`
+- `README.md`
 
 ## Decisions and Assumptions
 
-- Next.js API rewrites in `next.config.ts` will proxy frontend `/api/*` to backend `http://backend:8000/api/*` to simplify configuration and bypass CORS.
-- SQLAlchemy 2.0 and sync database operations with `psycopg2-binary` will be used for simpler synchronous flow (as Phase 1 uses synchronous processing).
-- Database health check will try to query the DB and returns 503 Service Unavailable when the database is unavailable.
-- Vitest and React Testing Library will be used for lightweight, fast frontend tests.
+- Deleting a template does not delete versions automatically (no DB-level CASCADE from Template to Version to prevent silent loss of published history).
+- Pydantic v2 schemas will use alias generator or custom fields for JSON API compatibility if needed, mapping camelCase from client to snake_case.
+- Python 3.12 virtual environment is activated for test execution.
 
 ## Blockers
 
@@ -90,24 +88,16 @@ Git repository initialized, remote origin set, AGENTS.md rule added, and changes
 
 ## Verification
 
-- [x] Backend tests pass
-- [x] Frontend tests pass
-- [x] Linting passes
-- [x] Formatting passes
-- [x] Type checking passes
-- [x] Acceptance criteria were manually verified
+- [x] Backend tests pass (16/16 passed)
+- [x] Frontend tests pass (4/4 passed)
+- [x] Linting passes (Ruff and ESLint clean)
+- [x] Formatting passes (Ruff clean)
+- [x] Type checking passes (Mypy and tsc clean)
+- [x] Acceptance criteria were manually verified (Basic Registration fixture loaded and verified)
 
 ## Completed
 
-- Created root-level configuration files (`.env.example`, `.gitignore`, `docker-compose.yml`). Added `.agents/` and `TODO.md` to `.gitignore` to prevent committing agent-internal and planning files.
-- Set up a FastAPI backend under `backend/` with configurations for SQLAlchemy (using psycopg2-binary), Alembic initialization, endpoints `/api/health` and `/api/health/database`, and Ruff and mypy config.
-- Implemented `/api/health/database` health checks returning a controlled failure `503 Service Unavailable` when the database container is stopped.
-- Added backend unit and integration tests using pytest, covering health check response codes and mock-simulated database failures.
-- Set up a Next.js App Router frontend under `frontend/` with TypeScript (strict mode), Tailwind CSS, ESLint, Prettier, and Vitest.
-- Configured Next.js client-side proxying in `next.config.js` to rewrite frontend `/api/*` calls directly to the FastAPI backend.
-- Created a sleek home page displaying backend and database connection status with loading and error states.
-- Created frontend unit and integration tests under `page.test.tsx` validating title rendering, loading, connected, and unavailable states.
-- Configured a GitHub Actions CI workflow in `.github/workflows/ci.yml` to automatically validate all checks, formatting, linting, typechecks, and tests for both frontend and backend on PRs and merges.
-- Updated `README.md` with complete documentation, service URLs, local commands, and troubleshooting details.
-- Verified everything successfully passes locally on host and inside Docker containers. No out-of-scope/future functionalities were implemented.
-- Initialized Git, set remote origin to `https://github.com/oussamac10/Ai-application-assistant.git`, added versioning rule 23 to `.agents/AGENTS.md`, created tag `v0.1.0`, and pushed `main` and `feature/mvp-foundation` branches to the remote repository.
+- Switched to Git branch `feature/form-definitions`
+- Archived Phase 1 TODOs in `docs/progress/phase-1-foundation.md`
+- Reset root `TODO.md` for Phase 2
+- Implemented all Phase 2 requirements (database models, repository, business logic, endpoints, fixture loader, backend unit tests, architecture docs, ADR)

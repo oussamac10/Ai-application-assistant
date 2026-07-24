@@ -11,17 +11,17 @@ The AI Form Assistant bridges the language gap by allowing users to complete for
 
 It guides the user through the form one field at a time, normalizing, validating, and confirming answers.
 
-## Current MVP Phase: MVP Phase 1
+## Current MVP Phase: MVP Phase 2 — Form Definitions
 
-This repository contains the foundation layer of MVP Phase 1. It establishes:
-* FastAPI backend setup.
-* Next.js frontend setup.
-* PostgreSQL database local service.
-* Docker Compose development environment.
-* Automated local unit testing and linting configurations.
-* Continuous Integration (CI) configuration.
+This repository contains the foundation layer and the Form Definitions implementation of MVP Phase 2. It establishes:
+* Multilingual, versioned form definitions in the backend.
+* Database models for FormTemplate, FormVersion, FormField, FormFieldTranslation, FormFieldOption, FormFieldOptionTranslation.
+* Business services logic for draft field additions, cloning, and publishing validations.
+* REST API endpoints under `/api/forms`, `/api/form-versions`, `/api/form-fields`.
+* A CLI developer fixture loader command to populate the database with a multilingual "Basic Registration" template.
+* Full test coverage and type-safe verification with Mypy and Ruff.
 
-*Note: In Phase 1, future architecture elements (such as Redis, Celery, cloud storage, payment gateways, and third-party submissions) are omitted.*
+*Note: In Phase 2, form sessions, user answers, AI integration, OCR, file uploads, and PDF exports are omitted.*
 
 ---
 
@@ -92,6 +92,7 @@ pip install -r requirements.txt
 * **Auto-fix Lint**: `ruff check --fix .`
 * **Type Check**: `mypy app`
 * **Initialize alembic**: Already initialized. To run migrations: `alembic upgrade head`
+* **Load Fixture**: `python -m app.commands.load_fixture` (loads the Basic Registration multilingual template version 1 and publishes it)
 
 ### Frontend Commands (from `./frontend`)
 
