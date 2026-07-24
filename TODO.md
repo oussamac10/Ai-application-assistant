@@ -122,8 +122,8 @@ Add `OllamaAIProvider`, provider factory, structured response validation, versio
 - [x] Linting passes — Ruff: All checks passed
 - [x] Formatting passes — Ruff format: 0 changes
 - [x] Type checking passes — mypy: no issues in 47 files
-- [x] Evaluation CLI runs: 22/32 MockAIProvider passes (expected for semantic fixtures)
-- [x] Branch committed: `feature/ollama-ai-provider` (3607fde), not merged
+- [x] Evaluation CLI runs: 21 passed, 0 failed, 11 skipped, 0 errors (100% success on mock-compatible fixtures)
+- [x] Branch committed: `feature/ollama-ai-provider` (ea98349), not merged
 
 ## Completed
 
