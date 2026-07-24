@@ -2,34 +2,37 @@
 
 ## Current Task
 
-Implementing secure, temporary, anonymous form sessions connected to one immutable published form version (MVP Phase 3).
+Implementing mock question and answer workflow using deterministic logic and `MockAIProvider` (MVP Phase 4).
 
 ## Goal
 
-Create secure, temporary form sessions with opaque public identifiers, ownership token hashes, status workflow transitions, expiration logic, and access controls.
+Fully functional Q&A workflow including answer model/schema, MockAIProvider, deterministic validations and normalizations, clarification mechanism, field navigation, progress calculations, and final summary/confirmation.
 
 ## Acceptance Criteria
 
-- [x] Phase 2 TODO details are archived in `docs/progress/phase-2-form-definitions.md`
-- [x] root `TODO.md` contains only the current Phase 3 task and concise history
-- [x] work is performed on `feature/form-sessions`
-- [x] session model and migration exist
+- [x] Phase 3 TODO details are archived in `docs/progress/phase-3-form-sessions.md`
+- [x] root `TODO.md` contains only the current Phase 4 task and concise history
+- [x] work is performed on `feature/mock-answer-workflow`
+- [x] answer model and migration exist
 - [x] migration upgrade succeeds
 - [x] migration downgrade succeeds
-- [x] sessions can only be created for published versions
-- [x] raw ownership tokens are never stored
-- [x] token is returned only during creation
-- [x] session-specific requests require a valid token
-- [x] invalid tokens return generic unauthorized responses
-- [x] source language is copied from the form version
-- [x] output language is validated against the form version
-- [x] expiration is calculated by the backend
-- [x] expired sessions cannot be modified
-- [x] cleanup command works and is idempotent
-- [x] status transitions are deterministic
-- [x] progress values cannot be controlled by clients
-- [x] required API endpoints work
-- [x] sensitive values are excluded from responses and logs
+- [x] `MockAIProvider` exists
+- [x] no external AI calls occur
+- [x] current field can be retrieved
+- [x] one answer per session and field is enforced
+- [x] original answer is preserved
+- [x] normalized values are stored
+- [x] deterministic validation works
+- [x] clarification workflow works
+- [x] confirmation workflow works
+- [x] confirmed answers can be edited safely
+- [x] progress is calculated from confirmed required fields
+- [x] previous-field navigation works
+- [x] final summary works
+- [x] incomplete sessions cannot become ready for export
+- [x] complete sessions can transition to ready for export
+- [x] session ownership token is required for all endpoints
+- [x] sensitive answer data is not logged
 - [x] backend tests pass
 - [x] existing frontend tests pass
 - [x] Ruff linting passes
@@ -39,53 +42,49 @@ Create secure, temporary form sessions with opaque public identifiers, ownership
 - [x] TypeScript type checking passes
 - [x] documentation is updated
 - [x] ADR is created
-- [x] no answers, AI, OCR, upload, PDF, or authentication functionality was implemented
+- [x] no Ollama, cloud AI, OCR, upload, PDF, authentication, or payment functionality was implemented
 - [x] `TODO.md` contains final verification results
 
 ## Planned Steps
 
-- [x] Create a new Git branch `feature/form-sessions`
-- [x] Create SQLAlchemy database model for FormSession in backend/app/sessions/models.py
-- [x] Generate and run Alembic migration for the form_sessions table
-- [x] Implement secure cryptographically random token generator and HMAC hashing utilities in backend/app/sessions/security.py
-- [x] Create repository for session database operations in backend/app/sessions/repositories.py
-- [x] Create Pydantic schemas in backend/app/sessions/schemas.py with camelCase aliases
-- [x] Implement session creation and retrieval services with language and token validation in backend/app/sessions/services.py
-- [x] Implement transition logic and lifecycle services in backend/app/sessions/validation.py or services
-- [x] Create FastAPI routes for creating, starting, and cancelling sessions, plus reading sessions in backend/app/sessions/api/routes.py
-- [x] Register new sessions router and configure global exception handlers in backend/app/main.py
-- [x] Implement the command line CLI script for cleanup of expired sessions in backend/app/commands/cleanup_expired_sessions.py
-- [x] Write backend unit tests for sessions (creation, auth, transitions, expiration, CLI cleanup, API responses) in backend/tests/sessions/test_sessions.py
-- [x] Run formatting, linting, type checks, and verify all tests pass
-- [x] Write decisions ADR and update documentation (session-model.md, architecture.md, privacy.md, security.md, testing.md, README.md)
+- [x] Create Git branch `feature/mock-answer-workflow`
+- [x] Create SQLAlchemy database model for FormAnswer in backend/app/answers/models.py
+- [x] Generate and run Alembic migration for the form_answers table
+- [x] Implement AIProvider abstraction interface and MockAIProvider class in backend/app/ai/mock_provider.py
+- [x] Implement deterministic validators and normalizers for all 14 field types in backend/app/answers/validation/ and app/answers/normalization/
+- [x] Create repository for answer database operations in backend/app/answers/repositories.py
+- [x] Create Pydantic request/response schemas in backend/app/answers/schemas.py
+- [x] Implement main service methods in backend/app/answers/services.py (get current field, previous-field, submit answer, clarify, confirm, edit answer, final summary/confirmation)
+- [x] Create FastAPI routes under /api/form-sessions/{session_id}/... for Q&A, navigation, and summaries in backend/app/answers/api/routes.py
+- [x] Register new answers router and configure global exception mappings in backend/app/main.py
+- [x] Write CLI / database integration and unit tests for Q&A workflows in backend/tests/answers/test_answers.py
+- [x] Run quality checks (Ruff, Mypy, ESLint, typecheck) and ensure all backend/frontend tests pass
+- [x] Create ADR 0003 and update documentation files (answer-model.md, workflow.md, architecture.md, privacy.md, security.md, testing.md, README.md)
 
 ## Files Expected to Change
 
 - `TODO.md`
 - `backend/app/main.py`
-- `backend/pyproject.toml`
-- `backend/app/sessions/models.py`
-- `backend/app/sessions/repositories.py`
-- `backend/app/sessions/schemas.py`
-- `backend/app/sessions/services.py`
-- `backend/app/sessions/security.py`
-- `backend/app/sessions/api/routes.py`
-- `backend/app/commands/cleanup_expired_sessions.py`
-- `backend/tests/sessions/test_sessions.py`
-- `docs/session-model.md`
+- `backend/app/answers/models.py`
+- `backend/app/answers/repositories.py`
+- `backend/app/answers/schemas.py`
+- `backend/app/answers/services.py`
+- `backend/app/answers/api/routes.py`
+- `backend/tests/answers/test_answers.py`
+- `docs/answer-model.md`
+- `docs/workflow.md`
 - `docs/architecture.md`
 - `docs/privacy.md`
 - `docs/security.md`
 - `docs/testing.md`
+- `docs/decisions/0003-deterministic-answer-workflow.md`
 - `README.md`
 
 ## Decisions and Assumptions
 
-- FormSession status transitions will be strictly validated against the allowed matrix:
-  - `session_created` -> `in_progress` or `cancelled` or `expired`
-  - `in_progress` -> `cancelled` or `expired`
-- Inactive/expired/cancelled sessions are terminal and cannot be modified or resumed.
-- Ownership token hashes will be stored in PostgreSQL using HMAC SHA-256 with server-side config setting `SESSION_TOKEN_SECRET`.
+- Address validation in Phase 4 is deterministic (e.g. checks dictionary structure, no dynamic AI parsing).
+- Navigation back / editing an answer resets that answer's status and recalculates the session's overall completion progress.
+- Dependency logic will not be implemented unless explicitly mapped out in fields configuration in a later phase.
 
 ## Blockers
 
@@ -93,15 +92,16 @@ Create secure, temporary form sessions with opaque public identifiers, ownership
 
 ## Verification
 
-- [x] Backend tests pass (23/23 passed)
+- [x] Backend tests pass (30/30 passed)
 - [x] Frontend tests pass (4/4 passed)
-- [x] Linting passes (Ruff and Next.js ESLint clean)
-- [x] Formatting passes (Ruff format clean)
+- [x] Linting passes (Next.js ESLint and Ruff clean)
+- [x] Formatting passes (Ruff format check clean)
 - [x] Type checking passes (Mypy and tsc clean)
 - [x] Acceptance criteria were manually verified
 
 ## Completed
 
-- Switched to Git branch `feature/form-sessions`
-- Archived Phase 2 TODOs in `docs/progress/phase-2-form-definitions.md`
-- Reset root `TODO.md` for Phase 3
+- Switched to Git branch `feature/mock-answer-workflow`
+- Archived Phase 3 TODOs in `docs/progress/phase-3-form-sessions.md`
+- Reset root `TODO.md` for Phase 4
+- Completed all MVP Phase 4 items and verified quality checks

@@ -24,25 +24,25 @@ The backend follows a clean, layered architecture organized into domain packages
 ```
 +-------------------------------------------------------------+
 |                      API Routing Layer                      |
-|       (app/api/*, app/forms/api/routes.py, sessions/api)    |
+| (app/forms/api/routes.py, sessions/api, answers/api/routes) |
 +-----------------------------+-------------------------------+
                               |
                               v
 +-----------------------------+-------------------------------+
 |                       Service Layer                         |
-|           (app/forms/services.py, app/sessions/services.py)  |
+|   (app/forms/services.py, sessions/services, answers/serv)  |
 +-----------------------------+-------------------------------+
                               |
                               v
 +-----------------------------+-------------------------------+
 |                     Repository Layer                        |
-|   (app/forms/repositories.py, app/sessions/repositories.py) |
+|  (app/forms/repositories, sessions/repos, answers/repos)    |
 +-----------------------------+-------------------------------+
                               |
                               v
 +-----------------------------+-------------------------------+
 |                       Database Models                       |
-|          (app/forms/models.py, app/sessions/models.py)      |
+|    (app/forms/models.py, sessions/models, answers/models)   |
 +-------------------------------------------------------------+
 ```
 

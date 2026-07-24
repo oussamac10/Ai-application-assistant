@@ -11,22 +11,27 @@ The AI Form Assistant bridges the language gap by allowing users to complete for
 
 It guides the user through the form one field at a time, normalizing, validating, and confirming answers.
 
-## Current MVP Phase: MVP Phase 3 — Temporary Form Sessions
+## Current MVP Phase: MVP Phase 4 — Mock Question and Answer Workflow
 
-This repository contains the implementation of MVP Phase 3. It establishes:
-* Secure, temporary, anonymous form sessions connected to one immutable published form version.
-* Opaque public identifiers (`public_id`) and cryptographically secure ownership tokens for authentication and access.
-* Database models for FormSession with CheckConstraints and indexing.
-* Business service validations, status transition rules, and expiration tracking.
-* A CLI cleanup command (`python -m app.commands.cleanup_expired_sessions`) to mark expired sessions.
-* REST API endpoints:
-  - `POST /api/form-versions/{version_id}/sessions` (Create session)
-  - `GET /api/form-sessions/{session_id}` (Read session, requires header `X-Session-Token`)
-  - `POST /api/form-sessions/{session_id}/start` (Transition to `in_progress`, requires header `X-Session-Token`)
-  - `POST /api/form-sessions/{session_id}/cancel` (Transition to `cancelled`, requires header `X-Session-Token`)
-* Full test coverage and type-safe checks.
+This repository contains the implementation of MVP Phase 4. It establishes:
+* Multilingual Q&A workflow supporting 14 distinct field types.
+* `MockAIProvider` executing mock extraction rules locally without external API calls.
+* Deterministic normalizers and validators running server-side for strict schema conformance.
+* Temporary `FormAnswer` data model with cascade deletion upon session removal.
+* Ordered field selection tracking current position dynamically.
+* API endpoints:
+  - `GET /api/form-sessions/{session_id}/current-field` (Get current Q&A field)
+  - `POST /api/form-sessions/{session_id}/answers` (Submit original answer text)
+  - `POST /api/form-sessions/{session_id}/answers/{answer_id}/clarify` (Submit missing details for clarification)
+  - `POST /api/form-sessions/{session_id}/answers/{answer_id}/confirm` (Confirm extracted/normalized value)
+  - `PUT /api/form-sessions/{session_id}/fields/{field_id}/answer` (Edit answer)
+  - `POST /api/form-sessions/{session_id}/previous-field` (Navigate backwards)
+  - `GET /api/form-sessions/{session_id}/summary` (List all fields and their answers)
+  - `POST /api/form-sessions/{session_id}/confirm-summary` (Submit final confirmation)
+* Dynamic progress tracking based on confirmed required fields.
+* Full test coverage and static analysis verification.
 
-*Note: In Phase 3, user answers, AI integration, OCR, file uploads, and PDF exports are omitted.*
+*Note: In Phase 4, OCR, uploads, and PDF templates mapping/exports are omitted.*
 
 ---
 

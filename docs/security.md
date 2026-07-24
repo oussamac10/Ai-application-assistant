@@ -58,3 +58,13 @@ stateDiagram-v2
 
 - **Terminal States**: Once a session reaches a terminal state (`expired`, `cancelled`), it is locked permanently. No API requests can transition a terminal session back to active status.
 - **Idempotency**: Transitioning to `cancelled` is safe to request multiple times; however, attempting to cancel an already cancelled session results in a controlled `409 Conflict`.
+
+---
+
+## 4. Answer Security & Validation Controls
+- **Session State Enforcement**: Answers can only be submitted or modified while the session is strictly in `in_progress` status.
+- **Field Context Verification**: The API validates that the requested field ID belongs to the active form version associated with the session. Requests targeting fields outside this version are rejected with a `422 Unprocessable Entity` validation error.
+- **One Answer Per Field**: The database layer enforces a unique constraint `uq_session_field_answer` on `(session_id, field_id)`. Re-submitting or editing an answer overwrites the existing record in-place instead of creating duplicates.
+- **Server-Side Validation**: All input normalization and validation occur deterministically on the backend to prevent bypasses or injections.
+- **Final Summary Consistency**: The session finalization endpoint (`POST /confirm-summary`) double-checks that all required fields are confirmed, no errors exist, and no answers are in clarification states.
+

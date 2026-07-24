@@ -25,7 +25,13 @@ At the session level, we collect and store only the minimal technical metadata r
 
 ## 4. Logging & Audit Restrictions
 To prevent accidental data exposure:
-- Raw session ownership tokens are **never logged**.
-- Stored session token hashes are **never logged**.
+- Raw session ownership tokens and token hashes are **never logged**.
 - We never log the session's internal database ID or full request headers in application logs.
-- Log statements report only high-level actions, public identifiers (`public_id`), and execution metrics (e.g., how many sessions were cleaned up).
+- Form answers (`original_answer`, `normalized_value`, `output_value`) are strictly excluded from all application logs, tracebacks, and stdout/stderr messages.
+- Log statements report only high-level actions, public identifiers (`public_id`), and execution metrics.
+
+## 5. Ephemeral Answers Storage
+- Form answers are stored in the database only for the duration of the active session.
+- When a session is deleted, all corresponding `form_answers` rows are deleted automatically via database cascade deletes.
+- Answers are only available to the client who provides the correct `X-Session-Token` header.
+

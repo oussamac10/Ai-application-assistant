@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
+from app.answers.api.routes import router as answers_router
 from app.api.health import router as health_router
 from app.forms.api.routes import router as forms_router
 from app.forms.services import (
@@ -103,3 +104,4 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api")
 app.include_router(forms_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
+app.include_router(answers_router, prefix="/api")

@@ -24,6 +24,11 @@ To run only the form-definition tests:
 PYTHONPATH=. pytest tests/forms
 ```
 
+To run only the Q&A workflow tests:
+```bash
+PYTHONPATH=. pytest tests/answers
+```
+
 ### Static Analysis & Type Checking
 To run linting, formatting check, and strict type verification:
 ```bash
