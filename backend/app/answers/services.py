@@ -11,6 +11,7 @@ from app.answers.repositories import AnswerRepository
 from app.answers.validation.validation import validate_value
 from app.forms.models import FormField
 from app.forms.repositories import FormRepository
+from app.questions.resolver import QuestionResolver
 from app.sessions.services import (
     ResourceNotFoundError,
     SessionService,
@@ -28,6 +29,7 @@ class AnswerService:
         self.ai_provider: AIProvider = (
             ai_provider if ai_provider is not None else MockAIProvider()
         )
+        self.resolver = QuestionResolver(db, self.ai_provider)
 
     def get_progress(self, session: Any) -> dict[str, int]:
         """Calculate progress based on confirmed required fields."""
@@ -63,18 +65,31 @@ class AnswerService:
             "percentage": percentage,
         }
 
-    def _get_translated_field(
+    async def _get_translated_field(
         self, field: FormField, user_lang: str, source_lang: str
     ) -> dict[str, Any]:
-        # Exact match, fallback to source language, fallback to first available
-        translations = {t.language: t for t in field.translations}
-        t = translations.get(user_lang) or translations.get(source_lang)
-        if not t and field.translations:
-            t = field.translations[0]
+        # Build dictionary of static translations
+        static_translations = {}
+        for t in field.translations:
+            static_translations[t.language] = {
+                "label": t.label,
+                "help_text": t.help_text,
+                "placeholder": t.placeholder,
+            }
 
-        label = t.label if t else ""
-        help_text = t.help_text if t else None
-        placeholder = t.placeholder if t else None
+        resolved = await self.resolver.resolve_question(
+            question_key=field.question_key,
+            field_type=field.field_type,
+            user_language=user_lang,
+            source_language=source_lang,
+            output_language=source_lang,
+            field_configuration=field.configuration,
+            static_translations=static_translations,
+        )
+
+        label = resolved.text
+        help_text = resolved.help_text
+        placeholder = resolved.placeholder
 
         # Translate options
         translated_options = []
@@ -100,7 +115,7 @@ class AnswerService:
             "options": translated_options if field.options else None,
         }
 
-    def get_current_field(
+    async def get_current_field(
         self, session_id: str, raw_token: str | None
     ) -> dict[str, Any]:
         session = self.session_service.get_session(session_id, raw_token)
@@ -132,7 +147,7 @@ class AnswerService:
 
         # Build response
         ans = answers.get(current_field.id)
-        field_data = self._get_translated_field(
+        field_data = await self._get_translated_field(
             current_field, session.user_language, session.source_language
         )
         field_data["current_answer_status"] = ans.status if ans else None
@@ -140,7 +155,9 @@ class AnswerService:
 
         return field_data
 
-    def previous_field(self, session_id: str, raw_token: str | None) -> dict[str, Any]:
+    async def previous_field(
+        self, session_id: str, raw_token: str | None
+    ) -> dict[str, Any]:
         session = self.session_service.get_session(session_id, raw_token)
         if session.status != "in_progress":
             raise StateConflictError("Session is not in progress.")
@@ -166,7 +183,7 @@ class AnswerService:
         self.db.commit()
 
         ans = self.repo.get_answer(session.id, prev_field.id)
-        field_data = self._get_translated_field(
+        field_data = await self._get_translated_field(
             prev_field, session.user_language, session.source_language
         )
         field_data["current_answer_status"] = ans.status if ans else None
@@ -357,7 +374,7 @@ class AnswerService:
 
         return answer
 
-    def get_summary(
+    async def get_summary(
         self, session_id: str, raw_token: str | None
     ) -> list[dict[str, Any]]:
         session = self.session_service.get_session(session_id, raw_token)
@@ -370,7 +387,7 @@ class AnswerService:
 
         for field in version.fields:
             ans = answers.get(field.id)
-            translated = self._get_translated_field(
+            translated = await self._get_translated_field(
                 field, session.user_language, session.source_language
             )
 

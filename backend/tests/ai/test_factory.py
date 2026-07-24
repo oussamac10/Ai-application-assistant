@@ -12,8 +12,10 @@ from app.ai.ollama_provider import OllamaAIProvider
 from app.core.config import settings
 
 
+from collections.abc import Generator
+
 @pytest.fixture(autouse=True)
-def _reset_provider_singleton() -> pytest.FixtureFunction:  # type: ignore[type-arg]
+def _reset_provider_singleton() -> Generator[None, None, None]:
     """Reset the process-level AI provider singleton before and after each test."""
     original = _factory_mod._provider
     _factory_mod._provider = None

@@ -2,37 +2,39 @@
 
 ## Current Task
 
-Integrating local Ollama AI provider into the existing deterministic answer workflow (MVP Phase 5).
+Implementing a Reusable Question Catalog and Hybrid Resolution System (MVP Phase 6).
 
 ## Goal
 
-Add `OllamaAIProvider`, provider factory, structured response validation, versioned prompts, retry/timeout handling, optional in-memory cache, AI health endpoint, evaluation fixtures, and evaluation CLI command — while keeping `MockAIProvider` working and all existing tests passing.
+Decouple form questions from specific form versions by introducing a reusable question catalog with stable semantic keys. Resolve questions through a hybrid lookup pipeline (database approved first, static translation fallback, AI translation/generation as pending review, deterministic fallback as last resort) while ensuring no duplicate AI calls.
 
 ## Acceptance Criteria
 
-- [x] Phase 4 TODO details are archived in `docs/progress/phase-4-mock-answer-workflow.md`
-- [x] root `TODO.md` reset for Phase 5
-- [x] branch is `feature/ollama-ai-provider`
-- [x] `OllamaAIProvider` exists
-- [x] provider factory supports `mock` and `ollama`
-- [x] unsupported providers fail fast at startup
-- [x] automated tests make no real Ollama calls
-- [x] no cloud AI provider exists
-- [x] structured model responses are validated with Pydantic
-- [x] malformed responses are rejected safely
-- [x] timeout handling works
-- [x] retries are bounded
-- [x] deterministic validation always runs after AI extraction
-- [x] original answers remain preserved
-- [x] provider failures do not corrupt workflow state
-- [x] prompt files are versioned
-- [x] prompts contain minimal context
-- [x] AI requests exclude tokens and secrets
-- [x] provider health endpoint works (`GET /api/health/ai`)
-- [x] at least 30 fictional evaluation fixtures exist
-- [x] evaluation CLI command works
-- [x] backend container connectivity is documented
-- [x] caching disabled by default
+- [x] Phase 5 TODO details are archived in `docs/progress/phase-5-local-ollama-provider.md`
+- [x] root `TODO.md` reset for Phase 6
+- [x] branch is `feature/reusable-question-catalog`
+- [x] `QuestionDefinition` model exists
+- [x] `QuestionTranslation` model exists
+- [x] question resolution metadata is recorded (resolution log/audit model)
+- [x] migration upgrade succeeds
+- [x] migration downgrade succeeds
+- [x] stable semantic question keys are used (e.g. `personal.first_name`)
+- [x] displayed text is not used as question identity
+- [x] approved database question is checked before AI
+- [x] approved user-language translation is preferred
+- [x] static form translation is used before AI
+- [x] AI translation runs only when needed (stores as pending review)
+- [x] AI generation runs only as a final language-aware fallback (stores as pending review)
+- [x] deterministic fallback works without AI
+- [x] AI content defaults to pending review
+- [x] approved manual content is never overwritten automatically
+- [x] pending content is not globally reused by default
+- [x] repeated approved questions cause zero AI calls
+- [x] question resolution does not alter workflow state or progress
+- [x] session ownership remains enforced
+- [x] at least 11 common semantic questions are seeded
+- [x] approved `en`, `de`, `fr`, and `ar` translations exist for seeded questions
+- [x] automated tests make no real AI calls
 - [x] backend tests pass
 - [x] frontend tests pass
 - [x] Ruff linting passes
@@ -40,77 +42,60 @@ Add `OllamaAIProvider`, provider factory, structured response validation, versio
 - [x] mypy passes
 - [x] ESLint passes
 - [x] TypeScript checking passes
-- [x] documentation is updated
-- [x] ADR 0004 is created
-- [x] no OCR, upload, PDF, auth, payment, Redis, Celery, or object-storage was implemented
+- [x] documentation is updated (including ADR 0005)
+- [x] no vector search, embeddings, OCR, upload, PDF, auth, payment, Redis, Celery, or object storage was implemented
 - [x] `TODO.md` contains final verification results
+
 
 ## Planned Steps
 
-- [x] Create Git branch `feature/ollama-ai-provider`
-- [x] Archive Phase 4 TODO in `docs/progress/phase-4-mock-answer-workflow.md`
-- [x] Expand AI schemas: add `ExplanationRequest/Result`, `ClarificationRequest/Result`, `TranslationRequest/Result`; add structured Ollama response models
-- [x] Expand `AIProvider` Protocol and update `MockAIProvider` with all new methods
-- [x] Add AI config to `Settings` (`AI_PROVIDER`, `OLLAMA_*`, `AI_ALLOW_MOCK_FALLBACK`)
-- [x] Implement `AIProviderFactory` selecting `MockAIProvider` or `OllamaAIProvider`
-- [x] Create versioned prompt text files in `backend/app/ai/prompts/`
-- [x] Implement `OllamaAIProvider` with httpx, timeouts, retries, structured JSON, Pydantic validation
-- [x] Implement `AIResponseCache` (in-memory, disabled by default)
-- [x] Implement provider error classes (`AIProviderUnavailableError`, etc.)
-- [x] Update `AnswerService` to accept an injected provider (not hard-coded `MockAIProvider`)
-- [x] Update routes to get provider from factory / dependency injection
-- [x] Add `GET /api/health/ai` endpoint
-- [x] Register new error handlers in `main.py`
-- [x] Create 30+ fictional evaluation fixtures in `fixtures/ai/evaluation/`
-- [x] Implement `python -m app.commands.evaluate_ai_provider` CLI
-- [x] Write tests: factory, Ollama HTTP (mocked), validation, retry, cache, health, eval command
-- [x] Run full quality checks (Ruff, Mypy, ESLint, tsc, pytest)
-- [x] Update `.env.example`; create ADR 0004; update all docs
+- [x] Create Git branch `feature/reusable-question-catalog`
+- [x] Archive Phase 5 TODO in `docs/progress/phase-5-local-ollama-provider.md`
+- [x] Define SQLAlchemy database models: `QuestionDefinition`, `QuestionTranslation`, and `QuestionResolutionLog` (or audit logs)
+- [x] Create Alembic migration upgrade/downgrade scripts for the new tables and run the upgrade
+- [x] Implement the repository layer (`QuestionDefinitionRepository`, `QuestionTranslationRepository`, `QuestionResolutionLogRepository`)
+- [x] Seed at least 11 common semantic questions with approved translations for `en`, `de`, `fr`, and `ar`
+- [x] Implement prompt templates for question translation and generation: `translate_question_v1.txt` and `generate_question_v1.txt`
+- [x] Implement `QuestionCatalogService` to manage/access definitions and manual translations
+- [x] Implement `QuestionReviewService` for manual review transitions (approve/reject pending translations)
+- [x] Implement `QuestionResolver` with hybrid lookup flow (database first, static fallback, AI translation, AI generation, deterministic fallback)
+- [x] Expose administrative/development endpoints for listing catalog, creating translations, and reviewing translations
+- [x] Integrate resolved questions into the `GET /api/form-sessions/{session_id}/current-question` endpoint (and extend current-field response)
+- [x] Write unit tests for repositories, catalog, resolver logic, AI calls deduplication, and endpoint security/access
+- [x] Run full verification checks (Ruff check, formatting, mypy types check, pytest backend/frontend tests)
+- [x] Update project documentation: architecture, question-catalog, ADR 0005, README.md, config settings
 
 ## Files Expected to Change
 
 - `TODO.md`
 - `.env.example`
-- `backend/app/ai/schemas.py`
-- `backend/app/ai/mock_provider.py`
-- `backend/app/ai/ollama_provider.py` (new)
-- `backend/app/ai/factory.py` (new)
-- `backend/app/ai/cache.py` (new)
-- `backend/app/ai/errors.py` (new)
-- `backend/app/ai/prompts/extract_value_v1.txt` (new)
-- `backend/app/ai/prompts/explain_field_v1.txt` (new)
-- `backend/app/ai/prompts/clarify_answer_v1.txt` (new)
-- `backend/app/ai/prompts/translate_output_v1.txt` (new)
 - `backend/app/core/config.py`
-- `backend/app/api/health.py`
-- `backend/app/answers/services.py`
-- `backend/app/answers/api/routes.py`
+- `backend/app/models/` (or new models file/directory)
+- `backend/app/database/` (for migration)
+- `backend/app/questions/` (new module: schemas, repositories, services, api)
+- `backend/app/ai/prompts/translate_question_v1.txt` (new)
+- `backend/app/ai/prompts/generate_question_v1.txt` (new)
+- `backend/app/sessions/api/routes.py`
 - `backend/app/main.py`
-- `backend/app/commands/evaluate_ai_provider.py` (new)
-- `backend/tests/ai/test_factory.py` (new)
-- `backend/tests/ai/test_ollama_provider.py` (new)
-- `backend/tests/ai/test_cache.py` (new)
-- `backend/tests/ai/test_health.py` (new)
-- `backend/tests/ai/test_eval_command.py` (new)
-- `fixtures/ai/evaluation/*.json` (30+ files)
-- `docs/ai-provider.md`
+- `backend/tests/questions/` (new tests)
+- `docs/question-catalog.md` (new)
+- `docs/decisions/0005-hybrid-question-resolution.md` (new)
 - `docs/architecture.md`
+- `docs/form-model.md`
 - `docs/workflow.md`
+- `docs/ai-provider.md`
 - `docs/testing.md`
 - `docs/privacy.md`
 - `docs/security.md`
-- `docs/decisions/0004-local-ollama-provider.md`
 - `README.md`
 
 ## Decisions and Assumptions
 
-- `httpx` (already installed) is used as the async HTTP client for Ollama API calls.
-- Ollama is called with `stream: false` and `format: "json"` for structured output.
-- `MockAIProvider` implements all Protocol methods; it returns sensible deterministic results.
-- Provider is injected into `AnswerService` via a parameter; routes get the provider from a FastAPI dependency that calls the factory.
-- In-memory cache uses a plain dict keyed by a hash of the request parameters; TTL is not implemented in Phase 5 (cache lives for the process lifetime or until restarted).
-- Tests use `pytest-mock` / `unittest.mock` to patch `httpx.AsyncClient` — no real HTTP calls.
-- Evaluation fixtures use fictional names, dates, and amounts only.
+- We will implement three tables: `question_definitions`, `question_translations`, and `question_resolution_logs`.
+- Semantic keys (e.g. `personal.first_name`) will be used as unique lookup identifiers.
+- Production behavior will default to approved-only database translation lookup or deterministic fallback unless pending reuse configuration is explicitly turned on.
+- No semantic vector databases or similarity search will be added; matching is exact/by key.
+- Administration endpoints are development/mock only, protected behind a developer guard configuration.
 
 ## Blockers
 
@@ -118,15 +103,22 @@ Add `OllamaAIProvider`, provider factory, structured response validation, versio
 
 ## Verification
 
-- [x] Backend tests pass — 54/54 (Ruff, mypy, pytest all clean)
-- [x] Linting passes — Ruff: All checks passed
-- [x] Formatting passes — Ruff format: 0 changes
-- [x] Type checking passes — mypy: no issues in 47 files
-- [x] Evaluation CLI runs: 21 passed, 0 failed, 11 skipped, 0 errors (100% success on mock-compatible fixtures)
-- [x] Branch committed: `feature/ollama-ai-provider` (ea98349), not merged
+- [x] Backend tests pass
+- [x] Frontend tests pass
+- [x] Linting passes
+- [x] Formatting passes
+- [x] Type checking passes
+- [x] Acceptance criteria were manually verified
 
 ## Completed
 
-- Created Git branch `feature/ollama-ai-provider`
-- Archived Phase 4 TODOs in `docs/progress/phase-4-mock-answer-workflow.md`
-- Reset root `TODO.md` for Phase 5
+- Created Git branch `feature/reusable-question-catalog`
+- Archived Phase 5 TODOs in `docs/progress/phase-5-local-ollama-provider.md`
+- Reset root `TODO.md` for Phase 6
+- Implemented models, repositories, and resolver for reusable question catalog
+- Created Alembic database migration
+- Seeded catalog with 11 core question keys and approved `en`, `de`, `fr`, and `ar` translations
+- Developed prompt templates and extended mock/Ollama provider signatures
+- Added catalog list/review administration routes and integrated resolver inside workflow sessions
+- Wrote and verified 100% test coverage for Resolver, Review Service, and Session API Integration
+- Verified formatting, linting (Ruff), types (mypy), and all tests pass on frontend and backend

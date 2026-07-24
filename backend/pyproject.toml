@@ -17,6 +17,7 @@ select = [
 ignore = [
     "B008",  # Depends in FastAPI argument defaults
     "UP038", # isinstance call with tuple is fine in older Py versions or preference
+    "E501",  # Line length checks are managed by ruff format
 ]
 
 [tool.mypy]

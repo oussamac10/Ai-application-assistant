@@ -15,6 +15,10 @@ from app.ai.schemas import (
     ExplanationResult,
     ExtractionRequest,
     ExtractionResult,
+    QuestionGenerationRequest,
+    QuestionGenerationResult,
+    QuestionTranslationRequest,
+    QuestionTranslationResult,
     TranslationRequest,
     TranslationResult,
 )
@@ -46,6 +50,16 @@ class AIProvider(Protocol):
         self,
         request: TranslationRequest,
     ) -> TranslationResult: ...
+
+    async def translate_question(
+        self,
+        request: QuestionTranslationRequest,
+    ) -> QuestionTranslationResult: ...
+
+    async def generate_question(
+        self,
+        request: QuestionGenerationRequest,
+    ) -> QuestionGenerationResult: ...
 
     async def health_check(self) -> bool: ...
 
@@ -190,6 +204,31 @@ class MockAIProvider:
     async def translate_output(self, request: TranslationRequest) -> TranslationResult:
         # In mock mode we return the original text unchanged
         return TranslationResult(translatedText=request.text)
+
+    async def translate_question(
+        self, request: QuestionTranslationRequest
+    ) -> QuestionTranslationResult:
+        lang = request.target_language
+        return QuestionTranslationResult(
+            text=f"[Mock Translation to {lang}] {request.text}",
+            helpText=f"[Mock Translation to {lang}] {request.help_text}"
+            if request.help_text
+            else None,
+            placeholder=f"[Mock Translation to {lang}] {request.placeholder}"
+            if request.placeholder
+            else None,
+        )
+
+    async def generate_question(
+        self, request: QuestionGenerationRequest
+    ) -> QuestionGenerationResult:
+        key = request.question_key
+        lang = request.target_language
+        return QuestionGenerationResult(
+            text=f"[Mock Question for {key} in {lang}]",
+            helpText=f"[Mock Help Text for {key} in {lang}]",
+            placeholder=f"[Mock Placeholder for {key} in {lang}]",
+        )
 
     async def health_check(self) -> bool:
         return True

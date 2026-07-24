@@ -42,14 +42,14 @@ def _make_service(db: Session, provider: AIProvider) -> AnswerService:
     "/form-sessions/{session_id}/current-field",
     response_model=CurrentFieldResponse,
 )
-def get_current_field(
+async def get_current_field(
     session_id: str,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
     service = _make_service(db, provider)
-    return service.get_current_field(session_id, x_session_token)
+    return await service.get_current_field(session_id, x_session_token)
 
 
 @router.post(
@@ -128,25 +128,25 @@ async def change_answer(
     "/form-sessions/{session_id}/previous-field",
     response_model=CurrentFieldResponse,
 )
-def previous_field(
+async def previous_field(
     session_id: str,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
     service = _make_service(db, provider)
-    return service.previous_field(session_id, x_session_token)
+    return await service.previous_field(session_id, x_session_token)
 
 
 @router.get("/form-sessions/{session_id}/summary", response_model=SummaryResponse)
-def get_summary(
+async def get_summary(
     session_id: str,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
     service = _make_service(db, provider)
-    fields_list = service.get_summary(session_id, x_session_token)
+    fields_list = await service.get_summary(session_id, x_session_token)
     return {"fields": fields_list}
 
 

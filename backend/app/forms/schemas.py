@@ -45,6 +45,7 @@ class FieldCreate(BaseSchema):
     required: bool = True
     position: int
     configuration: dict[str, Any] = Field(default_factory=dict)
+    question_key: str | None = None
     translations: list[TranslationSchema] = Field(default_factory=list)
     options: list[OptionSchema] = Field(default_factory=list)
 
@@ -55,6 +56,7 @@ class FieldUpdate(BaseSchema):
     required: bool | None = None
     position: int | None = None
     configuration: dict[str, Any] | None = None
+    question_key: str | None = None
     translations: list[TranslationSchema] | None = None
     options: list[OptionSchema] | None = None
 
@@ -66,6 +68,7 @@ class FieldResponse(BaseSchema):
     required: bool
     position: int
     configuration: dict[str, Any]
+    question_key: str | None = None
     translations: list[TranslationSchema]
     options: list[OptionSchema]
 

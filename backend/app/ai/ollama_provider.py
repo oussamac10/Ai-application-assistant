@@ -33,6 +33,10 @@ from app.ai.schemas import (
     ExplanationResult,
     ExtractionRequest,
     ExtractionResult,
+    QuestionGenerationRequest,
+    QuestionGenerationResult,
+    QuestionTranslationRequest,
+    QuestionTranslationResult,
     TranslationRequest,
     TranslationResult,
 )
@@ -51,6 +55,8 @@ _EXTRACT_PROMPT = _load_prompt("extract_value_v1.txt")
 _EXPLAIN_PROMPT = _load_prompt("explain_field_v1.txt")
 _CLARIFY_PROMPT = _load_prompt("clarify_answer_v1.txt")
 _TRANSLATE_PROMPT = _load_prompt("translate_output_v1.txt")
+_TRANSLATE_QUESTION_PROMPT = _load_prompt("translate_question_v1.txt")
+_GENERATE_QUESTION_PROMPT = _load_prompt("generate_question_v1.txt")
 
 
 def _fill_template(template: str, variables: dict[str, str]) -> str:
@@ -244,6 +250,59 @@ class OllamaAIProvider:
                 "Ollama response missing 'translatedText' key"
             )
         return TranslationResult(translatedText=str(raw["translatedText"]))
+
+    async def translate_question(
+        self, request: QuestionTranslationRequest
+    ) -> QuestionTranslationResult:
+        prompt = _fill_template(
+            _TRANSLATE_QUESTION_PROMPT,
+            {
+                "question_key": request.question_key,
+                "field_type": request.field_type,
+                "source_language": request.source_language,
+                "target_language": request.target_language,
+                "text": request.text,
+                "help_text": request.help_text or "null",
+                "placeholder": request.placeholder or "null",
+            },
+        )
+        raw = await self._call_ollama(prompt)
+        text = raw.get("text")
+        if not text:
+            raise AIProviderValidationError("Ollama response missing 'text' key")
+        return QuestionTranslationResult(
+            text=str(text),
+            helpText=raw.get("helpText") if raw.get("helpText") != "null" else None,
+            placeholder=raw.get("placeholder")
+            if raw.get("placeholder") != "null"
+            else None,
+        )
+
+    async def generate_question(
+        self, request: QuestionGenerationRequest
+    ) -> QuestionGenerationResult:
+        prompt = _fill_template(
+            _GENERATE_QUESTION_PROMPT,
+            {
+                "question_key": request.question_key,
+                "field_type": request.field_type,
+                "purpose": request.purpose,
+                "required": str(request.required),
+                "target_language": request.target_language,
+                "field_config": json.dumps(request.field_config),
+            },
+        )
+        raw = await self._call_ollama(prompt)
+        text = raw.get("text")
+        if not text:
+            raise AIProviderValidationError("Ollama response missing 'text' key")
+        return QuestionGenerationResult(
+            text=str(text),
+            helpText=raw.get("helpText") if raw.get("helpText") != "null" else None,
+            placeholder=raw.get("placeholder")
+            if raw.get("placeholder") != "null"
+            else None,
+        )
 
     async def health_check(self) -> bool:
         """Return True if Ollama is reachable and the model is available."""

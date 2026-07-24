@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     OLLAMA_MAX_RETRIES: int = 1
     OLLAMA_CACHE_ENABLED: bool = False
 
+    # Question Catalog
+    QUESTION_ALLOW_PENDING_REUSE: bool = False
+    QUESTION_AI_TRANSLATION_ENABLED: bool = True
+    QUESTION_AI_GENERATION_ENABLED: bool = True
+    QUESTION_ADMIN_API_ENABLED: bool = False
+
     @model_validator(mode="after")
     def validate_session_secret(self) -> "Settings":
         if not self.SESSION_TOKEN_SECRET:

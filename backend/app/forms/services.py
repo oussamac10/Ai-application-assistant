@@ -142,6 +142,7 @@ class FormService:
             required=field_data.required,
             position=field_data.position,
             configuration=field_data.configuration,
+            question_key=field_data.question_key,
         )
 
         # Insert translations
@@ -199,6 +200,12 @@ class FormService:
 
         if field_data.position is not None:
             field.position = field_data.position
+
+        if field_data.question_key is not None:
+            # Allow setting it to empty string or None to clear it/change it
+            field.question_key = (
+                field_data.question_key if field_data.question_key != "" else None
+            )
 
         # Update configuration
         new_config = field.configuration
@@ -363,6 +370,7 @@ class FormService:
                 required=field.required,
                 position=field.position,
                 configuration=field.configuration,
+                question_key=field.question_key,
             )
             self.db.add(new_field)
             self.db.flush()

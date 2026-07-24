@@ -114,3 +114,42 @@ class TranslationResult(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     translated_text: str = Field(alias="translatedText")
+
+
+class QuestionTranslationRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    question_key: str = Field(alias="questionKey")
+    field_type: str = Field(alias="fieldType")
+    text: str
+    help_text: str | None = Field(default=None, alias="helpText")
+    placeholder: str | None = Field(default=None, alias="placeholder")
+    source_language: str = Field(alias="sourceLanguage")
+    target_language: str = Field(alias="targetLanguage")
+
+
+class QuestionTranslationResult(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    text: str
+    help_text: str | None = Field(default=None, alias="helpText")
+    placeholder: str | None = Field(default=None, alias="placeholder")
+
+
+class QuestionGenerationRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    question_key: str = Field(alias="questionKey")
+    field_type: str = Field(alias="fieldType")
+    purpose: str = "collect_value"
+    required: bool = True
+    target_language: str = Field(alias="targetLanguage")
+    field_config: dict[str, Any] = Field(default_factory=dict, alias="fieldConfig")
+
+
+class QuestionGenerationResult(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    text: str
+    help_text: str | None = Field(default=None, alias="helpText")
+    placeholder: str | None = Field(default=None, alias="placeholder")

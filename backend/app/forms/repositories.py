@@ -109,6 +109,7 @@ class FormRepository:
         required: bool,
         position: int,
         configuration: dict[str, Any],
+        question_key: str | None = None,
     ) -> FormField:
         field = FormField(
             form_version_id=form_version_id,
@@ -117,6 +118,7 @@ class FormRepository:
             required=required,
             position=position,
             configuration=configuration,
+            question_key=question_key,
         )
         self.db.add(field)
         self.db.commit()

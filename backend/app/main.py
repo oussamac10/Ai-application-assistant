@@ -18,6 +18,7 @@ from app.forms.services import (
     StateConflictError,
     ValidationError,
 )
+from app.questions.api.routes import router as questions_router
 from app.sessions.api.routes import router as sessions_router
 from app.sessions.services import (
     ResourceNotFoundError as SessionResourceNotFoundError,
@@ -162,3 +163,4 @@ app.include_router(health_router, prefix="/api")
 app.include_router(forms_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
 app.include_router(answers_router, prefix="/api")
+app.include_router(questions_router, prefix="/api")

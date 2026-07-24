@@ -10,6 +10,7 @@ from app.forms.schemas import (
     TranslationSchema,
 )
 from app.forms.services import FormService
+from app.questions.seed import seed_catalog
 
 # Setup logger
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +22,8 @@ def load_basic_registration_fixture() -> None:
     service = FormService(db)
 
     try:
+        logger.info("Seeding reusable question catalog...")
+        seed_catalog(db)
         # Check if the fixture template already exists, and clean it up first
         logger.info("Checking for existing 'basic-registration' template...")
         existing_template = (
@@ -60,6 +63,7 @@ def load_basic_registration_fixture() -> None:
                 required=True,
                 position=1,
                 configuration={"maxLength": 100, "requiresConfirmation": True},
+                question_key="personal.first_name",
                 translations=[
                     TranslationSchema(
                         language="en",
@@ -84,6 +88,7 @@ def load_basic_registration_fixture() -> None:
                 required=True,
                 position=2,
                 configuration={"maxLength": 100, "requiresConfirmation": True},
+                question_key="personal.last_name",
                 translations=[
                     TranslationSchema(
                         language="en",
@@ -108,6 +113,7 @@ def load_basic_registration_fixture() -> None:
                 required=True,
                 position=3,
                 configuration={"requiresConfirmation": True},
+                question_key="personal.date_of_birth",
                 translations=[
                     TranslationSchema(
                         language="en", label="Date of Birth", placeholder="YYYY-MM-DD"
@@ -126,6 +132,7 @@ def load_basic_registration_fixture() -> None:
                 required=True,
                 position=4,
                 configuration={"requiresConfirmation": True},
+                question_key="contact.email",
                 translations=[
                     TranslationSchema(
                         language="en",
@@ -150,6 +157,7 @@ def load_basic_registration_fixture() -> None:
                 required=True,
                 position=5,
                 configuration={"requiresConfirmation": True},
+                question_key="address.country",
                 translations=[
                     TranslationSchema(
                         language="en",
@@ -170,6 +178,7 @@ def load_basic_registration_fixture() -> None:
                 required=True,
                 position=6,
                 configuration={"requiresConfirmation": True},
+                question_key="civil_status.marital_status",
                 translations=[
                     TranslationSchema(
                         language="en",

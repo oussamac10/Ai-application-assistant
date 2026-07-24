@@ -14,6 +14,11 @@ from app.forms.models import (  # noqa: F401
     FormTemplate,
     FormVersion,
 )
+from app.questions.models import (  # noqa: F401
+    QuestionDefinition,
+    QuestionResolutionLog,
+    QuestionTranslation,
+)
 from app.sessions.models import FormSession  # noqa: F401
 
 # This is the Alembic Config object, which provides access to the
@@ -28,7 +33,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # We can dynamically get the DATABASE_URL from our app config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL or "")
 
 
 def run_migrations_offline() -> None:
