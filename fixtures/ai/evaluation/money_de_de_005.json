@@ -1,0 +1,13 @@
+{
+  "description": "USD salary from English speaker",
+  "fieldType": "money",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "de",
+  "outputLanguage": "de",
+  "input": "My salary is $3,200 per month",
+  "expected": {
+    "normalizedValue": {"amount": 3200, "currency": "USD", "period": "monthly"},
+    "requiresClarification": false
+  }
+}

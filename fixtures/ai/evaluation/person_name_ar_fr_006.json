@@ -1,0 +1,13 @@
+{
+  "description": "Arabic name for French form",
+  "fieldType": "person_name",
+  "fieldConfig": {},
+  "userLanguage": "ar",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "يوسف العلوي",
+  "expected": {
+    "normalizedValue": {"fullName": "يوسف العلوي"},
+    "requiresClarification": false
+  }
+}

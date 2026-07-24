@@ -1,0 +1,13 @@
+{
+  "description": "Date written in Arabic numerals for French form",
+  "fieldType": "date",
+  "fieldConfig": {},
+  "userLanguage": "ar",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "١٢ أبريل ١٩٩٠",
+  "expected": {
+    "normalizedValue": "1990-04-12",
+    "requiresClarification": false
+  }
+}

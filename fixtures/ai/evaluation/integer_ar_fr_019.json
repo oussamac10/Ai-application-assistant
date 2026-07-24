@@ -1,0 +1,13 @@
+{
+  "description": "Number of dependants stated in Arabic",
+  "fieldType": "integer",
+  "fieldConfig": {},
+  "userLanguage": "ar",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "لدي ثلاثة أبناء",
+  "expected": {
+    "normalizedValue": 3,
+    "requiresClarification": false
+  }
+}

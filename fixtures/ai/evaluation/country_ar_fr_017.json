@@ -1,0 +1,13 @@
+{
+  "description": "Country stated in Arabic",
+  "fieldType": "country",
+  "fieldConfig": {},
+  "userLanguage": "ar",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "المغرب",
+  "expected": {
+    "normalizedValue": "MA",
+    "requiresClarification": false
+  }
+}

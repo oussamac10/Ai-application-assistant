@@ -1,0 +1,13 @@
+{
+  "description": "Monthly income in English, output German",
+  "fieldType": "money",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "de",
+  "outputLanguage": "de",
+  "input": "I earn about 2 500 EUR per month",
+  "expected": {
+    "normalizedValue": {"amount": 2500, "currency": "EUR", "period": "monthly"},
+    "requiresClarification": false
+  }
+}

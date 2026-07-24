@@ -1,0 +1,13 @@
+{
+  "description": "Arabic yes for boolean field",
+  "fieldType": "boolean",
+  "fieldConfig": {},
+  "userLanguage": "ar",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "نعم",
+  "expected": {
+    "normalizedValue": true,
+    "requiresClarification": false
+  }
+}

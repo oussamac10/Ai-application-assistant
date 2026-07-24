@@ -1,0 +1,13 @@
+{
+  "description": "Marital status single choice",
+  "fieldType": "single_choice",
+  "fieldConfig": {"options": ["single", "married", "divorced", "widowed"]},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "married",
+  "expected": {
+    "normalizedValue": "married",
+    "requiresClarification": false
+  }
+}

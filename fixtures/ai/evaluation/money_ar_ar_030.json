@@ -1,0 +1,13 @@
+{
+  "description": "Arabic answer with Arabic numerals — monthly salary",
+  "fieldType": "money",
+  "fieldConfig": {},
+  "userLanguage": "ar",
+  "sourceLanguage": "ar",
+  "outputLanguage": "ar",
+  "input": "٢٥٠٠ يورو شهريًا",
+  "expected": {
+    "normalizedValue": {"amount": 2500, "currency": "EUR", "period": "monthly"},
+    "requiresClarification": false
+  }
+}

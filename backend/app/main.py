@@ -3,6 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
+from app.ai.errors import (
+    AIProviderConfigurationError,
+    AIProviderMalformedResponseError,
+    AIProviderTimeoutError,
+    AIProviderUnavailableError,
+    AIProviderValidationError,
+)
 from app.answers.api.routes import router as answers_router
 from app.api.health import router as health_router
 from app.forms.api.routes import router as forms_router
@@ -89,6 +96,56 @@ async def unauthorized_handler(
 ) -> JSONResponse:
     return JSONResponse(
         status_code=401, content={"detail": "Invalid session credentials"}
+    )
+
+
+@app.exception_handler(AIProviderUnavailableError)
+async def ai_unavailable_handler(
+    request: Request, exc: AIProviderUnavailableError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "AI service is temporarily unavailable. Please try again."},
+    )
+
+
+@app.exception_handler(AIProviderTimeoutError)
+async def ai_timeout_handler(
+    request: Request, exc: AIProviderTimeoutError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=504,
+        content={"detail": "AI service timed out. Please try again."},
+    )
+
+
+@app.exception_handler(AIProviderMalformedResponseError)
+async def ai_malformed_handler(
+    request: Request, exc: AIProviderMalformedResponseError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=502,
+        content={"detail": "AI service returned an unexpected response."},
+    )
+
+
+@app.exception_handler(AIProviderValidationError)
+async def ai_validation_handler(
+    request: Request, exc: AIProviderValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=502,
+        content={"detail": "AI service response did not match the expected format."},
+    )
+
+
+@app.exception_handler(AIProviderConfigurationError)
+async def ai_config_handler(
+    request: Request, exc: AIProviderConfigurationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "AI provider is misconfigured. Contact the administrator."},
     )
 
 

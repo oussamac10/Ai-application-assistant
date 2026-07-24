@@ -1,0 +1,13 @@
+{
+  "description": "Phone number in international format",
+  "fieldType": "phone",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "+49 151 23456789",
+  "expected": {
+    "normalizedValue": "+49 151 23456789",
+    "requiresClarification": false
+  }
+}

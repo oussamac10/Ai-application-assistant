@@ -1,0 +1,13 @@
+{
+  "description": "German name with umlaut",
+  "fieldType": "person_name",
+  "fieldConfig": {},
+  "userLanguage": "de",
+  "sourceLanguage": "de",
+  "outputLanguage": "de",
+  "input": "Müller, Hans",
+  "expected": {
+    "normalizedValue": {"fullName": "Müller, Hans"},
+    "requiresClarification": false
+  }
+}

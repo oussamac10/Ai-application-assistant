@@ -1,0 +1,13 @@
+{
+  "description": "Valid email address",
+  "fieldType": "email",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "alice.smith@example.com",
+  "expected": {
+    "normalizedValue": "alice.smith@example.com",
+    "requiresClarification": false
+  }
+}

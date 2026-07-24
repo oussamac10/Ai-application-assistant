@@ -1,0 +1,14 @@
+{
+  "description": "Only digits — missing currency and period",
+  "fieldType": "money",
+  "fieldConfig": {},
+  "userLanguage": "fr",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "1500",
+  "expected": {
+    "normalizedValue": {"amount": 1500},
+    "requiresClarification": true,
+    "uncertainties": ["currency", "period"]
+  }
+}

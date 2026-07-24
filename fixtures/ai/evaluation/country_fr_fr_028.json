@@ -1,0 +1,13 @@
+{
+  "description": "Country stated in French",
+  "fieldType": "country",
+  "fieldConfig": {},
+  "userLanguage": "fr",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "France",
+  "expected": {
+    "normalizedValue": "FR",
+    "requiresClarification": false
+  }
+}

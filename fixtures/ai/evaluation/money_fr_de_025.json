@@ -1,0 +1,13 @@
+{
+  "description": "Monthly rent in French for German form",
+  "fieldType": "money",
+  "fieldConfig": {},
+  "userLanguage": "fr",
+  "sourceLanguage": "de",
+  "outputLanguage": "de",
+  "input": "Je paie 850 euros par mois de loyer",
+  "expected": {
+    "normalizedValue": {"amount": 850, "currency": "EUR", "period": "monthly"},
+    "requiresClarification": false
+  }
+}

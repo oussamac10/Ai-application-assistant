@@ -1,0 +1,13 @@
+{
+  "description": "Marital status in Arabic for French form",
+  "fieldType": "single_choice",
+  "fieldConfig": {"options": ["single", "married", "divorced", "widowed"]},
+  "userLanguage": "ar",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "متزوج",
+  "expected": {
+    "normalizedValue": "married",
+    "requiresClarification": false
+  }
+}

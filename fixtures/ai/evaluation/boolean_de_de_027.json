@@ -1,0 +1,13 @@
+{
+  "description": "German ja for boolean field",
+  "fieldType": "boolean",
+  "fieldConfig": {},
+  "userLanguage": "de",
+  "sourceLanguage": "de",
+  "outputLanguage": "de",
+  "input": "Ja",
+  "expected": {
+    "normalizedValue": true,
+    "requiresClarification": false
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "description": "ISO date in English",
+  "fieldType": "date",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "1990-04-12",
+  "expected": {
+    "normalizedValue": "1990-04-12",
+    "requiresClarification": false
+  }
+}

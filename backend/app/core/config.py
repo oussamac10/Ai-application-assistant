@@ -3,6 +3,8 @@ from typing import Any
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_SUPPORTED_PROVIDERS = frozenset({"mock", "ollama"})
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -19,10 +21,30 @@ class Settings(BaseSettings):
     FORM_SESSION_TTL_HOURS: int = 24
     SESSION_TOKEN_SECRET: str | None = None
 
+    # AI Provider
+    AI_PROVIDER: str = "mock"
+    AI_ALLOW_MOCK_FALLBACK: bool = False
+
+    # Ollama
+    OLLAMA_BASE_URL: str = "http://host.docker.internal:11434"
+    OLLAMA_MODEL: str = "qwen3:4b"
+    OLLAMA_REQUEST_TIMEOUT_SECONDS: int = 60
+    OLLAMA_MAX_RETRIES: int = 1
+    OLLAMA_CACHE_ENABLED: bool = False
+
     @model_validator(mode="after")
     def validate_session_secret(self) -> "Settings":
         if not self.SESSION_TOKEN_SECRET:
             self.SESSION_TOKEN_SECRET = "unsafe-dev-fallback-secret-key-12345678"
+        return self
+
+    @model_validator(mode="after")
+    def validate_ai_provider(self) -> "Settings":
+        if self.AI_PROVIDER not in _SUPPORTED_PROVIDERS:
+            raise ValueError(
+                f"Unknown AI_PROVIDER '{self.AI_PROVIDER}'. "
+                f"Supported values: {sorted(_SUPPORTED_PROVIDERS)}"
+            )
         return self
 
     @model_validator(mode="before")

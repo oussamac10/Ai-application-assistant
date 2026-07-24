@@ -1,0 +1,13 @@
+{
+  "description": "Integer number of children",
+  "fieldType": "integer",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "2",
+  "expected": {
+    "normalizedValue": 2,
+    "requiresClarification": false
+  }
+}

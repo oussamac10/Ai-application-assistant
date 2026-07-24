@@ -1,0 +1,13 @@
+{
+  "description": "Address in multiline text",
+  "fieldType": "multiline_text",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "Flat 4, 22 Baker Street, London, W1U 3BW",
+  "expected": {
+    "normalizedValue": "Flat 4, 22 Baker Street, London, W1U 3BW",
+    "requiresClarification": false
+  }
+}

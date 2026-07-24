@@ -1,0 +1,13 @@
+{
+  "description": "Country stated in English for German form",
+  "fieldType": "country",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "de",
+  "outputLanguage": "de",
+  "input": "Morocco",
+  "expected": {
+    "normalizedValue": "MA",
+    "requiresClarification": false
+  }
+}

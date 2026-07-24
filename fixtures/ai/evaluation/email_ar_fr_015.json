@@ -1,0 +1,13 @@
+{
+  "description": "Email stated in Arabic text context",
+  "fieldType": "email",
+  "fieldConfig": {},
+  "userLanguage": "ar",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "بريدي الإلكتروني هو test.user@example.org",
+  "expected": {
+    "normalizedValue": "test.user@example.org",
+    "requiresClarification": false
+  }
+}

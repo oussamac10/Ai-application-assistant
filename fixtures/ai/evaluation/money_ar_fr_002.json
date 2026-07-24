@@ -1,0 +1,13 @@
+{
+  "description": "Annual salary stated in Arabic",
+  "fieldType": "money",
+  "fieldConfig": {},
+  "userLanguage": "ar",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "أتقاضى 24000 يورو سنويًا",
+  "expected": {
+    "normalizedValue": {"amount": 24000, "currency": "EUR", "period": "yearly"},
+    "requiresClarification": false
+  }
+}

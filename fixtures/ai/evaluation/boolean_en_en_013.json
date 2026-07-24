@@ -1,0 +1,13 @@
+{
+  "description": "English no for boolean field",
+  "fieldType": "boolean",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "No",
+  "expected": {
+    "normalizedValue": false,
+    "requiresClarification": false
+  }
+}

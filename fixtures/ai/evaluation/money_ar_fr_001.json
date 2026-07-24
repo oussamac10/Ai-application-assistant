@@ -1,0 +1,13 @@
+{
+  "description": "Monthly salary in Arabic, output in French",
+  "fieldType": "money",
+  "fieldConfig": {},
+  "userLanguage": "ar",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "راتبي حوالي 1800 يورو في الشهر",
+  "expected": {
+    "normalizedValue": {"amount": 1800, "currency": "EUR", "period": "monthly"},
+    "requiresClarification": false
+  }
+}

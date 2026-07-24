@@ -1,0 +1,13 @@
+{
+  "description": "French full name with accent",
+  "fieldType": "person_name",
+  "fieldConfig": {},
+  "userLanguage": "fr",
+  "sourceLanguage": "fr",
+  "outputLanguage": "fr",
+  "input": "Élodie Dupont",
+  "expected": {
+    "normalizedValue": {"fullName": "Élodie Dupont"},
+    "requiresClarification": false
+  }
+}

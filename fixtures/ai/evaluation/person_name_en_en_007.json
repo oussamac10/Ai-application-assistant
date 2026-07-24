@@ -1,0 +1,13 @@
+{
+  "description": "English full name",
+  "fieldType": "person_name",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "Alice Smith",
+  "expected": {
+    "normalizedValue": {"fullName": "Alice Smith"},
+    "requiresClarification": false
+  }
+}

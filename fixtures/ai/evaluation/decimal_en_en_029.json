@@ -1,0 +1,13 @@
+{
+  "description": "GPA as decimal",
+  "fieldType": "decimal",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "3.75",
+  "expected": {
+    "normalizedValue": 3.75,
+    "requiresClarification": false
+  }
+}

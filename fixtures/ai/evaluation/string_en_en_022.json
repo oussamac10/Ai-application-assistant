@@ -1,0 +1,13 @@
+{
+  "description": "Simple string field — street name",
+  "fieldType": "string",
+  "fieldConfig": {},
+  "userLanguage": "en",
+  "sourceLanguage": "en",
+  "outputLanguage": "en",
+  "input": "10 Downing Street",
+  "expected": {
+    "normalizedValue": "10 Downing Street",
+    "requiresClarification": false
+  }
+}

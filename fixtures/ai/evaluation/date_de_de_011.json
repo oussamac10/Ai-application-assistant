@@ -1,0 +1,13 @@
+{
+  "description": "German date format",
+  "fieldType": "date",
+  "fieldConfig": {},
+  "userLanguage": "de",
+  "sourceLanguage": "de",
+  "outputLanguage": "de",
+  "input": "12.04.1990",
+  "expected": {
+    "normalizedValue": "1990-04-12",
+    "requiresClarification": false
+  }
+}

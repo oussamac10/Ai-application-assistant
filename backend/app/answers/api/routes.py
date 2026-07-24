@@ -3,6 +3,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.orm import Session
 
+from app.ai.factory import get_ai_provider
+from app.ai.mock_provider import AIProvider
 from app.answers.schemas import (
     AnswerResponse,
     AnswerSubmitRequest,
@@ -32,6 +34,10 @@ def _prepare_answer_response(answer: Any) -> Any:
     return answer
 
 
+def _make_service(db: Session, provider: AIProvider) -> AnswerService:
+    return AnswerService(db, ai_provider=provider)
+
+
 @router.get(
     "/form-sessions/{session_id}/current-field",
     response_model=CurrentFieldResponse,
@@ -40,8 +46,9 @@ def get_current_field(
     session_id: str,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
-    service = AnswerService(db)
+    service = _make_service(db, provider)
     return service.get_current_field(session_id, x_session_token)
 
 
@@ -55,8 +62,9 @@ async def submit_answer(
     data: AnswerSubmitBody,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
-    service = AnswerService(db)
+    service = _make_service(db, provider)
     ans = await service.submit_answer(
         session_id, data.field_id, data.original_answer, x_session_token
     )
@@ -73,8 +81,9 @@ def submit_clarification(
     data: ClarifySubmitRequest,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
-    service = AnswerService(db)
+    service = _make_service(db, provider)
     ans = service.submit_clarification(
         session_id, answer_id, data.values, x_session_token
     )
@@ -90,8 +99,9 @@ def confirm_answer(
     answer_id: str,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
-    service = AnswerService(db)
+    service = _make_service(db, provider)
     return service.confirm_answer(session_id, answer_id, x_session_token)
 
 
@@ -105,8 +115,9 @@ async def change_answer(
     data: AnswerSubmitRequest,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
-    service = AnswerService(db)
+    service = _make_service(db, provider)
     ans = await service.submit_answer(
         session_id, field_id, data.original_answer, x_session_token
     )
@@ -121,8 +132,9 @@ def previous_field(
     session_id: str,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
-    service = AnswerService(db)
+    service = _make_service(db, provider)
     return service.previous_field(session_id, x_session_token)
 
 
@@ -131,8 +143,9 @@ def get_summary(
     session_id: str,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
-    service = AnswerService(db)
+    service = _make_service(db, provider)
     fields_list = service.get_summary(session_id, x_session_token)
     return {"fields": fields_list}
 
@@ -142,7 +155,8 @@ def confirm_summary(
     session_id: str,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
-    service = AnswerService(db)
+    service = _make_service(db, provider)
     service.confirm_summary(session_id, x_session_token)
     return {"status": "ready_for_export"}

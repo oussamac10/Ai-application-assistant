@@ -3,7 +3,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.ai.mock_provider import MockAIProvider
+from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.ai.schemas import ExtractionRequest
 from app.answers.models import FormAnswer
 from app.answers.normalization.normalization import normalize_value
@@ -20,12 +20,14 @@ from app.sessions.services import (
 
 
 class AnswerService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, ai_provider: AIProvider | None = None):
         self.db = db
         self.repo = AnswerRepository(db)
         self.form_repo = FormRepository(db)
         self.session_service = SessionService(db)
-        self.ai_provider = MockAIProvider()
+        self.ai_provider: AIProvider = (
+            ai_provider if ai_provider is not None else MockAIProvider()
+        )
 
     def get_progress(self, session: Any) -> dict[str, int]:
         """Calculate progress based on confirmed required fields."""
