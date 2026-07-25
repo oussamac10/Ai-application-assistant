@@ -63,6 +63,9 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+frontend/tsconfig.tsbuildinfo
 
 # Database / Local volumes
 postgres_data/
