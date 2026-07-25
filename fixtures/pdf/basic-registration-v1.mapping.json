@@ -1,0 +1,50 @@
+{
+  "templateKey": "basic-registration-v1",
+  "formVersionKey": "basic-registration:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "first_name",
+      "pdfFieldName": "first_name",
+      "format": "person_name",
+      "maxLength": 40,
+      "overflow": "reject"
+    },
+    {
+      "fieldKey": "last_name",
+      "pdfFieldName": "last_name",
+      "format": "person_name",
+      "maxLength": 40,
+      "overflow": "reject"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "reject"
+    },
+    {
+      "fieldKey": "email",
+      "pdfFieldName": "email",
+      "format": "email",
+      "maxLength": 80,
+      "overflow": "reject"
+    },
+    {
+      "fieldKey": "country",
+      "pdfFieldName": "country",
+      "format": "country",
+      "maxLength": 40,
+      "overflow": "reject"
+    },
+    {
+      "fieldKey": "marital_status",
+      "pdfFieldName": "marital_status",
+      "format": "single_choice",
+      "maxLength": 30,
+      "overflow": "reject"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 line-length = 88
 target-version = "py311"
 
-exclude = ["migrations"]
+exclude = ["migrations", "venv", ".venv"]
 
 [tool.ruff.lint]
 select = [
@@ -24,7 +24,7 @@ ignore = [
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
-exclude = ["migrations"]
+exclude = ["migrations", "venv", ".venv"]
 
 [[tool.mypy.overrides]]
 module = "alembic.*"

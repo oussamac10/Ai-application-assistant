@@ -275,3 +275,60 @@ export async function confirmSummary(sessionId: string): Promise<{ status: strin
     z.object({ status: z.string() })
   );
 }
+
+export const ExportResponseSchema = z.object({
+  exportId: z.string(),
+  status: z.string(),
+  fileName: z.string(),
+  contentType: z.string(),
+  fileSize: z.number().nullable().optional(),
+  expiresAt: z.string(),
+  downloadUrl: z.string(),
+});
+
+export type ExportResponse = z.infer<typeof ExportResponseSchema>;
+
+/** Thrown when the session token is missing from sessionStorage (e.g. tab was closed). */
+export class TokenMissingError extends Error {
+  constructor() {
+    super("Session token not found. Please start a new session.");
+    this.name = "TokenMissingError";
+  }
+}
+
+export async function createExport(sessionId: string): Promise<ExportResponse> {
+  const token = getSessionToken(sessionId);
+  if (!token) {
+    throw new TokenMissingError();
+  }
+  return apiRequest(
+    `/form-sessions/${sessionId}/exports`,
+    { method: "POST" },
+    sessionId,
+    ExportResponseSchema
+  );
+}
+
+export async function downloadExportBlob(sessionId: string, downloadUrl: string): Promise<Blob> {
+  const token = getSessionToken(sessionId);
+  const headers = new Headers();
+  if (token) {
+    headers.set("X-Session-Token", token);
+  }
+  const response = await fetch(downloadUrl, {
+    method: "GET",
+    headers,
+  });
+  if (!response.ok) {
+    let detail = null;
+    try {
+      const data = await response.json();
+      detail = data.detail || null;
+    } catch {
+      // ignore
+    }
+    throw new ApiError(response.status, "Download failed", detail);
+  }
+  return response.blob();
+}
+

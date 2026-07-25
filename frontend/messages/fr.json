@@ -39,8 +39,16 @@
   "complete": {
     "title": "Formulaire prêt pour l'exportation",
     "subtitle": "Votre session assistée est terminée !",
-    "body": "Vos données de formulaire ont été vérifiées avec succès. Le téléchargement final du PDF rempli sera disponible dans la prochaine phase de publication. Aucune soumission automatique n'a été faite aux autorités.",
-    "startNew": "Commencer un nouveau formulaire"
+    "body": "Vos données de formulaire ont été vérifiées avec succès. Aucune soumission automatique n'a été faite aux autorités.",
+    "startNew": "Commencer un nouveau formulaire",
+    "generatePdf": "Générer le PDF",
+    "preparingPdf": "Préparation de votre PDF...",
+    "downloadPdf": "Télécharger le PDF",
+    "pdfReady": "Votre PDF est prêt",
+    "exportFailed": "Le PDF n'a pas pu être créé",
+    "exportExpired": "Le PDF a expiré",
+    "regeneratePdf": "Veuillez générer un nouveau PDF",
+    "overflowError": "Une ou plusieurs valeurs ne rentrent pas dans le formulaire"
   },
   "errors": {
     "unauthorized": "Cette session est invalide ou a expiré. Veuillez démarrer une nouvelle session.",

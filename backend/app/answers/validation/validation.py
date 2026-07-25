@@ -18,7 +18,14 @@ def validate_value(
 
     Checks value type, requirements, and custom configurations.
     """
-    print("DEBUG VALIDATION - FIELD TYPE:", field_type, "VAL:", repr(val), "OPTIONS:", [o.value for o in options] if options else None)
+    print(
+        "DEBUG VALIDATION - FIELD TYPE:",
+        field_type,
+        "VAL:",
+        repr(val),
+        "OPTIONS:",
+        [o.value for o in options] if options else None,
+    )
 
     # 1. Required check
     is_empty = False

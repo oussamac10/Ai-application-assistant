@@ -278,7 +278,7 @@ export default function GuidedSession() {
         {currentField && (
           <div className="mb-6 w-full space-y-2">
             <div className="flex justify-between text-xs font-semibold tracking-wide text-slate-400">
-              <span>{t("progress", { current: completed, total, percent: progressPercent })}</span>
+              <span>{t("progress", { current: completed + 1, total, percent: progressPercent })}</span>
               <span>{progressPercent}%</span>
             </div>
             <div className="h-2 w-full rounded-full bg-slate-950 overflow-hidden border border-slate-850">

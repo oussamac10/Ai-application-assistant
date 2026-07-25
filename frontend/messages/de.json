@@ -39,8 +39,16 @@
   "complete": {
     "title": "Formular bereit für den Export",
     "subtitle": "Ihre unterstützte Sitzung ist abgeschlossen!",
-    "body": "Ihre Formulardaten wurden erfolgreich verifiziert. Der endgültige ausgefüllte PDF-Download wird in der nächsten Release-Phase verfügbar sein. Es wurde keine automatische Übermittlung an Behörden vorgenommen.",
-    "startNew": "Ein neues Formular starten"
+    "body": "Ihre Formulardaten wurden erfolgreich verifiziert. Es wurde keine automatische Übermittlung an Behörden vorgenommen.",
+    "startNew": "Ein neues Formular starten",
+    "generatePdf": "PDF generieren",
+    "preparingPdf": "Ihr PDF wird vorbereitet...",
+    "downloadPdf": "PDF herunterladen",
+    "pdfReady": "Ihr PDF ist bereit",
+    "exportFailed": "Das PDF konnte nicht erstellt werden",
+    "exportExpired": "Das PDF ist abgelaufen",
+    "regeneratePdf": "Bitte generieren Sie ein neues PDF",
+    "overflowError": "Ein oder mehrere Werte passen nicht in das Formular"
   },
   "errors": {
     "unauthorized": "Diese Sitzung ist ungültig oder abgelaufen. Bitte starten Sie eine neue Sitzung.",

@@ -19,6 +19,7 @@ from app.questions.models import (  # noqa: F401
     QuestionResolutionLog,
     QuestionTranslation,
 )
+from app.pdf.models import FormExport  # noqa: F401
 from app.sessions.models import FormSession  # noqa: F401
 
 # This is the Alembic Config object, which provides access to the

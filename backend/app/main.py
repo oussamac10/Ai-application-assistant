@@ -18,6 +18,7 @@ from app.forms.services import (
     StateConflictError,
     ValidationError,
 )
+from app.pdf.api.routes import router as pdf_router
 from app.questions.api.routes import router as questions_router
 from app.sessions.api.routes import router as sessions_router
 from app.sessions.services import (
@@ -164,3 +165,4 @@ app.include_router(forms_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
 app.include_router(answers_router, prefix="/api")
 app.include_router(questions_router, prefix="/api")
+app.include_router(pdf_router, prefix="/api")

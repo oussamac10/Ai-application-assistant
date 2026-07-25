@@ -39,8 +39,16 @@
   "complete": {
     "title": "Form Ready for Export",
     "subtitle": "Your assisted session is complete!",
-    "body": "Your form data has been successfully verified. The final completed PDF download will be available in the next release phase. No automatic submission was made to any third-party authority.",
-    "startNew": "Start a New Form"
+    "body": "Your form data has been successfully verified. No automatic submission was made to any third-party authority.",
+    "startNew": "Start a New Form",
+    "generatePdf": "Generate PDF",
+    "preparingPdf": "Preparing your PDF...",
+    "downloadPdf": "Download PDF",
+    "pdfReady": "Your PDF is ready",
+    "exportFailed": "The PDF could not be created",
+    "exportExpired": "The PDF has expired",
+    "regeneratePdf": "Please generate a new PDF",
+    "overflowError": "One or more values do not fit the form"
   },
   "errors": {
     "unauthorized": "This session is invalid or has expired. Please start a new session.",

@@ -1,6 +1,7 @@
 import logging
 import sys
 
+from app.answers.models import FormAnswer
 from app.database.session import SessionLocal
 from app.forms.models import FormTemplate
 from app.forms.schemas import (
@@ -11,6 +12,7 @@ from app.forms.schemas import (
 )
 from app.forms.services import FormService
 from app.questions.seed import seed_catalog
+from app.sessions.models import FormSession
 
 # Setup logger
 logging.basicConfig(level=logging.INFO)
@@ -31,9 +33,17 @@ def load_basic_registration_fixture() -> None:
         )
         if existing_template:
             logger.info("Cleaning up existing 'basic-registration' template...")
-            # FormVersion cascade deletes fields, translations,
-            # options, and option translations
+            # Must delete answers and sessions before fields/versions to avoid FK violations
             for v in existing_template.versions:
+                # Delete answers referencing this version's fields
+                for field in v.fields:
+                    db.query(FormAnswer).filter_by(field_id=field.id).delete(
+                        synchronize_session=False
+                    )
+                # Delete sessions referencing this version
+                db.query(FormSession).filter_by(form_version_id=v.id).delete(
+                    synchronize_session=False
+                )
                 db.delete(v)
             db.delete(existing_template)
             db.commit()

@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 from pydantic import model_validator
@@ -20,6 +21,10 @@ class Settings(BaseSettings):
 
     FORM_SESSION_TTL_HOURS: int = 24
     SESSION_TOKEN_SECRET: str | None = None
+
+    PDF_EXPORT_DIRECTORY: str = "/tmp/ai-form-assistant/exports"
+    PDF_EXPORT_TTL_HOURS: int = 24
+    PDF_TEMPLATE_KEY: str = "basic-registration-v1"
 
     # AI Provider
     AI_PROVIDER: str = "mock"
@@ -51,6 +56,20 @@ class Settings(BaseSettings):
                 f"Unknown AI_PROVIDER '{self.AI_PROVIDER}'. "
                 f"Supported values: {sorted(_SUPPORTED_PROVIDERS)}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_pdf_settings(self) -> "Settings":
+        if self.PDF_EXPORT_TTL_HOURS <= 0:
+            raise ValueError("PDF_EXPORT_TTL_HOURS must be a positive integer.")
+        if not self.PDF_EXPORT_DIRECTORY:
+            raise ValueError("PDF_EXPORT_DIRECTORY must not be empty.")
+        try:
+            os.makedirs(self.PDF_EXPORT_DIRECTORY, exist_ok=True)
+        except Exception as e:
+            raise ValueError(
+                f"PDF_EXPORT_DIRECTORY '{self.PDF_EXPORT_DIRECTORY}' is not writable: {str(e)}"
+            ) from e
         return self
 
     @model_validator(mode="before")
