@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import pypdf
 
 from app.documents.errors import DocumentValidationError
@@ -105,13 +107,15 @@ def validate_pdf_safety(filepath: str) -> None:
         # Check pages and annotations
         for page in reader.pages:
             page_obj = page.get_object() if hasattr(page, "get_object") else page
-            if "/AA" in page_obj:
+            if page_obj is None:
+                continue
+            if "/AA" in cast(Any, page_obj):
                 raise DocumentValidationError(
                     "Page contains active Additional Actions.",
                     "unsupported_pdf_feature",
                 )
 
-            annots = page_obj.get("/Annots")
+            annots = page_obj.get("/Annots") if hasattr(page_obj, "get") else None
             if annots:
                 # annots can be an array of indirect references
                 for annot in annots:

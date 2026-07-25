@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile, status
@@ -16,7 +17,9 @@ from app.documents.service import SourceDocumentService
 router = APIRouter()
 
 
-def chunk_generator(upload_file: UploadFile, chunk_size: int = 65536):
+def chunk_generator(
+    upload_file: UploadFile, chunk_size: int = 65536
+) -> Iterator[bytes]:
     """Synchronously yields chunks of the uploaded file's content."""
     upload_file.file.seek(0)
     while True:

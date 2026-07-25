@@ -53,10 +53,11 @@ test.describe("Landing page — Tab selection", () => {
   test("shows Upload Form tab as active by default", async ({ page }) => {
     await goToLanding(page);
 
-    // Upload tab button should exist and be styled as active (bg-indigo-600)
+    // Upload tab button should exist and be styled as active
     const uploadTab = page.getByRole("button", { name: /Upload Form/i });
     await expect(uploadTab).toBeVisible();
-    await expect(uploadTab).toHaveClass(/bg-indigo-600/);
+    // Check the active state via class attribute (contains bg-indigo-600)
+    await expect(uploadTab).toHaveAttribute("class", /bg-indigo-600/);
 
     // Upload drop zone should be visible
     await expect(page.getByText(/Drag and drop your PDF/i)).toBeVisible();
@@ -69,21 +70,25 @@ test.describe("Landing page — Tab selection", () => {
     const manualTab = page.getByRole("button", { name: /Select Manually/i });
     await manualTab.click();
 
-    // Manual tab is now active
-    await expect(manualTab).toHaveClass(/bg-indigo-600/);
+    // Manual tab is now active (class attribute check)
+    await expect(manualTab).toHaveAttribute("class", /bg-indigo-600/);
 
-    // Form selector should be visible
-    await expect(page.locator("#form-select")).toBeVisible();
+    // Form selector should be visible (wait for it — forms load async)
+    await expect(page.locator("#form-select")).toBeVisible({ timeout: 10000 });
   });
 
   test("switches back to Upload tab after visiting Manual", async ({ page }) => {
     await goToLanding(page);
 
     await page.getByRole("button", { name: /Select Manually/i }).click();
+    // Wait for manual mode to be active
+    const manualTab = page.getByRole("button", { name: /Select Manually/i });
+    await expect(manualTab).toHaveAttribute("class", /bg-indigo-600/);
+
     await page.getByRole("button", { name: /Upload Form/i }).click();
 
     await expect(page.getByText(/Drag and drop your PDF/i)).toBeVisible();
-    // Form selector should be hidden again
+    // Form selector should be hidden again (not in DOM when in upload mode)
     await expect(page.locator("#form-select")).not.toBeVisible();
   });
 });
