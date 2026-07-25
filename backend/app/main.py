@@ -24,6 +24,13 @@ from app.sessions.api.routes import router as sessions_router
 from app.sessions.services import (
     ResourceNotFoundError as SessionResourceNotFoundError,
 )
+from app.documents.api.routes import router as documents_router
+from app.documents.errors import (
+    DocumentNotFoundError,
+    DocumentValidationError,
+    DocumentUnauthorizedError,
+    DocumentStateConflictError,
+)
 from app.sessions.services import (
     StateConflictError as SessionStateConflictError,
 )
@@ -101,6 +108,39 @@ async def unauthorized_handler(
     )
 
 
+@app.exception_handler(DocumentNotFoundError)
+async def document_not_found_handler(
+    request: Request, exc: DocumentNotFoundError
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(DocumentStateConflictError)
+async def document_state_conflict_handler(
+    request: Request, exc: DocumentStateConflictError
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(DocumentValidationError)
+async def document_validation_handler(
+    request: Request, exc: DocumentValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc), "error_code": exc.error_code},
+    )
+
+
+@app.exception_handler(DocumentUnauthorizedError)
+async def document_unauthorized_handler(
+    request: Request, exc: DocumentUnauthorizedError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=401, content={"detail": "Invalid document credentials"}
+    )
+
+
 @app.exception_handler(AIProviderUnavailableError)
 async def ai_unavailable_handler(
     request: Request, exc: AIProviderUnavailableError
@@ -166,3 +206,4 @@ app.include_router(sessions_router, prefix="/api")
 app.include_router(answers_router, prefix="/api")
 app.include_router(questions_router, prefix="/api")
 app.include_router(pdf_router, prefix="/api")
+app.include_router(documents_router, prefix="/api")

@@ -1,0 +1,25 @@
+{
+  "templateKey": "basic-registration-v1",
+  "formKey": "basic-registration",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 612.0,
+      "height": 792.0,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "first_name",
+    "last_name",
+    "date_of_birth",
+    "email",
+    "country",
+    "marital_status"
+  ],
+  "optionalTextMarkers": [
+    "AI Form Assistant",
+    "Basic Registration"
+  ]
+}

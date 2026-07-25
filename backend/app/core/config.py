@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     PDF_EXPORT_TTL_HOURS: int = 24
     PDF_TEMPLATE_KEY: str = "basic-registration-v1"
 
+    # Document Upload & Analysis
+    DOCUMENT_UPLOAD_MAX_BYTES: int = 10485760
+    DOCUMENT_UPLOAD_MAX_PAGES: int = 20
+    DOCUMENT_EXPIRATION_HOURS: int = 24
+    DOCUMENT_STORAGE_PATH: str = "/tmp/ai-form-assistant/documents"
+    DOCUMENT_ANALYSIS_VERSION: int = 1
+    DOCUMENT_TEXT_SAMPLE_LIMIT: int = 5000
+
     # AI Provider
     AI_PROVIDER: str = "mock"
     AI_ALLOW_MOCK_FALLBACK: bool = False
@@ -69,6 +77,24 @@ class Settings(BaseSettings):
         except Exception as e:
             raise ValueError(
                 f"PDF_EXPORT_DIRECTORY '{self.PDF_EXPORT_DIRECTORY}' is not writable: {str(e)}"
+            ) from e
+        return self
+
+    @model_validator(mode="after")
+    def validate_document_settings(self) -> "Settings":
+        if self.DOCUMENT_UPLOAD_MAX_BYTES <= 0:
+            raise ValueError("DOCUMENT_UPLOAD_MAX_BYTES must be a positive integer.")
+        if self.DOCUMENT_UPLOAD_MAX_PAGES <= 0:
+            raise ValueError("DOCUMENT_UPLOAD_MAX_PAGES must be a positive integer.")
+        if self.DOCUMENT_EXPIRATION_HOURS <= 0:
+            raise ValueError("DOCUMENT_EXPIRATION_HOURS must be a positive integer.")
+        if not self.DOCUMENT_STORAGE_PATH:
+            raise ValueError("DOCUMENT_STORAGE_PATH must not be empty.")
+        try:
+            os.makedirs(self.DOCUMENT_STORAGE_PATH, exist_ok=True)
+        except Exception as e:
+            raise ValueError(
+                f"DOCUMENT_STORAGE_PATH '{self.DOCUMENT_STORAGE_PATH}' is not writable: {str(e)}"
             ) from e
         return self
 

@@ -1,0 +1,233 @@
+import hashlib
+import os
+from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.config import settings
+from app.documents.analyzer import PDFAnalyzer
+from app.documents.errors import (
+    DocumentNotFoundError,
+    DocumentStateConflictError,
+    DocumentUnauthorizedError,
+    DocumentValidationError,
+)
+from app.documents.models import SourceDocument
+from app.documents.registry import PDFFingerprintRegistry
+from app.documents.repository import SourceDocumentRepository
+from app.documents.storage import DocumentStorage, sanitize_filename
+from app.documents.validation import (
+    validate_pdf_safety,
+    validate_pdf_signature,
+    validate_pdf_structure,
+)
+from app.forms.models import FormTemplate, FormVersion
+from app.sessions.security import (
+    generate_ownership_token,
+    hash_ownership_token,
+    verify_ownership_token,
+)
+from app.sessions.services import SessionService
+
+
+class SourceDocumentService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.repo = SourceDocumentRepository()
+        self.storage = DocumentStorage()
+        self.analyzer = PDFAnalyzer()
+        self.registry = PDFFingerprintRegistry()
+
+    def upload_and_analyze(
+        self,
+        filename: str,
+        content_type: str,
+        file_chunks: Iterable[bytes],
+        privacy_accepted: bool,
+        user_language: str,
+        output_language: str,
+    ) -> tuple[SourceDocument, str]:
+        """Handles streaming upload, validation, analysis, and fingerprint matching of a PDF document."""
+        if not privacy_accepted:
+            raise DocumentValidationError("Privacy policy must be accepted.", "privacy_not_accepted")
+
+        if content_type != "application/pdf" and not filename.lower().endswith(".pdf"):
+            raise DocumentValidationError("Only PDF files are supported.", "invalid_file_type")
+
+        # 1. Stream file to private storage and compute checksum/size
+        target_path = self.storage.generate_storage_path()
+        sha256 = hashlib.sha256()
+        bytes_written = 0
+
+        try:
+            with open(target_path, "wb") as f:
+                for chunk in file_chunks:
+                    bytes_written += len(chunk)
+                    if bytes_written > settings.DOCUMENT_UPLOAD_MAX_BYTES:
+                        raise DocumentValidationError(
+                            f"File size exceeds limit of {settings.DOCUMENT_UPLOAD_MAX_BYTES} bytes.",
+                            "file_too_large",
+                        )
+                    sha256.update(chunk)
+                    f.write(chunk)
+        except Exception as e:
+            # Clean up partial upload
+            if target_path.is_file():
+                os.unlink(target_path)
+            if isinstance(e, DocumentValidationError):
+                raise
+            raise DocumentValidationError(f"File upload failed: {str(e)}", "malformed_pdf") from e
+
+        if bytes_written == 0:
+            if target_path.is_file():
+                os.unlink(target_path)
+            raise DocumentValidationError("Uploaded file is empty.", "malformed_pdf")
+
+        # 2. Run validations
+        try:
+            validate_pdf_signature(str(target_path))
+            validate_pdf_structure(str(target_path), settings.DOCUMENT_UPLOAD_MAX_PAGES)
+            validate_pdf_safety(str(target_path))
+        except Exception:
+            # Clean up invalid file
+            if target_path.is_file():
+                os.unlink(target_path)
+            raise
+
+        # 3. Analyze PDF structure
+        try:
+            analysis = self.analyzer.analyze_document(str(target_path))
+        except Exception as e:
+            if target_path.is_file():
+                os.unlink(target_path)
+            raise DocumentValidationError(f"PDF structural analysis failed: {str(e)}", "document_analysis_failed") from e
+
+        # 4. Fingerprint pre-defined template recognition
+        matched_template = self.registry.match_document(str(target_path), analysis)
+        matched_template_key = None
+        matched_form_key = None
+        matched_form_version = None
+
+        if matched_template:
+            matched_template_key = matched_template.get("templateKey")
+            matched_form_key = matched_template.get("formKey")
+            matched_form_version = matched_template.get("formVersion")
+            analysis["matched_template"] = {
+                "templateKey": matched_template_key,
+                "formKey": matched_form_key,
+                "formVersion": matched_form_version,
+            }
+        else:
+            analysis["matched_template"] = None
+
+        # 5. Resolve next step
+        # matched predefined template -> supported_template
+        # scanned PDF -> ocr_required
+        # native digital PDF without a template match -> dynamic_field_detection
+        # hybrid or unknown PDF -> review_required
+        if matched_template:
+            next_step = "supported_template"
+        elif analysis.get("is_probably_scanned", False):
+            next_step = "ocr_required"
+        elif analysis.get("document_type") == "digital_pdf":
+            next_step = "dynamic_field_detection"
+        else:
+            next_step = "review_required"
+
+        analysis["next_step"] = next_step
+
+        # 6. Generate ownership token and hash it
+        raw_token = generate_ownership_token()
+        token_hash = hash_ownership_token(raw_token)
+
+        # 7. Create SourceDocument entity
+        now = datetime.now(UTC)
+        expires_at = now + timedelta(hours=settings.DOCUMENT_EXPIRATION_HOURS)
+
+        doc = SourceDocument(
+            ownership_token_hash=token_hash,
+            original_filename=filename,
+            sanitized_filename=sanitize_filename(filename),
+            storage_path=str(target_path),
+            content_type="application/pdf",
+            size_bytes=bytes_written,
+            checksum_sha256=sha256.hexdigest(),
+            status="analyzed",
+            page_count=analysis.get("page_count", 0),
+            document_type=analysis.get("document_type", "unknown_pdf"),
+            has_native_text=analysis.get("has_native_text", False),
+            has_acroform=analysis.get("has_acroform", False),
+            has_embedded_images=analysis.get("has_embedded_images", False),
+            is_probably_scanned=analysis.get("is_probably_scanned", False),
+            matched_template_key=matched_template_key,
+            matched_form_key=matched_form_key,
+            matched_form_version=matched_form_version,
+            analysis_version=settings.DOCUMENT_ANALYSIS_VERSION,
+            analysis_result=analysis,
+            expires_at=expires_at,
+            created_at=now,
+            updated_at=now,
+        )
+
+        self.repo.create(self.db, doc)
+        return doc, raw_token
+
+    def get_document(self, public_id: str, ownership_token: str) -> SourceDocument:
+        """Retrieves document if ownership token matches and document is not expired."""
+        doc = self.repo.get_by_public_id(self.db, public_id)
+        if not doc:
+            raise DocumentNotFoundError("Document not found.")
+
+        if doc.status in ("deleted", "expired"):
+            raise DocumentNotFoundError("Document has expired or been deleted.")
+
+        # Verify ownership token
+        if not verify_ownership_token(ownership_token, doc.ownership_token_hash):
+            raise DocumentUnauthorizedError("Invalid document credentials.")
+
+        # Verify expiration
+        if datetime.now(UTC) >= doc.expires_at:
+            doc.status = "expired"
+            self.repo.update(self.db, doc)
+            raise DocumentNotFoundError("Document has expired.")
+
+        return doc
+
+    def create_session_from_document(
+        self, public_id: str, ownership_token: str, user_lang: str, output_lang: str
+    ) -> tuple[Any, str]:
+        """Creates an anonymous form session using the matched predefined template details."""
+        doc = self.get_document(public_id, ownership_token)
+
+        if doc.status != "analyzed":
+            raise DocumentStateConflictError("Document is not in analyzed state.")
+
+        if not doc.matched_template_key or not doc.matched_form_key or not doc.matched_form_version:
+            raise DocumentStateConflictError("No supported predefined template matched for this document.")
+
+        # Find the published FormVersion linked to the matched form template and version number
+        stmt = (
+            select(FormVersion)
+            .join(FormTemplate)
+            .where(FormTemplate.key == doc.matched_form_key)
+            .where(FormVersion.version_number == doc.matched_form_version)
+            .where(FormVersion.status == "published")
+        )
+        form_version = self.db.scalars(stmt).first()
+        if not form_version:
+            raise DocumentStateConflictError(
+                f"Form template version '{doc.matched_form_key}' v{doc.matched_form_version} is not published."
+            )
+
+        # Call existing SessionService to instantiate session
+        session_service = SessionService(self.db)
+        session, session_token = session_service.create_session(
+            form_version_id=form_version.id,
+            user_language=user_lang,
+            output_language=output_lang,
+        )
+
+        return session, session_token

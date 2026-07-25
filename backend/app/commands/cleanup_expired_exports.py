@@ -57,6 +57,44 @@ def cleanup_expired_exports() -> int:
         else:
             logger.info("No expired exports found to clean up.")
 
+        # Cleanup expired source documents
+        from app.documents.models import SourceDocument
+        stmt_docs = select(SourceDocument).where(
+            or_(
+                SourceDocument.expires_at < now,
+                SourceDocument.status.in_(["expired", "deleted"]),
+            )
+        )
+        docs = db.scalars(stmt_docs).all()
+        cleaned_docs_count = 0
+
+        for doc in docs:
+            # Skip if status is already marked deleted and the file was already cleaned
+            if doc.status == "deleted" and not Path(doc.storage_path).exists():
+                continue
+
+            filepath = Path(doc.storage_path)
+            # Safe delete file if exists
+            if filepath.exists() and filepath.is_file():
+                try:
+                    filepath.unlink()
+                    logger.info(f"Deleted expired source document file: {doc.public_id}")
+                except OSError as e:
+                    logger.error(
+                        f"Failed to delete file for source document {doc.public_id}: {str(e)}"
+                    )
+
+            doc.status = "deleted"
+            cleaned_docs_count += 1
+
+        if cleaned_docs_count > 0:
+            db.commit()
+            logger.info(
+                f"Successfully cleaned up {cleaned_docs_count} expired source document records."
+            )
+        else:
+            logger.info("No expired source documents found to clean up.")
+
         return 0
 
     except Exception as e:
