@@ -8,12 +8,17 @@ ISO_COUNTRY_REGEX = re.compile(r"^[A-Z]{2}$")
 
 
 def validate_value(
-    field_type: str, val: Any, required: bool, config: dict[str, Any]
+    field_type: str,
+    val: Any,
+    required: bool,
+    config: dict[str, Any],
+    options: list[Any] | None = None,
 ) -> tuple[bool, str | None]:
     """Deterministically validates a normalized value against configuration.
 
     Checks value type, requirements, and custom configurations.
     """
+    print("DEBUG VALIDATION - FIELD TYPE:", field_type, "VAL:", repr(val), "OPTIONS:", [o.value for o in options] if options else None)
 
     # 1. Required check
     is_empty = False
@@ -136,16 +141,24 @@ def validate_value(
             return False, "Value must be a boolean."
 
     elif field_type == "single_choice":
-        options = config.get("options", [])
-        opt_values = {opt["value"] for opt in options if "value" in opt}
+        opt_values = set()
+        if options:
+            opt_values = {opt.value for opt in options}
+        else:
+            opt_opts = config.get("options", [])
+            opt_values = {opt["value"] for opt in opt_opts if "value" in opt}
         if val not in opt_values:
             return False, f"Value '{val}' must be one of the canonical options."
 
     elif field_type == "multiple_choice":
         if not isinstance(val, list):
             return False, "Value must be a list."
-        options = config.get("options", [])
-        opt_values = {opt["value"] for opt in options if "value" in opt}
+        opt_values = set()
+        if options:
+            opt_values = {opt.value for opt in options}
+        else:
+            opt_opts = config.get("options", [])
+            opt_values = {opt["value"] for opt in opt_opts if "value" in opt}
         for item in val:
             if item not in opt_values:
                 return (

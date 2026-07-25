@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { checkBackendHealth, checkDatabaseHealth } from "@/services/api";
 
 type ConnectionStatus = "loading" | "connected" | "unavailable";
@@ -152,6 +153,14 @@ export default function Home() {
                     </>
                   )}
                 </div>
+              </div>
+              <div className="mt-6 w-full">
+                <Link
+                  href="/application"
+                  className="block w-full text-center rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3 text-sm font-bold shadow-lg shadow-indigo-500/20 transition hover:opacity-95 active:scale-[0.99]"
+                >
+                  Start Guided Application
+                </Link>
               </div>
             </div>
           </div>

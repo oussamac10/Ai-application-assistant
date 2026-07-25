@@ -2,100 +2,106 @@
 
 ## Current Task
 
-Implementing a Reusable Question Catalog and Hybrid Resolution System (MVP Phase 6).
+Implementing Frontend Guided Form Experience (MVP Phase 7).
 
 ## Goal
 
-Decouple form questions from specific form versions by introducing a reusable question catalog with stable semantic keys. Resolve questions through a hybrid lookup pipeline (database approved first, static translation fallback, AI translation/generation as pending review, deterministic fallback as last resort) while ensuring no duplicate AI calls.
+Build a complete guided frontend experience in Next.js for selecting a form, accepting privacy terms, creating an anonymous session, answering fields one-by-one, handling normalization confirmations and clarifications, editing confirmed answers, displaying progress, reviewing a final summary, and transitioning to a ready-for-export screen.
 
 ## Acceptance Criteria
 
-- [x] Phase 5 TODO details are archived in `docs/progress/phase-5-local-ollama-provider.md`
-- [x] root `TODO.md` reset for Phase 6
-- [x] branch is `feature/reusable-question-catalog`
-- [x] `QuestionDefinition` model exists
-- [x] `QuestionTranslation` model exists
-- [x] question resolution metadata is recorded (resolution log/audit model)
-- [x] migration upgrade succeeds
-- [x] migration downgrade succeeds
-- [x] stable semantic question keys are used (e.g. `personal.first_name`)
-- [x] displayed text is not used as question identity
-- [x] approved database question is checked before AI
-- [x] approved user-language translation is preferred
-- [x] static form translation is used before AI
-- [x] AI translation runs only when needed (stores as pending review)
-- [x] AI generation runs only as a final language-aware fallback (stores as pending review)
-- [x] deterministic fallback works without AI
-- [x] AI content defaults to pending review
-- [x] approved manual content is never overwritten automatically
-- [x] pending content is not globally reused by default
-- [x] repeated approved questions cause zero AI calls
-- [x] question resolution does not alter workflow state or progress
-- [x] session ownership remains enforced
-- [x] at least 11 common semantic questions are seeded
-- [x] approved `en`, `de`, `fr`, and `ar` translations exist for seeded questions
-- [x] automated tests make no real AI calls
-- [x] backend tests pass
+- [x] Phase 6 TODO archived in `docs/progress/phase-6-reusable-question-catalog.md`
+- [x] root `TODO.md` reset for Phase 7
+- [x] branch is `feature/frontend-guided-form`
+- [x] language-selection screen works
+- [x] user and output languages remain separate
+- [x] Arabic RTL layout works (HTML `dir="rtl"`)
+- [x] privacy notice requires explicit acceptance
+- [x] anonymous session can be created
+- [x] ownership token is stored safely in `sessionStorage`
+- [x] ownership token is never placed in URL
+- [x] session can be started
+- [x] current resolved question is displayed
+- [x] one-question-at-a-time flow works
+- [x] all 14 supported field types have usable components
+- [x] answer submission works
+- [x] clarification workflow works
+- [x] confirmation workflow works
+- [x] previous-field navigation works
+- [x] confirmed answer editing works
+- [x] progress comes only from backend
+- [x] final summary is displayed in order
+- [x] final confirmation works
+- [x] ready-for-export screen is displayed
+- [x] no PDF generation exists
+- [x] session reload works in the same browser tab
+- [x] missing or expired credentials produce safe restart flow
+- [x] provider errors preserve user input
+- [x] loading states prevent duplicate actions
+- [x] mobile layout works (responsive layout, touch targets)
+- [x] keyboard navigation works
+- [x] screen-reader labels exist
+- [x] raw backend errors and stack traces are not displayed
 - [x] frontend tests pass
-- [x] Ruff linting passes
-- [x] Ruff formatting passes
-- [x] mypy passes
+- [x] Playwright guided-flow tests pass
+- [x] backend tests continue to pass
 - [x] ESLint passes
 - [x] TypeScript checking passes
-- [x] documentation is updated (including ADR 0005)
-- [x] no vector search, embeddings, OCR, upload, PDF, auth, payment, Redis, Celery, or object storage was implemented
+- [x] Ruff passes for any backend changes
+- [x] mypy passes for any backend changes
+- [x] documentation is updated
+- [x] ADR 0006 is created
+- [x] no PDF, OCR, upload, auth, payment, Redis, Celery, object storage, or cloud AI was implemented
 - [x] `TODO.md` contains final verification results
-
 
 ## Planned Steps
 
-- [x] Create Git branch `feature/reusable-question-catalog`
-- [x] Archive Phase 5 TODO in `docs/progress/phase-5-local-ollama-provider.md`
-- [x] Define SQLAlchemy database models: `QuestionDefinition`, `QuestionTranslation`, and `QuestionResolutionLog` (or audit logs)
-- [x] Create Alembic migration upgrade/downgrade scripts for the new tables and run the upgrade
-- [x] Implement the repository layer (`QuestionDefinitionRepository`, `QuestionTranslationRepository`, `QuestionResolutionLogRepository`)
-- [x] Seed at least 11 common semantic questions with approved translations for `en`, `de`, `fr`, and `ar`
-- [x] Implement prompt templates for question translation and generation: `translate_question_v1.txt` and `generate_question_v1.txt`
-- [x] Implement `QuestionCatalogService` to manage/access definitions and manual translations
-- [x] Implement `QuestionReviewService` for manual review transitions (approve/reject pending translations)
-- [x] Implement `QuestionResolver` with hybrid lookup flow (database first, static fallback, AI translation, AI generation, deterministic fallback)
-- [x] Expose administrative/development endpoints for listing catalog, creating translations, and reviewing translations
-- [x] Integrate resolved questions into the `GET /api/form-sessions/{session_id}/current-question` endpoint (and extend current-field response)
-- [x] Write unit tests for repositories, catalog, resolver logic, AI calls deduplication, and endpoint security/access
-- [x] Run full verification checks (Ruff check, formatting, mypy types check, pytest backend/frontend tests)
-- [x] Update project documentation: architecture, question-catalog, ADR 0005, README.md, config settings
+- [x] Create Git branch `feature/frontend-guided-form`
+- [x] Archive Phase 6 TODO in `docs/progress/phase-6-reusable-question-catalog.md`
+- [x] Define `PublishedFormResponse` schema and implement `GET /api/published-forms` on the backend
+- [x] Install frontend dependencies (`next-intl`, `react-hook-form`, `zod`) and add static locale files in `frontend/messages/`
+- [x] Create `LanguageProvider` with client-side localization and Arabic `dir="rtl"` handling
+- [x] Implement `sessionCredentials` for storage mapping and `apiClient` mapping HTTP calls
+- [x] Build Field Input components for all 14 backend types in `FieldRenderer`
+- [x] Implement Landing/Form Selection page (`/application`) with privacy acceptance
+- [x] Implement Workflow Session page (`/application/session/[sessionId]`) rendering current resolved question and navigation
+- [x] Integrate Clarification sub-form asking for missing inputs and keeping original answer
+- [x] Integrate Confirmation sub-form showing proposed normalized values vs original answers
+- [x] Implement Summary page (`/application/session/[sessionId]/summary`) displaying all fields
+- [x] Implement Ready-for-Export page (`/application/session/[sessionId]/complete`)
+- [x] Write Vitest tests for session creation, input components, RTL layouts, and workflows
+- [x] Add Playwright E2E tests for the happy path guided flow and key error states
+- [x] Run full QA checks, update architecture documentation, and write ADR 0006
 
 ## Files Expected to Change
 
 - `TODO.md`
-- `.env.example`
-- `backend/app/core/config.py`
-- `backend/app/models/` (or new models file/directory)
-- `backend/app/database/` (for migration)
-- `backend/app/questions/` (new module: schemas, repositories, services, api)
-- `backend/app/ai/prompts/translate_question_v1.txt` (new)
-- `backend/app/ai/prompts/generate_question_v1.txt` (new)
-- `backend/app/sessions/api/routes.py`
-- `backend/app/main.py`
-- `backend/tests/questions/` (new tests)
-- `docs/question-catalog.md` (new)
-- `docs/decisions/0005-hybrid-question-resolution.md` (new)
+- `backend/app/forms/schemas.py`
+- `backend/app/forms/api/routes.py`
+- `frontend/package.json`
+- `frontend/messages/en.json` (new)
+- `frontend/messages/de.json` (new)
+- `frontend/messages/fr.json` (new)
+- `frontend/messages/ar.json` (new)
+- `frontend/src/features/form-session/` (new directories: services, components, types, hooks)
+- `frontend/src/app/application/page.tsx` (new)
+- `frontend/src/app/application/session/[sessionId]/page.tsx` (new)
+- `frontend/src/app/application/session/[sessionId]/summary/page.tsx` (new)
+- `frontend/src/app/application/session/[sessionId]/complete/page.tsx` (new)
+- `frontend/src/app/page.tsx`
+- `frontend/src/test/guided-flow.spec.ts` (new)
+- `docs/decisions/0006-frontend-session-state.md` (new)
+- `docs/frontend-guided-flow.md` (new)
 - `docs/architecture.md`
-- `docs/form-model.md`
 - `docs/workflow.md`
-- `docs/ai-provider.md`
-- `docs/testing.md`
-- `docs/privacy.md`
-- `docs/security.md`
 - `README.md`
 
 ## Decisions and Assumptions
 
-- We will implement three tables: `question_definitions`, `question_translations`, and `question_resolution_logs`.
-- Semantic keys (e.g. `personal.first_name`) will be used as unique lookup identifiers.
-- Production behavior will default to approved-only database translation lookup or deterministic fallback unless pending reuse configuration is explicitly turned on.
-- No semantic vector databases or similarity search will be added; matching is exact/by key.
-- Administration endpoints are development/mock only, protected behind a developer guard configuration.
+- We will keep the session token `ownershipToken` in `sessionStorage` to isolate it by tab and prevent it from appearing in URLs.
+- The UI language selection persists across pages and configures the direction `dir` on `html` elements.
+- UI state does not override backend data; after every action, the backend response is treated as the single source of truth.
+- Playwright tests will run using mock backend data or controlled test fixtures to avoid requiring active LLM/Ollama services.
 
 ## Blockers
 
@@ -103,22 +109,22 @@ Decouple form questions from specific form versions by introducing a reusable qu
 
 ## Verification
 
-- [x] Backend tests pass
-- [x] Frontend tests pass
-- [x] Linting passes
-- [x] Formatting passes
-- [x] Type checking passes
-- [x] Acceptance criteria were manually verified
+- [x] Backend tests pass: 63 tests passed successfully.
+- [x] Frontend tests pass: 13 Vitest unit tests passed successfully.
+- [x] Playwright E2E tests pass: `guided-flow.spec.ts` passes successfully in 4.2 seconds against active local/docker instances.
+- [x] Linting passes: Next lint (`eslint`) and Python `ruff check` pass with zero warnings or errors.
+- [x] Formatting passes: Ruff formatting and prettier formatting checks pass.
+- [x] Type checking passes: `tsc --noEmit` and `mypy` check pass without any errors (ignoring migrations folders).
+- [x] Acceptance criteria were manually verified.
 
 ## Completed
 
-- Created Git branch `feature/reusable-question-catalog`
-- Archived Phase 5 TODOs in `docs/progress/phase-5-local-ollama-provider.md`
-- Reset root `TODO.md` for Phase 6
-- Implemented models, repositories, and resolver for reusable question catalog
-- Created Alembic database migration
-- Seeded catalog with 11 core question keys and approved `en`, `de`, `fr`, and `ar` translations
-- Developed prompt templates and extended mock/Ollama provider signatures
-- Added catalog list/review administration routes and integrated resolver inside workflow sessions
-- Wrote and verified 100% test coverage for Resolver, Review Service, and Session API Integration
-- Verified formatting, linting (Ruff), types (mypy), and all tests pass on frontend and backend
+- Created Git branch `feature/frontend-guided-form`
+- Archived Phase 6 TODOs in `docs/progress/phase-6-reusable-question-catalog.md`
+- Reset root `TODO.md` for Phase 7
+- Implemented client-side localization with RTL support
+- Implemented secure anonymous session tokens inside `sessionStorage`
+- Built premium, accessible field input renderer for all 14 types
+- Completed the guided flow with clarification/confirmation loops and back-and-forth editing
+- Finalized summary verification and exported completeness screens
+- Wrote architecture guides, user-flow diagrams, and ADR 0006

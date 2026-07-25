@@ -463,3 +463,60 @@ def test_cloning_and_independence() -> None:
     orig_lang = orig_field["translations"][0]["language"]
     assert clone_lang == orig_lang
     assert clone_field["options"][0]["id"] != orig_field["options"][0]["id"]
+
+
+def test_list_published_forms() -> None:
+    # 1. Create and publish a version
+    res = client.post(
+        "/api/forms",
+        json={
+            "key": "published-list-form",
+            "name": "Published List Form",
+            "description": "Form for test",
+        },
+    )
+    form_id = res.json()["id"]
+    res_v = client.post(
+        f"/api/forms/{form_id}/versions",
+        json={"sourceLanguage": "en", "supportedOutputLanguages": ["en", "de"]},
+    )
+    version_id = res_v.json()["id"]
+
+    # At this point, it is a draft, so it shouldn't show in the published list
+    res_list_1 = client.get("/api/published-forms")
+    assert res_list_1.status_code == 200
+    assert not any(f["id"] == version_id for f in res_list_1.json())
+
+    # Add a field to the draft
+    res_field = client.post(
+        f"/api/form-versions/{version_id}/fields",
+        json={
+            "key": "first_name",
+            "fieldType": "person_name",
+            "required": True,
+            "position": 1,
+            "translations": [
+                {"language": "en", "label": "First Name"},
+            ],
+        },
+    )
+    assert res_field.status_code == 201
+
+    # Publish the version
+    res_pub = client.post(f"/api/form-versions/{version_id}/publish")
+    assert res_pub.status_code == 200
+
+    # Now it should show up in the published forms list
+    res_list_2 = client.get("/api/published-forms")
+    assert res_list_2.status_code == 200
+    published_forms = res_list_2.json()
+    assert any(f["id"] == version_id for f in published_forms)
+
+    # Verify response schema fields
+    target_form = next(f for f in published_forms if f["id"] == version_id)
+    assert target_form["templateKey"] == "published-list-form"
+    assert target_form["name"] == "Published List Form"
+    assert target_form["description"] == "Form for test"
+    assert target_form["versionNumber"] == 1
+    assert target_form["sourceLanguage"] == "en"
+    assert target_form["supportedOutputLanguages"] == ["en", "de"]

@@ -250,7 +250,11 @@ class AnswerService:
         else:
             norm_val = normalize_value(field.field_type, result.normalized_value)
             is_valid, err = validate_value(
-                field.field_type, norm_val, field.required, field.configuration
+                field.field_type,
+                norm_val,
+                field.required,
+                field.configuration,
+                options=field.options,
             )
 
             answer.normalized_value = norm_val
@@ -315,7 +319,11 @@ class AnswerService:
         else:
             norm_val = normalize_value(field.field_type, merged)
             is_valid, err = validate_value(
-                field.field_type, norm_val, field.required, field.configuration
+                field.field_type,
+                norm_val,
+                field.required,
+                field.configuration,
+                options=field.options,
             )
 
             answer.normalized_value = norm_val

@@ -202,7 +202,7 @@ async def test_resolver_step_4_ai_translation(
     db = SessionLocal()
     ai = MockAIProvider()
 
-    from app.ai.schemas import QuestionTranslationRequest, QuestionTranslationResult
+    from app.ai.schemas import QuestionTranslationRequest
 
     # Mock the AI translate_question method
     async def mock_translate_question(
@@ -258,7 +258,7 @@ async def test_resolver_step_5_ai_generation(
     db = SessionLocal()
     ai = MockAIProvider()
 
-    from app.ai.schemas import QuestionGenerationRequest, QuestionGenerationResult
+    from app.ai.schemas import QuestionGenerationRequest
 
     # Mock AI generate_question method
     async def mock_generate_question(

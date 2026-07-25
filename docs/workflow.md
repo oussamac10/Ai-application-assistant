@@ -54,3 +54,30 @@ state_diagram
   - Enforces that all required fields are `confirmed`.
   - Ensures no answers are `invalid` or `needs_clarification`.
   - Transitions the session from `in_progress` to `awaiting_final_confirmation` and then immediately to `ready_for_export`.
+
+---
+
+## Frontend Guided Flow States
+
+The frontend guides the user step-by-step using a state machine that responds directly to backend state updates:
+
+### 1. Standard Input (`answering`)
+- Renders the active question using the resolved question definition and appropriate component.
+- The `Continue` button is disabled until the user provides an input.
+- Displays progress indicators matching backend calculations (`current`, `total`, `percentage`).
+
+### 2. Clarification Flow (`needs_clarification`)
+- Triggered when Mock AI Normalization determines variables are missing (e.g. money fields without currency or period).
+- Displays a dedicated form prompting for only the missing attributes.
+- Preserves the user's original raw text response, showing it in an review card.
+- User can either fill out the missing attributes and click `Submit`, or click `Edit` to return to the standard input.
+
+### 3. Normalization Confirmation (`awaiting_confirmation`)
+- Triggered when Mock AI Normalization successfully resolves a value.
+- Presents the proposed form value side-by-side with the user's original input.
+- User must click `Confirm` to finalize the value (transitioning to `confirmed` status and advancing the position) or `Edit` to modify their answer.
+
+### 4. Back Navigation and Editing
+- **Back Button**: Navigates to the previous field position. Fetches the previous field details and pre-populates the input with the user's previously submitted raw text.
+- **Summary Page Edit Button**: Invokes the `changeAnswer` endpoint to clear the field's confirmation status and moves the session to that field. The user is redirected back to the guided flow screen to re-submit.
+

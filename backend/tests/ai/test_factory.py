@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+
 import pytest
 
 import app.ai.factory as _factory_mod
@@ -11,8 +13,6 @@ from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.ai.ollama_provider import OllamaAIProvider
 from app.core.config import settings
 
-
-from collections.abc import Generator
 
 @pytest.fixture(autouse=True)
 def _reset_provider_singleton() -> Generator[None, None, None]:

@@ -51,7 +51,9 @@ class QuestionResolver:
             )
 
         # Step 1: Check DB for approved user_language translation
-        approved_user_lang = self.repo.get_approved_translation(question_key, user_language)
+        approved_user_lang = self.repo.get_approved_translation(
+            question_key, user_language
+        )
         if approved_user_lang:
             self.repo.log_resolution(
                 question_key=question_key,
@@ -74,7 +76,9 @@ class QuestionResolver:
 
         # Optional: check DB for pending user_language translation if allowed
         if settings.QUESTION_ALLOW_PENDING_REUSE or allow_pending:
-            pending_user_lang = self.repo.get_pending_translation(question_key, user_language)
+            pending_user_lang = self.repo.get_pending_translation(
+                question_key, user_language
+            )
             if pending_user_lang:
                 self.repo.log_resolution(
                     question_key=question_key,

@@ -95,7 +95,9 @@ class QuestionReviewService:
         self.db = db
         self.repo = QuestionRepository(db)
 
-    def approve_translation(self, question_key: str, language: str) -> QuestionTranslation:
+    def approve_translation(
+        self, question_key: str, language: str
+    ) -> QuestionTranslation:
         """Transition a pending translation to approved status."""
         definition = self.repo.get_definition(question_key)
         if not definition:

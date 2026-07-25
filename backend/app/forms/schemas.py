@@ -106,3 +106,13 @@ class TemplateResponse(BaseSchema):
     description: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class PublishedFormResponse(BaseSchema):
+    id: str
+    template_key: str
+    name: str
+    description: str | None = None
+    version_number: int
+    source_language: str
+    supported_output_languages: list[str]

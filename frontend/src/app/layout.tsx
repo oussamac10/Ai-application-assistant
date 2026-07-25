@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { LanguageProvider } from "@/features/form-session/components/LanguageProvider";
 
 export const metadata: Metadata = {
   title: "AI Form Assistant",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <LanguageProvider>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }

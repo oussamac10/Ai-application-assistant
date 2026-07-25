@@ -1,0 +1,51 @@
+{
+  "common": {
+    "title": "AI Form Assistant",
+    "back": "Back",
+    "continue": "Continue",
+    "submit": "Submit",
+    "confirm": "Confirm",
+    "edit": "Edit",
+    "restart": "Start Over",
+    "loading": "Loading..."
+  },
+  "landing": {
+    "selectUiLanguage": "Select UI Language",
+    "selectOutputLanguage": "Select Output Language",
+    "selectForm": "Select Form",
+    "privacyNoticeTitle": "Privacy Notice",
+    "privacyNoticeBody": "This session is temporary. Your answers may contain sensitive personal data. Please do not provide information unrelated to the form. The session will automatically expire and be deleted after inactivity. No data is automatically submitted to third-party authorities. You must review the final summary before completing. By proceeding, you agree to these terms.",
+    "acceptPrivacy": "I understand and agree to the privacy notice",
+    "startSession": "Start Assisted Session"
+  },
+  "workflow": {
+    "progress": "Question {current} of {total} ({percent}%)",
+    "clarificationTitle": "Clarification Required",
+    "clarificationSubtitle": "We need additional details to normalize your answer:",
+    "confirmTitle": "Confirm Extracted Information",
+    "originalAnswerLabel": "Your original answer:",
+    "proposedValueLabel": "Proposed form value:"
+  },
+  "summary": {
+    "title": "Session Summary",
+    "subtitle": "Please review all answers before final export confirmation.",
+    "fieldHeader": "Field",
+    "originalHeader": "Original Answer",
+    "normalizedHeader": "Proposed Value",
+    "statusHeader": "Status",
+    "submitSummary": "Confirm and Finalize Summary",
+    "warning": "Important: By confirming, you verify that all details are correct. No automatic submission is performed."
+  },
+  "complete": {
+    "title": "Form Ready for Export",
+    "subtitle": "Your assisted session is complete!",
+    "body": "Your form data has been successfully verified. The final completed PDF download will be available in the next release phase. No automatic submission was made to any third-party authority.",
+    "startNew": "Start a New Form"
+  },
+  "errors": {
+    "unauthorized": "This session is invalid or has expired. Please start a new session.",
+    "conflict": "This action is not available at the current step. The form has been refreshed.",
+    "validation": "We could not validate this answer. Please review the highlighted information.",
+    "unavailable": "The AI language assistant is temporarily unavailable. Your original answer has been preserved. Please try again."
+  }
+}

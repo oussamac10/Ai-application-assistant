@@ -11,27 +11,21 @@ The AI Form Assistant bridges the language gap by allowing users to complete for
 
 It guides the user through the form one field at a time, normalizing, validating, and confirming answers.
 
-## Current MVP Phase: MVP Phase 4 — Mock Question and Answer Workflow
+## Current MVP Phase: MVP Phase 7 — Frontend Guided Form Experience
 
-This repository contains the implementation of MVP Phase 4. It establishes:
-* Multilingual Q&A workflow supporting 14 distinct field types.
-* `MockAIProvider` executing mock extraction rules locally without external API calls.
-* Deterministic normalizers and validators running server-side for strict schema conformance.
-* Temporary `FormAnswer` data model with cascade deletion upon session removal.
-* Ordered field selection tracking current position dynamically.
-* API endpoints:
-  - `GET /api/form-sessions/{session_id}/current-field` (Get current Q&A field)
-  - `POST /api/form-sessions/{session_id}/answers` (Submit original answer text)
-  - `POST /api/form-sessions/{session_id}/answers/{answer_id}/clarify` (Submit missing details for clarification)
-  - `POST /api/form-sessions/{session_id}/answers/{answer_id}/confirm` (Confirm extracted/normalized value)
-  - `PUT /api/form-sessions/{session_id}/fields/{field_id}/answer` (Edit answer)
-  - `POST /api/form-sessions/{session_id}/previous-field` (Navigate backwards)
-  - `GET /api/form-sessions/{session_id}/summary` (List all fields and their answers)
-  - `POST /api/form-sessions/{session_id}/confirm-summary` (Submit final confirmation)
-* Dynamic progress tracking based on confirmed required fields.
-* Full test coverage and static analysis verification.
+This repository contains the implementation of MVP Phase 7. It establishes:
+* **Client-Side UI Localization**: Dynamic switching between English (`en`), Deutsch (`de`), Français (`fr`), and Arabic (`ar`).
+* **Arabic RTL Layout Support**: Automatic toggling of HTML `dir="rtl"` and RTL-compliant UI flows when Arabic is selected.
+* **Privacy Notice Compliance**: Explicit checkbox acceptance is required before starting any session.
+* **Secure Anonymous Session Ownership**: Storing `ownershipToken` in client-side `sessionStorage` instead of URLs to prevent credentials leakage.
+* **14 Field Type Components**: Usable Tailwind-styled input components rendered dynamically via a central `FieldRenderer` dispatcher.
+* **Clarification & Normalization Workflows**: Sidebar clarification sub-forms asking for missing inputs, and confirmation screens comparing original inputs side-by-side with proposed normalized values.
+* **Back-Navigation & Edit Hooks**: Clean `Back` button navigation preserving raw inputs, and direct editing from the summary review page.
+* **Progress Tracking**: Progress metrics fetched dynamically from backend calculations.
+* **Final Summary Review**: Complete summary page displaying all questions and confirmed values, final confirmation checks, and transition to a completed screen.
 
-*Note: In Phase 4, OCR, uploads, and PDF templates mapping/exports are omitted.*
+*Note: OCR, document uploads, account registration, and PDF export generation are omitted from Phase 7.*
+
 
 ---
 

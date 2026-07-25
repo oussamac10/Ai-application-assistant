@@ -68,3 +68,27 @@ To keep route handlers thin and business logic separate from HTTP concerns, exce
 - **StateConflictError** / **IntegrityError** -> HTTP `409 Conflict`
 - **ValidationError** / **ConfigurationValidationError** -> HTTP `422 Unprocessable Entity`
 - **UnauthorizedError** -> HTTP `401 Unauthorized` (used for invalid/missing session ownership tokens)
+
+---
+
+## Frontend Architecture
+
+The Next.js frontend is structured for localization, secure step-based workflow management, and responsive dynamic form presentation:
+
+### 1. Route Layout & Localization
+- **`LanguageProvider`**: Wrapped around the root layout, it dynamically sets the document language and direction (e.g., `dir="rtl"` and `lang="ar"` for Arabic) based on UI language choices, preserving selections in `localStorage`.
+- **`next-intl`**: Handles static translation strings for headers, labels, placeholders, errors, and summaries using static translation assets (`en.json`, `de.json`, `fr.json`, `ar.json`).
+
+### 2. Session Ownership and Security
+- **`sessionCredentials` Service**: Manages `ownershipToken` mappings in `sessionStorage` isolated by browser tab.
+- **Secure API Client (`apiClient.ts`)**: Appends the tab's `ownershipToken` using the `X-Session-Token` request header. It completely avoids URL token injection.
+
+### 3. Workflow Routing & Dynamic Rendering
+- **Guided Form Container (`/application/session/[sessionId]/page.tsx`)**: Integrates standard, clarification, and confirmation sub-flows based on backend answer state transitions.
+- **`FieldRenderer` Component**: A unified entrypoint rendering appropriate input inputs for all 14 field types including:
+  - Text: `string`, `person_name`, `country`, `money`
+  - Numeric: `integer`, `decimal`
+  - DateTime: `date`
+  - Special: `email`, `phone` (with custom direction controls), `boolean` (custom Yes/No buttons), `address` (multi-line textarea)
+  - Choices: `single_choice` (custom dropdown select), `multiple_choice` (checkbox list group)
+

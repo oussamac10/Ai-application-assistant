@@ -1,0 +1,51 @@
+{
+  "common": {
+    "title": "KI-Formularassistent",
+    "back": "Zurück",
+    "continue": "Weiter",
+    "submit": "Absenden",
+    "confirm": "Bestätigen",
+    "edit": "Bearbeiten",
+    "restart": "Neu starten",
+    "loading": "Wird geladen..."
+  },
+  "landing": {
+    "selectUiLanguage": "Sprache der Benutzeroberfläche wählen",
+    "selectOutputLanguage": "Ausgabesprache des Formulars wählen",
+    "selectForm": "Formular auswählen",
+    "privacyNoticeTitle": "Datenschutzhinweis",
+    "privacyNoticeBody": "Diese Sitzung ist temporär. Ihre Antworten können sensible persönliche Daten enthalten. Bitte geben Sie keine Informationen an, die nicht mit dem Formular in Zusammenhang stehen. Die Sitzung läuft automatisch ab und wird bei Inaktivität gelöscht. Es werden keine Daten automatisch an Behörden übermittelt. Sie müssen die endgültige Zusammenfassung vor dem Abschluss überprüfen. Mit dem Fortfahren stimmen Sie diesen Bedingungen zu.",
+    "acceptPrivacy": "Ich verstehe den Datenschutzhinweis und stimme ihm zu",
+    "startSession": "Unterstützte Sitzung starten"
+  },
+  "workflow": {
+    "progress": "Frage {current} von {total} ({percent}%)",
+    "clarificationTitle": "Klärung erforderlich",
+    "clarificationSubtitle": "Wir benötigen zusätzliche Details, um Ihre Antwort zu normalisieren:",
+    "confirmTitle": "Extrahierte Informationen bestätigen",
+    "originalAnswerLabel": "Ihre ursprüngliche Antwort:",
+    "proposedValueLabel": "Vorgeschlagener Formularwert:"
+  },
+  "summary": {
+    "title": "Sitzungszusammenfassung",
+    "subtitle": "Bitte überprüfen Sie alle Antworten vor der endgültigen Bestätigung des Exports.",
+    "fieldHeader": "Feld",
+    "originalHeader": "Ursprüngliche Antwort",
+    "normalizedHeader": "Vorgeschlagener Wert",
+    "statusHeader": "Status",
+    "submitSummary": "Zusammenfassung bestätigen und abschließen",
+    "warning": "Wichtig: Mit der Bestätigung verifizieren Sie, dass alle Angaben korrekt sind. Es erfolgt keine automatische Übermittlung."
+  },
+  "complete": {
+    "title": "Formular bereit für den Export",
+    "subtitle": "Ihre unterstützte Sitzung ist abgeschlossen!",
+    "body": "Ihre Formulardaten wurden erfolgreich verifiziert. Der endgültige ausgefüllte PDF-Download wird in der nächsten Release-Phase verfügbar sein. Es wurde keine automatische Übermittlung an Behörden vorgenommen.",
+    "startNew": "Ein neues Formular starten"
+  },
+  "errors": {
+    "unauthorized": "Diese Sitzung ist ungültig oder abgelaufen. Bitte starten Sie eine neue Sitzung.",
+    "conflict": "Diese Aktion ist im aktuellen Schritt nicht verfügbar. Das Formular wurde aktualisiert.",
+    "validation": "Wir konnten diese Antwort nicht validieren. Bitte überprüfen Sie die hervorgehobenen Informationen.",
+    "unavailable": "Der KI-Sprachassistent ist vorübergehend nicht verfügbar. Ihre ursprüngliche Antwort wurde gespeichert. Bitte versuchen Sie es erneut."
+  }
+}

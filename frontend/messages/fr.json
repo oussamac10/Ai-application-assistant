@@ -1,0 +1,51 @@
+{
+  "common": {
+    "title": "Assistant de Formulaire IA",
+    "back": "Retour",
+    "continue": "Continuer",
+    "submit": "Soumettre",
+    "confirm": "Confirmer",
+    "edit": "Modifier",
+    "restart": "Recommencer",
+    "loading": "Chargement..."
+  },
+  "landing": {
+    "selectUiLanguage": "Sélectionner la langue de l'interface",
+    "selectOutputLanguage": "Sélectionner la langue de sortie",
+    "selectForm": "Sélectionner le formulaire",
+    "privacyNoticeTitle": "Avis de confidentialité",
+    "privacyNoticeBody": "Cette session est temporaire. Vos réponses peuvent contenir des données personnelles sensibles. Veuillez ne pas fournir d'informations sans rapport avec le formulaire. La session expirera automatiquement et sera supprimée après inactivité. Aucune donnée n'est automatiquement soumise aux autorités. Vous devez examiner le résumé final avant de terminer. En continuant, vous acceptez ces conditions.",
+    "acceptPrivacy": "Je comprends et j'accepte l'avis de confidentialité",
+    "startSession": "Démarrer la session assistée"
+  },
+  "workflow": {
+    "progress": "Question {current} sur {total} ({percent}%)",
+    "clarificationTitle": "Clarification requise",
+    "clarificationSubtitle": "Nous avons besoin de détails supplémentaires pour normaliser votre réponse :",
+    "confirmTitle": "Confirmer les informations extraites",
+    "originalAnswerLabel": "Votre réponse originale :",
+    "proposedValueLabel": "Valeur proposée pour le formulaire :"
+  },
+  "summary": {
+    "title": "Résumé de la session",
+    "subtitle": "Veuillez vérifier toutes les réponses avant la confirmation finale de l'exportation.",
+    "fieldHeader": "Champ",
+    "originalHeader": "Réponse originale",
+    "normalizedHeader": "Valeur proposée",
+    "statusHeader": "Statut",
+    "submitSummary": "Confirmer et finaliser le résumé",
+    "warning": "Important : En confirmant, vous vérifiez que tous les détails sont corrects. Aucune soumission automatique n'est effectuée."
+  },
+  "complete": {
+    "title": "Formulaire prêt pour l'exportation",
+    "subtitle": "Votre session assistée est terminée !",
+    "body": "Vos données de formulaire ont été vérifiées avec succès. Le téléchargement final du PDF rempli sera disponible dans la prochaine phase de publication. Aucune soumission automatique n'a été faite aux autorités.",
+    "startNew": "Commencer un nouveau formulaire"
+  },
+  "errors": {
+    "unauthorized": "Cette session est invalide ou a expiré. Veuillez démarrer une nouvelle session.",
+    "conflict": "Cette action n'est pas disponible à l'étape actuelle. Le formulaire a été actualisé.",
+    "validation": "Nous n'avons pas pu valider cette réponse. Veuillez vérifier les informations en surbrillance.",
+    "unavailable": "L'assistant linguistique IA est temporairement indisponible. Votre réponse originale a été conservée. Veuillez réessayer."
+  }
+}

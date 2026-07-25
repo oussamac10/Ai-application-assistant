@@ -1,5 +1,8 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, joinedload
 
 from app.database.session import get_db
 from app.forms.models import FormField, FormTemplate, FormVersion
@@ -7,6 +10,7 @@ from app.forms.schemas import (
     FieldCreate,
     FieldResponse,
     FieldUpdate,
+    PublishedFormResponse,
     TemplateCreate,
     TemplateResponse,
     VersionCreate,
@@ -103,3 +107,29 @@ def publish_version(version_id: str, db: Session = Depends(get_db)) -> FormVersi
 def clone_version(version_id: str, db: Session = Depends(get_db)) -> FormVersion:
     service = FormService(db)
     return service.clone_version(version_id)
+
+
+@router.get("/published-forms", response_model=list[PublishedFormResponse])
+def list_published_forms(db: Session = Depends(get_db)) -> Any:
+    stmt = (
+        select(FormVersion)
+        .options(joinedload(FormVersion.template))
+        .where(FormVersion.status == "published")
+        .order_by(FormVersion.published_at.desc())
+    )
+    versions = db.scalars(stmt).unique().all()
+
+    result = []
+    for v in versions:
+        result.append(
+            {
+                "id": v.id,
+                "template_key": v.template.key,
+                "name": v.template.name,
+                "description": v.template.description,
+                "version_number": v.version_number,
+                "source_language": v.source_language,
+                "supported_output_languages": v.supported_output_languages,
+            }
+        )
+    return result
