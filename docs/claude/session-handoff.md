@@ -4,27 +4,31 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-No Phase 10 implementation has started.
+Phase 10 branch setup complete: branch created, Phase 9 TODO archived, root `TODO.md` reset, and all three deferred Phase 9 checks verified. No Phase 10 OCR implementation code has been written yet.
 
 ## Repository state
 
-- Expected branch: `feature/ocr-integration`
-- Expected base: `feature/form-upload-analysis`
-- Verify working tree at startup.
+- Branch: `feature/ocr-integration` (created from `feature/form-upload-analysis`)
+- Working tree: clean except pending TODO/handoff doc updates (this commit)
 
 ## Files changed
 
-None.
+- `TODO.md` — reset for Phase 10
+- `docs/progress/phase-9-form-upload-analysis.md` — archived Phase 9 TODO
+- `docs/claude/current-phase.md` — status updated
+- `docs/claude/session-handoff.md` — this file
 
 ## Checks executed
 
-None.
+- `mypy app` → Success: no issues found in 77 source files
+- `alembic downgrade -1` then `alembic upgrade head` → clean round-trip; `pytest` re-run after → 87 passed
+- Playwright `e2e/upload-analysis-flow.spec.ts` (against local `uvicorn` + `next dev`) → 13 passed
 
 ## Next action
 
-1. Verify deferred Phase 9 checks.
-2. Inspect Phase 9 document storage and analysis contracts.
-3. Define Phase 10 TODO and OCR provider interface.
+1. Inspect `backend/app/documents/` to identify exact reusable ownership/expiration/storage patterns for OCR.
+2. Scaffold `backend/app/ocr/` module per architecture in the Phase 10 spec.
+3. Start with `MockOCRProvider` and its tests before `LocalOCRProvider`.
 4. Do not implement dynamic field detection.
 
 ## Blockers
@@ -37,3 +41,4 @@ None recorded.
 - Tests require a deterministic mock provider.
 - OCR may produce text and coordinates but must not infer form fields.
 - Phase 9 ownership, privacy, and expiration remain authoritative.
+- Supported OCR languages limited to English, German, French, Arabic.

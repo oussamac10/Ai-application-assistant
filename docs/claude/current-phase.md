@@ -50,6 +50,8 @@ Verify deferred Phase 9 checks in root `TODO.md`:
 - Alembic downgrade and re-upgrade
 - Playwright upload flow
 
+All three verified on `feature/ocr-integration` before implementation began — see `TODO.md` "Pre-Implementation Verification".
+
 ## Status
 
-Not started.
+Branch created, TODO.md reset, deferred Phase 9 checks verified. Implementation not yet started.
