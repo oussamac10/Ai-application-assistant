@@ -42,8 +42,8 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 - [x] idempotent detection API (`POST`/`GET /api/source-documents/{id}/field-detection`)
 - [x] field review API (confirm/edit/reject)
 - [x] question generation from confirmed fields only, via existing guided workflow
-- [ ] frontend review UI, all 4 languages, RTL preserved
-- [ ] backend, frontend, migration, and Playwright tests
+- [x] frontend review UI, all 4 languages, RTL preserved
+- [x] backend, frontend, migration, and Playwright tests
 - [ ] ADR 0010, `docs/field-detection.md`, updated docs
 - [ ] Ruff, mypy, ESLint, TypeScript all pass
 - [ ] Phase 7, 8, 9, 10 regressions preserved
@@ -59,8 +59,8 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 - [x] Service, eligibility, idempotency, and API
 - [x] Field review API
 - [x] Question-generation bridge
-- [ ] Frontend review UI
-- [ ] Playwright tests
+- [x] Frontend review UI
+- [x] Playwright tests
 - [ ] Documentation and full verification
 
 ## Files Expected to Change

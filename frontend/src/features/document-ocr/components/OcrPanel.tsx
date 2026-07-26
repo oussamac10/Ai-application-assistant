@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { requestOcr, getOcrResult } from "../services/apiClient";
 import { OcrResultResponse } from "../types";
@@ -12,6 +13,7 @@ interface OcrPanelProps {
 }
 
 export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
+  const router = useRouter();
   const t = useTranslations("documentOcr");
 
   const [language, setLanguage] = useState<string>(currentLocale);
@@ -161,6 +163,14 @@ export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
               </div>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => router.push(`/application/document/${documentId}/detect-fields`)}
+            className="w-full rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold shadow-lg shadow-indigo-500/20 transition hover:opacity-95"
+          >
+            {t("detectFields")}
+          </button>
         </div>
       )}
     </div>

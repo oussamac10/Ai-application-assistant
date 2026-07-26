@@ -4,9 +4,9 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Slice 9 of Phase 11: added the question-generation bridge (`app/field_detection/question_bridge.py`). Confirmed `DetectedField` rows are materialized into a synthetic, published `FormTemplate`/`FormVersion`/`FormField` set — reusing `FormService`'s own validation (choice fields need options, labels required for the source language, ...) rather than reimplementing it — then the existing, unmodified `SessionService.create_session` starts a real guided session. New `POST /api/source-documents/{id}/field-detection/session` endpoint. Only fields with `review_status == "confirmed"` are ever used; pending/rejected candidates never generate a question. 6 new tests (4 bridge, 2 API), all passing.
+Slice 10 of Phase 11: added the frontend `features/field-detection/` review UI and the Playwright end-to-end flow. `FieldDetectionPanel` shows start/processing/reviewing/failed states, groups candidates by page, allows inline label/type editing, per-field confirm/reject, "confirm all high-confidence" (below `LOW_CONFIDENCE_THRESHOLD = 0.4`, mirroring the backend constant), a low-confidence warning badge, an output-language selector, and a "Create Questions" button (enabled only once ≥1 field is confirmed) that calls the question-generation bridge and redirects into the real guided session. New route `/application/document/[documentId]/detect-fields`. Wired "Detect Fields" buttons into both `DocumentUploadForm` (`dynamic_field_detection` outcome) and `OcrPanel` (after OCR completes), per the two documented user workflows. Full en/de/fr/ar localization (`fieldDetection` namespace + updated `documentUpload`/`documentOcr` keys), RTL-safe (label input uses `dir="auto"`).
 
-`DetectedField.field_type` → form-model `field_type` mapping: `text→string`, `multiline_text→multiline_text`, `date→date`, `email→email`, `phone→phone`, `address→address`, `number→integer`, `currency→money`, `checkbox→boolean`, `radio→single_choice`, `select→single_choice` (downgraded to `string` if no options — matches the known AcroForm-choice-options limitation), `signature→string`, `unknown→string`.
+Added `frontend/e2e/dynamic-field-detection-flow.spec.ts` — verified against live local dev servers (not just written): upload an unmatched digital PDF (a hand-built minimal-but-valid PDF with real drawn text, since the synthetic single-byte-header PDF used elsewhere doesn't carry enough native text to classify as `digital_pdf`) → Detect Fields → Start Detection → Confirm a field → Create Questions → lands on a real `/application/session/{id}` guided session, with the ownership token never appearing in the URL at any step. Also verified the known-template bypass (no Detect Fields button shown). **Caught and diagnosed a real issue during manual verification**: a stale `docker-compose` `backend`/`frontend` container pair (built before slices 8–9 existed) was still running and shadowing ports 8000/3003, causing PATCH requests to 404 against outdated routes; stopped those containers and re-tested against a freshly started local `uvicorn` — both new e2e tests then passed cleanly. The full local e2e regression suite (`CI=true npx playwright test`) is 17/18 passing — the one failure (`guided-flow.spec.ts`, missing published form fixture) is the same pre-existing, unrelated gap documented since Phase 10.
 
 ## Repository state
 
@@ -14,24 +14,29 @@ Slice 9 of Phase 11: added the question-generation bridge (`app/field_detection/
 - Two pre-existing uncommitted local dev-config changes carried over from the prior branch, unrelated to this work and intentionally left untouched:
   - `.env.example`: `OCR_PROVIDER` set to `local` (from `mock`)
   - `docker-compose.yml`: backend service now passes through `OCR_PROVIDER: ${OCR_PROVIDER:-local}`
+- The stale `docker-compose` `backend`/`frontend` containers were stopped during this session's manual verification (they were outdated anyway) — `postgres` was left running. Whoever resumes work should `docker compose up --build -d` for a fresh image before further Docker-based testing.
 - Working tree otherwise clean except this slice's changes pending commit
 
 ## Files changed
 
-- `backend/app/field_detection/question_bridge.py` (new)
-- `backend/app/field_detection/service.py` — `create_session_from_confirmed_fields`
-- `backend/app/field_detection/api/routes.py` — `POST .../field-detection/session`
-- `backend/tests/field_detection/test_question_bridge.py` (new, 4 tests)
-- `backend/tests/field_detection/test_field_detection_api.py` — 2 new tests, `clean_db` now also truncates `form_templates`/`form_sessions`
+- `frontend/src/features/field-detection/**` (new: types, apiClient, `FieldDetectionPanel.tsx`)
+- `frontend/src/app/application/document/[documentId]/detect-fields/page.tsx` (new)
+- `frontend/src/features/document-upload/components/DocumentUploadForm.tsx` — "Detect Fields" button + updated copy
+- `frontend/src/features/document-ocr/components/OcrPanel.tsx` — "Detect Fields" button after OCR completes
+- `frontend/messages/{en,de,fr,ar}.json` — new `fieldDetection` namespace, updated `documentUpload`/`documentOcr` keys
+- `frontend/src/test/field-detection.test.ts` (new, 8 vitest tests)
+- `frontend/e2e/dynamic-field-detection-flow.spec.ts` (new, 2 Playwright tests)
 - `TODO.md` — Planned Steps and Acceptance Criteria updated
 - `docs/claude/session-handoff.md` — this file
 
 ## Checks executed
 
-- `pytest tests/field_detection/` → all field_detection tests passing (95)
-- `pytest` (full backend suite) → 204 passed (198 pre-existing + 6 new)
-- `ruff check`/`ruff format` → all checks passed, applied, re-verified clean
-- `mypy app` → Success: no issues found in 110 source files
+- `npm run typecheck` → clean
+- `npm run lint` → no ESLint warnings or errors
+- `npm test` (vitest) → 49 passed (41 pre-existing + 8 new)
+- `npx playwright test e2e/dynamic-field-detection-flow.spec.ts` (CI=true, live dev servers) → 2 passed
+- `npx playwright test` (full suite, CI=true) → 17/18 passed; the 1 failure is the pre-existing `guided-flow.spec.ts` gap, unrelated to this work
+- Backend regression re-verified unaffected: `pytest` → 204 passed
 
 ## Known limitation carried forward
 
@@ -39,8 +44,8 @@ Slice 9 of Phase 11: added the question-generation bridge (`app/field_detection/
 
 ## Next action
 
-1. Frontend `features/field-detection/` review UI (en/de/fr/ar, RTL) — candidate list, confirm/edit/reject, "Create questions" button.
-2. Playwright `dynamic-field-detection-flow.spec.ts`.
+1. ADR 0010, `docs/field-detection.md`, and the remaining doc updates (README, architecture.md, workflow.md, testing.md, security.md, privacy.md, document-upload-analysis.md, ocr.md, claude/architecture-map.md).
+2. Full verification pass with exact, honest pass/fail counts recorded in `TODO.md`.
 3. Do not implement automatic PDF filling/export, or start Phase 12.
 
 ## Blockers

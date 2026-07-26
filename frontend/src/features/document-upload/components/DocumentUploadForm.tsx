@@ -404,10 +404,10 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>{t("dynamic_detection_title") || "Dynamic Field Detection Needed (Phase 11)"}</span>
+                    <span>{t("dynamic_detection_title") || "Dynamic Field Detection Available"}</span>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    {t("dynamic_detection_body") || "This is a digital document but does not match any predefined templates. Dynamic field extraction will be supported in Phase 11."}
+                    {t("dynamic_detection_body") || "This is a digital document that does not match any predefined templates. We can detect candidate fields for you to review."}
                   </p>
                 </>
               )}
@@ -465,6 +465,20 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
                 }
               >
                 {t("start_ocr") || "Start OCR"}
+              </button>
+            )}
+
+            {analysisResult.analysis.nextStep === "dynamic_field_detection" && (
+              <button
+                type="button"
+                className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold text-white hover:opacity-95"
+                onClick={() =>
+                  router.push(
+                    `/application/document/${analysisResult.documentId}/detect-fields`
+                  )
+                }
+              >
+                {t("detect_fields") || "Detect Fields"}
               </button>
             )}
           </div>
