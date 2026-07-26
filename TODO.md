@@ -54,7 +54,7 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 - [x] Detection domain schemas and provider protocol
 - [x] Deterministic mock provider
 - [x] Persistence and reversible migration
-- [ ] Native/OCR/AcroForm input normalization (extraction.py)
+- [x] Native/OCR/AcroForm input normalization (extraction.py)
 - [ ] Local heuristic provider
 - [ ] Service, eligibility, idempotency, and API
 - [ ] Field review API

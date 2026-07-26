@@ -4,7 +4,7 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Slice 3 of Phase 11: added `FieldDetectionResult`/`DetectedField`/`DetectedFieldOption` SQLAlchemy models and a reversible Alembic migration. One active result per `(source_document_id, analysis_version)`; `DetectedField` rows carry label/input bounding boxes as JSON and a `review_status` (`pending_review|confirmed|edited|rejected`); `DetectedFieldOption` covers radio/select candidates. Migration verified upgrade → downgrade → upgrade against real Postgres.
+Slice 5 of Phase 11: added `extraction.py` — `extract_native_document_input` (PyMuPDF: native text word tokens + AcroForm widget name/type/rect/required, PDF point space, rotation-aware) and `extract_ocr_document_input` (builds tokens from an already-completed Phase 10 `OCRResult`, rendered-image pixel space). A document uses exactly one of the two paths, never both — Phase 9/10 eligibility already routes a document to either the digital-unmatched or scanned path, so there's no need to merge coordinate spaces.
 
 ## Repository state
 
@@ -16,24 +16,23 @@ Slice 3 of Phase 11: added `FieldDetectionResult`/`DetectedField`/`DetectedField
 
 ## Files changed
 
-- `backend/app/field_detection/models.py` (new)
-- `backend/migrations/env.py` — registered the three new models
-- `backend/migrations/versions/87c29a7b8958_*.py` (new)
+- `backend/app/field_detection/extraction.py` (new)
+- `backend/tests/field_detection/test_extraction.py` (new, 6 tests)
 - `TODO.md` — Planned Steps updated
 - `docs/claude/session-handoff.md` — this file
 
 ## Checks executed
 
-- `alembic upgrade head` / `downgrade -1` / `upgrade head` → clean round-trip against real Postgres
-- `pytest` (full backend suite) → 120 passed, re-verified after the migration cycle
-- `ruff check app/field_detection migrations/env.py` → all checks passed
+- `pytest tests/field_detection/test_extraction.py` → 6 passed
+- `pytest` (full backend suite) → 126 passed (120 pre-existing + 6 new)
+- `ruff check app/field_detection tests/field_detection` → all checks passed
 - `ruff format` → applied, re-verified clean
-- `mypy app` → Success: no issues found in 98 source files
+- `mypy app` → Success: no issues found in 99 source files
 
 ## Next action
 
-1. Native/OCR/AcroForm input normalization (`extraction.py`) using PyMuPDF, independent of the Phase 9 `PDFAnalyzer`.
-2. `LocalFieldDetectionProvider` (rules-based).
+1. `LocalFieldDetectionProvider` (rules-based: colon-labels, left/above-label proximity, common patterns, AcroForm passthrough).
+2. `service.py` (eligibility, idempotency) + API routes.
 3. Do not implement automatic PDF filling/export, or start Phase 12.
 
 ## Blockers
