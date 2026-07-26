@@ -7,6 +7,7 @@ Read only the imported files relevant to the current task. Do not scan the entir
 @docs/claude/architecture-map.md
 @docs/claude/commands.md
 @docs/claude/working-rules.md
+@docs/claude/domain-rules.md
 @docs/claude/session-handoff.md
 
 ## Startup
