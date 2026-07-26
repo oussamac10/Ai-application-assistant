@@ -83,8 +83,8 @@
     "has_images": "Contains Embedded Images:",
     "template_matched": "Supported Template Recognized",
     "template_matched_body": "We have a pre-mapped translation system for this document. You can complete it in your native language.",
-    "ocr_required_title": "OCR Recognition Needed (Phase 10)",
-    "ocr_required_body": "This form appears to be scanned or image-based. Processing text from scanned files will be enabled in Phase 10.",
+    "ocr_required_title": "OCR Recognition Needed",
+    "ocr_required_body": "This form appears to be scanned or image-based. We can extract its text using local OCR.",
     "dynamic_detection_title": "Dynamic Field Detection Needed (Phase 11)",
     "dynamic_detection_body": "This is a digital document but does not match any predefined templates. Dynamic field extraction will be supported in Phase 11.",
     "review_required_title": "Manual Review Required",
@@ -102,6 +102,24 @@
     "error_too_many_pages": "PDF exceeds the maximum page limit of 20 pages.",
     "error_unsupported_pdf_feature": "PDF contains active content (JavaScript, Launch Actions) or attachments which are not supported.",
     "error_privacy_not_accepted": "Privacy policy must be accepted.",
-    "error_document_analysis_failed": "PDF structural analysis failed."
+    "error_document_analysis_failed": "PDF structural analysis failed.",
+    "start_ocr": "Start OCR"
+  },
+  "documentOcr": {
+    "title": "Extract Text with OCR",
+    "body": "We will run local OCR on this scanned document to extract its text. This runs entirely on our server; nothing is sent to a third party.",
+    "selectLanguage": "Document language",
+    "startOcr": "Start OCR",
+    "processing": "Processing...",
+    "resultTitle": "OCR Result",
+    "pageCount": "{count} page(s)",
+    "page": "Page {number}",
+    "confidence": "Confidence: {value}%",
+    "emptyPage": "No text was detected on this page.",
+    "error_generic": "OCR processing failed. Please try again.",
+    "error_ocr_not_required": "This document does not require OCR.",
+    "error_unsupported_language": "The selected language is not supported for OCR.",
+    "error_ocr_failed": "OCR processing failed. Please try again.",
+    "error_ocr_misconfigured": "The OCR service is misconfigured. Please contact support."
   }
 }

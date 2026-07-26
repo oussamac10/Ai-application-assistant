@@ -83,8 +83,8 @@
     "has_images": "Enthält eingebettete Bilder:",
     "template_matched": "Unterstützte Vorlage erkannt",
     "template_matched_body": "Wir haben ein vordefiniertes Übersetzungssystem für dieses Dokument. Sie können es in Ihrer Sprache ausfüllen.",
-    "ocr_required_title": "OCR-Erkennung erforderlich (Phase 10)",
-    "ocr_required_body": "Dieses Formular scheint gescannt oder bildbasiert zu sein. Die Textverarbeitung gescannter Dateien wird in Phase 10 aktiviert.",
+    "ocr_required_title": "OCR-Erkennung erforderlich",
+    "ocr_required_body": "Dieses Formular scheint gescannt oder bildbasiert zu sein. Wir können den Text mit lokaler OCR extrahieren.",
     "dynamic_detection_title": "Dynamische Felderkennung erforderlich (Phase 11)",
     "dynamic_detection_body": "Dies ist ein digitales Dokument, entspricht jedoch keiner vordefinierten Vorlage. Die dynamische Feldextraktion wird in Phase 11 unterstützt.",
     "review_required_title": "Manuelle Überprüfung erforderlich",
@@ -102,6 +102,24 @@
     "error_too_many_pages": "Das PDF überschreitet das maximale Limit von 20 Seiten.",
     "error_unsupported_pdf_feature": "Das PDF enthält aktive Inhalte (JavaScript, Launch-Aktionen) oder Anhänge, die nicht unterstützt werden.",
     "error_privacy_not_accepted": "Die Datenschutzerklärung muss akzeptiert werden.",
-    "error_document_analysis_failed": "PDF-Strukturanalyse fehlgeschlagen."
+    "error_document_analysis_failed": "PDF-Strukturanalyse fehlgeschlagen.",
+    "start_ocr": "OCR starten"
+  },
+  "documentOcr": {
+    "title": "Text mit OCR extrahieren",
+    "body": "Wir führen eine lokale Texterkennung (OCR) für dieses gescannte Dokument durch. Dies geschieht vollständig auf unserem Server; es werden keine Daten an Dritte gesendet.",
+    "selectLanguage": "Dokumentsprache",
+    "startOcr": "OCR starten",
+    "processing": "Wird verarbeitet...",
+    "resultTitle": "OCR-Ergebnis",
+    "pageCount": "{count} Seite(n)",
+    "page": "Seite {number}",
+    "confidence": "Konfidenz: {value}%",
+    "emptyPage": "Auf dieser Seite wurde kein Text erkannt.",
+    "error_generic": "Die OCR-Verarbeitung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "error_ocr_not_required": "Für dieses Dokument ist keine OCR erforderlich.",
+    "error_unsupported_language": "Die ausgewählte Sprache wird für OCR nicht unterstützt.",
+    "error_ocr_failed": "Die OCR-Verarbeitung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "error_ocr_misconfigured": "Der OCR-Dienst ist falsch konfiguriert. Bitte wenden Sie sich an den Support."
   }
 }

@@ -83,8 +83,8 @@
     "has_images": "Contient des images intégrées :",
     "template_matched": "Modèle pris en charge reconnu",
     "template_matched_body": "Nous disposons d'un système de traduction pré-mappé pour ce document. Vous pouvez le remplir dans votre langue.",
-    "ocr_required_title": "Reconnaissance OCR requise (Phase 10)",
-    "ocr_required_body": "Ce formulaire semble scanné ou basé sur des images. Le traitement de texte des fichiers scannés sera activé en Phase 10.",
+    "ocr_required_title": "Reconnaissance OCR requise",
+    "ocr_required_body": "Ce formulaire semble scanné ou basé sur des images. Nous pouvons en extraire le texte grâce à l'OCR local.",
     "dynamic_detection_title": "Détection dynamique des champs requise (Phase 11)",
     "dynamic_detection_body": "Il s'agit d'un document numérique mais ne correspond à aucun modèle prédéfini. L'extraction dynamique des champs sera prise en charge dans la Phase 11.",
     "review_required_title": "Examen manuel requis",
@@ -102,6 +102,24 @@
     "error_too_many_pages": "Le PDF dépasse la limite maximale de 20 pages.",
     "error_unsupported_pdf_feature": "Le PDF contient du contenu actif (JavaScript, Actions de lancement) ou des pièces jointes non prises en charge.",
     "error_privacy_not_accepted": "La politique de confidentialité doit être acceptée.",
-    "error_document_analysis_failed": "L'analyse structurelle du PDF a échoué."
+    "error_document_analysis_failed": "L'analyse structurelle du PDF a échoué.",
+    "start_ocr": "Démarrer l'OCR"
+  },
+  "documentOcr": {
+    "title": "Extraire le texte par OCR",
+    "body": "Nous allons exécuter une OCR locale sur ce document numérisé afin d'en extraire le texte. Ce traitement s'effectue entièrement sur notre serveur ; rien n'est envoyé à un tiers.",
+    "selectLanguage": "Langue du document",
+    "startOcr": "Démarrer l'OCR",
+    "processing": "Traitement en cours...",
+    "resultTitle": "Résultat de l'OCR",
+    "pageCount": "{count} page(s)",
+    "page": "Page {number}",
+    "confidence": "Confiance : {value}%",
+    "emptyPage": "Aucun texte détecté sur cette page.",
+    "error_generic": "Le traitement OCR a échoué. Veuillez réessayer.",
+    "error_ocr_not_required": "Ce document ne nécessite pas d'OCR.",
+    "error_unsupported_language": "La langue sélectionnée n'est pas prise en charge pour l'OCR.",
+    "error_ocr_failed": "Le traitement OCR a échoué. Veuillez réessayer.",
+    "error_ocr_misconfigured": "Le service OCR est mal configuré. Veuillez contacter le support."
   }
 }
