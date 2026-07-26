@@ -29,15 +29,15 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 
 ## Acceptance Criteria
 
-- [ ] `FieldDetectionProvider` protocol
-- [ ] deterministic `MockFieldDetectionProvider`
-- [ ] rules-based `LocalFieldDetectionProvider`
-- [ ] native PDF text + coordinate extraction (PyMuPDF)
-- [ ] AcroForm widget metadata extraction (name, type, rect, page)
-- [ ] OCR-result consumption as a detection input source
-- [ ] label detection and label/input-area association
-- [ ] field-type classification with deterministic ordering and confidence
-- [ ] persisted `FieldDetectionResult`/`DetectedField`/`DetectedFieldOption` + reversible migration
+- [x] `FieldDetectionProvider` protocol
+- [x] deterministic `MockFieldDetectionProvider`
+- [x] rules-based `LocalFieldDetectionProvider`
+- [x] native PDF text + coordinate extraction (PyMuPDF)
+- [x] AcroForm widget metadata extraction (name, type, rect, page)
+- [x] OCR-result consumption as a detection input source
+- [x] label detection and label/input-area association
+- [x] field-type classification with deterministic ordering and confidence
+- [x] persisted `FieldDetectionResult`/`DetectedField`/`DetectedFieldOption` + reversible migration
 - [ ] ownership + expiration checks reused from Phase 9
 - [ ] idempotent detection API (`POST`/`GET /api/source-documents/{id}/field-detection`)
 - [ ] field review API (confirm/edit/reject)
@@ -55,7 +55,7 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 - [x] Deterministic mock provider
 - [x] Persistence and reversible migration
 - [x] Native/OCR/AcroForm input normalization (extraction.py)
-- [ ] Local heuristic provider
+- [x] Local heuristic provider
 - [ ] Service, eligibility, idempotency, and API
 - [ ] Field review API
 - [ ] Question-generation bridge

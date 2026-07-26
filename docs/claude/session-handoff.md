@@ -4,7 +4,7 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Slice 5 of Phase 11: added `extraction.py` — `extract_native_document_input` (PyMuPDF: native text word tokens + AcroForm widget name/type/rect/required, PDF point space, rotation-aware) and `extract_ocr_document_input` (builds tokens from an already-completed Phase 10 `OCRResult`, rendered-image pixel space). A document uses exactly one of the two paths, never both — Phase 9/10 eligibility already routes a document to either the digital-unmatched or scanned path, so there's no need to merge coordinate spaces.
+Slice 6 of Phase 11: added the `LocalFieldDetectionProvider` and its supporting modules — `geometry.py` (line clustering, left-of/above proximity), `labeling.py` (colon-terminated label lines, nearest-label lookup for an input area), `classification.py` (keyword-based label→field_type guesses plus email/phone/currency value-pattern matching), and `normalization.py` (safe field names, low-confidence→`unknown` downgrade, dedup by normalized name, deterministic page/position ordering). AcroForm widgets are authoritative when present (label found via proximity, "text" widgets refined by label wording); otherwise colon-terminated lines drive detection. 52 new tests across geometry/classification/normalization/local-provider, all passing.
 
 ## Repository state
 
@@ -16,23 +16,27 @@ Slice 5 of Phase 11: added `extraction.py` — `extract_native_document_input` (
 
 ## Files changed
 
-- `backend/app/field_detection/extraction.py` (new)
-- `backend/tests/field_detection/test_extraction.py` (new, 6 tests)
-- `TODO.md` — Planned Steps updated
+- `backend/app/field_detection/geometry.py`, `labeling.py`, `classification.py`, `normalization.py`, `providers/local.py` (new)
+- `backend/tests/field_detection/test_geometry.py`, `test_classification.py`, `test_normalization.py`, `test_local_provider.py` (new, 52 tests)
+- `TODO.md` — Planned Steps and Acceptance Criteria updated
 - `docs/claude/session-handoff.md` — this file
 
 ## Checks executed
 
-- `pytest tests/field_detection/test_extraction.py` → 6 passed
-- `pytest` (full backend suite) → 126 passed (120 pre-existing + 6 new)
+- `pytest tests/field_detection/` → all field_detection tests passing
+- `pytest` (full backend suite) → 178 passed (126 pre-existing + 52 new)
 - `ruff check app/field_detection tests/field_detection` → all checks passed
 - `ruff format` → applied, re-verified clean
-- `mypy app` → Success: no issues found in 99 source files
+- `mypy app` → Success: no issues found in 104 source files
+
+## Known limitation carried forward
+
+`LocalFieldDetectionProvider` doesn't yet extract AcroForm choice-widget option values (ComboBox/ListBox), so `select`-type candidates currently have empty `options`. `extraction.py`'s `AcroFormWidgetInput` would need a `choices` field to support this — deferred rather than reopening slice 5 mid-slice-6; worth revisiting before ADR 0010 if choice fields turn out to be common in test documents.
 
 ## Next action
 
-1. `LocalFieldDetectionProvider` (rules-based: colon-labels, left/above-label proximity, common patterns, AcroForm passthrough).
-2. `service.py` (eligibility, idempotency) + API routes.
+1. `service.py` (eligibility reusing Phase 9/10, idempotency per document+analysis_version) + API routes (`POST`/`GET /api/source-documents/{id}/field-detection`).
+2. Field review API (`PATCH`/`DELETE .../fields/{field_id}`).
 3. Do not implement automatic PDF filling/export, or start Phase 12.
 
 ## Blockers
