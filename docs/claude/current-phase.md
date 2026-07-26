@@ -46,4 +46,6 @@ Detect candidate form fields in unrecognized digital PDFs and OCR-processed scan
 
 ## Status
 
-Initialized. See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification and root `TODO.md` for current acceptance-criteria/verification state. Implementation not yet started.
+Complete. All in-scope items implemented and verified — see root `TODO.md` "Verification" section for exact check results, including two pre-existing environment-specific exceptions unrelated to Phase 11 (the `guided-flow.spec.ts` fixture gap carried from Phase 10, and a local `OCR_PROVIDER=local` override affecting two Phase 10 OCR tests when run via Docker Compose).
+
+See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification, `docs/field-detection.md` for the user guide, and `docs/decisions/0010-dynamic-field-detection.md` for the architecture decisions.

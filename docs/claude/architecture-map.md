@@ -11,6 +11,8 @@
 - `backend/app/ai/`: Ollama/provider abstractions
 - `backend/app/pdf/`: PDF mappings and export
 - `backend/app/documents/`: upload, storage, validation, analysis
+- `backend/app/ocr/`: local OCR provider abstraction, page rendering, OCR API
+- `backend/app/field_detection/`: dynamic field-detection provider abstraction, extraction, review API, question-generation bridge
 - `backend/app/commands/`: cleanup commands
 - `backend/migrations/`: Alembic migrations
 - `backend/tests/`: backend tests
@@ -20,6 +22,8 @@
 - `frontend/src/app/application/`: application flow
 - `frontend/src/features/form-session/`: guided session
 - `frontend/src/features/document-upload/`: Phase 9 upload UI
+- `frontend/src/features/document-ocr/`: Phase 10 OCR status/result UI
+- `frontend/src/features/field-detection/`: Phase 11 field-detection review UI
 - `frontend/messages/`: en, de, fr, ar
 - Check the repository before choosing the Playwright test directory.
 

@@ -82,7 +82,7 @@ When analysis is complete, the system shows:
 |---|---|---|
 | **Supported Template Recognized** | The form matches a pre-defined template | Click **Start Guided Form** to begin |
 | **OCR Recognition Needed** | The form is scanned/image-based | Click **Start OCR** — see [docs/ocr.md](ocr.md) |
-| **Dynamic Field Detection Needed** | Digital but no template match | Not yet supported (Phase 11) |
+| **Dynamic Field Detection Needed** | Digital but no template match | Click **Detect Fields** — see [docs/field-detection.md](field-detection.md) |
 | **Manual Review Required** | Analysis was inconclusive | Contact support |
 
 ### Step 6 — Start the guided form (supported templates only)

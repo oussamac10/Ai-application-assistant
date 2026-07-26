@@ -36,6 +36,10 @@ Click **Start OCR**. Processing happens synchronously; a spinner is shown while 
 
 Re-visiting the OCR page for a document that has already completed OCR shows the same result without re-processing it — OCR requests are idempotent per document.
 
+### Step 4 — Detect fields (optional)
+
+Once OCR completes, click **Detect Fields** to find candidate form fields in the extracted text — see [docs/field-detection.md](field-detection.md).
+
 ---
 
 ## What gets extracted
@@ -84,5 +88,6 @@ Wait for the current OCR run to finish before starting a new one.
 ## Related
 
 - [Document Upload and Analysis](document-upload-analysis.md)
+- [Dynamic Field Detection](field-detection.md)
 - [ADR 0009 — Local OCR Provider](decisions/0009-local-ocr-provider.md)
 - [backend/app/ocr/](../backend/app/ocr/)
