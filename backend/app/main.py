@@ -12,24 +12,33 @@ from app.ai.errors import (
 )
 from app.answers.api.routes import router as answers_router
 from app.api.health import router as health_router
+from app.documents.api.routes import router as documents_router
+from app.documents.errors import (
+    DocumentNotFoundError,
+    DocumentStateConflictError,
+    DocumentUnauthorizedError,
+    DocumentValidationError,
+)
 from app.forms.api.routes import router as forms_router
 from app.forms.services import (
     ResourceNotFoundError,
     StateConflictError,
     ValidationError,
 )
+from app.ocr.api.routes import router as ocr_router
+from app.ocr.errors import (
+    OCRAlreadyProcessingError,
+    OCRConfigurationError,
+    OCRNotFoundError,
+    OCRProviderUnavailableError,
+    OCRTimeoutError,
+    OCRValidationError,
+)
 from app.pdf.api.routes import router as pdf_router
 from app.questions.api.routes import router as questions_router
 from app.sessions.api.routes import router as sessions_router
 from app.sessions.services import (
     ResourceNotFoundError as SessionResourceNotFoundError,
-)
-from app.documents.api.routes import router as documents_router
-from app.documents.errors import (
-    DocumentNotFoundError,
-    DocumentValidationError,
-    DocumentUnauthorizedError,
-    DocumentStateConflictError,
 )
 from app.sessions.services import (
     StateConflictError as SessionStateConflictError,
@@ -141,6 +150,57 @@ async def document_unauthorized_handler(
     )
 
 
+@app.exception_handler(OCRNotFoundError)
+async def ocr_not_found_handler(
+    request: Request, exc: OCRNotFoundError
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(OCRValidationError)
+async def ocr_validation_handler(
+    request: Request, exc: OCRValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc), "error_code": exc.error_code},
+    )
+
+
+@app.exception_handler(OCRAlreadyProcessingError)
+async def ocr_already_processing_handler(
+    request: Request, exc: OCRAlreadyProcessingError
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(OCRProviderUnavailableError)
+async def ocr_unavailable_handler(
+    request: Request, exc: OCRProviderUnavailableError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "OCR service is temporarily unavailable. Please try again."},
+    )
+
+
+@app.exception_handler(OCRTimeoutError)
+async def ocr_timeout_handler(request: Request, exc: OCRTimeoutError) -> JSONResponse:
+    return JSONResponse(
+        status_code=504, content={"detail": "OCR processing timed out. Please try again."}
+    )
+
+
+@app.exception_handler(OCRConfigurationError)
+async def ocr_config_handler(
+    request: Request, exc: OCRConfigurationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "OCR provider is misconfigured. Contact the administrator."},
+    )
+
+
 @app.exception_handler(AIProviderUnavailableError)
 async def ai_unavailable_handler(
     request: Request, exc: AIProviderUnavailableError
@@ -207,3 +267,4 @@ app.include_router(answers_router, prefix="/api")
 app.include_router(questions_router, prefix="/api")
 app.include_router(pdf_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
+app.include_router(ocr_router, prefix="/api")

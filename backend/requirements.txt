@@ -11,3 +11,5 @@ ruff==0.4.9
 mypy==1.10.0
 pypdf==4.2.0
 reportlab==4.2.0
+pymupdf==1.28.0
+pytesseract==0.3.13

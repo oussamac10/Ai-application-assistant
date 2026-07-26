@@ -5,6 +5,7 @@ from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _SUPPORTED_PROVIDERS = frozenset({"mock", "ollama"})
+_SUPPORTED_OCR_PROVIDERS = frozenset({"mock", "local"})
 
 
 class Settings(BaseSettings):
@@ -33,6 +34,13 @@ class Settings(BaseSettings):
     DOCUMENT_STORAGE_PATH: str = "/tmp/ai-form-assistant/documents"
     DOCUMENT_ANALYSIS_VERSION: int = 1
     DOCUMENT_TEXT_SAMPLE_LIMIT: int = 5000
+
+    # OCR
+    OCR_PROVIDER: str = "mock"
+    OCR_EXPIRATION_HOURS: int = 24
+    OCR_RENDER_STORAGE_PATH: str = "/tmp/ai-form-assistant/ocr-render"
+    OCR_RENDER_DPI: int = 300
+    OCR_TIMEOUT_SECONDS: int = 120
 
     # AI Provider
     AI_PROVIDER: str = "mock"
@@ -95,6 +103,29 @@ class Settings(BaseSettings):
         except Exception as e:
             raise ValueError(
                 f"DOCUMENT_STORAGE_PATH '{self.DOCUMENT_STORAGE_PATH}' is not writable: {str(e)}"
+            ) from e
+        return self
+
+    @model_validator(mode="after")
+    def validate_ocr_settings(self) -> "Settings":
+        if self.OCR_PROVIDER not in _SUPPORTED_OCR_PROVIDERS:
+            raise ValueError(
+                f"Unknown OCR_PROVIDER '{self.OCR_PROVIDER}'. "
+                f"Supported values: {sorted(_SUPPORTED_OCR_PROVIDERS)}"
+            )
+        if self.OCR_EXPIRATION_HOURS <= 0:
+            raise ValueError("OCR_EXPIRATION_HOURS must be a positive integer.")
+        if self.OCR_RENDER_DPI <= 0:
+            raise ValueError("OCR_RENDER_DPI must be a positive integer.")
+        if self.OCR_TIMEOUT_SECONDS <= 0:
+            raise ValueError("OCR_TIMEOUT_SECONDS must be a positive integer.")
+        if not self.OCR_RENDER_STORAGE_PATH:
+            raise ValueError("OCR_RENDER_STORAGE_PATH must not be empty.")
+        try:
+            os.makedirs(self.OCR_RENDER_STORAGE_PATH, exist_ok=True)
+        except Exception as e:
+            raise ValueError(
+                f"OCR_RENDER_STORAGE_PATH '{self.OCR_RENDER_STORAGE_PATH}' is not writable: {str(e)}"
             ) from e
         return self
 
