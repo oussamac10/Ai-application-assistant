@@ -41,7 +41,7 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 - [x] ownership + expiration checks reused from Phase 9
 - [x] idempotent detection API (`POST`/`GET /api/source-documents/{id}/field-detection`)
 - [x] field review API (confirm/edit/reject)
-- [ ] question generation from confirmed fields only, via existing guided workflow
+- [x] question generation from confirmed fields only, via existing guided workflow
 - [ ] frontend review UI, all 4 languages, RTL preserved
 - [ ] backend, frontend, migration, and Playwright tests
 - [ ] ADR 0010, `docs/field-detection.md`, updated docs
@@ -58,7 +58,7 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 - [x] Local heuristic provider
 - [x] Service, eligibility, idempotency, and API
 - [x] Field review API
-- [ ] Question-generation bridge
+- [x] Question-generation bridge
 - [ ] Frontend review UI
 - [ ] Playwright tests
 - [ ] Documentation and full verification

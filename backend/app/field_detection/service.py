@@ -27,9 +27,11 @@ from app.field_detection.providers.base import (
     FieldDetectionProvider,
 )
 from app.field_detection.providers.mock import MockFieldDetectionProvider
+from app.field_detection.question_bridge import create_session_from_confirmed_fields
 from app.field_detection.repository import FieldDetectionRepository
 from app.ocr.models import OCRResult
 from app.ocr.repository import OCRRepository
+from app.sessions.models import FormSession
 
 
 def build_default_provider() -> FieldDetectionProvider:
@@ -183,6 +185,25 @@ class FieldDetectionService:
                 "No field-detection result exists for this document yet."
             )
         return result
+
+    def create_session_from_confirmed_fields(
+        self,
+        document_public_id: str,
+        ownership_token: str,
+        user_language: str,
+        output_language: str,
+    ) -> tuple[FormSession, str]:
+        doc = self.document_service.get_document(document_public_id, ownership_token)
+        result = self.repo.get_by_source_document_and_version(
+            self.db, doc.id, settings.FIELD_DETECTION_ANALYSIS_VERSION
+        )
+        if result is None or result.status != "completed":
+            raise FieldDetectionNotFoundError(
+                "No completed field-detection result exists for this document."
+            )
+        return create_session_from_confirmed_fields(
+            self.db, doc, result, user_language, output_language
+        )
 
     def _resolve_field(
         self, document_public_id: str, ownership_token: str, field_public_id: str

@@ -4,7 +4,9 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Slice 8 of Phase 11: added the field review API — `PATCH`/`DELETE /api/source-documents/{id}/field-detection/fields/{field_id}`. `PATCH` allows correcting label, normalized name, field type (validated against `FIELD_TYPES`), required, input bounding box, options, and review status; leaving `reviewStatus` unset auto-transitions a `pending_review` field to `edited` (any other correction counts as having reviewed it), while an explicit `reviewStatus` (e.g. `confirmed`) is honored as-is. `DELETE` marks a candidate `rejected` rather than destroying the row, preserving review history. 8 new tests (3 service, 5 API), all passing.
+Slice 9 of Phase 11: added the question-generation bridge (`app/field_detection/question_bridge.py`). Confirmed `DetectedField` rows are materialized into a synthetic, published `FormTemplate`/`FormVersion`/`FormField` set — reusing `FormService`'s own validation (choice fields need options, labels required for the source language, ...) rather than reimplementing it — then the existing, unmodified `SessionService.create_session` starts a real guided session. New `POST /api/source-documents/{id}/field-detection/session` endpoint. Only fields with `review_status == "confirmed"` are ever used; pending/rejected candidates never generate a question. 6 new tests (4 bridge, 2 API), all passing.
+
+`DetectedField.field_type` → form-model `field_type` mapping: `text→string`, `multiline_text→multiline_text`, `date→date`, `email→email`, `phone→phone`, `address→address`, `number→integer`, `currency→money`, `checkbox→boolean`, `radio→single_choice`, `select→single_choice` (downgraded to `string` if no options — matches the known AcroForm-choice-options limitation), `signature→string`, `unknown→string`.
 
 ## Repository state
 
@@ -16,29 +18,29 @@ Slice 8 of Phase 11: added the field review API — `PATCH`/`DELETE /api/source-
 
 ## Files changed
 
-- `backend/app/field_detection/service.py` — `update_field`/`reject_field`/`_resolve_field`
-- `backend/app/field_detection/repository.py` — `replace_field_options`
-- `backend/app/field_detection/schemas.py` — `DetectedFieldUpdateRequest`, extracted `build_detected_field_schema`
-- `backend/app/field_detection/api/routes.py` — PATCH/DELETE routes
-- `backend/tests/field_detection/test_field_detection_service.py`, `test_field_detection_api.py` — 14 new tests
+- `backend/app/field_detection/question_bridge.py` (new)
+- `backend/app/field_detection/service.py` — `create_session_from_confirmed_fields`
+- `backend/app/field_detection/api/routes.py` — `POST .../field-detection/session`
+- `backend/tests/field_detection/test_question_bridge.py` (new, 4 tests)
+- `backend/tests/field_detection/test_field_detection_api.py` — 2 new tests, `clean_db` now also truncates `form_templates`/`form_sessions`
 - `TODO.md` — Planned Steps and Acceptance Criteria updated
 - `docs/claude/session-handoff.md` — this file
 
 ## Checks executed
 
-- `pytest tests/field_detection/` → all field_detection tests passing
-- `pytest` (full backend suite) → 198 passed (190 pre-existing + 8 new)
+- `pytest tests/field_detection/` → all field_detection tests passing (95)
+- `pytest` (full backend suite) → 204 passed (198 pre-existing + 6 new)
 - `ruff check`/`ruff format` → all checks passed, applied, re-verified clean
-- `mypy app` → Success: no issues found in 109 source files
+- `mypy app` → Success: no issues found in 110 source files
 
 ## Known limitation carried forward
 
-`LocalFieldDetectionProvider` doesn't yet extract AcroForm choice-widget option values (ComboBox/ListBox), so `select`-type candidates currently have empty `options`. Deferred; worth revisiting before ADR 0010.
+`LocalFieldDetectionProvider` doesn't yet extract AcroForm choice-widget option values (ComboBox/ListBox), so `select`-type candidates currently have empty `options` and downgrade to a plain `string` question. Deferred; worth revisiting before ADR 0010.
 
 ## Next action
 
-1. Question-generation bridge (synthetic published `FormTemplate`/`FormVersion`/`FormField` from **confirmed** fields only → existing `SessionService`, unmodified).
-2. Frontend `features/field-detection/` review UI (en/de/fr/ar, RTL).
+1. Frontend `features/field-detection/` review UI (en/de/fr/ar, RTL) — candidate list, confirm/edit/reject, "Create questions" button.
+2. Playwright `dynamic-field-detection-flow.spec.ts`.
 3. Do not implement automatic PDF filling/export, or start Phase 12.
 
 ## Blockers

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
+from app.documents.schemas import SessionCreateRequest, SessionCreateResponse
 from app.field_detection.schemas import (
     DetectedFieldSchema,
     DetectedFieldUpdateRequest,
@@ -90,3 +91,25 @@ def reject_detected_field(
     service = FieldDetectionService(db)
     field = service.reject_field(document_id, x_document_token, field_id)
     return build_detected_field_schema(field)
+
+
+@router.post(
+    "/source-documents/{document_id}/field-detection/session",
+    response_model=SessionCreateResponse,
+    status_code=status.HTTP_200_OK,
+)
+def create_session_from_field_detection(
+    document_id: str,
+    body: SessionCreateRequest,
+    x_document_token: str = Header(..., alias="X-Document-Token"),
+    db: Session = Depends(get_db),
+) -> Any:
+    service = FieldDetectionService(db)
+    session, session_token = service.create_session_from_confirmed_fields(
+        document_id, x_document_token, body.language, body.outputLanguage
+    )
+    return SessionCreateResponse(
+        sessionId=session.public_id,
+        ownershipToken=session_token,
+        status="created",
+    )

@@ -22,6 +22,8 @@ def clean_db() -> Generator[None, None, None]:
     db = SessionLocal()
     try:
         db.execute(text("TRUNCATE TABLE source_documents CASCADE"))
+        db.execute(text("TRUNCATE TABLE form_templates CASCADE"))
+        db.execute(text("TRUNCATE TABLE form_sessions CASCADE"))
         db.commit()
         yield
     except Exception:
@@ -262,3 +264,49 @@ def test_api_patch_unknown_field_id_returns_404(
         json={"label": "x"},
     )
     assert resp.status_code == 404
+
+
+def test_api_creates_session_from_confirmed_fields(
+    client: TestClient, tmp_path: Path
+) -> None:
+    doc_id, token = _upload_digital_document(client, tmp_path)
+    detect_resp = client.post(
+        f"/api/source-documents/{doc_id}/field-detection",
+        headers={"X-Document-Token": token},
+    )
+    field_id = detect_resp.json()["fields"][0]["fieldId"]
+
+    client.patch(
+        f"/api/source-documents/{doc_id}/field-detection/fields/{field_id}",
+        headers={"X-Document-Token": token},
+        json={"reviewStatus": "confirmed"},
+    )
+
+    session_resp = client.post(
+        f"/api/source-documents/{doc_id}/field-detection/session",
+        headers={"X-Document-Token": token},
+        json={"language": "en", "outputLanguage": "en"},
+    )
+    assert session_resp.status_code == 200
+    data = session_resp.json()
+    assert data["status"] == "created"
+    assert "sessionId" in data
+    assert "ownershipToken" in data
+
+
+def test_api_session_rejects_when_no_fields_confirmed(
+    client: TestClient, tmp_path: Path
+) -> None:
+    doc_id, token = _upload_digital_document(client, tmp_path)
+    client.post(
+        f"/api/source-documents/{doc_id}/field-detection",
+        headers={"X-Document-Token": token},
+    )
+
+    session_resp = client.post(
+        f"/api/source-documents/{doc_id}/field-detection/session",
+        headers={"X-Document-Token": token},
+        json={"language": "en", "outputLanguage": "en"},
+    )
+    assert session_resp.status_code == 422
+    assert session_resp.json()["error_code"] == "field_detection_invalid_result"
