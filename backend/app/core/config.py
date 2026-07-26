@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _SUPPORTED_PROVIDERS = frozenset({"mock", "ollama"})
 _SUPPORTED_OCR_PROVIDERS = frozenset({"mock", "local"})
+_SUPPORTED_FIELD_DETECTION_PROVIDERS = frozenset({"mock", "local"})
 
 
 class Settings(BaseSettings):
@@ -41,6 +42,10 @@ class Settings(BaseSettings):
     OCR_RENDER_STORAGE_PATH: str = "/tmp/ai-form-assistant/ocr-render"
     OCR_RENDER_DPI: int = 300
     OCR_TIMEOUT_SECONDS: int = 120
+
+    # Dynamic Field Detection
+    FIELD_DETECTION_PROVIDER: str = "mock"
+    FIELD_DETECTION_ANALYSIS_VERSION: int = 1
 
     # AI Provider
     AI_PROVIDER: str = "mock"
@@ -127,6 +132,19 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"OCR_RENDER_STORAGE_PATH '{self.OCR_RENDER_STORAGE_PATH}' is not writable: {str(e)}"
             ) from e
+        return self
+
+    @model_validator(mode="after")
+    def validate_field_detection_settings(self) -> "Settings":
+        if self.FIELD_DETECTION_PROVIDER not in _SUPPORTED_FIELD_DETECTION_PROVIDERS:
+            raise ValueError(
+                f"Unknown FIELD_DETECTION_PROVIDER '{self.FIELD_DETECTION_PROVIDER}'. "
+                f"Supported values: {sorted(_SUPPORTED_FIELD_DETECTION_PROVIDERS)}"
+            )
+        if self.FIELD_DETECTION_ANALYSIS_VERSION <= 0:
+            raise ValueError(
+                "FIELD_DETECTION_ANALYSIS_VERSION must be a positive integer."
+            )
         return self
 
     @model_validator(mode="before")

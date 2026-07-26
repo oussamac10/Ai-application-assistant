@@ -19,6 +19,14 @@ from app.documents.errors import (
     DocumentUnauthorizedError,
     DocumentValidationError,
 )
+from app.field_detection.api.routes import router as field_detection_router
+from app.field_detection.errors import (
+    FieldDetectionAlreadyProcessingError,
+    FieldDetectionConfigurationError,
+    FieldDetectionNotFoundError,
+    FieldDetectionProviderUnavailableError,
+    FieldDetectionValidationError,
+)
 from app.forms.api.routes import router as forms_router
 from app.forms.services import (
     ResourceNotFoundError,
@@ -187,7 +195,8 @@ async def ocr_unavailable_handler(
 @app.exception_handler(OCRTimeoutError)
 async def ocr_timeout_handler(request: Request, exc: OCRTimeoutError) -> JSONResponse:
     return JSONResponse(
-        status_code=504, content={"detail": "OCR processing timed out. Please try again."}
+        status_code=504,
+        content={"detail": "OCR processing timed out. Please try again."},
     )
 
 
@@ -198,6 +207,54 @@ async def ocr_config_handler(
     return JSONResponse(
         status_code=500,
         content={"detail": "OCR provider is misconfigured. Contact the administrator."},
+    )
+
+
+@app.exception_handler(FieldDetectionNotFoundError)
+async def field_detection_not_found_handler(
+    request: Request, exc: FieldDetectionNotFoundError
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(FieldDetectionValidationError)
+async def field_detection_validation_handler(
+    request: Request, exc: FieldDetectionValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc), "error_code": exc.error_code},
+    )
+
+
+@app.exception_handler(FieldDetectionAlreadyProcessingError)
+async def field_detection_already_processing_handler(
+    request: Request, exc: FieldDetectionAlreadyProcessingError
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(FieldDetectionProviderUnavailableError)
+async def field_detection_unavailable_handler(
+    request: Request, exc: FieldDetectionProviderUnavailableError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "Field detection service is temporarily unavailable. Please try again."
+        },
+    )
+
+
+@app.exception_handler(FieldDetectionConfigurationError)
+async def field_detection_config_handler(
+    request: Request, exc: FieldDetectionConfigurationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Field detection provider is misconfigured. Contact the administrator."
+        },
     )
 
 
@@ -268,3 +325,4 @@ app.include_router(questions_router, prefix="/api")
 app.include_router(pdf_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
 app.include_router(ocr_router, prefix="/api")
+app.include_router(field_detection_router, prefix="/api")

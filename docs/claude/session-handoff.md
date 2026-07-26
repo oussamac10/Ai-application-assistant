@@ -4,7 +4,7 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Slice 6 of Phase 11: added the `LocalFieldDetectionProvider` and its supporting modules — `geometry.py` (line clustering, left-of/above proximity), `labeling.py` (colon-terminated label lines, nearest-label lookup for an input area), `classification.py` (keyword-based label→field_type guesses plus email/phone/currency value-pattern matching), and `normalization.py` (safe field names, low-confidence→`unknown` downgrade, dedup by normalized name, deterministic page/position ordering). AcroForm widgets are authoritative when present (label found via proximity, "text" widgets refined by label wording); otherwise colon-terminated lines drive detection. 52 new tests across geometry/classification/normalization/local-provider, all passing.
+Slice 7 of Phase 11: added `FieldDetectionService` (eligibility — rejects supported templates with `supported_template_detected`, requires completed OCR for scanned documents with `ocr_required`/`ocr_not_complete`, idempotent per `source_document_id` + `FIELD_DETECTION_ANALYSIS_VERSION`) and the `POST`/`GET /api/source-documents/{id}/field-detection` routes, wired into `main.py` with full exception-handler mapping. Added `FIELD_DETECTION_PROVIDER`/`FIELD_DETECTION_ANALYSIS_VERSION` settings. 12 new tests (8 service, 4 API), all passing end-to-end against a real Postgres-backed `SourceDocument` (both the `LocalFieldDetectionProvider` and `MockFieldDetectionProvider` are exercised).
 
 ## Repository state
 
@@ -16,27 +16,28 @@ Slice 6 of Phase 11: added the `LocalFieldDetectionProvider` and its supporting 
 
 ## Files changed
 
-- `backend/app/field_detection/geometry.py`, `labeling.py`, `classification.py`, `normalization.py`, `providers/local.py` (new)
-- `backend/tests/field_detection/test_geometry.py`, `test_classification.py`, `test_normalization.py`, `test_local_provider.py` (new, 52 tests)
+- `backend/app/field_detection/service.py`, `repository.py`, `schemas.py`, `api/__init__.py`, `api/routes.py` (new)
+- `backend/app/core/config.py` — `FIELD_DETECTION_PROVIDER`/`FIELD_DETECTION_ANALYSIS_VERSION` settings + validator
+- `backend/app/main.py` — field-detection router + exception handlers
+- `backend/tests/field_detection/test_field_detection_service.py`, `test_field_detection_api.py` (new, 12 tests)
 - `TODO.md` — Planned Steps and Acceptance Criteria updated
 - `docs/claude/session-handoff.md` — this file
 
 ## Checks executed
 
 - `pytest tests/field_detection/` → all field_detection tests passing
-- `pytest` (full backend suite) → 178 passed (126 pre-existing + 52 new)
-- `ruff check app/field_detection tests/field_detection` → all checks passed
-- `ruff format` → applied, re-verified clean
-- `mypy app` → Success: no issues found in 104 source files
+- `pytest` (full backend suite) → 190 passed (178 pre-existing + 12 new)
+- `ruff check`/`ruff format` → all checks passed, applied, re-verified clean
+- `mypy app` → Success: no issues found in 109 source files
 
 ## Known limitation carried forward
 
-`LocalFieldDetectionProvider` doesn't yet extract AcroForm choice-widget option values (ComboBox/ListBox), so `select`-type candidates currently have empty `options`. `extraction.py`'s `AcroFormWidgetInput` would need a `choices` field to support this — deferred rather than reopening slice 5 mid-slice-6; worth revisiting before ADR 0010 if choice fields turn out to be common in test documents.
+`LocalFieldDetectionProvider` doesn't yet extract AcroForm choice-widget option values (ComboBox/ListBox), so `select`-type candidates currently have empty `options`. Deferred; worth revisiting before ADR 0010.
 
 ## Next action
 
-1. `service.py` (eligibility reusing Phase 9/10, idempotency per document+analysis_version) + API routes (`POST`/`GET /api/source-documents/{id}/field-detection`).
-2. Field review API (`PATCH`/`DELETE .../fields/{field_id}`).
+1. Field review API (`PATCH`/`DELETE /api/source-documents/{id}/field-detection/fields/{field_id}` — confirm/edit/reject).
+2. Question-generation bridge (synthetic published `FormTemplate`/`FormVersion`/`FormField` from confirmed fields → existing `SessionService`).
 3. Do not implement automatic PDF filling/export, or start Phase 12.
 
 ## Blockers
