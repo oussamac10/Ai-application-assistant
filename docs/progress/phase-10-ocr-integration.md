@@ -1,0 +1,122 @@
+# Project TODO Archive - Phase 10: OCR Integration
+
+## Completed Phases
+
+| Phase | Branch | Status |
+|---|---|---|
+| 1 — Project Foundation | `main` | ✅ Done |
+| 2 — Form Definitions and Versioning | `feature/form-definitions-versioning` | ✅ Done |
+| 3 — Temporary Anonymous Sessions | `feature/anonymous-sessions` | ✅ Done |
+| 4 — Mock Question and Answer Workflow | `feature/mock-qa-workflow` | ✅ Done |
+| 5 — Local AI Integration with Ollama | `feature/local-ai-ollama` | ✅ Done |
+| 6 — Reusable Question Catalog and Hybrid Resolution | `feature/question-catalog-hybrid-resolution` | ✅ Done |
+| 7 — Frontend Guided Form Experience | `feature/frontend-guided-experience` | ✅ Done |
+| 8 — PDF Template Mapping and Export | `feature/pdf-template-export` | ✅ Done |
+| 9 — Form Upload and Document Analysis | `feature/form-upload-analysis` | ✅ Done |
+| 10 — OCR Integration | `feature/ocr-integration` | ✅ Done |
+
+---
+
+## Current Task
+
+**No active task.** Phase 10 is complete and pushed.
+
+## Goal
+
+Implement secure local OCR for uploaded source documents that Phase 9 classified as scanned or OCR-required. Persist normalized page-level OCR results (text, lines, words, bounding boxes, confidence) for Phase 11 to consume. No arbitrary field detection or form-definition generation.
+
+## Acceptance Criteria
+
+See `docs/claude/current-phase.md` for full in-scope/out-of-scope breakdown. Summary:
+
+- [x] OCR provider interface (`OCRProvider` protocol)
+- [x] deterministic `MockOCRProvider`
+- [x] `LocalOCRProvider` (PyMuPDF render + pytesseract)
+- [x] page rendering, rotation-aware, private temp storage, cleaned up
+- [x] persisted `OCRResult` model + reversible Alembic migration
+- [x] ownership + expiration + eligibility checks reused from Phase 9
+- [x] idempotent OCR API (`POST`/`GET /api/source-documents/{id}/ocr`)
+- [x] frontend OCR status/result UI, all 4 languages, RTL preserved
+- [x] cleanup command extended for expired OCR data and temp images
+- [x] backend, frontend, and Playwright tests
+- [x] ADR 0009, `docs/ocr.md`, updated docs
+- [x] Ruff, mypy, ESLint, TypeScript all pass
+- [x] Phase 7, 8, 9 regressions preserved
+
+## Planned Steps
+
+- [x] Inspect Phase 9 `backend/app/documents/` module to reuse ownership/expiration/storage patterns
+- [x] Add `backend/app/ocr/` module (models, schemas, repository, service, providers, renderer, errors, routes)
+- [x] Add OCR config to `backend/app/core/config.py`, `.env.example`, `docker-compose.yml` (defaults apply), `backend/Dockerfile`
+- [x] Add Alembic migration for `OCRResult`/`OCRPage`; verify upgrade/downgrade/upgrade
+- [x] Implement `MockOCRProvider` and backend tests first (TDD), then `LocalOCRProvider`
+- [x] Implement OCR API routes + idempotency + error contracts
+- [x] Extend cleanup command for OCR expiration/temp files
+- [x] Add frontend `features/document-ocr/` UI + localization (en/de/fr/ar)
+- [x] Add Playwright `e2e/ocr-flow.spec.ts`
+- [x] Write ADR 0009 and update docs
+- [x] Full verification pass (ruff, mypy, pytest, lint, typecheck, vitest, playwright, Docker build)
+
+## Files Expected to Change
+
+- `backend/app/ocr/**` (new)
+- `backend/app/core/config.py`
+- `backend/migrations/versions/*` (new)
+- `backend/app/commands/` (cleanup extension)
+- `backend/Dockerfile`, `docker-compose.yml`, `.env.example`
+- `frontend/src/features/document-ocr/**` (new)
+- `frontend/messages/{en,de,fr,ar}.json`
+- `frontend/e2e/ocr-flow.spec.ts` (new)
+- `docs/ocr.md`, `docs/decisions/0009-local-ocr-provider.md` (new)
+- `docs/architecture.md`, `docs/workflow.md`, `docs/testing.md`, `docs/security.md`, `docs/privacy.md`, `docs/document-upload-analysis.md`
+
+This list is an initial estimate and may be updated during implementation.
+
+## Decisions and Assumptions
+
+- OCR remains local only; no cloud OCR in this phase.
+- Supported OCR languages limited to English, German, French, Arabic.
+- Coordinates are persisted in rendered-image space, not PDF point space.
+- Field/label semantics are explicitly out of scope (deferred to Phase 11).
+
+## Blockers
+
+- None
+
+## Verification
+
+- [x] Backend tests pass — `pytest` → **109 passed** (87 pre-existing + 22 new OCR tests: mock provider, service, API, cleanup)
+- [x] Frontend tests pass — `vitest run` → **41 passed** (35 pre-existing + 6 new OCR tests)
+- [x] Linting passes — `ruff check .` → all checks passed; `next lint` → no warnings/errors
+- [x] Ruff formatting passes for all new and modified Phase 10 Python files
+- [ ] Full backend repository formatting check
+  - Pre-existing formatting issues remain under `app/documents/`
+  - Those files predate Phase 10 and were intentionally left unchanged
+- [x] Type checking passes — `mypy app` → **Success: no issues found in 91 source files**; `tsc --noEmit` → clean
+- [x] OCR Playwright flow passes — `e2e/ocr-flow.spec.ts` against local dev servers (`CI=true`): **2 passed** (upload → OCR → result display; RTL Arabic variant)
+- [x] Full Playwright regression reviewed — 15 of 16 passed
+- [ ] Full Playwright regression suite passes
+  - One guided-flow test requires a published form fixture in the local database
+  - The failure is unrelated to OCR changes
+- [x] Migration upgrade/downgrade verified — `alembic downgrade -1` / `upgrade head` round-tripped cleanly against real Postgres both during development and again in this final pass; suite re-verified after each cycle
+- [x] Docker build verified — `docker compose build backend` succeeds with `tesseract-ocr` + en/de/fr/ar language packs installed; `LocalOCRProvider` exercised inside the built container end-to-end (PyMuPDF render → real tesseract OCR) against both a blank scanned fixture and a real text image, confirming actual text extraction works (caught and fixed a `pytesseract.get_tesseract_version().vstring` → `AttributeError` bug this way, since the mock-provider test suite alone could not have caught it)
+- [x] Acceptance criteria manually verified — all items above; OCR endpoints manually exercised via the UI (upload scanned PDF → Start OCR → extracted text with confidence shown) and via direct container `LocalOCRProvider` calls
+
+---
+
+## Pre-Implementation Verification (deferred Phase 9 checks)
+
+Verified on `feature/ocr-integration` before starting Phase 10 implementation:
+
+- [x] mypy — `mypy app` → **Success: no issues found in 77 source files**
+- [x] Alembic downgrade/re-upgrade — `alembic downgrade -1` then `alembic upgrade head` succeeded cleanly (`f955614f960b` ⇄ `0ac080351a5a`); backend suite re-verified after cycle: **87 passed**
+- [x] Playwright upload flow — `e2e/upload-analysis-flow.spec.ts` against local dev servers: **13 passed** (1 backend-gated sub-check skipped internally, no fixture PDF present — documented, not a failure)
+
+---
+
+## Known Deferred Items
+
+- Full Playwright regression result: **15 of 16 passed**
+- One guided-flow test requires a published form fixture in the local test database
+- The failure is unrelated to OCR, but the full suite must be rerun in a correctly seeded environment
+- Full repository Ruff formatting still includes pre-existing formatting issues under `app/documents/`

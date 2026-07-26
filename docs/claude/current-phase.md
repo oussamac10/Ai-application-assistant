@@ -2,7 +2,11 @@
 
 ## Phase
 
-Phase 10 - OCR Integration
+No active development phase.
+
+## Last completed phase
+
+Phase 10 — OCR Integration
 
 ## Branch
 
@@ -12,46 +16,31 @@ Phase 10 - OCR Integration
 
 `feature/form-upload-analysis`
 
-## Objective
-
-Add local OCR for documents classified by Phase 9 as scanned or OCR-required. Persist normalized page-level OCR results for Phase 11.
-
-## Reuse
-
-- `SourceDocument` ownership and storage
-- Phase 9 analysis and next-step result
-- private storage and expiration
-- existing error contracts and localization patterns
-
-## In scope
-
-- OCR provider interface
-- deterministic mock provider
-- local OCR provider
-- page rendering
-- persisted OCR results
-- protected OCR API
-- frontend OCR status/results
-- cleanup, tests, docs, ADR 0009
-
-## Out of scope
-
-- arbitrary field detection
-- field inference
-- form-definition generation
-- cloud OCR
-- background workers
-- accounts and payments
-
-## Before implementation
-
-Verify deferred Phase 9 checks in root `TODO.md`:
-- mypy
-- Alembic downgrade and re-upgrade
-- Playwright upload flow
-
-All three verified on `feature/ocr-integration` before implementation began — see `TODO.md` "Pre-Implementation Verification".
-
 ## Status
 
-Complete. All in-scope items implemented and verified — see root `TODO.md` "Verification" section for exact check results.
+Complete and pushed.
+
+## Verification summary
+
+- Backend tests: 109 passed
+- Frontend tests: 41 passed
+- OCR Playwright flow: 2 passed
+- Full Playwright regression: 15 of 16 passed
+- Ruff lint: passed
+- mypy: passed
+- ESLint: passed
+- TypeScript: passed
+- Alembic downgrade and re-upgrade: passed
+- Docker backend build: passed
+- Real local Tesseract OCR: manually verified
+
+## Known limitations
+
+- One guided-flow Playwright test requires a published form fixture in the local database
+- Full repository Ruff formatting still has pre-existing issues under `app/documents/`
+
+## Next phase
+
+Phase 11 — Dynamic Field Detection
+
+Phase 11 has not started.
