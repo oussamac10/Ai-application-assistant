@@ -4,7 +4,7 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Slice 2 of Phase 11: added the `field_detection` domain's normalized types and provider protocol (`app/field_detection/providers/base.py` — `BoundingBox`, `DetectionToken`, `AcroFormWidgetInput`, `DetectionPageInput`, `DetectionDocumentInput`, `DetectedFieldCandidate`, `DetectionResult`, `FieldDetectionProvider` Protocol), plus `constants.py`, `errors.py`, and a deterministic `MockFieldDetectionProvider` with TDD-first tests (11 tests, all passing). No persistence, API, or extraction logic yet.
+Slice 3 of Phase 11: added `FieldDetectionResult`/`DetectedField`/`DetectedFieldOption` SQLAlchemy models and a reversible Alembic migration. One active result per `(source_document_id, analysis_version)`; `DetectedField` rows carry label/input bounding boxes as JSON and a `review_status` (`pending_review|confirmed|edited|rejected`); `DetectedFieldOption` covers radio/select candidates. Migration verified upgrade → downgrade → upgrade against real Postgres.
 
 ## Repository state
 
@@ -16,28 +16,25 @@ Slice 2 of Phase 11: added the `field_detection` domain's normalized types and p
 
 ## Files changed
 
-- `backend/app/field_detection/__init__.py`, `constants.py`, `errors.py` (new)
-- `backend/app/field_detection/providers/__init__.py`, `base.py`, `mock.py` (new)
-- `backend/tests/field_detection/test_field_detection_mock_provider.py` (new, 11 tests)
+- `backend/app/field_detection/models.py` (new)
+- `backend/migrations/env.py` — registered the three new models
+- `backend/migrations/versions/87c29a7b8958_*.py` (new)
 - `TODO.md` — Planned Steps updated
 - `docs/claude/session-handoff.md` — this file
 
 ## Checks executed
 
-- `pytest tests/field_detection/` → 11 passed
-- `pytest` (full backend suite) → 120 passed (109 pre-existing + 11 new)
-- `ruff check app/field_detection tests/field_detection` → all checks passed
-- `ruff format app/field_detection tests/field_detection` → applied, re-verified clean
-- `mypy app` → Success: no issues found in 97 source files
-
-Note: `test_field_detection_mock_provider.py` was deliberately named to avoid a pytest module-collision with the existing `tests/ocr/test_mock_provider.py` (neither `tests/ocr/` nor `tests/field_detection/` has an `__init__.py`, so identical basenames collide under pytest's default import mode).
+- `alembic upgrade head` / `downgrade -1` / `upgrade head` → clean round-trip against real Postgres
+- `pytest` (full backend suite) → 120 passed, re-verified after the migration cycle
+- `ruff check app/field_detection migrations/env.py` → all checks passed
+- `ruff format` → applied, re-verified clean
+- `mypy app` → Success: no issues found in 98 source files
 
 ## Next action
 
-1. `FieldDetectionResult`/`DetectedField`/`DetectedFieldOption` models + reversible Alembic migration (mirrors `app/ocr/models.py`).
-2. Native/OCR/AcroForm input normalization (`extraction.py`) using PyMuPDF, independent of the Phase 9 `PDFAnalyzer`.
-3. `LocalFieldDetectionProvider` (rules-based).
-4. Do not implement automatic PDF filling/export, or start Phase 12.
+1. Native/OCR/AcroForm input normalization (`extraction.py`) using PyMuPDF, independent of the Phase 9 `PDFAnalyzer`.
+2. `LocalFieldDetectionProvider` (rules-based).
+3. Do not implement automatic PDF filling/export, or start Phase 12.
 
 ## Blockers
 

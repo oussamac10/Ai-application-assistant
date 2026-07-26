@@ -6,6 +6,12 @@ from sqlalchemy import engine_from_config, pool
 from app.answers.models import FormAnswer  # noqa: F401
 from app.core.config import settings
 from app.database.session import Base
+from app.documents.models import SourceDocument  # noqa: F401
+from app.field_detection.models import (  # noqa: F401
+    DetectedField,
+    DetectedFieldOption,
+    FieldDetectionResult,
+)
 from app.forms.models import (  # noqa: F401
     FormField,
     FormFieldOption,
@@ -14,15 +20,14 @@ from app.forms.models import (  # noqa: F401
     FormTemplate,
     FormVersion,
 )
+from app.ocr.models import OCRPage, OCRResult  # noqa: F401
+from app.pdf.models import FormExport  # noqa: F401
 from app.questions.models import (  # noqa: F401
     QuestionDefinition,
     QuestionResolutionLog,
     QuestionTranslation,
 )
-from app.pdf.models import FormExport  # noqa: F401
 from app.sessions.models import FormSession  # noqa: F401
-from app.documents.models import SourceDocument  # noqa: F401
-from app.ocr.models import OCRPage, OCRResult  # noqa: F401
 
 # This is the Alembic Config object, which provides access to the
 # values within the .ini file in use.
