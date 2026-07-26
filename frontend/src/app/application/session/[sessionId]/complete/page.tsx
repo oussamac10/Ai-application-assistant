@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { removeSessionToken } from "@/features/form-session/services/sessionCredentials";
-import { createExport, downloadExportBlob, ExportResponse, ApiError, TokenMissingError } from "@/features/form-session/services/apiClient";
+import { createExport, downloadExportBlob, getSession, ExportResponse, ApiError, TokenMissingError } from "@/features/form-session/services/apiClient";
 
 type ExportState = "ready" | "creating_export" | "export_ready" | "downloading" | "download_failed" | "export_expired" | "token_missing";
 
@@ -19,6 +19,27 @@ export default function SessionComplete() {
   const [exportState, setExportState] = useState<ExportState>("ready");
   const [exportData, setExportData] = useState<ExportResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [exportSupported, setExportSupported] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSession() {
+      try {
+        const session = await getSession(sessionId);
+        if (!cancelled) {
+          setExportSupported(session.exportSupported ?? true);
+        }
+      } catch {
+        // If we can't determine origin, default to allowing the normal
+        // export flow rather than silently hiding it.
+        if (!cancelled) setExportSupported(true);
+      }
+    }
+    loadSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   const handleStartNew = () => {
     removeSessionToken(sessionId);
@@ -117,6 +138,12 @@ export default function SessionComplete() {
               {t("body")}
             </p>
 
+            {exportSupported === false && (
+              <div className="mt-4 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-300">
+                {t("dynamicExportUnsupported")}
+              </div>
+            )}
+
             {/* Error Message rendering */}
             {errorMsg && (
               <div className="mt-4 w-full rounded-xl border border-rose-900/30 bg-rose-950/20 p-3 text-xs text-rose-300">
@@ -126,7 +153,7 @@ export default function SessionComplete() {
 
             {/* Interactive Actions */}
             <div className="mt-6 w-full space-y-3">
-              {exportState === "ready" && (
+              {exportSupported === true && exportState === "ready" && (
                 <button
                   onClick={handleGeneratePdf}
                   className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-4 text-base font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:opacity-95 active:scale-[0.99]"

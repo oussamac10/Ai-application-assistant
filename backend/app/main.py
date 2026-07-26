@@ -113,7 +113,11 @@ async def validation_handler(request: Request, exc: ValidationError) -> JSONResp
 async def session_validation_handler(
     request: Request, exc: SessionValidationError
 ) -> JSONResponse:
-    return JSONResponse(status_code=422, content={"detail": str(exc)})
+    content: dict[str, str] = {"detail": str(exc)}
+    error_code = getattr(exc, "error_code", None)
+    if error_code:
+        content["error_code"] = error_code
+    return JSONResponse(status_code=422, content=content)
 
 
 @app.exception_handler(UnauthorizedError)

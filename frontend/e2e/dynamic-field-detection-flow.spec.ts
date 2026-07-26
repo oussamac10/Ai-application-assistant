@@ -21,9 +21,13 @@ async function goToLanding(page: Page) {
 
 /** Builds a minimal but valid single-page PDF containing real drawn text,
  * so Phase 9 analysis classifies it as a digital_pdf (native text, no
- * images, no AcroForm) rather than unknown_pdf. */
+ * images, no AcroForm) rather than unknown_pdf. The label ends in a colon
+ * so LocalFieldDetectionProvider's colon-line heuristic actually detects a
+ * candidate field (this test exercises the real "local" provider, not the
+ * mock one — see FIELD_DETECTION_PROVIDER in docker-compose.yml). */
 function createDigitalPdf(name = "unmatched-digital.pdf"): string {
-  const content = "BT /F1 24 Tf 100 700 Td (Full Name Address Email Phone Number) Tj ET";
+  const content =
+    "BT /F1 18 Tf 100 700 Td (Full Name:) Tj 250 0 Td (Jane Doe) Tj ET";
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -91,12 +95,50 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await confirmButtons.first().click();
     await expect(page.getByText(/1 confirmed/i)).toBeVisible();
 
+    // The generated guided question must correspond to the confirmed
+    // detected field's own label, not an unrelated catalog question.
+    const detectedLabel = await page.locator("input").first().inputValue();
+
     const createQuestionsBtn = page.getByRole("button", { name: /Create Questions/i });
     await expect(createQuestionsBtn).toBeEnabled();
     await createQuestionsBtn.click();
 
     await expect(page).toHaveURL(/\/application\/session\/.+/, { timeout: 15000 });
     expect(page.url()).not.toMatch(/token/i);
+
+    // The guided question label must match the confirmed field's label
+    // (mock provider produces one field per page, e.g. "Mock field page 1").
+    await expect(page.getByText(detectedLabel, { exact: false })).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Answer the single generated question and complete the session.
+    await page.locator("input[type='text']").fill("Test Value");
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    // Confirmation screen — confirm the extracted value.
+    await expect(page.getByText("Confirm Extracted Information")).toBeVisible({
+      timeout: 10000,
+    });
+    await page.getByRole("button", { name: "Confirm" }).click();
+
+    // Should land on the summary screen; confirm and finalize.
+    await page.waitForURL(/\/application\/session\/.+\/summary/, { timeout: 15000 });
+    await page.getByRole("button", { name: "Confirm and Finalize Summary" }).click();
+
+    await page.waitForURL(/\/application\/session\/.+\/complete/, { timeout: 15000 });
+    expect(page.url()).not.toMatch(/token/i);
+
+    // Dynamic sessions must never offer PDF export, and must show the safe
+    // unsupported-export message instead.
+    await expect(page.getByText(/not supported yet/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Generate PDF" })).not.toBeVisible();
+
+    // No Basic Registration PDF (or any PDF) should ever be downloaded.
+    const download = await page
+      .waitForEvent("download", { timeout: 2000 })
+      .catch(() => null);
+    expect(download).toBeNull();
 
     fs.unlinkSync(unmatchedPdf);
   });

@@ -27,9 +27,16 @@ class StateConflictError(Exception):
 
 
 class ValidationError(Exception):
-    """Raised when business logic validation fails."""
+    """Raised when business logic validation fails.
 
-    pass
+    `error_code` is optional so existing call sites that only pass a message
+    keep working; set it when the frontend needs to branch on a specific
+    machine-readable reason (e.g. "dynamic_pdf_export_not_supported").
+    """
+
+    def __init__(self, message: str, error_code: str | None = None):
+        super().__init__(message)
+        self.error_code = error_code
 
 
 class UnauthorizedError(Exception):

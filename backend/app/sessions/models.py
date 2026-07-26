@@ -1,10 +1,14 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.session import Base
+
+if TYPE_CHECKING:
+    from app.forms.models import FormVersion
 
 
 class FormSession(Base):
@@ -64,4 +68,12 @@ class FormSession(Base):
         ),
     )
 
-    version = relationship("FormVersion")
+    version: Mapped["FormVersion"] = relationship("FormVersion")
+
+    @property
+    def form_origin(self) -> str:
+        return self.version.origin if self.version else "predefined_template"
+
+    @property
+    def export_supported(self) -> bool:
+        return bool(self.version and self.version.pdf_template_key)

@@ -101,6 +101,8 @@ def create_session_from_confirmed_fields(
         form_template_id=template.id,
         source_language=user_language,
         supported_output_languages=[user_language],
+        origin="dynamic_detection",
+        pdf_template_key=None,
     )
 
     used_keys: set[str] = set()

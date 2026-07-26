@@ -25,6 +25,8 @@ export const SessionResponseSchema = z.object({
   outputLanguage: z.string(),
   expiresAt: z.string(),
   createdAt: z.string().optional(),
+  formOrigin: z.string().optional(),
+  exportSupported: z.boolean().optional(),
 });
 
 export type FormSession = z.infer<typeof SessionResponseSchema>;

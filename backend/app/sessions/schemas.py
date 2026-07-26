@@ -21,6 +21,8 @@ class SessionResponse(BaseSchema):
     total_required_fields: int
     expires_at: datetime
     created_at: datetime
+    form_origin: str
+    export_supported: bool
 
     @computed_field
     def session_id(self) -> str:

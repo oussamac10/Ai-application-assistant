@@ -67,6 +67,8 @@ class FormService:
         form_template_id: str,
         source_language: str,
         supported_output_languages: list[str],
+        origin: str = "predefined_template",
+        pdf_template_key: str | None = None,
     ) -> FormVersion:
         # Verify template exists
         self.get_template(form_template_id)
@@ -81,6 +83,8 @@ class FormService:
             supported_output_languages=supported_output_languages,
             version_number=next_num,
             status="draft",
+            origin=origin,
+            pdf_template_key=pdf_template_key,
         )
 
     def get_version(self, version_id: str) -> FormVersion:

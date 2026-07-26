@@ -63,6 +63,8 @@ def load_basic_registration_fixture() -> None:
             form_template_id=template.id,
             source_language="en",
             supported_output_languages=["en", "de", "ar"],
+            origin="predefined_template",
+            pdf_template_key="basic-registration-v1",
         )
 
         # 3. Add fields

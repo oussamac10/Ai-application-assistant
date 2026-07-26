@@ -46,6 +46,8 @@ class FormRepository:
         supported_output_languages: list[str],
         version_number: int,
         status: str = "draft",
+        origin: str = "predefined_template",
+        pdf_template_key: str | None = None,
     ) -> FormVersion:
         version = FormVersion(
             form_template_id=form_template_id,
@@ -53,6 +55,8 @@ class FormRepository:
             supported_output_languages=supported_output_languages,
             version_number=version_number,
             status=status,
+            origin=origin,
+            pdf_template_key=pdf_template_key,
         )
         self.db.add(version)
         self.db.commit()

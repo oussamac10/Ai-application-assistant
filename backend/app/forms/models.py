@@ -73,6 +73,18 @@ class FormVersion(Base):
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Origin of this version: "predefined_template" (authored via the forms
+    # admin API / fixture seed, e.g. Basic Registration) or "dynamic_detection"
+    # (materialized from Phase 11 confirmed detected fields). Only
+    # predefined_template versions are ever expected to carry a
+    # pdf_template_key.
+    origin: Mapped[str] = mapped_column(
+        String(30), default="predefined_template", nullable=False
+    )
+    # Explicit PDF template/mapping key this version may be exported with
+    # (e.g. "basic-registration-v1"). None means this version has no PDF
+    # export available — PDFExportService must never guess one.
+    pdf_template_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     __table_args__ = (
         UniqueConstraint(

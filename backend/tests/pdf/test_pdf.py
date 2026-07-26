@@ -229,6 +229,7 @@ def test_export_service_eligibility(
             status="published",
             source_language="en",
             supported_output_languages=["en", "de"],
+            pdf_template_key="basic-registration-v1",
         )
         db.add(version)
         db.commit()
@@ -331,6 +332,7 @@ def test_export_service_overflow_policies(
             status="published",
             source_language="en",
             supported_output_languages=["en", "de"],
+            pdf_template_key="basic-registration-v1",
         )
         db.add(version)
         db.commit()

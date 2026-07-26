@@ -50,7 +50,8 @@
     "exportFailed": "Das PDF konnte nicht erstellt werden",
     "exportExpired": "Das PDF ist abgelaufen",
     "regeneratePdf": "Bitte generieren Sie ein neues PDF",
-    "overflowError": "Ein oder mehrere Werte passen nicht in das Formular"
+    "overflowError": "Ein oder mehrere Werte passen nicht in das Formular",
+    "dynamicExportUnsupported": "Ihre Antworten sind vollständig. Das Ausfüllen und Exportieren dieses hochgeladenen PDFs wird noch nicht unterstützt."
   },
   "errors": {
     "unauthorized": "Diese Sitzung ist ungültig oder abgelaufen. Bitte starten Sie eine neue Sitzung.",

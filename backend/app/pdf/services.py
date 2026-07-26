@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.answers.models import FormAnswer
 from app.core.config import settings
-from app.forms.models import FormTemplate, FormVersion
+from app.forms.models import FormVersion
 from app.pdf.formatting import format_field_value
 from app.pdf.models import FormExport
 from app.pdf.registry import PDFMappingError, PDFMappingLoader, PDFTemplateRegistry
@@ -63,18 +63,18 @@ class PDFExportService:
         if not version:
             raise ResourceNotFoundError("Session form version not found.")
 
-        # Fetch form template key
-        template = self.db.get(FormTemplate, version.form_template_id)
-        if not template:
-            raise ResourceNotFoundError("Form template not found.")
-
-        # Map form template key to PDF template key
-        # In our predefined Phase 8, "basic-registration" maps to "basic-registration-v1"
-        pdf_template_key = (
-            f"{template.key}-v1"
-            if template.key == "basic-registration"
-            else "basic-registration-v1"
-        )
+        # Only a version with an explicit PDF template mapping can be
+        # exported. Dynamically generated versions (Phase 11 confirmed-field
+        # sessions) never have one — there is no reviewed coordinate mapping
+        # for an arbitrary uploaded PDF, so filling/exporting it is
+        # explicitly out of scope (see ADR 0010). Never guess or fall back
+        # to another template's mapping.
+        if not version.pdf_template_key:
+            raise ValidationError(
+                "This session's form is not associated with an exportable PDF template.",
+                "dynamic_pdf_export_not_supported",
+            )
+        pdf_template_key = version.pdf_template_key
 
         # 6. Load explicit PDF template mapping configuration
         try:

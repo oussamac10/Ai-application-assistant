@@ -47,6 +47,7 @@ def test_pdf_api_endpoints_flow(client: TestClient) -> None:
             status="published",
             source_language="en",
             supported_output_languages=["en", "de", "ar"],
+            pdf_template_key="basic-registration-v1",
         )
         db_session.add(version)
         db_session.commit()
