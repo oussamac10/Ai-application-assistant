@@ -51,8 +51,8 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 ## Planned Steps
 
 - [x] Phase initialization and documentation
-- [ ] Detection domain schemas and provider protocol
-- [ ] Deterministic mock provider
+- [x] Detection domain schemas and provider protocol
+- [x] Deterministic mock provider
 - [ ] Persistence and reversible migration
 - [ ] Native/OCR/AcroForm input normalization (extraction.py)
 - [ ] Local heuristic provider
