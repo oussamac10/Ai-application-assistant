@@ -72,3 +72,6 @@ postgres_data/
 
 # Agents guidelines and task lists
 .agents/
+
+# Local Claude Code permission settings
+.claude/settings.json
