@@ -13,12 +13,13 @@
 | 7 — Frontend Guided Form Experience | `feature/frontend-guided-experience` | ✅ Done |
 | 8 — PDF Template Mapping and Export | `feature/pdf-template-export` | ✅ Done |
 | 9 — Form Upload and Document Analysis | `feature/form-upload-analysis` | ✅ Done |
+| 10 — OCR Integration | `feature/ocr-integration` | ✅ Done |
 
 ---
 
 ## Current Task
 
-**Phase 10 — OCR Integration.** Branch: `feature/ocr-integration`. Base: `feature/form-upload-analysis`.
+**Phase 10 — OCR Integration.** Branch: `feature/ocr-integration`. Base: `feature/form-upload-analysis`. **Status: Complete.**
 
 ## Goal
 
@@ -28,33 +29,33 @@ Implement secure local OCR for uploaded source documents that Phase 9 classified
 
 See `docs/claude/current-phase.md` for full in-scope/out-of-scope breakdown. Summary:
 
-- [ ] OCR provider interface (`OCRProvider` protocol)
-- [ ] deterministic `MockOCRProvider`
-- [ ] `LocalOCRProvider` (PyMuPDF render + pytesseract)
-- [ ] page rendering, rotation-aware, private temp storage, cleaned up
-- [ ] persisted `OCRResult` model + reversible Alembic migration
-- [ ] ownership + expiration + eligibility checks reused from Phase 9
-- [ ] idempotent OCR API (`POST`/`GET /api/source-documents/{id}/ocr`)
-- [ ] frontend OCR status/result UI, all 4 languages, RTL preserved
-- [ ] cleanup command extended for expired OCR data and temp images
-- [ ] backend, frontend, and Playwright tests
-- [ ] ADR 0009, `docs/ocr.md`, updated docs
-- [ ] Ruff, mypy, ESLint, TypeScript all pass
-- [ ] Phase 7, 8, 9 regressions preserved
+- [x] OCR provider interface (`OCRProvider` protocol)
+- [x] deterministic `MockOCRProvider`
+- [x] `LocalOCRProvider` (PyMuPDF render + pytesseract)
+- [x] page rendering, rotation-aware, private temp storage, cleaned up
+- [x] persisted `OCRResult` model + reversible Alembic migration
+- [x] ownership + expiration + eligibility checks reused from Phase 9
+- [x] idempotent OCR API (`POST`/`GET /api/source-documents/{id}/ocr`)
+- [x] frontend OCR status/result UI, all 4 languages, RTL preserved
+- [x] cleanup command extended for expired OCR data and temp images
+- [x] backend, frontend, and Playwright tests
+- [x] ADR 0009, `docs/ocr.md`, updated docs
+- [x] Ruff, mypy, ESLint, TypeScript all pass
+- [x] Phase 7, 8, 9 regressions preserved
 
 ## Planned Steps
 
-- [ ] Inspect Phase 9 `backend/app/documents/` module to reuse ownership/expiration/storage patterns
-- [ ] Add `backend/app/ocr/` module (models, schemas, repository, service, providers, renderer, normalization, validation, errors, routes)
-- [ ] Add OCR config to `backend/app/core/config.py`, `.env.example`, `docker-compose.yml`, `backend/Dockerfile`
-- [ ] Add Alembic migration for `OCRResult`; verify upgrade/downgrade/upgrade
-- [ ] Implement `MockOCRProvider` and backend tests first (TDD), then `LocalOCRProvider`
-- [ ] Implement OCR API routes + idempotency + error contracts
-- [ ] Extend cleanup command for OCR expiration/temp files
-- [ ] Add frontend `features/document-ocr/` UI + localization (en/de/fr/ar)
-- [ ] Add Playwright `e2e/ocr-flow.spec.ts`
-- [ ] Write ADR 0009 and update docs
-- [ ] Full verification pass (ruff, mypy, pytest, lint, typecheck, vitest, playwright)
+- [x] Inspect Phase 9 `backend/app/documents/` module to reuse ownership/expiration/storage patterns
+- [x] Add `backend/app/ocr/` module (models, schemas, repository, service, providers, renderer, errors, routes)
+- [x] Add OCR config to `backend/app/core/config.py`, `.env.example`, `docker-compose.yml` (defaults apply), `backend/Dockerfile`
+- [x] Add Alembic migration for `OCRResult`/`OCRPage`; verify upgrade/downgrade/upgrade
+- [x] Implement `MockOCRProvider` and backend tests first (TDD), then `LocalOCRProvider`
+- [x] Implement OCR API routes + idempotency + error contracts
+- [x] Extend cleanup command for OCR expiration/temp files
+- [x] Add frontend `features/document-ocr/` UI + localization (en/de/fr/ar)
+- [x] Add Playwright `e2e/ocr-flow.spec.ts`
+- [x] Write ADR 0009 and update docs
+- [x] Full verification pass (ruff, mypy, pytest, lint, typecheck, vitest, playwright, Docker build)
 
 ## Files Expected to Change
 
@@ -84,14 +85,15 @@ This list is an initial estimate and may be updated during implementation.
 
 ## Verification
 
-- [ ] Backend tests pass
-- [ ] Frontend tests pass
-- [ ] Linting passes
-- [ ] Formatting passes
-- [ ] Type checking passes
-- [ ] Playwright OCR flow passes
-- [ ] Migration upgrade/downgrade verified
-- [ ] Acceptance criteria manually verified
+- [x] Backend tests pass — `pytest` → **109 passed** (87 pre-existing + 22 new OCR tests: mock provider, service, API, cleanup)
+- [x] Frontend tests pass — `vitest run` → **41 passed** (35 pre-existing + 6 new OCR tests)
+- [x] Linting passes — `ruff check .` → all checks passed; `next lint` → no warnings/errors
+- [x] Formatting passes — `ruff format --check` clean on all new/changed OCR files (pre-existing unformatted files in `app/documents/*` predate this phase and were left untouched)
+- [x] Type checking passes — `mypy app` → **Success: no issues found in 91 source files**; `tsc --noEmit` → clean
+- [x] Playwright OCR flow passes — `e2e/ocr-flow.spec.ts` against local dev servers (`CI=true`): **2 passed** (upload → OCR → result display; RTL Arabic variant). Full e2e regression: **15/16 passed** (1 pre-existing failure in `guided-flow.spec.ts` due to no published form seeded in this ad hoc local DB — unrelated to OCR, not a regression)
+- [x] Migration upgrade/downgrade verified — `alembic downgrade -1` / `upgrade head` round-tripped cleanly against real Postgres both during development and again in this final pass; suite re-verified after each cycle
+- [x] Docker build verified — `docker compose build backend` succeeds with `tesseract-ocr` + en/de/fr/ar language packs installed; `LocalOCRProvider` exercised inside the built container end-to-end (PyMuPDF render → real tesseract OCR) against both a blank scanned fixture and a real text image, confirming actual text extraction works (caught and fixed a `pytesseract.get_tesseract_version().vstring` → `AttributeError` bug this way, since the mock-provider test suite alone could not have caught it)
+- [x] Acceptance criteria manually verified — all items above; OCR endpoints manually exercised via the UI (upload scanned PDF → Start OCR → extracted text with confidence shown) and via direct container `LocalOCRProvider` calls
 
 ---
 

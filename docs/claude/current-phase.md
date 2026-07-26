@@ -54,4 +54,4 @@ All three verified on `feature/ocr-integration` before implementation began — 
 
 ## Status
 
-Branch created, TODO.md reset, deferred Phase 9 checks verified. Implementation not yet started.
+Complete. All in-scope items implemented and verified — see root `TODO.md` "Verification" section for exact check results.
