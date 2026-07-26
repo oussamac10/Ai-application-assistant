@@ -4,7 +4,7 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Slice 7 of Phase 11: added `FieldDetectionService` (eligibility — rejects supported templates with `supported_template_detected`, requires completed OCR for scanned documents with `ocr_required`/`ocr_not_complete`, idempotent per `source_document_id` + `FIELD_DETECTION_ANALYSIS_VERSION`) and the `POST`/`GET /api/source-documents/{id}/field-detection` routes, wired into `main.py` with full exception-handler mapping. Added `FIELD_DETECTION_PROVIDER`/`FIELD_DETECTION_ANALYSIS_VERSION` settings. 12 new tests (8 service, 4 API), all passing end-to-end against a real Postgres-backed `SourceDocument` (both the `LocalFieldDetectionProvider` and `MockFieldDetectionProvider` are exercised).
+Slice 8 of Phase 11: added the field review API — `PATCH`/`DELETE /api/source-documents/{id}/field-detection/fields/{field_id}`. `PATCH` allows correcting label, normalized name, field type (validated against `FIELD_TYPES`), required, input bounding box, options, and review status; leaving `reviewStatus` unset auto-transitions a `pending_review` field to `edited` (any other correction counts as having reviewed it), while an explicit `reviewStatus` (e.g. `confirmed`) is honored as-is. `DELETE` marks a candidate `rejected` rather than destroying the row, preserving review history. 8 new tests (3 service, 5 API), all passing.
 
 ## Repository state
 
@@ -16,17 +16,18 @@ Slice 7 of Phase 11: added `FieldDetectionService` (eligibility — rejects supp
 
 ## Files changed
 
-- `backend/app/field_detection/service.py`, `repository.py`, `schemas.py`, `api/__init__.py`, `api/routes.py` (new)
-- `backend/app/core/config.py` — `FIELD_DETECTION_PROVIDER`/`FIELD_DETECTION_ANALYSIS_VERSION` settings + validator
-- `backend/app/main.py` — field-detection router + exception handlers
-- `backend/tests/field_detection/test_field_detection_service.py`, `test_field_detection_api.py` (new, 12 tests)
+- `backend/app/field_detection/service.py` — `update_field`/`reject_field`/`_resolve_field`
+- `backend/app/field_detection/repository.py` — `replace_field_options`
+- `backend/app/field_detection/schemas.py` — `DetectedFieldUpdateRequest`, extracted `build_detected_field_schema`
+- `backend/app/field_detection/api/routes.py` — PATCH/DELETE routes
+- `backend/tests/field_detection/test_field_detection_service.py`, `test_field_detection_api.py` — 14 new tests
 - `TODO.md` — Planned Steps and Acceptance Criteria updated
 - `docs/claude/session-handoff.md` — this file
 
 ## Checks executed
 
 - `pytest tests/field_detection/` → all field_detection tests passing
-- `pytest` (full backend suite) → 190 passed (178 pre-existing + 12 new)
+- `pytest` (full backend suite) → 198 passed (190 pre-existing + 8 new)
 - `ruff check`/`ruff format` → all checks passed, applied, re-verified clean
 - `mypy app` → Success: no issues found in 109 source files
 
@@ -36,8 +37,8 @@ Slice 7 of Phase 11: added `FieldDetectionService` (eligibility — rejects supp
 
 ## Next action
 
-1. Field review API (`PATCH`/`DELETE /api/source-documents/{id}/field-detection/fields/{field_id}` — confirm/edit/reject).
-2. Question-generation bridge (synthetic published `FormTemplate`/`FormVersion`/`FormField` from confirmed fields → existing `SessionService`).
+1. Question-generation bridge (synthetic published `FormTemplate`/`FormVersion`/`FormField` from **confirmed** fields only → existing `SessionService`, unmodified).
+2. Frontend `features/field-detection/` review UI (en/de/fr/ar, RTL).
 3. Do not implement automatic PDF filling/export, or start Phase 12.
 
 ## Blockers

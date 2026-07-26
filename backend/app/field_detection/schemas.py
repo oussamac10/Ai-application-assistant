@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from app.field_detection.models import FieldDetectionResult
+    from app.field_detection.models import DetectedField, FieldDetectionResult
 
 
 class BoundingBoxSchema(BaseModel):
@@ -73,39 +73,40 @@ class DetectedFieldUpdateRequest(BaseModel):
         populate_by_name = True
 
 
+def build_detected_field_schema(field: "DetectedField") -> DetectedFieldSchema:
+    return DetectedFieldSchema(
+        fieldId=field.public_id,
+        pageNumber=field.page_number,
+        label=field.label,
+        normalizedName=field.normalized_name,
+        fieldType=field.field_type,
+        required=field.required,
+        multiple=field.multiple,
+        confidence=field.confidence,
+        source=field.source,
+        labelBoundingBox=(
+            BoundingBoxSchema(**field.label_bounding_box)
+            if field.label_bounding_box
+            else None
+        ),
+        inputBoundingBox=(
+            BoundingBoxSchema(**field.input_bounding_box)
+            if field.input_bounding_box
+            else None
+        ),
+        options=[
+            DetectedFieldOptionSchema(value=o.value, position=o.position)
+            for o in field.options
+        ],
+        existingValue=field.existing_value,
+        reviewStatus=field.review_status,
+    )
+
+
 def build_field_detection_response(
     document_public_id: str, result: "FieldDetectionResult"
 ) -> FieldDetectionResultResponse:
-    fields = [
-        DetectedFieldSchema(
-            fieldId=field.public_id,
-            pageNumber=field.page_number,
-            label=field.label,
-            normalizedName=field.normalized_name,
-            fieldType=field.field_type,
-            required=field.required,
-            multiple=field.multiple,
-            confidence=field.confidence,
-            source=field.source,
-            labelBoundingBox=(
-                BoundingBoxSchema(**field.label_bounding_box)
-                if field.label_bounding_box
-                else None
-            ),
-            inputBoundingBox=(
-                BoundingBoxSchema(**field.input_bounding_box)
-                if field.input_bounding_box
-                else None
-            ),
-            options=[
-                DetectedFieldOptionSchema(value=o.value, position=o.position)
-                for o in field.options
-            ],
-            existingValue=field.existing_value,
-            reviewStatus=field.review_status,
-        )
-        for field in result.fields
-    ]
+    fields = [build_detected_field_schema(field) for field in result.fields]
 
     return FieldDetectionResultResponse(
         documentId=document_public_id,

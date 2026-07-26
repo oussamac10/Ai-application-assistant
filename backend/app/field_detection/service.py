@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.documents.models import SourceDocument
 from app.documents.service import SourceDocumentService
+from app.field_detection.constants import FIELD_TYPES, REVIEW_STATUSES
 from app.field_detection.errors import (
     FieldDetectionAlreadyProcessingError,
     FieldDetectionNotFoundError,
@@ -182,6 +183,84 @@ class FieldDetectionService:
                 "No field-detection result exists for this document yet."
             )
         return result
+
+    def _resolve_field(
+        self, document_public_id: str, ownership_token: str, field_public_id: str
+    ) -> DetectedField:
+        result = self.get_detection_result(document_public_id, ownership_token)
+        field = self.repo.get_field_by_public_id(self.db, field_public_id)
+        if field is None or field.detection_result_id != result.id:
+            raise FieldDetectionNotFoundError(
+                "No detected field exists with this id for this document."
+            )
+        return field
+
+    def update_field(
+        self,
+        document_public_id: str,
+        ownership_token: str,
+        field_public_id: str,
+        *,
+        label: str | None = None,
+        normalized_name: str | None = None,
+        field_type: str | None = None,
+        required: bool | None = None,
+        input_bounding_box: dict[str, float] | None = None,
+        options: list[str] | None = None,
+        review_status: str | None = None,
+    ) -> DetectedField:
+        """Applies a user correction to a candidate field. Only the caller-
+        supplied attributes are changed; everything else is left as detected.
+        """
+        field = self._resolve_field(
+            document_public_id, ownership_token, field_public_id
+        )
+
+        if field_type is not None:
+            if field_type not in FIELD_TYPES:
+                raise FieldDetectionValidationError(
+                    f"Unknown field_type '{field_type}'.",
+                    "field_detection_invalid_result",
+                )
+            field.field_type = field_type
+
+        if review_status is not None:
+            if review_status not in REVIEW_STATUSES:
+                raise FieldDetectionValidationError(
+                    f"Unknown review_status '{review_status}'.",
+                    "field_detection_invalid_result",
+                )
+            field.review_status = review_status
+        elif field.review_status == "pending_review":
+            # Any correction the user makes counts as having reviewed it.
+            field.review_status = "edited"
+
+        if label is not None:
+            field.label = label
+        if normalized_name is not None:
+            field.normalized_name = normalized_name
+        if required is not None:
+            field.required = required
+        if input_bounding_box is not None:
+            field.input_bounding_box = input_bounding_box
+
+        field = self.repo.update_field(self.db, field)
+
+        if options is not None:
+            field = self.repo.replace_field_options(self.db, field, options)
+
+        return field
+
+    def reject_field(
+        self, document_public_id: str, ownership_token: str, field_public_id: str
+    ) -> DetectedField:
+        """Marks a candidate as rejected rather than deleting it, preserving
+        review history."""
+        field = self._resolve_field(
+            document_public_id, ownership_token, field_public_id
+        )
+        field.review_status = "rejected"
+        return self.repo.update_field(self.db, field)
 
     def _candidate_to_model(
         self, candidate: DetectedFieldCandidate, display_order: int

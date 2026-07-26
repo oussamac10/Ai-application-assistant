@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.field_detection.schemas import (
+    DetectedFieldSchema,
+    DetectedFieldUpdateRequest,
     FieldDetectionResultResponse,
+    build_detected_field_schema,
     build_field_detection_response,
 )
 from app.field_detection.service import FieldDetectionService
@@ -41,3 +44,49 @@ def get_field_detection_result(
     service = FieldDetectionService(db)
     result = service.get_detection_result(document_id, x_document_token)
     return build_field_detection_response(document_id, result)
+
+
+@router.patch(
+    "/source-documents/{document_id}/field-detection/fields/{field_id}",
+    response_model=DetectedFieldSchema,
+    status_code=status.HTTP_200_OK,
+)
+def update_detected_field(
+    document_id: str,
+    field_id: str,
+    body: DetectedFieldUpdateRequest,
+    x_document_token: str = Header(..., alias="X-Document-Token"),
+    db: Session = Depends(get_db),
+) -> Any:
+    service = FieldDetectionService(db)
+    field = service.update_field(
+        document_id,
+        x_document_token,
+        field_id,
+        label=body.label,
+        normalized_name=body.normalizedName,
+        field_type=body.fieldType,
+        required=body.required,
+        input_bounding_box=body.inputBoundingBox.model_dump()
+        if body.inputBoundingBox
+        else None,
+        options=body.options,
+        review_status=body.reviewStatus,
+    )
+    return build_detected_field_schema(field)
+
+
+@router.delete(
+    "/source-documents/{document_id}/field-detection/fields/{field_id}",
+    response_model=DetectedFieldSchema,
+    status_code=status.HTTP_200_OK,
+)
+def reject_detected_field(
+    document_id: str,
+    field_id: str,
+    x_document_token: str = Header(..., alias="X-Document-Token"),
+    db: Session = Depends(get_db),
+) -> Any:
+    service = FieldDetectionService(db)
+    field = service.reject_field(document_id, x_document_token, field_id)
+    return build_detected_field_schema(field)

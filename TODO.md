@@ -40,7 +40,7 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 - [x] persisted `FieldDetectionResult`/`DetectedField`/`DetectedFieldOption` + reversible migration
 - [x] ownership + expiration checks reused from Phase 9
 - [x] idempotent detection API (`POST`/`GET /api/source-documents/{id}/field-detection`)
-- [ ] field review API (confirm/edit/reject)
+- [x] field review API (confirm/edit/reject)
 - [ ] question generation from confirmed fields only, via existing guided workflow
 - [ ] frontend review UI, all 4 languages, RTL preserved
 - [ ] backend, frontend, migration, and Playwright tests
@@ -57,7 +57,7 @@ See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification
 - [x] Native/OCR/AcroForm input normalization (extraction.py)
 - [x] Local heuristic provider
 - [x] Service, eligibility, idempotency, and API
-- [ ] Field review API
+- [x] Field review API
 - [ ] Question-generation bridge
 - [ ] Frontend review UI
 - [ ] Playwright tests

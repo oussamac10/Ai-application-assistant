@@ -156,3 +156,109 @@ def test_api_field_detection_rejects_supported_template(
     )
     assert resp.status_code == 422
     assert resp.json()["error_code"] == "supported_template_detected"
+
+
+def test_api_patch_confirms_and_edits_a_field(
+    client: TestClient, tmp_path: Path
+) -> None:
+    doc_id, token = _upload_digital_document(client, tmp_path)
+    detect_resp = client.post(
+        f"/api/source-documents/{doc_id}/field-detection",
+        headers={"X-Document-Token": token},
+    )
+    field_id = detect_resp.json()["fields"][0]["fieldId"]
+
+    patch_resp = client.patch(
+        f"/api/source-documents/{doc_id}/field-detection/fields/{field_id}",
+        headers={"X-Document-Token": token},
+        json={
+            "label": "Custom Label",
+            "fieldType": "email",
+            "reviewStatus": "confirmed",
+        },
+    )
+    assert patch_resp.status_code == 200
+    data = patch_resp.json()
+    assert data["label"] == "Custom Label"
+    assert data["fieldType"] == "email"
+    assert data["reviewStatus"] == "confirmed"
+
+
+def test_api_patch_without_review_status_marks_edited(
+    client: TestClient, tmp_path: Path
+) -> None:
+    doc_id, token = _upload_digital_document(client, tmp_path)
+    detect_resp = client.post(
+        f"/api/source-documents/{doc_id}/field-detection",
+        headers={"X-Document-Token": token},
+    )
+    field_id = detect_resp.json()["fields"][0]["fieldId"]
+    assert detect_resp.json()["fields"][0]["reviewStatus"] == "pending_review"
+
+    patch_resp = client.patch(
+        f"/api/source-documents/{doc_id}/field-detection/fields/{field_id}",
+        headers={"X-Document-Token": token},
+        json={"label": "Renamed"},
+    )
+    assert patch_resp.json()["reviewStatus"] == "edited"
+
+
+def test_api_patch_rejects_unknown_field_type(
+    client: TestClient, tmp_path: Path
+) -> None:
+    doc_id, token = _upload_digital_document(client, tmp_path)
+    detect_resp = client.post(
+        f"/api/source-documents/{doc_id}/field-detection",
+        headers={"X-Document-Token": token},
+    )
+    field_id = detect_resp.json()["fields"][0]["fieldId"]
+
+    resp = client.patch(
+        f"/api/source-documents/{doc_id}/field-detection/fields/{field_id}",
+        headers={"X-Document-Token": token},
+        json={"fieldType": "not_a_real_type"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error_code"] == "field_detection_invalid_result"
+
+
+def test_api_delete_marks_field_rejected_not_destroyed(
+    client: TestClient, tmp_path: Path
+) -> None:
+    doc_id, token = _upload_digital_document(client, tmp_path)
+    detect_resp = client.post(
+        f"/api/source-documents/{doc_id}/field-detection",
+        headers={"X-Document-Token": token},
+    )
+    field_id = detect_resp.json()["fields"][0]["fieldId"]
+
+    delete_resp = client.delete(
+        f"/api/source-documents/{doc_id}/field-detection/fields/{field_id}",
+        headers={"X-Document-Token": token},
+    )
+    assert delete_resp.status_code == 200
+    assert delete_resp.json()["reviewStatus"] == "rejected"
+
+    get_resp = client.get(
+        f"/api/source-documents/{doc_id}/field-detection",
+        headers={"X-Document-Token": token},
+    )
+    field_ids = [f["fieldId"] for f in get_resp.json()["fields"]]
+    assert field_id in field_ids
+
+
+def test_api_patch_unknown_field_id_returns_404(
+    client: TestClient, tmp_path: Path
+) -> None:
+    doc_id, token = _upload_digital_document(client, tmp_path)
+    client.post(
+        f"/api/source-documents/{doc_id}/field-detection",
+        headers={"X-Document-Token": token},
+    )
+
+    resp = client.patch(
+        f"/api/source-documents/{doc_id}/field-detection/fields/does-not-exist",
+        headers={"X-Document-Token": token},
+        json={"label": "x"},
+    )
+    assert resp.status_code == 404

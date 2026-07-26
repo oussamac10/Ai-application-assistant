@@ -262,3 +262,52 @@ def test_get_detection_result_not_found(tmp_path: Path) -> None:
             service.get_detection_result(doc.public_id, token)
     finally:
         db.close()
+
+
+def test_update_field_replaces_options(tmp_path: Path) -> None:
+    db, doc, token = _upload_document(tmp_path, "digital.pdf", _create_digital_pdf)
+    try:
+        service = FieldDetectionService(db, provider=MockFieldDetectionProvider())
+        result = service.request_detection(doc.public_id, token)
+        field_id = result.fields[0].public_id
+
+        updated = service.update_field(
+            doc.public_id,
+            token,
+            field_id,
+            field_type="select",
+            options=["yes", "no"],
+        )
+
+        assert updated.field_type == "select"
+        assert [o.value for o in updated.options] == ["yes", "no"]
+    finally:
+        db.close()
+
+
+def test_update_field_raises_for_unknown_field(tmp_path: Path) -> None:
+    db, doc, token = _upload_document(tmp_path, "digital.pdf", _create_digital_pdf)
+    try:
+        service = FieldDetectionService(db, provider=MockFieldDetectionProvider())
+        service.request_detection(doc.public_id, token)
+
+        with pytest.raises(FieldDetectionNotFoundError):
+            service.update_field(doc.public_id, token, "not-a-real-field-id", label="x")
+    finally:
+        db.close()
+
+
+def test_reject_field_marks_rejected_without_deleting(tmp_path: Path) -> None:
+    db, doc, token = _upload_document(tmp_path, "digital.pdf", _create_digital_pdf)
+    try:
+        service = FieldDetectionService(db, provider=MockFieldDetectionProvider())
+        result = service.request_detection(doc.public_id, token)
+        field_id = result.fields[0].public_id
+
+        rejected = service.reject_field(doc.public_id, token, field_id)
+        assert rejected.review_status == "rejected"
+
+        refreshed = service.get_detection_result(doc.public_id, token)
+        assert any(f.public_id == field_id for f in refreshed.fields)
+    finally:
+        db.close()

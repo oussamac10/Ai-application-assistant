@@ -1,7 +1,11 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.field_detection.models import DetectedField, FieldDetectionResult
+from app.field_detection.models import (
+    DetectedField,
+    DetectedFieldOption,
+    FieldDetectionResult,
+)
 
 
 class FieldDetectionRepository:
@@ -67,6 +71,22 @@ class FieldDetectionRepository:
         return db.scalars(stmt).first()
 
     def update_field(self, db: Session, field: DetectedField) -> DetectedField:
+        db.commit()
+        db.refresh(field)
+        return field
+
+    def replace_field_options(
+        self, db: Session, field: DetectedField, values: list[str]
+    ) -> DetectedField:
+        for existing_option in list(field.options):
+            db.delete(existing_option)
+        db.flush()
+        for position, value in enumerate(values):
+            db.add(
+                DetectedFieldOption(
+                    detected_field_id=field.id, value=value, position=position
+                )
+            )
         db.commit()
         db.refresh(field)
         return field
