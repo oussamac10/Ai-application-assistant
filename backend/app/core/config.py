@@ -54,7 +54,10 @@ class Settings(BaseSettings):
     # Ollama
     OLLAMA_BASE_URL: str = "http://host.docker.internal:11434"
     OLLAMA_MODEL: str = "qwen3:4b"
-    OLLAMA_REQUEST_TIMEOUT_SECONDS: int = 60
+    # 120s gives a local CPU-bound Ollama instance enough headroom for a
+    # cold model load plus generation; a warm qwen3:4b call with thinking
+    # disabled typically completes in a few seconds.
+    OLLAMA_REQUEST_TIMEOUT_SECONDS: int = 120
     OLLAMA_MAX_RETRIES: int = 1
     OLLAMA_CACHE_ENABLED: bool = False
 

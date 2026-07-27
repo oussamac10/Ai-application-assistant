@@ -1,7 +1,7 @@
 """OllamaAIProvider — calls a local Ollama instance for AI operations.
 
 Design rules (see docs/ai-provider.md):
-- All requests use stream=false and format="json".
+- All requests use stream=false, format="json", and think=false.
 - Responses are validated with Pydantic before use.
 - Timeouts and retries are bounded.
 - No sensitive content (answers, tokens, secrets) is ever logged.
@@ -9,6 +9,17 @@ Design rules (see docs/ai-provider.md):
 - The backend must reach Ollama via OLLAMA_BASE_URL (host.docker.internal in Docker).
 - Prompt injection: user-supplied text is embedded only as a value in a
   structured JSON payload and is marked as untrusted in the prompt template.
+
+Why think=false: qwen3 (and other reasoning-capable models) default to
+splitting output into a "thinking" field (chain-of-thought) and a
+"response" field (the final answer). When the model never emits an
+explicit end-of-thinking marker — which reliably happens for a prompt that
+demands raw JSON with "no commentary" — Ollama attributes the *entire*
+output to "thinking" and leaves "response" empty, even though `done_reason`
+is "stop" (not an error). Disabling thinking mode makes the model return
+its full answer in "response" every time, and doubles as the enforcement
+mechanism for "never expose chain-of-thought": there is no thinking content
+to accidentally log or leak. `thinking` is therefore never read.
 """
 
 from __future__ import annotations
@@ -67,6 +78,13 @@ def _fill_template(template: str, variables: dict[str, str]) -> str:
     return result
 
 
+_JSON_REPAIR_SUFFIX = (
+    "\n\nYour previous response was empty or was not valid JSON. "
+    "Respond again with ONLY valid JSON matching the schema above — "
+    "no markdown, no commentary, no additional text."
+)
+
+
 class OllamaAIProvider:
     """AI provider that calls a local Ollama instance.
 
@@ -98,19 +116,27 @@ class OllamaAIProvider:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    async def _call_ollama(self, prompt: str) -> dict[str, Any]:
-        """POST to Ollama /api/generate with retries and safe error mapping.
-
-        The prompt text is sent as-is.  Sensitive answer contents are already
-        embedded in the prompt by the caller and are NOT logged here.
-        """
-        payload = {
+    def _build_payload(self, prompt: str) -> dict[str, Any]:
+        return {
             "model": self._model,
             "prompt": prompt,
             "stream": False,
             "format": "json",
+            "think": False,
         }
 
+    async def _post(self, payload: dict[str, Any]) -> str:
+        """POST to Ollama /api/generate with bounded retries for transient
+        transport failures (timeouts only — connection/HTTP errors are not
+        retried since they will not resolve on their own within one
+        request). Returns the raw `response` text; `thinking` is
+        intentionally never read.
+
+        The prompt/answer text is never logged — only exception types and
+        HTTP status codes, so the true cause (connection failure, timeout,
+        model not found, ...) is diagnosable from logs without exposing
+        user data.
+        """
         last_error: Exception | None = None
         for attempt in range(self._max_retries + 1):
             try:
@@ -122,40 +148,91 @@ class OllamaAIProvider:
                     response.raise_for_status()
 
                 raw = response.json()
-                response_text: str = raw.get("response", "")
-                try:
-                    parsed: dict[str, Any] = json.loads(response_text)
-                    return parsed
-                except (json.JSONDecodeError, ValueError) as exc:
-                    raise AIProviderMalformedResponseError(
-                        "Ollama returned non-JSON content"
-                    ) from exc
+                return str(raw.get("response") or "")
 
             except httpx.TimeoutException as exc:
                 last_error = exc
                 logger.warning(
-                    "Ollama timeout on attempt %d/%d",
+                    "Ollama request timed out (attempt %d/%d, timeout=%ss)",
                     attempt + 1,
                     self._max_retries + 1,
+                    self._timeout.read,
                 )
             except httpx.ConnectError as exc:
+                logger.error("Cannot connect to Ollama at %s", self._base_url)
                 raise AIProviderUnavailableError(
                     "Cannot connect to Ollama service"
                 ) from exc
             except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                if status == 404:
+                    logger.error(
+                        "Ollama model '%s' not found (HTTP 404) — is it pulled?",
+                        self._model,
+                    )
+                else:
+                    logger.error("Ollama returned HTTP %d", status)
                 raise AIProviderUnavailableError(
-                    f"Ollama returned HTTP {exc.response.status_code}"
+                    f"Ollama returned HTTP {status}"
                 ) from exc
-            except AIProviderMalformedResponseError:
-                raise
             except Exception as exc:
+                logger.error(
+                    "Unexpected error communicating with Ollama: %s",
+                    type(exc).__name__,
+                )
                 raise AIProviderUnavailableError(
                     "Unexpected error communicating with Ollama"
                 ) from exc
 
+        logger.error(
+            "Ollama did not respond after %d attempt(s)", self._max_retries + 1
+        )
         raise AIProviderTimeoutError(
             f"Ollama did not respond after {self._max_retries + 1} attempt(s)"
         ) from last_error
+
+    @staticmethod
+    def _try_parse_json(text: str) -> dict[str, Any] | None:
+        if not text.strip():
+            return None
+        try:
+            parsed = json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    async def _call_ollama(self, prompt: str) -> dict[str, Any]:
+        """Requests a JSON object from Ollama for the given prompt.
+
+        If the first response is empty or not valid JSON, makes exactly one
+        repair attempt with an added instruction before giving up — this
+        does not re-submit or duplicate anything on the application side
+        (no answer is persisted until a valid result is returned to the
+        caller), it only asks the model again for a well-formed reply.
+        """
+        payload = self._build_payload(prompt)
+        text = await self._post(payload)
+        parsed = self._try_parse_json(text)
+        if parsed is not None:
+            return parsed
+
+        if not text.strip():
+            logger.warning("Ollama returned an empty response; retrying once")
+        else:
+            logger.warning("Ollama returned non-JSON content; retrying once")
+
+        repair_payload = self._build_payload(prompt + _JSON_REPAIR_SUFFIX)
+        repair_text = await self._post(repair_payload)
+        repaired = self._try_parse_json(repair_text)
+        if repaired is not None:
+            return repaired
+
+        if not repair_text.strip():
+            logger.error("Ollama returned an empty response after repair retry")
+            raise AIProviderMalformedResponseError("Ollama returned an empty response")
+
+        logger.error("Ollama returned non-JSON content after repair retry")
+        raise AIProviderMalformedResponseError("Ollama returned non-JSON content")
 
     def _validate(
         self,
