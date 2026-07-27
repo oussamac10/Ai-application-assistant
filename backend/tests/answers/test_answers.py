@@ -337,6 +337,42 @@ def test_submit_answer_person_name(session_setup: dict[str, Any]) -> None:
     assert data["outputValue"] == "Ahmed Benali"
 
 
+def test_clarification_question_key_independent_of_user_language(
+    session_setup: dict[str, Any],
+) -> None:
+    """Clarification messages must use user_language in both flows. The
+    displayed text is resolved client-side (next-intl, keyed off the same
+    session.user_language used everywhere else) from the stable
+    question_key returned here — so that key's shape must be identical
+    regardless of which user_language created the session, for both a
+    Select-Manually session (this fixture's predefined form) and an
+    Upload-Form one."""
+    db = SessionLocal()
+    session_service = SessionService(db)
+    session_de, token_de = session_service.create_session(
+        form_version_id=session_setup["version_id"],
+        user_language="de",
+        output_language="de",
+    )
+    db.commit()
+    session_service.start_session(session_de.public_id, token_de)
+    session_de_public_id = session_de.public_id
+    income_id = session_setup["field_ids"]["monthly_income"]
+    db.close()
+
+    response = client.post(
+        f"/api/form-sessions/{session_de_public_id}/answers",
+        headers={"X-Session-Token": token_de},
+        json={"fieldId": income_id, "originalAnswer": "1800"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "needs_clarification"
+    # Same stable key as the English-user_language case below — the
+    # frontend, not the backend, resolves this key into German text.
+    assert data["clarification"]["questionKey"] == "money_missing_currency_and_period"
+
+
 def test_submit_answer_money_clarification(session_setup: dict[str, Any]) -> None:
     session_id = session_setup["session_id"]
     token = session_setup["token"]

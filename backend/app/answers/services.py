@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.ai.schemas import ExtractionRequest
+from app.ai.text_translation import translate_text
 from app.answers.models import FormAnswer
 from app.answers.normalization.normalization import normalize_value
 from app.answers.repositories import AnswerRepository
@@ -103,17 +104,33 @@ class AnswerService:
         help_text = resolved.help_text
         placeholder = resolved.placeholder
 
-        # Translate options
+        # Translate options. The stable `value` is never touched — only
+        # the display label. If no translation exists yet for user_lang,
+        # translate the best available label via AI rather than silently
+        # showing it in whatever language happens to be stored (the same
+        # "manually selected forms must not assume form_language ==
+        # user_language" guarantee as the question text above).
         translated_options = []
         if field.options:
             for opt in field.options:
                 opt_trans = {ot.language: ot for ot in opt.translations}
-                ot = opt_trans.get(user_lang) or opt_trans.get(source_lang)
-                if not ot and opt.translations:
-                    ot = opt.translations[0]
-                translated_options.append(
-                    {"value": opt.value, "label": ot.label if ot else opt.value}
+                ot = opt_trans.get(user_lang)
+                if ot:
+                    translated_options.append({"value": opt.value, "label": ot.label})
+                    continue
+
+                source_ot = opt_trans.get(source_lang) or (
+                    opt.translations[0] if opt.translations else None
                 )
+                if source_ot and source_ot.label:
+                    translation = await translate_text(
+                        self.ai_provider, source_ot.label, source_lang, user_lang
+                    )
+                    translated_options.append(
+                        {"value": opt.value, "label": translation.translated_text}
+                    )
+                else:
+                    translated_options.append({"value": opt.value, "label": opt.value})
 
         return {
             "id": field.id,

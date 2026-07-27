@@ -433,3 +433,473 @@ def test_session_current_field_integration(
     # The resolved question text for first_name in 'de' is 'Wie lautet Ihr Vorname?' from seed/catalog DB
     assert data["label"] == "Wie lautet Ihr Vorname?"
     db.close()
+
+
+# ---------------------------------------------------------------------------
+# "Select Manually" fix: manually-selected forms authored in only one
+# language, with fields that have no reusable-catalog question_key at all
+# (e.g. "last_name" in question_catalog_setup — English-only static
+# translation, question_key=None) must still be translated into
+# user_language, not silently served in the form's own language.
+# ---------------------------------------------------------------------------
+
+
+class _FakeTranslatingProvider(MockAIProvider):
+    """Deterministic stand-in that prefixes translated text with the
+    target language, so tests can assert exactly which language a call was
+    made for without depending on Ollama."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, str]] = []
+
+    async def translate_output(self, request: Any) -> Any:
+        from app.ai.schemas import TranslationResult
+
+        self.calls.append(
+            (request.text, request.source_language, request.target_language)
+        )
+        return TranslationResult(
+            translatedText=f"[{request.target_language}] {request.text}"
+        )
+
+
+class _FailingTranslatingProvider(MockAIProvider):
+    async def translate_output(self, request: Any) -> Any:
+        from app.ai.errors import AIProviderUnavailableError
+
+        raise AIProviderUnavailableError("Ollama is unreachable")
+
+
+def _last_name_static_translations() -> dict[str, dict[str, str | None]]:
+    return {"en": {"label": "Last Name Label", "help_text": None, "placeholder": None}}
+
+
+@pytest.mark.asyncio
+async def test_manually_selected_form_no_question_key_translates_to_german() -> None:
+    """The exact reported bug: a manually selected English-only form field
+    with no question_key must display in German when user_language=de,
+    not remain in English."""
+    db = SessionLocal()
+    provider = _FakeTranslatingProvider()
+    resolver = QuestionResolver(db, provider)
+
+    res = await resolver.resolve_question(
+        question_key=None,
+        field_type="person_name",
+        user_language="de",
+        source_language="en",
+        output_language="en",
+        field_configuration={},
+        static_translations=_last_name_static_translations(),
+    )
+
+    assert res.text == "[de] Last Name Label"
+    assert res.source == "ai_translated"
+    assert provider.calls == [("Last Name Label", "en", "de")]
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_manually_selected_form_no_question_key_translates_to_arabic() -> None:
+    db = SessionLocal()
+    provider = _FakeTranslatingProvider()
+    resolver = QuestionResolver(db, provider)
+
+    res = await resolver.resolve_question(
+        question_key=None,
+        field_type="person_name",
+        user_language="ar",
+        source_language="en",
+        output_language="en",
+        field_configuration={},
+        static_translations=_last_name_static_translations(),
+    )
+
+    assert res.text == "[ar] Last Name Label"
+    assert provider.calls == [("Last Name Label", "en", "ar")]
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_source_question_text_is_preserved_unchanged() -> None:
+    """The original English static translation must remain retrievable
+    (and untouched) even after a German translation has been resolved."""
+    db = SessionLocal()
+    provider = _FakeTranslatingProvider()
+    resolver = QuestionResolver(db, provider)
+
+    await resolver.resolve_question(
+        question_key=None,
+        field_type="person_name",
+        user_language="de",
+        source_language="en",
+        output_language="en",
+        field_configuration={},
+        static_translations=_last_name_static_translations(),
+    )
+
+    res_en = await resolver.resolve_question(
+        question_key=None,
+        field_type="person_name",
+        user_language="en",
+        source_language="en",
+        output_language="en",
+        field_configuration={},
+        static_translations=_last_name_static_translations(),
+    )
+    assert res_en.text == "Last Name Label"
+    assert res_en.source == "static_translation"
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_ai_failure_falls_back_to_source_text_for_manual_form() -> None:
+    db = SessionLocal()
+    resolver = QuestionResolver(db, _FailingTranslatingProvider())
+
+    res = await resolver.resolve_question(
+        question_key=None,
+        field_type="person_name",
+        user_language="de",
+        source_language="en",
+        output_language="en",
+        field_configuration={},
+        static_translations=_last_name_static_translations(),
+    )
+
+    # Falls through generation (disabled/no key) to the deterministic
+    # fallback, which safely returns the English source text rather than
+    # crashing or leaving the field blank.
+    assert res.text == "Last Name Label"
+    assert res.source == "deterministic_fallback"
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_manually_selected_form_with_question_key_but_no_catalog_entry() -> None:
+    """A field that DOES carry a question_key, but has no matching
+    QuestionDefinition/catalog translation yet (e.g. a form authored
+    without running the catalog seed) — must still translate via AI, and
+    the result must be cached under that key for next time."""
+    db = SessionLocal()
+    provider = _FakeTranslatingProvider()
+    resolver = QuestionResolver(db, provider)
+
+    res = await resolver.resolve_question(
+        question_key="custom.unseeded_field",
+        field_type="string",
+        user_language="de",
+        source_language="en",
+        output_language="en",
+        field_configuration={},
+        static_translations={
+            "en": {"label": "Custom Field", "help_text": None, "placeholder": None}
+        },
+    )
+
+    assert res.text == "[de] Custom Field"
+    assert res.source == "ai_translated"
+    assert res.review_status == "pending_review"
+
+    # Cached: a second resolution for the same key+language hits step 1
+    # (approved) once approved, or step-1-pending if allow_pending — here
+    # we assert the pending translation was actually persisted.
+    repo = QuestionRepository(db)
+    cached = repo.get_pending_translation("custom.unseeded_field", "de")
+    assert cached is not None
+    assert cached.text == "[de] Custom Field"
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_target_language_cache_separation_for_manual_form_field() -> None:
+    """Prevents the exact bug scenario named in the task: an English
+    question translated/cached once must never be reused for a different
+    target language — German and Arabic requests for the same key must
+    each get their own correctly-translated, separately cached entry."""
+    db = SessionLocal()
+    provider = _FakeTranslatingProvider()
+    resolver = QuestionResolver(db, provider)
+
+    res_de = await resolver.resolve_question(
+        question_key="custom.shared_field",
+        field_type="string",
+        user_language="de",
+        source_language="en",
+        output_language="en",
+        field_configuration={},
+        static_translations={
+            "en": {"label": "Shared Field", "help_text": None, "placeholder": None}
+        },
+    )
+    res_ar = await resolver.resolve_question(
+        question_key="custom.shared_field",
+        field_type="string",
+        user_language="ar",
+        source_language="en",
+        output_language="en",
+        field_configuration={},
+        static_translations={
+            "en": {"label": "Shared Field", "help_text": None, "placeholder": None}
+        },
+    )
+
+    assert res_de.text == "[de] Shared Field"
+    assert res_ar.text == "[ar] Shared Field"
+    assert res_de.text != res_ar.text
+    assert provider.calls == [
+        ("Shared Field", "en", "de"),
+        ("Shared Field", "en", "ar"),
+    ]
+
+    repo = QuestionRepository(db)
+    assert repo.get_pending_translation("custom.shared_field", "de") is not None
+    assert repo.get_pending_translation("custom.shared_field", "ar") is not None
+    # The German cache entry is never returned for an Arabic request:
+    # get_pending_translation itself filters by language, so re-requesting
+    # 'ar' must never surface the 'de' text.
+    ar_cached = repo.get_pending_translation("custom.shared_field", "ar")
+    assert ar_cached is not None
+    assert ar_cached.text == "[ar] Shared Field"
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_approved_translation_preferred_over_ai_for_manual_form() -> None:
+    """Once a translation is manually approved for a key+language, it must
+    be served directly — no AI call at all."""
+    db = SessionLocal()
+    provider = _FakeTranslatingProvider()
+    catalog = QuestionCatalogService(db)
+
+    old_admin = settings.QUESTION_ADMIN_API_ENABLED
+    settings.QUESTION_ADMIN_API_ENABLED = True
+    try:
+        catalog.create_definition(
+            question_key="custom.approved_field",
+            field_type="string",
+            purpose="collect_value",
+            domain="custom",
+        )
+        catalog.create_manual_translation(
+            question_key="custom.approved_field",
+            language="de",
+            text="Bereits genehmigt",
+        )
+        db.commit()
+    finally:
+        settings.QUESTION_ADMIN_API_ENABLED = old_admin
+
+    resolver = QuestionResolver(db, provider)
+    res = await resolver.resolve_question(
+        question_key="custom.approved_field",
+        field_type="string",
+        user_language="de",
+        source_language="en",
+        output_language="en",
+        field_configuration={},
+        static_translations={
+            "en": {"label": "Approved Field", "help_text": None, "placeholder": None}
+        },
+    )
+
+    assert res.text == "Bereits genehmigt"
+    assert res.review_status == "approved"
+    assert (
+        provider.calls == []
+    )  # no AI call — the approved entry short-circuits everything
+    db.close()
+
+
+def test_select_manually_current_field_translates_no_question_key_field() -> None:
+    """Full integration through the real /current-field endpoint — the
+    exact "Select Manually" symptom: the last_name field (no question_key,
+    English-only static translation) must display in German for a
+    German-language session, not stay in English."""
+    db = SessionLocal()
+    try:
+        form_service = FormService(db)
+        template = form_service.create_template(
+            key="manual-de-test", name="Manual DE Test"
+        )
+        version = form_service.create_draft_version(
+            form_template_id=template.id,
+            source_language="en",
+            supported_output_languages=["en"],
+        )
+        form_service.add_field_to_draft(
+            version.id,
+            FieldCreate(
+                key="last_name",
+                field_type="string",
+                required=True,
+                position=1,
+                translations=[TranslationSchema(language="en", label="Last Name")],
+            ),
+        )
+        form_service.publish_version(version.id)
+
+        session_service = SessionService(db)
+        session, token = session_service.create_session(
+            form_version_id=version.id,
+            user_language="de",
+            output_language="en",
+        )
+        db.commit()
+        session_public_id = session.public_id
+    finally:
+        db.close()
+
+    import app.ai.factory as ai_factory
+
+    original_provider = ai_factory._provider
+    ai_factory._provider = _FakeTranslatingProvider()
+    try:
+        resp = client.get(
+            f"/api/form-sessions/{session_public_id}/current-field",
+            headers={"X-Session-Token": token},
+        )
+    finally:
+        ai_factory._provider = original_provider
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["label"] == "[de] Last Name"
+
+
+def test_select_manually_current_field_translates_to_arabic_with_no_question_key() -> (
+    None
+):
+    db = SessionLocal()
+    try:
+        form_service = FormService(db)
+        template = form_service.create_template(
+            key="manual-ar-test", name="Manual AR Test"
+        )
+        version = form_service.create_draft_version(
+            form_template_id=template.id,
+            source_language="en",
+            supported_output_languages=["en"],
+        )
+        form_service.add_field_to_draft(
+            version.id,
+            FieldCreate(
+                key="last_name",
+                field_type="string",
+                required=True,
+                position=1,
+                translations=[TranslationSchema(language="en", label="Last Name")],
+            ),
+        )
+        form_service.publish_version(version.id)
+
+        session_service = SessionService(db)
+        session, token = session_service.create_session(
+            form_version_id=version.id,
+            user_language="ar",
+            output_language="en",
+        )
+        db.commit()
+        session_public_id = session.public_id
+    finally:
+        db.close()
+
+    import app.ai.factory as ai_factory
+
+    original_provider = ai_factory._provider
+    ai_factory._provider = _FakeTranslatingProvider()
+    try:
+        resp = client.get(
+            f"/api/form-sessions/{session_public_id}/current-field",
+            headers={"X-Session-Token": token},
+        )
+    finally:
+        ai_factory._provider = original_provider
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["label"] == "[ar] Last Name"
+
+
+def test_select_manually_choice_field_translates_option_labels_stable_values_unchanged() -> (
+    None
+):
+    """A manually selected single_choice field authored with only English
+    option labels must display translated (German) labels while the
+    stable option `value`s used by answer validation stay untouched —
+    { value: "housing", source_label: "Housing", display_label: "Wohnen" }."""
+    db = SessionLocal()
+    try:
+        from app.forms.schemas import OptionSchema, OptionTranslationSchema
+
+        form_service = FormService(db)
+        template = form_service.create_template(
+            key="manual-choice-de-test", name="Manual Choice DE Test"
+        )
+        version = form_service.create_draft_version(
+            form_template_id=template.id,
+            source_language="en",
+            supported_output_languages=["en"],
+        )
+        form_service.add_field_to_draft(
+            version.id,
+            FieldCreate(
+                key="request_category",
+                field_type="single_choice",
+                required=True,
+                position=1,
+                translations=[
+                    TranslationSchema(language="en", label="Request category")
+                ],
+                options=[
+                    OptionSchema(
+                        value="housing",
+                        position=1,
+                        translations=[
+                            OptionTranslationSchema(language="en", label="Housing")
+                        ],
+                    ),
+                    OptionSchema(
+                        value="education",
+                        position=2,
+                        translations=[
+                            OptionTranslationSchema(language="en", label="Education")
+                        ],
+                    ),
+                ],
+            ),
+        )
+        form_service.publish_version(version.id)
+
+        session_service = SessionService(db)
+        session, token = session_service.create_session(
+            form_version_id=version.id,
+            user_language="de",
+            output_language="en",
+        )
+        db.commit()
+        session_public_id = session.public_id
+    finally:
+        db.close()
+
+    import app.ai.factory as ai_factory
+
+    original_provider = ai_factory._provider
+    ai_factory._provider = _FakeTranslatingProvider()
+    try:
+        resp = client.get(
+            f"/api/form-sessions/{session_public_id}/current-field",
+            headers={"X-Session-Token": token},
+        )
+    finally:
+        ai_factory._provider = original_provider
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["label"] == "[de] Request category"
+    assert data["options"] == [
+        {"value": "housing", "label": "[de] Housing"},
+        {"value": "education", "label": "[de] Education"},
+    ]
+    # Stable values are exactly the original English strings — unchanged.
+    assert [o["value"] for o in data["options"]] == ["housing", "education"]

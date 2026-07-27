@@ -22,14 +22,10 @@ produced via the AI provider only when the two differ. Stable option
 
 from __future__ import annotations
 
-import logging
-from dataclasses import dataclass
-
 from sqlalchemy.orm import Session
 
-from app.ai.errors import AIProviderError
 from app.ai.mock_provider import AIProvider
-from app.ai.schemas import TranslationRequest
+from app.ai.text_translation import TextTranslation, translate_text
 from app.documents.models import SourceDocument
 from app.field_detection.errors import FieldDetectionValidationError
 from app.field_detection.models import DetectedField, FieldDetectionResult
@@ -43,8 +39,6 @@ from app.forms.services import FormService
 from app.forms.services import ValidationError as FormValidationError
 from app.sessions.models import FormSession
 from app.sessions.services import SessionService
-
-logger = logging.getLogger(__name__)
 
 # Assumed language of detected label/option text — see module docstring.
 # Kept independent of `user_language` so the resolver's static-translation
@@ -77,64 +71,6 @@ _FIELD_TYPE_MAP: dict[str, str] = {
 _CHOICE_TYPES = ("single_choice", "multiple_choice")
 
 
-@dataclass(frozen=True)
-class LabelTranslation:
-    """Structured result of translating one label/option string."""
-
-    source_text: str
-    translated_text: str
-    source_language: str
-    target_language: str
-
-
-async def _translate_label(
-    ai_provider: AIProvider,
-    text: str,
-    source_language: str,
-    target_language: str,
-) -> LabelTranslation:
-    """Translates a single label/option string for display in
-    `target_language`, preserving `text` untouched as `source_text`.
-
-    No AI call is made when the languages already match. On any AI failure
-    the original text is returned as a safe fallback so question/option
-    creation is never blocked — only the outcome (never the text itself)
-    is logged.
-    """
-    if source_language == target_language:
-        return LabelTranslation(text, text, source_language, target_language)
-
-    try:
-        result = await ai_provider.translate_output(
-            TranslationRequest(
-                text=text,
-                sourceLanguage=source_language,
-                targetLanguage=target_language,
-            )
-        )
-        logger.info(
-            "Dynamic field label translated: provider=%s source_language=%s "
-            "target_language=%s status=success",
-            type(ai_provider).__name__,
-            source_language,
-            target_language,
-        )
-        return LabelTranslation(
-            text, result.translated_text, source_language, target_language
-        )
-    except AIProviderError as exc:
-        logger.warning(
-            "Dynamic field label translation failed, falling back to source "
-            "text: provider=%s source_language=%s target_language=%s "
-            "status=failure error=%s",
-            type(ai_provider).__name__,
-            source_language,
-            target_language,
-            type(exc).__name__,
-        )
-        return LabelTranslation(text, text, source_language, target_language)
-
-
 def _map_field_type(detected_field: DetectedField) -> str:
     mapped = _FIELD_TYPE_MAP.get(detected_field.field_type, "string")
     if mapped in _CHOICE_TYPES and not detected_field.options:
@@ -155,7 +91,7 @@ def _unique_key(base: str, used_keys: set[str]) -> str:
 
 
 def _label_translations(
-    translation: LabelTranslation,
+    translation: TextTranslation,
 ) -> list[TranslationSchema]:
     """Builds the field-label TranslationSchema rows: the original source
     text is always kept (for mapping/audit), plus the user-language
@@ -176,7 +112,7 @@ def _label_translations(
 
 
 def _option_translations(
-    translation: LabelTranslation,
+    translation: TextTranslation,
 ) -> list[OptionTranslationSchema]:
     translations = [
         OptionTranslationSchema(
@@ -234,7 +170,7 @@ async def create_session_from_confirmed_fields(
             field_type = _map_field_type(detected_field)
             key = _unique_key(detected_field.normalized_name, used_keys)
 
-            label_translation = await _translate_label(
+            label_translation = await translate_text(
                 ai_provider,
                 detected_field.label,
                 _DEFAULT_SOURCE_LANGUAGE,
@@ -251,7 +187,7 @@ async def create_session_from_confirmed_fields(
             options: list[OptionSchema] = []
             if field_type in _CHOICE_TYPES:
                 for option in detected_field.options:
-                    option_translation = await _translate_label(
+                    option_translation = await translate_text(
                         ai_provider,
                         option.value,
                         _DEFAULT_SOURCE_LANGUAGE,
