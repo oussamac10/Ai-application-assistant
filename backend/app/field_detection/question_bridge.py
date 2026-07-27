@@ -8,12 +8,28 @@ labels required for the source language, ...) rather than re-implementing
 any of it. SessionService.create_session then starts a real guided session
 completely unmodified. Only user-confirmed fields are ever used; pending or
 rejected candidates never generate a question.
+
+Language handling: the field-detection pipeline (native PDF text / OCR)
+does not perform document-language detection, so a detected label/option's
+own language is unknown to the system — it is assumed to be
+`_DEFAULT_SOURCE_LANGUAGE` (see constant below). That assumed source
+language is kept strictly separate from the session's `user_language`: the
+original detected text is always stored under the source language (for
+mapping/audit — never discarded), and a `user_language` translation is
+produced via the AI provider only when the two differ. Stable option
+`value`s are never translated, only the display label shown to the user.
 """
 
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass
+
 from sqlalchemy.orm import Session
 
+from app.ai.errors import AIProviderError
+from app.ai.mock_provider import AIProvider
+from app.ai.schemas import TranslationRequest
 from app.documents.models import SourceDocument
 from app.field_detection.errors import FieldDetectionValidationError
 from app.field_detection.models import DetectedField, FieldDetectionResult
@@ -27,6 +43,14 @@ from app.forms.services import FormService
 from app.forms.services import ValidationError as FormValidationError
 from app.sessions.models import FormSession
 from app.sessions.services import SessionService
+
+logger = logging.getLogger(__name__)
+
+# Assumed language of detected label/option text — see module docstring.
+# Kept independent of `user_language` so the resolver's static-translation
+# step is never satisfied by untranslated source text mislabeled as the
+# user's language.
+_DEFAULT_SOURCE_LANGUAGE = "en"
 
 # Maps a DetectedField.field_type to the form-model's own field_type
 # vocabulary (see app/forms/validation/config_validation.py). Types with no
@@ -53,6 +77,64 @@ _FIELD_TYPE_MAP: dict[str, str] = {
 _CHOICE_TYPES = ("single_choice", "multiple_choice")
 
 
+@dataclass(frozen=True)
+class LabelTranslation:
+    """Structured result of translating one label/option string."""
+
+    source_text: str
+    translated_text: str
+    source_language: str
+    target_language: str
+
+
+async def _translate_label(
+    ai_provider: AIProvider,
+    text: str,
+    source_language: str,
+    target_language: str,
+) -> LabelTranslation:
+    """Translates a single label/option string for display in
+    `target_language`, preserving `text` untouched as `source_text`.
+
+    No AI call is made when the languages already match. On any AI failure
+    the original text is returned as a safe fallback so question/option
+    creation is never blocked — only the outcome (never the text itself)
+    is logged.
+    """
+    if source_language == target_language:
+        return LabelTranslation(text, text, source_language, target_language)
+
+    try:
+        result = await ai_provider.translate_output(
+            TranslationRequest(
+                text=text,
+                sourceLanguage=source_language,
+                targetLanguage=target_language,
+            )
+        )
+        logger.info(
+            "Dynamic field label translated: provider=%s source_language=%s "
+            "target_language=%s status=success",
+            type(ai_provider).__name__,
+            source_language,
+            target_language,
+        )
+        return LabelTranslation(
+            text, result.translated_text, source_language, target_language
+        )
+    except AIProviderError as exc:
+        logger.warning(
+            "Dynamic field label translation failed, falling back to source "
+            "text: provider=%s source_language=%s target_language=%s "
+            "status=failure error=%s",
+            type(ai_provider).__name__,
+            source_language,
+            target_language,
+            type(exc).__name__,
+        )
+        return LabelTranslation(text, text, source_language, target_language)
+
+
 def _map_field_type(detected_field: DetectedField) -> str:
     mapped = _FIELD_TYPE_MAP.get(detected_field.field_type, "string")
     if mapped in _CHOICE_TYPES and not detected_field.options:
@@ -72,12 +154,52 @@ def _unique_key(base: str, used_keys: set[str]) -> str:
     return candidate
 
 
-def create_session_from_confirmed_fields(
+def _label_translations(
+    translation: LabelTranslation,
+) -> list[TranslationSchema]:
+    """Builds the field-label TranslationSchema rows: the original source
+    text is always kept (for mapping/audit), plus the user-language
+    translation only when it differs from the source."""
+    translations = [
+        TranslationSchema(
+            language=translation.source_language, label=translation.source_text
+        )
+    ]
+    if translation.target_language != translation.source_language:
+        translations.append(
+            TranslationSchema(
+                language=translation.target_language,
+                label=translation.translated_text,
+            )
+        )
+    return translations
+
+
+def _option_translations(
+    translation: LabelTranslation,
+) -> list[OptionTranslationSchema]:
+    translations = [
+        OptionTranslationSchema(
+            language=translation.source_language, label=translation.source_text
+        )
+    ]
+    if translation.target_language != translation.source_language:
+        translations.append(
+            OptionTranslationSchema(
+                language=translation.target_language,
+                label=translation.translated_text,
+            )
+        )
+    return translations
+
+
+async def create_session_from_confirmed_fields(
     db: Session,
     doc: SourceDocument,
     detection_result: FieldDetectionResult,
     user_language: str,
     output_language: str,
+    ai_provider: AIProvider,
 ) -> tuple[FormSession, str]:
     confirmed_fields = [
         field for field in detection_result.fields if field.review_status == "confirmed"
@@ -100,8 +222,8 @@ def create_session_from_confirmed_fields(
 
     version = form_service.create_draft_version(
         form_template_id=template.id,
-        source_language=user_language,
-        supported_output_languages=[user_language],
+        source_language=_DEFAULT_SOURCE_LANGUAGE,
+        supported_output_languages=sorted({_DEFAULT_SOURCE_LANGUAGE, user_language}),
         origin="dynamic_detection",
         pdf_template_key=None,
     )
@@ -112,21 +234,11 @@ def create_session_from_confirmed_fields(
             field_type = _map_field_type(detected_field)
             key = _unique_key(detected_field.normalized_name, used_keys)
 
-            options = (
-                [
-                    OptionSchema(
-                        value=option.value,
-                        position=option.position,
-                        translations=[
-                            OptionTranslationSchema(
-                                language=user_language, label=option.value
-                            )
-                        ],
-                    )
-                    for option in detected_field.options
-                ]
-                if field_type in _CHOICE_TYPES
-                else []
+            label_translation = await _translate_label(
+                ai_provider,
+                detected_field.label,
+                _DEFAULT_SOURCE_LANGUAGE,
+                user_language,
             )
 
             # Options live exclusively in the FormFieldOption rows created
@@ -134,6 +246,25 @@ def create_session_from_confirmed_fields(
             # allowlist rejects an "options" key inside `configuration` for
             # choice fields) — both answer validation and the frontend read
             # the real `field.options` relationship, never `configuration`.
+            # The stable `value` is always the original detected text
+            # (never translated); only the display label is.
+            options: list[OptionSchema] = []
+            if field_type in _CHOICE_TYPES:
+                for option in detected_field.options:
+                    option_translation = await _translate_label(
+                        ai_provider,
+                        option.value,
+                        _DEFAULT_SOURCE_LANGUAGE,
+                        user_language,
+                    )
+                    options.append(
+                        OptionSchema(
+                            value=option.value,
+                            position=option.position,
+                            translations=_option_translations(option_translation),
+                        )
+                    )
+
             form_service.add_field_to_draft(
                 version.id,
                 FieldCreate(
@@ -146,11 +277,7 @@ def create_session_from_confirmed_fields(
                     ),
                     position=position,
                     configuration={},
-                    translations=[
-                        TranslationSchema(
-                            language=user_language, label=detected_field.label
-                        )
-                    ],
+                    translations=_label_translations(label_translation),
                     options=options,
                 ),
             )

@@ -283,4 +283,166 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
 
     fs.unlinkSync(multiChoicePdf);
   });
+
+  test("German user language: question and choice labels are translated, submitted values stay stable", async ({
+    page,
+  }) => {
+    // This exercises the real Ollama translation call (no mocked AI
+    // provider), so it deliberately never asserts an exact translated
+    // string — LLM phrasing can vary. It instead asserts the invariants
+    // that matter: the displayed text differs from the raw English source,
+    // the network request actually submitted uses the untranslated stable
+    // option values, and the session advances without a clarification
+    // detour — i.e. exactly the "fieldConfig empty" failure mode this
+    // fixes never triggers.
+    await goToLanding(page);
+
+    await page.getByRole("button", { name: "Deutsch" }).click();
+
+    const multiChoicePdf = createMultipleChoicePdf("unmatched-multiple-choice-de.pdf");
+    await page.locator("input[type='file']").setInputFiles(multiChoicePdf);
+    await expect(page.getByText("unmatched-multiple-choice-de.pdf")).toBeVisible();
+
+    // Output language chosen independently of user language (English here).
+    await page.locator("#upload-output-select").selectOption("en");
+
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /Analysieren|Upload and Analyze/i }).click();
+
+    await expect(page.getByText(/Dokumentenanalyse|Document Analysis Complete/i)).toBeVisible({
+      timeout: 15000,
+    });
+    await page.getByRole("button", { name: /Felder erkennen|Detect Fields/i }).click();
+    await expect(page).toHaveURL(/\/application\/document\/.+\/detect-fields/);
+
+    await page.getByRole("button", { name: /Erkennung starten|^Start Detection$/i }).click();
+    await expect(page.getByText(/Feld\(er\) erkannt|field\(s\) detected/i)).toBeVisible({ timeout: 15000 });
+
+    await page
+      .getByRole("button", { name: /Alle .* bestätigen|Confirm all high-confidence fields/i })
+      .click();
+
+    const createQuestionsBtn = page.getByRole("button", {
+      name: /Fragen erstellen|Create Questions/i,
+    });
+    await expect(createQuestionsBtn).toBeEnabled();
+    await createQuestionsBtn.click();
+
+    await page.waitForURL(/\/application\/session\/.+/, { timeout: 15000 });
+
+    // First question — the text field. Its label must be translated (not
+    // the literal English source text).
+    await page.waitForSelector("form");
+    const firstHeading = await page.getByRole("heading", { level: 2 }).textContent();
+    expect(firstHeading?.trim()).not.toEqual("Full Name");
+    expect(firstHeading?.trim().length).toBeGreaterThan(0);
+
+    await page.locator("input[type='text']").fill("Jane Doe");
+    await page.locator("button[type='submit']").click();
+    await page.getByRole("button", { name: /Bestätigen|Confirm/i }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: /Bestätigen|Confirm/i }).click();
+
+    // Second question — the multiple_choice "Request category" field.
+    // Its heading and the three choice labels must all be translated too.
+    await page.waitForSelector("input[type='checkbox']", { timeout: 10000 });
+    const categoryHeading = await page.getByRole("heading", { level: 2 }).textContent();
+    expect(categoryHeading?.trim()).not.toEqual("Request category");
+
+    const checkboxes = page.locator("input[type='checkbox']");
+    await expect(checkboxes).toHaveCount(3);
+
+    const optionLabels = await page.locator("label span").allTextContents();
+    expect(optionLabels).not.toContain("Housing");
+    expect(optionLabels).not.toContain("Education");
+    expect(optionLabels).not.toContain("Medical");
+
+    // Select the first two (displayed, translated) options and submit —
+    // the backend must receive the original stable English values.
+    const submitRequestPromise = page.waitForRequest(
+      (req) => req.url().includes("/answers") && req.method() === "POST"
+    );
+    await checkboxes.nth(0).check();
+    await checkboxes.nth(1).check();
+    await page.locator("button[type='submit']").click();
+
+    const submitRequest = await submitRequestPromise;
+    const body = submitRequest.postDataJSON() as { originalAnswer: string };
+    expect(JSON.parse(body.originalAnswer)).toEqual(["Housing", "Education"]);
+
+    const answerResponse = await page.waitForResponse(
+      (res) => res.url().includes("/answers") && res.request().method() === "POST"
+    );
+    const answerBody = await answerResponse.json();
+    expect(answerBody.status).toBe("awaiting_confirmation");
+    expect(answerBody.requiresClarification).toBe(false);
+
+    fs.unlinkSync(multiChoicePdf);
+  });
+
+  test("Arabic user language: RTL stays active and stable option values are unchanged", async ({
+    page,
+  }) => {
+    await goToLanding(page);
+
+    await page.getByRole("button", { name: "العربية" }).click();
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+
+    const multiChoicePdf = createMultipleChoicePdf("unmatched-multiple-choice-ar.pdf");
+    await page.locator("input[type='file']").setInputFiles(multiChoicePdf);
+    await expect(page.getByText("unmatched-multiple-choice-ar.pdf")).toBeVisible();
+    await page.locator("#upload-output-select").selectOption("ar");
+
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /تحليل|Upload and Analyze/i }).click();
+
+    await expect(page.getByText(/تحليل المستند|Document Analysis Complete/i)).toBeVisible({
+      timeout: 15000,
+    });
+    // RTL must remain active throughout the flow, not just on the landing page.
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+
+    await page.getByRole("button", { name: /اكتشاف الحقول|Detect Fields/i }).click();
+    await expect(page).toHaveURL(/\/application\/document\/.+\/detect-fields/);
+    await page.getByRole("button", { name: /بدء الاكتشاف|^Start Detection$/i }).click();
+    await expect(page.getByText(/تم اكتشاف \d+ حقل|field\(s\) detected/i)).toBeVisible({ timeout: 15000 });
+
+    await page
+      .getByRole("button", { name: /تأكيد.*عالية|Confirm all high-confidence fields/i })
+      .click();
+    const createQuestionsBtn = page.getByRole("button", {
+      name: /إنشاء الأسئلة|Create Questions/i,
+    });
+    await expect(createQuestionsBtn).toBeEnabled();
+    await createQuestionsBtn.click();
+
+    await page.waitForURL(/\/application\/session\/.+/, { timeout: 15000 });
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+
+    await page.waitForSelector("form");
+    await page.locator("input[type='text']").fill("Jane Doe");
+    await page.locator("button[type='submit']").click();
+    await page.getByRole("button", { name: /تأكيد|Confirm/i }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: /تأكيد|Confirm/i }).click();
+
+    await page.waitForSelector("input[type='checkbox']", { timeout: 10000 });
+    const checkboxes = page.locator("input[type='checkbox']");
+    await expect(checkboxes).toHaveCount(3);
+
+    const submitRequestPromise = page.waitForRequest(
+      (req) => req.url().includes("/answers") && req.method() === "POST"
+    );
+    await checkboxes.nth(0).check();
+    await checkboxes.nth(1).check();
+    await page.locator("button[type='submit']").click();
+
+    const submitRequest = await submitRequestPromise;
+    const body = submitRequest.postDataJSON() as { originalAnswer: string };
+    // Stable option values are the original English source strings,
+    // unchanged, regardless of Arabic display labels.
+    expect(JSON.parse(body.originalAnswer)).toEqual(["Housing", "Education"]);
+
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+
+    fs.unlinkSync(multiChoicePdf);
+  });
 });

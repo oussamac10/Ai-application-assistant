@@ -39,3 +39,27 @@ def test_cache_same_content_different_order() -> None:
     cache.set({"b": 2, "a": 1}, "value")
     result = cache.get({"a": 1, "b": 2})
     assert result == "value"
+
+
+def test_cache_key_includes_target_language() -> None:
+    """Prevents a language-cache bug: a question translated for one target
+    language must never be served for a different one — the cache key must
+    include target_language (or any field that varies by language) so an
+    English-cached entry is never reused for a German request."""
+    cache = AIResponseCache(enabled=True)
+    request_en = {
+        "question_key": "personal.first_name",
+        "text": "What is your first name?",
+        "source_language": "en",
+        "target_language": "en",
+    }
+    cache.set(request_en, "What is your first name?")
+
+    request_de = {**request_en, "target_language": "de"}
+    assert cache.get(request_de) is None
+
+    request_ar = {**request_en, "target_language": "ar"}
+    assert cache.get(request_ar) is None
+
+    # The original English entry is still retrievable under its own key.
+    assert cache.get(request_en) == "What is your first name?"

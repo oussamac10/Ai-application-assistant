@@ -78,7 +78,7 @@ class AnswerService:
         }
 
     async def _get_translated_field(
-        self, field: FormField, user_lang: str, source_lang: str
+        self, field: FormField, user_lang: str, source_lang: str, output_lang: str
     ) -> dict[str, Any]:
         # Build dictionary of static translations
         static_translations = {}
@@ -94,7 +94,7 @@ class AnswerService:
             field_type=field.field_type,
             user_language=user_lang,
             source_language=source_lang,
-            output_language=source_lang,
+            output_language=output_lang,
             field_configuration=field.configuration,
             static_translations=static_translations,
         )
@@ -160,7 +160,10 @@ class AnswerService:
         # Build response
         ans = answers.get(current_field.id)
         field_data = await self._get_translated_field(
-            current_field, session.user_language, session.source_language
+            current_field,
+            session.user_language,
+            session.source_language,
+            session.output_language,
         )
         field_data["current_answer_status"] = ans.status if ans else None
         field_data["progress"] = self.get_progress(session)
@@ -196,7 +199,10 @@ class AnswerService:
 
         ans = self.repo.get_answer(session.id, prev_field.id)
         field_data = await self._get_translated_field(
-            prev_field, session.user_language, session.source_language
+            prev_field,
+            session.user_language,
+            session.source_language,
+            session.output_language,
         )
         field_data["current_answer_status"] = ans.status if ans else None
         field_data["progress"] = self.get_progress(session)
@@ -448,7 +454,10 @@ class AnswerService:
         for field in version.fields:
             ans = answers.get(field.id)
             translated = await self._get_translated_field(
-                field, session.user_language, session.source_language
+                field,
+                session.user_language,
+                session.source_language,
+                session.output_language,
             )
 
             summary.append(

@@ -3,6 +3,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.orm import Session
 
+from app.ai.factory import get_ai_provider
+from app.ai.mock_provider import AIProvider
 from app.database.session import get_db
 from app.documents.schemas import SessionCreateRequest, SessionCreateResponse
 from app.field_detection.schemas import (
@@ -98,14 +100,15 @@ def reject_detected_field(
     response_model=SessionCreateResponse,
     status_code=status.HTTP_200_OK,
 )
-def create_session_from_field_detection(
+async def create_session_from_field_detection(
     document_id: str,
     body: SessionCreateRequest,
     x_document_token: str = Header(..., alias="X-Document-Token"),
     db: Session = Depends(get_db),
+    ai_provider: AIProvider = Depends(get_ai_provider),
 ) -> Any:
-    service = FieldDetectionService(db)
-    session, session_token = service.create_session_from_confirmed_fields(
+    service = FieldDetectionService(db, ai_provider=ai_provider)
+    session, session_token = await service.create_session_from_confirmed_fields(
         document_id, x_document_token, body.language, body.outputLanguage
     )
     return SessionCreateResponse(

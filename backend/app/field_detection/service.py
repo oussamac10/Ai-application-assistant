@@ -3,6 +3,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.core.config import settings
 from app.documents.models import SourceDocument
 from app.documents.service import SourceDocumentService
@@ -48,12 +49,20 @@ def build_default_provider() -> FieldDetectionProvider:
 
 
 class FieldDetectionService:
-    def __init__(self, db: Session, provider: FieldDetectionProvider | None = None):
+    def __init__(
+        self,
+        db: Session,
+        provider: FieldDetectionProvider | None = None,
+        ai_provider: AIProvider | None = None,
+    ):
         self.db = db
         self.repo = FieldDetectionRepository()
         self.ocr_repo = OCRRepository()
         self.document_service = SourceDocumentService(db)
         self._provider = provider
+        self.ai_provider: AIProvider = (
+            ai_provider if ai_provider is not None else MockAIProvider()
+        )
 
     @property
     def provider(self) -> FieldDetectionProvider:
@@ -186,7 +195,7 @@ class FieldDetectionService:
             )
         return result
 
-    def create_session_from_confirmed_fields(
+    async def create_session_from_confirmed_fields(
         self,
         document_public_id: str,
         ownership_token: str,
@@ -201,8 +210,8 @@ class FieldDetectionService:
             raise FieldDetectionNotFoundError(
                 "No completed field-detection result exists for this document."
             )
-        return create_session_from_confirmed_fields(
-            self.db, doc, result, user_language, output_language
+        return await create_session_from_confirmed_fields(
+            self.db, doc, result, user_language, output_language, self.ai_provider
         )
 
     def _resolve_field(
