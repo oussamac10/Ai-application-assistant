@@ -6,6 +6,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
+    ForeignKey,
     Integer,
     String,
     func,
@@ -31,9 +32,19 @@ class SourceDocument(Base):
         index=True,
         default=lambda: str(uuid.uuid4()),
     )
-    ownership_token_hash: Mapped[str] = mapped_column(
+    # Nullable for the same reason as FormSession.ownership_token_hash: an
+    # authenticated owner (user_id) replaces the anonymous token model
+    # entirely for a given document, it never supplements it. See
+    # app/sessions/models.py for the full rationale.
+    ownership_token_hash: Mapped[str | None] = mapped_column(
         String(64),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     original_filename: Mapped[str] = mapped_column(

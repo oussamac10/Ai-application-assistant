@@ -6,6 +6,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user_optional
+from app.auth.models import User
 from app.database.session import get_db
 from app.pdf.models import FormExport
 from app.pdf.schemas import ExportResponse
@@ -26,11 +28,14 @@ router = APIRouter()
 )
 def create_pdf_export(
     session_id: str,
-    x_session_token: str = Header(..., alias="X-Session-Token"),
+    x_session_token: str | None = Header(default=None, alias="X-Session-Token"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> ExportResponse:
     service = PDFExportService(db)
-    export = service.create_export(session_id, x_session_token)
+    export = service.create_export(
+        session_id, x_session_token, current_user.id if current_user else None
+    )
 
     return ExportResponse(
         exportId=export.public_id,
@@ -49,8 +54,9 @@ def create_pdf_export(
 )
 def download_pdf_export(
     export_id: str,
-    x_session_token: str = Header(..., alias="X-Session-Token"),
+    x_session_token: str | None = Header(default=None, alias="X-Session-Token"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> FileResponse:
     # 1. Fetch export record by public_id
     stmt = select(FormExport).where(FormExport.public_id == export_id)
@@ -64,7 +70,9 @@ def download_pdf_export(
         raise ResourceNotFoundError("Associated form session not found.")
 
     service = PDFExportService(db)
-    service._verify_ownership(session, x_session_token)
+    service._verify_ownership(
+        session, x_session_token, current_user.id if current_user else None
+    )
 
     # 3. Check status constraints
     if export.status == "expired" or export.expires_at < datetime.now(UTC):

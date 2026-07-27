@@ -19,6 +19,8 @@ class SessionRepository:
         total_required_fields: int,
         expires_at: datetime,
         ownership_token_hash: str,
+        user_id: str | None = None,
+        source_document_id: str | None = None,
     ) -> FormSession:
         session = FormSession(
             form_version_id=form_version_id,
@@ -28,6 +30,8 @@ class SessionRepository:
             total_required_fields=total_required_fields,
             expires_at=expires_at,
             ownership_token_hash=ownership_token_hash,
+            user_id=user_id,
+            source_document_id=source_document_id,
             status="session_created",
             current_field_position=0,
         )

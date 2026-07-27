@@ -49,13 +49,18 @@ class SourceDocumentService:
         privacy_accepted: bool,
         user_language: str,
         output_language: str,
+        current_user_id: str | None = None,
     ) -> tuple[SourceDocument, str]:
         """Handles streaming upload, validation, analysis, and fingerprint matching of a PDF document."""
         if not privacy_accepted:
-            raise DocumentValidationError("Privacy policy must be accepted.", "privacy_not_accepted")
+            raise DocumentValidationError(
+                "Privacy policy must be accepted.", "privacy_not_accepted"
+            )
 
         if content_type != "application/pdf" and not filename.lower().endswith(".pdf"):
-            raise DocumentValidationError("Only PDF files are supported.", "invalid_file_type")
+            raise DocumentValidationError(
+                "Only PDF files are supported.", "invalid_file_type"
+            )
 
         # 1. Stream file to private storage and compute checksum/size
         target_path = self.storage.generate_storage_path()
@@ -79,7 +84,9 @@ class SourceDocumentService:
                 os.unlink(target_path)
             if isinstance(e, DocumentValidationError):
                 raise
-            raise DocumentValidationError(f"File upload failed: {str(e)}", "malformed_pdf") from e
+            raise DocumentValidationError(
+                f"File upload failed: {str(e)}", "malformed_pdf"
+            ) from e
 
         if bytes_written == 0:
             if target_path.is_file():
@@ -103,7 +110,9 @@ class SourceDocumentService:
         except Exception as e:
             if target_path.is_file():
                 os.unlink(target_path)
-            raise DocumentValidationError(f"PDF structural analysis failed: {str(e)}", "document_analysis_failed") from e
+            raise DocumentValidationError(
+                f"PDF structural analysis failed: {str(e)}", "document_analysis_failed"
+            ) from e
 
         # 4. Fingerprint pre-defined template recognition
         matched_template = self.registry.match_document(str(target_path), analysis)
@@ -149,6 +158,7 @@ class SourceDocumentService:
 
         doc = SourceDocument(
             ownership_token_hash=token_hash,
+            user_id=current_user_id,
             original_filename=filename,
             sanitized_filename=sanitize_filename(filename),
             storage_path=str(target_path),
@@ -175,8 +185,16 @@ class SourceDocumentService:
         self.repo.create(self.db, doc)
         return doc, raw_token
 
-    def get_document(self, public_id: str, ownership_token: str) -> SourceDocument:
-        """Retrieves document if ownership token matches and document is not expired."""
+    def get_document(
+        self,
+        public_id: str,
+        ownership_token: str | None,
+        current_user_id: str | None = None,
+    ) -> SourceDocument:
+        """Retrieves document if ownership token matches and document is not
+        expired. Mirrors SessionService.get_session's dual-ownership model:
+        once a document has an owning user, only that user can access it;
+        the anonymous token is never consulted for it again."""
         doc = self.repo.get_by_public_id(self.db, public_id)
         if not doc:
             raise DocumentNotFoundError("Document not found.")
@@ -184,12 +202,18 @@ class SourceDocumentService:
         if doc.status in ("deleted", "expired"):
             raise DocumentNotFoundError("Document has expired or been deleted.")
 
-        # Verify ownership token
-        if not verify_ownership_token(ownership_token, doc.ownership_token_hash):
-            raise DocumentUnauthorizedError("Invalid document credentials.")
+        if doc.user_id is not None:
+            if not current_user_id or current_user_id != doc.user_id:
+                raise DocumentUnauthorizedError("Invalid document credentials.")
+        else:
+            if not ownership_token or not doc.ownership_token_hash:
+                raise DocumentUnauthorizedError("Invalid document credentials.")
+            if not verify_ownership_token(ownership_token, doc.ownership_token_hash):
+                raise DocumentUnauthorizedError("Invalid document credentials.")
 
-        # Verify expiration
-        if datetime.now(UTC) >= doc.expires_at:
+        # Verify expiration — an authenticated (claimed) document is not
+        # time-boxed by its original anonymous expiration window.
+        if doc.user_id is None and datetime.now(UTC) >= doc.expires_at:
             doc.status = "expired"
             self.repo.update(self.db, doc)
             raise DocumentNotFoundError("Document has expired.")
@@ -197,16 +221,27 @@ class SourceDocumentService:
         return doc
 
     def create_session_from_document(
-        self, public_id: str, ownership_token: str, user_lang: str, output_lang: str
+        self,
+        public_id: str,
+        ownership_token: str | None,
+        user_lang: str,
+        output_lang: str,
+        current_user_id: str | None = None,
     ) -> tuple[Any, str]:
-        """Creates an anonymous form session using the matched predefined template details."""
-        doc = self.get_document(public_id, ownership_token)
+        """Creates a form session using the matched predefined template details."""
+        doc = self.get_document(public_id, ownership_token, current_user_id)
 
         if doc.status != "analyzed":
             raise DocumentStateConflictError("Document is not in analyzed state.")
 
-        if not doc.matched_template_key or not doc.matched_form_key or not doc.matched_form_version:
-            raise DocumentStateConflictError("No supported predefined template matched for this document.")
+        if (
+            not doc.matched_template_key
+            or not doc.matched_form_key
+            or not doc.matched_form_version
+        ):
+            raise DocumentStateConflictError(
+                "No supported predefined template matched for this document."
+            )
 
         # Find the published FormVersion linked to the matched form template and version number
         stmt = (
@@ -228,6 +263,8 @@ class SourceDocumentService:
             form_version_id=form_version.id,
             user_language=user_lang,
             output_language=output_lang,
+            current_user_id=current_user_id,
+            source_document_id=doc.id,
         )
 
         return session, session_token

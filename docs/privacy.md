@@ -11,13 +11,14 @@ At the session level, we collect and store only the minimal technical metadata r
 
 **No personal data, email addresses, names, or form responses are associated with or stored in the session record itself in this phase.**
 
-## 2. Temporary Anonymous Sessions
-- Sessions are entirely anonymous. We do not require or create permanent user accounts.
-- Access to sessions is authenticated solely via high-entropy, cryptographically secure ownership tokens.
+## 2. Temporary Anonymous Sessions (and Optional Accounts)
+- Sessions remain anonymous by default. Creating an account is entirely optional (Phase 12) and only stores an email address and a salted password hash — never a plaintext password.
+- Anonymous access to sessions is authenticated solely via high-entropy, cryptographically secure ownership tokens.
+- A user may explicitly choose to "claim" (save) an anonymous session into their account. From that point the session is retained under account ownership rather than expiring anonymously, and the original anonymous token is permanently invalidated — see [`docs/user-accounts.md`](user-accounts.md).
 - We do not expose internal primary keys in URLs or API calls, utilizing a randomized, opaque UUID `public_id` for external references.
 
 ## 3. Ephemeral Storage (Expiration Rules)
-- All sessions are temporary and live for a configurable duration (default: `24 hours`), controlled by the `FORM_SESSION_TTL_HOURS` backend configuration.
+- Anonymous sessions are temporary and live for a configurable duration (default: `24 hours`), controlled by the `FORM_SESSION_TTL_HOURS` backend configuration. A session claimed into an account is no longer time-boxed by this anonymous TTL — it persists until the account holder deletes it (soft-deleted, not recoverable).
 - Once a session crosses its expiration threshold, it is considered dead:
   - Accessing it via the API immediately transition-triggers its status to `expired`.
   - It becomes immutable; no further state transitions or operations can be performed.

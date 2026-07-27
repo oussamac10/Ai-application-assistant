@@ -4,6 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.answers.models import FormAnswer  # noqa: F401
+from app.auth.models import AuthSession, User  # noqa: F401
 from app.core.config import settings
 from app.database.session import Base
 from app.documents.models import SourceDocument  # noqa: F401

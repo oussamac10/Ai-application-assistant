@@ -4,6 +4,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user_optional
+from app.auth.models import User
 from app.database.session import get_db
 from app.documents.schemas import (
     DocumentAnalysisSummary,
@@ -40,6 +42,7 @@ def upload_document(
     outputLanguage: str = Form(...),
     privacyAccepted: bool = Form(...),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
     service = SourceDocumentService(db)
 
@@ -53,6 +56,7 @@ def upload_document(
         privacy_accepted=privacyAccepted,
         user_language=language,
         output_language=outputLanguage,
+        current_user_id=current_user.id if current_user else None,
     )
 
     # Format the analysis response
@@ -84,11 +88,14 @@ def upload_document(
 )
 def get_document(
     document_id: str,
-    x_document_token: str = Header(..., alias="X-Document-Token"),
+    x_document_token: str | None = Header(default=None, alias="X-Document-Token"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
     service = SourceDocumentService(db)
-    doc = service.get_document(document_id, x_document_token)
+    doc = service.get_document(
+        document_id, x_document_token, current_user.id if current_user else None
+    )
 
     ar = doc.analysis_result or {}
     analysis_summary = DocumentAnalysisSummary(
@@ -118,8 +125,9 @@ def get_document(
 def create_session(
     document_id: str,
     body: SessionCreateRequest,
-    x_document_token: str = Header(..., alias="X-Document-Token"),
+    x_document_token: str | None = Header(default=None, alias="X-Document-Token"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
     service = SourceDocumentService(db)
     session, session_token = service.create_session_from_document(
@@ -127,6 +135,7 @@ def create_session(
         x_document_token,
         body.language,
         body.outputLanguage,
+        current_user_id=current_user.id if current_user else None,
     )
 
     return SessionCreateResponse(

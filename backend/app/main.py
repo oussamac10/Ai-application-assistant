@@ -12,6 +12,19 @@ from app.ai.errors import (
 )
 from app.answers.api.routes import router as answers_router
 from app.api.health import router as health_router
+from app.applications.api.routes import router as applications_router
+from app.applications.errors import (
+    ApplicationNotFoundError,
+    ApplicationUnauthorizedError,
+    ApplicationValidationError,
+)
+from app.auth.api.routes import router as auth_router
+from app.auth.errors import (
+    AuthConflictError,
+    AuthUnauthorizedError,
+    AuthValidationError,
+)
+from app.core.config import settings
 from app.documents.api.routes import router as documents_router
 from app.documents.errors import (
     DocumentNotFoundError,
@@ -159,6 +172,59 @@ async def document_unauthorized_handler(
 ) -> JSONResponse:
     return JSONResponse(
         status_code=401, content={"detail": "Invalid document credentials"}
+    )
+
+
+@app.exception_handler(AuthValidationError)
+async def auth_validation_handler(
+    request: Request, exc: AuthValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc), "error_code": exc.error_code},
+    )
+
+
+@app.exception_handler(AuthConflictError)
+async def auth_conflict_handler(
+    request: Request, exc: AuthConflictError
+) -> JSONResponse:
+    # Deliberately generic: never confirms "this email already exists" in a
+    # way distinguishable from other registration failures (account
+    # enumeration prevention).
+    return JSONResponse(
+        status_code=409, content={"detail": "Unable to complete registration."}
+    )
+
+
+@app.exception_handler(AuthUnauthorizedError)
+async def auth_unauthorized_handler(
+    request: Request, exc: AuthUnauthorizedError
+) -> JSONResponse:
+    return JSONResponse(status_code=401, content={"detail": "Authentication required."})
+
+
+@app.exception_handler(ApplicationNotFoundError)
+async def application_not_found_handler(
+    request: Request, exc: ApplicationNotFoundError
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(ApplicationUnauthorizedError)
+async def application_unauthorized_handler(
+    request: Request, exc: ApplicationUnauthorizedError
+) -> JSONResponse:
+    return JSONResponse(status_code=401, content={"detail": str(exc)})
+
+
+@app.exception_handler(ApplicationValidationError)
+async def application_validation_handler(
+    request: Request, exc: ApplicationValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc), "error_code": exc.error_code},
     )
 
 
@@ -312,16 +378,20 @@ async def ai_config_handler(
     )
 
 
-# Set up CORS middleware - in dev, allow localhost frontend
+# CORS: an explicit origin allowlist is required, not a wildcard — browsers
+# reject (and the CORS spec forbids) a wildcard origin combined with
+# allow_credentials=True, which auth cookies now depend on.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production, but * is simple for dev foundation
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(health_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(applications_router, prefix="/api")
 app.include_router(forms_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
 app.include_router(answers_router, prefix="/api")

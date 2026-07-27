@@ -2,50 +2,47 @@
 
 ## Phase
 
-Phase 11 - Dynamic Field Detection
+Phase 12 - User Accounts and Persistent Sessions
 
 ## Branch
 
-`feature/dynamic-field-detection`
+`feature/user-accounts-persistent-sessions`
 
 ## Base
 
-`feature/ocr-integration`
+`feature/dynamic-field-detection`
 
 ## Objective
 
-Detect candidate form fields in unrecognized digital PDFs and OCR-processed scanned PDFs, using native PDF text/coordinates, AcroForm widget metadata, and Phase 10 OCR results. Persist a normalized, reviewable detection result. Generate questions from user-confirmed fields only, reusing the existing guided-session workflow.
+Add secure first-party email/password user accounts and persistent applications on top of the existing anonymous, token-owned session model — without breaking anonymous usage. Authenticated users can save, resume, rename, and delete applications, and claim an anonymous application into their account.
 
 ## Reuse
 
-- `SourceDocument` ownership, storage, and expiration (Phase 9)
-- Phase 9 analysis result (`document_type`, `next_step`)
-- Phase 10 `OCRResult`/`OCRPage` normalized OCR output
-- `OCRProvider`/`MockOCRProvider` abstraction pattern
-- existing question catalog, session, and answer workflow (unmodified)
+- `FormSession` as the persistent "application" (no separate aggregate) — Phase 3
+- anonymous ownership-token hashing pattern (`app/sessions/security.py`) reused for auth session tokens
+- existing session/answer/PDF-export workflow, completely unmodified in shape
 
 ## In scope
 
-- field-detection provider abstraction (mock + local rules-based)
-- native PDF text/coordinate extraction and AcroForm widget metadata (PyMuPDF)
-- OCR-result consumption
-- label detection, field-type classification, confidence scoring
-- persisted, reviewable detection results
-- idempotent detection API + field review API (confirm/edit/reject)
-- question generation from confirmed fields via existing guided workflow
-- frontend review UI, all 4 languages, RTL preserved
-- tests, docs, ADR 0010
+- `User`/`AuthSession` models + Argon2id password hashing + migration
+- register/login/logout/me/refresh endpoints, generic error responses
+- HttpOnly auth cookie + CSRF double-submit protection; explicit CORS allowlist
+- `FormSession`/`SourceDocument` extended with nullable `user_id` (dual ownership model)
+- atomic, idempotent anonymous-application claim endpoint
+- application history API (list/detail/rename/delete), summary-only responses
+- frontend: register, login, logout, account menu, My Applications, resume, rename, delete, claim prompt — en/de/fr/ar, RTL preserved
+- `pytest-asyncio` added to `requirements.txt`
+- backend/frontend/Playwright tests, ADR 0011, `docs/user-accounts.md`
 
 ## Out of scope
 
-- automatic filling or export of arbitrary uploaded PDFs
-- signature/handwriting recognition
-- cloud AI providers, background workers, object storage
-- user accounts, payments, admin dashboards
-- Phase 12
+- Phase 13 (administration and content review)
+- password reset / email verification flows
+- multi-factor authentication
+- OAuth/social login
 
 ## Status
 
-Complete. All in-scope items implemented and verified — see root `TODO.md` "Verification" section for exact check results, including two pre-existing environment-specific exceptions unrelated to Phase 11 (the `guided-flow.spec.ts` fixture gap carried from Phase 10, and a local `OCR_PROVIDER=local` override affecting two Phase 10 OCR tests when run via Docker Compose).
+Complete. All in-scope items implemented and verified — see root `TODO.md` "Verification" section for exact check results, including the one pre-existing environment-specific exception unrelated to Phase 12 (the `guided-flow.spec.ts` fixture/tab-default gap carried since Phase 9/10).
 
-See `docs/phases/phase-11-dynamic-field-detection.md` for the full specification, `docs/field-detection.md` for the user guide, and `docs/decisions/0010-dynamic-field-detection.md` for the architecture decisions.
+See `docs/user-accounts.md` for the user guide and `docs/decisions/0011-user-accounts-persistent-sessions.md` for the architecture decisions.

@@ -34,7 +34,12 @@ _DETERMINISTIC_CHOICE_TYPES = ("single_choice", "multiple_choice")
 
 
 class AnswerService:
-    def __init__(self, db: Session, ai_provider: AIProvider | None = None):
+    def __init__(
+        self,
+        db: Session,
+        ai_provider: AIProvider | None = None,
+        current_user_id: str | None = None,
+    ):
         self.db = db
         self.repo = AnswerRepository(db)
         self.form_repo = FormRepository(db)
@@ -43,6 +48,10 @@ class AnswerService:
             ai_provider if ai_provider is not None else MockAIProvider()
         )
         self.resolver = QuestionResolver(db, self.ai_provider)
+        # Resolved from the auth cookie, never trusted from the client body
+        # — every session lookup below authorizes against this (or, for
+        # anonymous callers, the ownership token) via SessionService.
+        self.current_user_id = current_user_id
 
     def get_progress(self, session: Any) -> dict[str, int]:
         """Calculate progress based on confirmed required fields."""
@@ -147,7 +156,9 @@ class AnswerService:
     async def get_current_field(
         self, session_id: str, raw_token: str | None
     ) -> dict[str, Any]:
-        session = self.session_service.get_session(session_id, raw_token)
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
         version = self.form_repo.get_version(session.form_version_id)
         if not version or not version.fields:
             raise ResourceNotFoundError("No fields found for this form version.")
@@ -190,7 +201,9 @@ class AnswerService:
     async def previous_field(
         self, session_id: str, raw_token: str | None
     ) -> dict[str, Any]:
-        session = self.session_service.get_session(session_id, raw_token)
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
         if session.status != "in_progress":
             raise StateConflictError("Session is not in progress.")
 
@@ -233,7 +246,9 @@ class AnswerService:
         original_answer: str,
         raw_token: str | None,
     ) -> FormAnswer:
-        session = self.session_service.get_session(session_id, raw_token)
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
         if session.status != "in_progress":
             raise StateConflictError("Session is not in progress.")
 
@@ -354,7 +369,9 @@ class AnswerService:
         values: dict[str, Any],
         raw_token: str | None,
     ) -> FormAnswer:
-        session = self.session_service.get_session(session_id, raw_token)
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
         if session.status != "in_progress":
             raise StateConflictError("Session is not in progress.")
 
@@ -425,7 +442,9 @@ class AnswerService:
     def confirm_answer(
         self, session_id: str, answer_id: str, raw_token: str | None
     ) -> FormAnswer:
-        session = self.session_service.get_session(session_id, raw_token)
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
         if session.status != "in_progress":
             raise StateConflictError("Session is not in progress.")
 
@@ -460,7 +479,9 @@ class AnswerService:
     async def get_summary(
         self, session_id: str, raw_token: str | None
     ) -> list[dict[str, Any]]:
-        session = self.session_service.get_session(session_id, raw_token)
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
         version = self.form_repo.get_version(session.form_version_id)
         if not version:
             raise ResourceNotFoundError("Form version not found.")
@@ -497,7 +518,9 @@ class AnswerService:
         return summary
 
     def confirm_summary(self, session_id: str, raw_token: str | None) -> Any:
-        session = self.session_service.get_session(session_id, raw_token)
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
         if session.status != "in_progress":
             raise StateConflictError("Session is not in progress.")
 

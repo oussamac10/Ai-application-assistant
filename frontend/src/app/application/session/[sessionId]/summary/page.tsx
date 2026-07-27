@@ -9,7 +9,7 @@ import {
   changeAnswer,
   Summary,
 } from "@/features/form-session/services/apiClient";
-import { getSessionToken, removeSessionToken } from "@/features/form-session/services/sessionCredentials";
+import { removeSessionToken } from "@/features/form-session/services/sessionCredentials";
 
 export default function SessionSummary() {
   const router = useRouter();
@@ -26,13 +26,9 @@ export default function SessionSummary() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = getSessionToken(sessionId);
-    if (!token) {
-      setErrorMsg(te("unauthorized"));
-      setLoading(false);
-      return;
-    }
-
+    // No early credential check: a claimed session has no anonymous token
+    // in sessionStorage and resumes via the auth cookie alone (see the
+    // matching fix in the guided-session page).
     async function loadSummary() {
       try {
         setLoading(true);

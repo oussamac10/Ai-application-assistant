@@ -300,10 +300,10 @@ export class TokenMissingError extends Error {
 }
 
 export async function createExport(sessionId: string): Promise<ExportResponse> {
-  const token = getSessionToken(sessionId);
-  if (!token) {
-    throw new TokenMissingError();
-  }
+  // No token requirement here: a claimed session has no anonymous
+  // ownership token at all and authorizes via the auth cookie instead.
+  // apiRequest already omits the X-Session-Token header when none is
+  // stored, so the cookie-only path works unmodified.
   return apiRequest(
     `/form-sessions/${sessionId}/exports`,
     { method: "POST" },

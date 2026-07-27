@@ -31,12 +31,30 @@ class PDFExportService:
         self.renderer = PypdfRenderer()
         self.validator = PDFExportValidator()
 
-    def _verify_ownership(self, session: FormSession, token: str) -> None:
-        """Verify the session ownership token using HMAC-SHA256 (matches session creation)."""
+    def _verify_ownership(
+        self,
+        session: FormSession,
+        token: str | None,
+        current_user_id: str | None = None,
+    ) -> None:
+        """Verify access under exactly one of the two ownership models
+        (anonymous token or authenticated user), mirroring
+        SessionService.get_session's dual-ownership check."""
+        if session.user_id is not None:
+            if not current_user_id or current_user_id != session.user_id:
+                raise UnauthorizedError("Invalid session credentials")
+            return
+        if not token or not session.ownership_token_hash:
+            raise UnauthorizedError("Invalid session credentials")
         if not verify_ownership_token(token, session.ownership_token_hash):
             raise UnauthorizedError("Invalid session credentials")
 
-    def create_export(self, session_id: str, ownership_token: str) -> FormExport:
+    def create_export(
+        self,
+        session_id: str,
+        ownership_token: str | None,
+        current_user_id: str | None = None,
+    ) -> FormExport:
         # 1. Fetch FormSession by public_id (the externally-visible ID)
         session_stmt = select(FormSession).where(FormSession.public_id == session_id)
         session = self.db.scalars(session_stmt).first()
@@ -44,7 +62,7 @@ class PDFExportService:
             raise ResourceNotFoundError(f"Session with ID '{session_id}' not found.")
 
         # 2. Verify Session Ownership
-        self._verify_ownership(session, ownership_token)
+        self._verify_ownership(session, ownership_token, current_user_id)
 
         # 3. Check Session Expiration and Cancellation
         if session.status == "cancelled":

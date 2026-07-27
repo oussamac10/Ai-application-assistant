@@ -60,6 +60,8 @@ class SessionService:
         form_version_id: str,
         user_language: str,
         output_language: str,
+        current_user_id: str | None = None,
+        source_document_id: str | None = None,
     ) -> tuple[FormSession, str]:
         # 1. Fetch form version
         version = self.form_repo.get_version(form_version_id)
@@ -97,7 +99,10 @@ class SessionService:
         raw_token = generate_ownership_token()
         token_hash = hash_ownership_token(raw_token)
 
-        # 8. Create session
+        # 8. Create session. A logged-in creator is recorded as the owner
+        # immediately (no separate claim needed) — the anonymous token is
+        # still generated and returned for API-shape consistency, but
+        # get_session() ignores it entirely once user_id is set.
         session = self.repo.create_session(
             form_version_id=form_version_id,
             user_language=user_language,
@@ -106,40 +111,62 @@ class SessionService:
             total_required_fields=total_required,
             expires_at=expires_at,
             ownership_token_hash=token_hash,
+            user_id=current_user_id,
+            source_document_id=source_document_id,
         )
 
         return session, raw_token
 
-    def get_session(self, public_id: str, raw_token: str | None) -> FormSession:
-        # Require token header
-        if not raw_token:
-            raise UnauthorizedError("Invalid session credentials")
-
-        # Query session
+    def get_session(
+        self,
+        public_id: str,
+        raw_token: str | None,
+        current_user_id: str | None = None,
+    ) -> FormSession:
+        """Authorizes access to a session under exactly one of two models:
+        anonymous ownership token, or authenticated user. A session's
+        `ownership_token_hash` is cleared to NULL the moment it is claimed
+        (see app/applications/services.py) — from then on only the owning
+        user's `current_user_id` can ever authorize access, and the old
+        token is permanently inert. The same generic 401 is returned for
+        every failure mode (missing session, wrong token, wrong user) so
+        neither path can be used to enumerate sessions or probe ownership.
+        """
         session = self.repo.get_session_by_public_id(public_id)
-        if not session:
-            # Prevent leaking existence by returning 401 generic error
+        if not session or session.deleted_at is not None:
             raise UnauthorizedError("Invalid session credentials")
 
-        # Verify token in constant time
-        if not verify_ownership_token(raw_token, session.ownership_token_hash):
-            raise UnauthorizedError("Invalid session credentials")
+        if session.user_id is not None:
+            if not current_user_id or current_user_id != session.user_id:
+                raise UnauthorizedError("Invalid session credentials")
+        else:
+            if not raw_token or not session.ownership_token_hash:
+                raise UnauthorizedError("Invalid session credentials")
+            if not verify_ownership_token(raw_token, session.ownership_token_hash):
+                raise UnauthorizedError("Invalid session credentials")
 
-        # Check and handle expiration first
+        # Check and handle expiration first. Claimed (authenticated-owned)
+        # sessions never expire merely by crossing their original
+        # anonymous-lifetime `expires_at` — persistence for authenticated
+        # applications is intentionally not time-boxed the same way.
         now = datetime.now(UTC)
-        if session.expires_at < now and session.status not in (
-            "expired",
-            "cancelled",
-            "completed",
-            "failed",
+        if (
+            session.user_id is None
+            and session.expires_at < now
+            and session.status not in ("expired", "cancelled", "completed", "failed")
         ):
             session.status = "expired"
             self.db.commit()
 
         return session
 
-    def start_session(self, public_id: str, raw_token: str | None) -> FormSession:
-        session = self.get_session(public_id, raw_token)
+    def start_session(
+        self,
+        public_id: str,
+        raw_token: str | None,
+        current_user_id: str | None = None,
+    ) -> FormSession:
+        session = self.get_session(public_id, raw_token, current_user_id)
 
         # Already active — idempotent no-op so a repeated/duplicate start
         # request (e.g. React effect re-run) never breaks the UI.
@@ -160,8 +187,13 @@ class SessionService:
         self.db.commit()
         return session
 
-    def cancel_session(self, public_id: str, raw_token: str | None) -> FormSession:
-        session = self.get_session(public_id, raw_token)
+    def cancel_session(
+        self,
+        public_id: str,
+        raw_token: str | None,
+        current_user_id: str | None = None,
+    ) -> FormSession:
+        session = self.get_session(public_id, raw_token, current_user_id)
 
         terminal_statuses = ("expired", "cancelled", "completed", "failed")
         if session.status in terminal_statuses:

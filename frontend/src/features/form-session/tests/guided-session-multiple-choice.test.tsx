@@ -18,6 +18,10 @@ vi.mock("@/features/form-session/services/sessionCredentials", () => ({
   removeSessionToken: vi.fn(),
 }));
 
+vi.mock("@/features/auth/context/AuthProvider", () => ({
+  useAuth: () => ({ user: null, loading: false, login: vi.fn(), register: vi.fn(), logout: vi.fn(), refresh: vi.fn() }),
+}));
+
 const startSessionMock = vi.fn();
 const getCurrentFieldMock = vi.fn();
 const submitAnswerMock = vi.fn();

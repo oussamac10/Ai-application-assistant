@@ -67,10 +67,42 @@ class Settings(BaseSettings):
     QUESTION_AI_GENERATION_ENABLED: bool = True
     QUESTION_ADMIN_API_ENABLED: bool = False
 
+    # User Accounts & Auth Sessions (Phase 12)
+    AUTH_SECRET: str | None = None
+    AUTH_SESSION_TTL_HOURS: int = 336  # 14 days
+    AUTH_COOKIE_NAME: str = "auth_session"
+    AUTH_COOKIE_SECURE: bool = False  # must be true in production (HTTPS)
+    AUTH_COOKIE_SAMESITE: str = "lax"
+    AUTH_CSRF_COOKIE_NAME: str = "csrf_token"
+    AUTH_CSRF_HEADER_NAME: str = "X-CSRF-Token"
+    PASSWORD_MIN_LENGTH: int = 10
+
+    # Comma-separated list of frontend origins allowed to send credentialed
+    # (cookie-bearing) requests. A wildcard cannot be combined with
+    # credentials per the CORS spec, so this must be an explicit list now
+    # that auth relies on cookies.
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3003"
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
     @model_validator(mode="after")
     def validate_session_secret(self) -> "Settings":
         if not self.SESSION_TOKEN_SECRET:
             self.SESSION_TOKEN_SECRET = "unsafe-dev-fallback-secret-key-12345678"
+        return self
+
+    @model_validator(mode="after")
+    def validate_auth_settings(self) -> "Settings":
+        if not self.AUTH_SECRET:
+            self.AUTH_SECRET = "unsafe-dev-fallback-auth-secret-key-12345678"
+        if self.AUTH_SESSION_TTL_HOURS <= 0:
+            raise ValueError("AUTH_SESSION_TTL_HOURS must be a positive integer.")
+        if self.AUTH_COOKIE_SAMESITE.lower() not in ("lax", "strict", "none"):
+            raise ValueError("AUTH_COOKIE_SAMESITE must be one of: lax, strict, none.")
+        if self.PASSWORD_MIN_LENGTH < 8:
+            raise ValueError("PASSWORD_MIN_LENGTH must be at least 8.")
         return self
 
     @model_validator(mode="after")

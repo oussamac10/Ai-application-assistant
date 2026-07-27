@@ -27,7 +27,28 @@ class FormSession(Base):
         index=True,
         default=lambda: str(uuid.uuid4()),
     )
-    ownership_token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Nullable: cleared (set to NULL) the moment a session is claimed by an
+    # authenticated user (see app/applications/services.py claim flow) so
+    # the old anonymous token can never authorize access again. Exactly one
+    # of (ownership_token_hash present) / (user_id present) is meaningful
+    # at a time — never both.
+    ownership_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    # Convenience link for resume/rename/delete/title-generation — not all
+    # sessions originate from an uploaded document (predefined-template
+    # sessions created via "Select Manually" have none).
+    source_document_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("source_documents.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     form_version_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("form_versions.id", ondelete="RESTRICT"),
@@ -51,10 +72,16 @@ class FormSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    last_opened_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

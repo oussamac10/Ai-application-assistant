@@ -14,6 +14,8 @@ from app.answers.schemas import (
     SummaryResponse,
 )
 from app.answers.services import AnswerService
+from app.auth.dependencies import get_current_user_optional
+from app.auth.models import User
 from app.database.session import get_db
 from app.forms.schemas import BaseSchema
 
@@ -34,8 +36,14 @@ def _prepare_answer_response(answer: Any) -> Any:
     return answer
 
 
-def _make_service(db: Session, provider: AIProvider) -> AnswerService:
-    return AnswerService(db, ai_provider=provider)
+def _make_service(
+    db: Session, provider: AIProvider, current_user: User | None
+) -> AnswerService:
+    return AnswerService(
+        db,
+        ai_provider=provider,
+        current_user_id=current_user.id if current_user else None,
+    )
 
 
 @router.get(
@@ -47,8 +55,9 @@ async def get_current_field(
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = _make_service(db, provider)
+    service = _make_service(db, provider, current_user)
     return await service.get_current_field(session_id, x_session_token)
 
 
@@ -63,8 +72,9 @@ async def submit_answer(
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = _make_service(db, provider)
+    service = _make_service(db, provider, current_user)
     ans = await service.submit_answer(
         session_id, data.field_id, data.original_answer, x_session_token
     )
@@ -82,8 +92,9 @@ def submit_clarification(
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = _make_service(db, provider)
+    service = _make_service(db, provider, current_user)
     ans = service.submit_clarification(
         session_id, answer_id, data.values, x_session_token
     )
@@ -100,8 +111,9 @@ def confirm_answer(
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = _make_service(db, provider)
+    service = _make_service(db, provider, current_user)
     return service.confirm_answer(session_id, answer_id, x_session_token)
 
 
@@ -116,8 +128,9 @@ async def change_answer(
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = _make_service(db, provider)
+    service = _make_service(db, provider, current_user)
     ans = await service.submit_answer(
         session_id, field_id, data.original_answer, x_session_token
     )
@@ -133,8 +146,9 @@ async def previous_field(
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = _make_service(db, provider)
+    service = _make_service(db, provider, current_user)
     return await service.previous_field(session_id, x_session_token)
 
 
@@ -144,8 +158,9 @@ async def get_summary(
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = _make_service(db, provider)
+    service = _make_service(db, provider, current_user)
     fields_list = await service.get_summary(session_id, x_session_token)
     return {"fields": fields_list}
 
@@ -156,7 +171,8 @@ def confirm_summary(
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = _make_service(db, provider)
+    service = _make_service(db, provider, current_user)
     service.confirm_summary(session_id, x_session_token)
     return {"status": "ready_for_export"}

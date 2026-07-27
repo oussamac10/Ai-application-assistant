@@ -15,8 +15,9 @@ import {
   CurrentField,
   AnswerResponse,
 } from "@/features/form-session/services/apiClient";
-import { getSessionToken, removeSessionToken } from "@/features/form-session/services/sessionCredentials";
+import { removeSessionToken } from "@/features/form-session/services/sessionCredentials";
 import { FieldRenderer } from "@/features/form-session/components/FieldRenderer";
+import ClaimBanner from "@/features/applications/components/ClaimBanner";
 
 type FlowStep =
   | "loading"
@@ -90,14 +91,11 @@ export default function GuidedSession() {
   }, [sessionId, router, te]);
 
   useEffect(() => {
-    // Check credentials first
-    const token = getSessionToken(sessionId);
-    if (!token) {
-      setErrorMsg(te("unauthorized"));
-      setStep("error");
-      return;
-    }
-
+    // No early credential check here: a claimed (authenticated-owned)
+    // session has no anonymous ownership token in sessionStorage at all and
+    // must still resume via the auth cookie alone. If access truly isn't
+    // authorized, the request below fails with a 401 and surfaces the
+    // normal error state instead of a client-side guess.
     if (initializedSessionRef.current === sessionId) return;
     initializedSessionRef.current = sessionId;
 
@@ -289,6 +287,7 @@ export default function GuidedSession() {
     <main className="flex min-h-screen flex-col bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 text-slate-100 px-4 py-8 sm:px-6 lg:px-8">
       {/* Central guided card container */}
       <div className="mx-auto w-full max-w-xl flex-1 flex flex-col justify-center">
+        <ClaimBanner sessionId={sessionId} />
         {/* Progress header */}
         {currentField && (
           <div className="mb-6 w-full space-y-2">
