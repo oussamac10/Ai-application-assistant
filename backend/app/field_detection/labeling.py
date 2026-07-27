@@ -6,13 +6,14 @@ not part of the provider-independent contract in providers/base.py.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.field_detection.geometry import (
     DEFAULT_PROXIMITY_GAP,
     group_tokens_into_lines,
     is_above,
     is_left_of,
+    split_line_into_segments,
     union_bounding_box,
 )
 from app.field_detection.providers.base import BoundingBox, DetectionToken
@@ -26,39 +27,60 @@ class LinePhrase:
     source: str  # the dominant token source contributing to this line
     has_colon: bool = False
     trailing_text: str = ""  # text on the same line after the colon, if any
+    tokens: tuple[DetectionToken, ...] = field(default_factory=tuple)
+
+
+def _phrase_from_segment(
+    page_number: int, segment_tokens: list[DetectionToken]
+) -> LinePhrase:
+    full_text = " ".join(t.text for t in segment_tokens)
+    box = union_bounding_box([t.bounding_box for t in segment_tokens])
+    source = segment_tokens[0].source
+
+    has_colon = ":" in full_text
+    if has_colon:
+        before, _, after = full_text.partition(":")
+        label_text, trailing = before.strip(), after.strip()
+    else:
+        label_text, trailing = full_text.strip(), ""
+
+    return LinePhrase(
+        text=label_text,
+        bounding_box=box,
+        page_number=page_number,
+        source=source,
+        has_colon=has_colon,
+        trailing_text=trailing,
+        tokens=tuple(segment_tokens),
+    )
+
+
+def build_line_groups(
+    page_number: int, tokens: tuple[DetectionToken, ...]
+) -> list[list[LinePhrase]]:
+    """Groups a page's tokens into visual lines, then splits each line into
+    segments (see split_line_into_segments). Each physical line becomes one
+    list of one-or-more LinePhrase segments — callers that care about the
+    grouping (e.g. choice-group detection) use this; callers that only need
+    a flat list use build_line_phrases below.
+    """
+    groups: list[list[LinePhrase]] = []
+    for line_tokens in group_tokens_into_lines(tokens):
+        segments = split_line_into_segments(line_tokens)
+        groups.append(
+            [_phrase_from_segment(page_number, segment) for segment in segments]
+        )
+    return groups
 
 
 def build_line_phrases(
     page_number: int, tokens: tuple[DetectionToken, ...]
 ) -> list[LinePhrase]:
-    """Groups a page's tokens into visual lines and joins each into a phrase."""
-    phrases: list[LinePhrase] = []
-
-    for line in group_tokens_into_lines(tokens):
-        words = [t.text for t in line]
-        full_text = " ".join(words)
-        box = union_bounding_box([t.bounding_box for t in line])
-        source = line[0].source
-
-        has_colon = ":" in full_text
-        if has_colon:
-            before, _, after = full_text.partition(":")
-            label_text, trailing = before.strip(), after.strip()
-        else:
-            label_text, trailing = full_text.strip(), ""
-
-        phrases.append(
-            LinePhrase(
-                text=label_text,
-                bounding_box=box,
-                page_number=page_number,
-                source=source,
-                has_colon=has_colon,
-                trailing_text=trailing,
-            )
-        )
-
-    return phrases
+    """Flat variant of build_line_groups, for callers (e.g. AcroForm label
+    lookup) that don't need physical-line grouping."""
+    return [
+        phrase for group in build_line_groups(page_number, tokens) for phrase in group
+    ]
 
 
 def find_nearest_label_for_box(

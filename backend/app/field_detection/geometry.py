@@ -16,6 +16,21 @@ _LINE_CLUSTER_TOLERANCE = 0.6
 # input area and still be considered "next to" it.
 DEFAULT_PROXIMITY_GAP = 40.0
 
+# Within one physical line, a horizontal gap larger than this multiple of
+# the token height signals a new field's label starting (e.g. two labels
+# such as "Signature:" and "Date:" sharing one line, separated by blank
+# input space) rather than normal word spacing within one label/value.
+SEGMENT_GAP_HEIGHT_RATIO = 3.5
+
+# A vertical gap to the next line larger than this multiple of line height
+# implies a large blank region below a label (a multiline text area) rather
+# than a normal single-line follow-up.
+LARGE_VERTICAL_GAP_RATIO = 2.5
+
+# A heading and the option line directly below it must be within this
+# multiple of line height to be considered part of the same choice group.
+CLOSE_BELOW_RATIO = 2.5
+
 
 def right_edge(box: BoundingBox) -> float:
     return box.x + box.width
@@ -54,6 +69,31 @@ def is_above(label: BoundingBox, target: BoundingBox, max_gap: float) -> bool:
     return 0 <= gap <= max_gap
 
 
+def is_close_below(
+    upper: BoundingBox, lower: BoundingBox, max_gap_ratio: float = CLOSE_BELOW_RATIO
+) -> bool:
+    """True if `lower` sits directly below `upper` within a small vertical
+    gap relative to line height (used to attach an options line to its
+    heading)."""
+    gap = lower.y - bottom_edge(upper)
+    if gap < 0:
+        return False
+    threshold = max_gap_ratio * max(upper.height, lower.height, 1.0)
+    return gap <= threshold
+
+
+def is_large_vertical_gap(
+    upper: BoundingBox,
+    lower: BoundingBox,
+    min_gap_ratio: float = LARGE_VERTICAL_GAP_RATIO,
+) -> bool:
+    """True if the vertical gap between `upper` and `lower` is large relative
+    to line height (used to infer a blank multiline area below a label)."""
+    gap = lower.y - bottom_edge(upper)
+    threshold = min_gap_ratio * max(upper.height, lower.height, 1.0)
+    return gap > threshold
+
+
 def union_bounding_box(boxes: list[BoundingBox]) -> BoundingBox:
     min_x = min(b.x for b in boxes)
     min_y = min(b.y for b in boxes)
@@ -89,3 +129,33 @@ def group_tokens_into_lines(
 
     lines.sort(key=lambda line: (line[0].bounding_box.y, line[0].bounding_box.x))
     return lines
+
+
+def split_line_into_segments(
+    tokens: list[DetectionToken], gap_height_ratio: float = SEGMENT_GAP_HEIGHT_RATIO
+) -> list[list[DetectionToken]]:
+    """Splits tokens already on one visual line into segments wherever the
+    horizontal gap between consecutive tokens is large relative to token
+    height. A normal label like "Full Name: John" stays one segment (only
+    single-space gaps); two labels sharing one line like "Signature:" and
+    "Date:" — separated by blank input space with nothing drawn between
+    them — split into separate segments.
+    """
+    if not tokens:
+        return []
+
+    ordered = sorted(tokens, key=lambda t: t.bounding_box.x)
+    segments: list[list[DetectionToken]] = [[ordered[0]]]
+
+    for token in ordered[1:]:
+        previous = segments[-1][-1]
+        gap = token.bounding_box.x - right_edge(previous.bounding_box)
+        threshold = gap_height_ratio * max(
+            previous.bounding_box.height, token.bounding_box.height, 1.0
+        )
+        if gap > threshold:
+            segments.append([token])
+        else:
+            segments[-1].append(token)
+
+    return segments

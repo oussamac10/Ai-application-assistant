@@ -12,6 +12,7 @@ FIELD_TYPES = (
     "checkbox",
     "radio",
     "select",
+    "multiple_choice",
     "signature",
     "unknown",
 )

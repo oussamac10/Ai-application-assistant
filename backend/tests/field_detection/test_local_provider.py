@@ -1,3 +1,9 @@
+from pathlib import Path
+
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+from app.field_detection.extraction import extract_native_document_input
 from app.field_detection.providers.base import (
     AcroFormWidgetInput,
     BoundingBox,
@@ -271,3 +277,162 @@ def test_result_is_deterministic_across_runs() -> None:
 
     provider = LocalFieldDetectionProvider()
     assert provider.detect(document) == provider.detect(document)
+
+
+def _create_unknown_digital_form_pdf(filepath: str) -> None:
+    """Builds a PDF matching the reported unknown-digital-form.pdf shape:
+    a checkbox choice group, a radio choice group, a label followed by a
+    large blank region, a checkbox-marked confirmation sentence, two
+    labels ("Signature:"/"Date:") sharing one physical line, and a footer
+    document-identifier line that must never be detected as a real field.
+    """
+    c = canvas.Canvas(filepath, pagesize=letter)
+    c.setFont("Helvetica", 12)
+
+    c.drawString(100, 750, "Request category")
+    c.drawString(100, 725, "[_] Housing")
+    c.drawString(100, 700, "[_] Education")
+    c.drawString(100, 675, "[_] Medical")
+
+    c.drawString(100, 640, "Preferred contact method")
+    c.drawString(100, 615, "(_) Email")
+    c.drawString(100, 590, "(_) Phone")
+    c.drawString(100, 565, "(_) Post")
+
+    c.drawString(100, 530, "Describe your situation:")
+
+    c.drawString(100, 350, "[_]")
+    c.drawString(120, 350, "I confirm that the information provided above is accurate.")
+
+    c.drawString(100, 310, "Signature:")
+    c.drawString(400, 310, "Date:")
+
+    c.drawString(100, 40, "Test document ID: TD-2024-0007")
+
+    c.showPage()
+    c.save()
+
+
+def test_unknown_digital_form_detects_all_expected_fields(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "unknown-digital-form.pdf"
+    _create_unknown_digital_form_pdf(str(pdf_path))
+    document = extract_native_document_input(pdf_path)
+
+    result = LocalFieldDetectionProvider().detect(document)
+    fields_by_label = {f.label: f for f in result.fields}
+
+    assert set(fields_by_label) == {
+        "Request category",
+        "Preferred contact method",
+        "Describe your situation",
+        "I confirm that the information provided above is accurate.",
+        "Signature",
+        "Date",
+    }
+
+    category = fields_by_label["Request category"]
+    assert category.field_type == "multiple_choice"
+    assert category.multiple is True
+    assert category.options == ("Housing", "Education", "Medical")
+
+    contact_method = fields_by_label["Preferred contact method"]
+    assert contact_method.field_type == "radio"
+    assert contact_method.multiple is False
+    assert contact_method.options == ("Email", "Phone", "Post")
+
+    situation = fields_by_label["Describe your situation"]
+    assert situation.field_type == "multiline_text"
+
+    confirmation = fields_by_label[
+        "I confirm that the information provided above is accurate."
+    ]
+    assert confirmation.field_type == "checkbox"
+
+    assert fields_by_label["Signature"].field_type == "signature"
+    assert fields_by_label["Date"].field_type == "date"
+
+    for field in result.fields:
+        assert 0.0 <= field.confidence <= 1.0
+
+
+def test_unknown_digital_form_excludes_footer_document_id(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "unknown-digital-form.pdf"
+    _create_unknown_digital_form_pdf(str(pdf_path))
+    document = extract_native_document_input(pdf_path)
+
+    result = LocalFieldDetectionProvider().detect(document)
+
+    labels = {f.label for f in result.fields}
+    assert not any("document id" in label.lower() for label in labels)
+    assert not any("TD-2024" in (f.existing_value or "") for f in result.fields)
+
+
+def test_checkbox_choice_group_options_preserve_display_order() -> None:
+    tokens = (
+        _token("Request category", x=100, y=100, width=150, height=14),
+        _token("[_]", x=100, y=125, width=20, height=14),
+        _token("Housing", x=125, y=125, width=60, height=14),
+        _token("[_]", x=100, y=150, width=20, height=14),
+        _token("Education", x=125, y=150, width=70, height=14),
+        _token("[_]", x=100, y=175, width=20, height=14),
+        _token("Medical", x=125, y=175, width=60, height=14),
+    )
+    document = DetectionDocumentInput(
+        page_count=1,
+        pages=(
+            DetectionPageInput(page_number=1, width=612, height=792, tokens=tokens),
+        ),
+    )
+
+    result = LocalFieldDetectionProvider().detect(document)
+
+    assert len(result.fields) == 1
+    field = result.fields[0]
+    assert field.field_type == "multiple_choice"
+    assert field.options == ("Housing", "Education", "Medical")
+
+
+def test_radio_choice_group_is_single_choice() -> None:
+    tokens = (
+        _token("Preferred contact method", x=100, y=100, width=200, height=14),
+        _token("(_)", x=100, y=125, width=20, height=14),
+        _token("Email", x=125, y=125, width=50, height=14),
+        _token("(_)", x=100, y=150, width=20, height=14),
+        _token("Phone", x=125, y=150, width=50, height=14),
+    )
+    document = DetectionDocumentInput(
+        page_count=1,
+        pages=(
+            DetectionPageInput(page_number=1, width=612, height=792, tokens=tokens),
+        ),
+    )
+
+    result = LocalFieldDetectionProvider().detect(document)
+
+    assert len(result.fields) == 1
+    field = result.fields[0]
+    assert field.field_type == "radio"
+    assert field.multiple is False
+    assert field.options == ("Email", "Phone")
+
+
+def test_option_labels_do_not_become_separate_fields() -> None:
+    tokens = (
+        _token("Request category", x=100, y=100, width=150, height=14),
+        _token("[_]", x=100, y=125, width=20, height=14),
+        _token("Housing", x=125, y=125, width=60, height=14),
+        _token("[_]", x=100, y=150, width=20, height=14),
+        _token("Education", x=125, y=150, width=70, height=14),
+    )
+    document = DetectionDocumentInput(
+        page_count=1,
+        pages=(
+            DetectionPageInput(page_number=1, width=612, height=792, tokens=tokens),
+        ),
+    )
+
+    result = LocalFieldDetectionProvider().detect(document)
+
+    labels = [f.label for f in result.fields]
+    assert "Housing" not in labels
+    assert "Education" not in labels

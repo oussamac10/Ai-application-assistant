@@ -45,6 +45,7 @@ _FIELD_TYPE_MAP: dict[str, str] = {
     "checkbox": "boolean",
     "radio": "single_choice",
     "select": "single_choice",
+    "multiple_choice": "multiple_choice",
     "signature": "string",
     "unknown": "string",
 }
