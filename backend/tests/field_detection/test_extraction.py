@@ -136,6 +136,50 @@ def test_extract_ocr_document_input_builds_tokens_from_ocr_pages() -> None:
     assert result.language == "en"
 
 
+def _create_marker_pdf(filepath: str) -> None:
+    """A checkbox (unfilled square), a radio control (unfilled circle,
+    approximated by the PDF as Bezier curves), a filled banner rect, and a
+    plain underline — only the checkbox and radio should synthesize marker
+    tokens.
+    """
+    c = canvas.Canvas(filepath, pagesize=letter)
+    c.setFont("Helvetica", 12)
+    c.rect(0, 750, 612, 42, fill=1, stroke=0)  # filled banner, not a marker
+    c.rect(100, 700, 12, 12, fill=0, stroke=1)  # checkbox
+    c.drawString(120, 702, "Housing")
+    c.circle(106, 660, 6, fill=0, stroke=1)  # radio
+    c.drawString(120, 656, "Email")
+    c.line(100, 600, 300, 600)  # underline, not a marker
+    c.showPage()
+    c.save()
+
+
+def test_extract_native_document_input_synthesizes_checkbox_and_radio_markers(
+    tmp_path: Path,
+) -> None:
+    pdf_path = tmp_path / "markers.pdf"
+    _create_marker_pdf(str(pdf_path))
+
+    result = extract_native_document_input(pdf_path)
+
+    marker_texts = sorted(
+        t.text for t in result.pages[0].tokens if t.text in ("[_]", "(_)")
+    )
+    assert marker_texts == ["(_)", "[_]"]
+
+
+def test_extract_native_document_input_ignores_filled_and_line_shapes(
+    tmp_path: Path,
+) -> None:
+    pdf_path = tmp_path / "markers.pdf"
+    _create_marker_pdf(str(pdf_path))
+
+    result = extract_native_document_input(pdf_path)
+
+    marker_tokens = [t for t in result.pages[0].tokens if t.text in ("[_]", "(_)")]
+    assert len(marker_tokens) == 2
+
+
 def test_extract_ocr_document_input_skips_empty_words() -> None:
     ocr_result = OCRResult(language="en")
     ocr_page = OCRPage(

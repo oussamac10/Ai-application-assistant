@@ -233,14 +233,26 @@ class LocalFieldDetectionProvider:
             while cursor < len(line_groups):
                 if cursor in consumed:
                     break
-                candidate_tokens = _line_tokens(line_groups[cursor])
-                option = _extract_single_option(candidate_tokens)
-                if option is None:
-                    break
                 candidate_box = line_boxes[cursor]
                 if not is_close_below(previous_box, candidate_box):
                     break
-                options.append(option)
+
+                # A physical line can hold one option (vertically stacked
+                # groups) or several (options laid out side by side, each
+                # its own segment after split_line_into_segments) — either
+                # way every segment on the line must parse as a marker +
+                # label pair, or this line isn't part of the group.
+                line_options: list[tuple[str, str]] = []
+                for segment in line_groups[cursor]:
+                    option = _extract_single_option(list(segment.tokens))
+                    if option is None:
+                        line_options = []
+                        break
+                    line_options.append(option)
+                if not line_options:
+                    break
+
+                options.extend(line_options)
                 option_indices.append(cursor)
                 previous_box = candidate_box
                 cursor += 1
@@ -341,11 +353,17 @@ class LocalFieldDetectionProvider:
                 if is_footer_metadata(phrase.text, phrase.bounding_box.y, page.height):
                     continue
 
-                # Only a line consisting of a single label (no sibling
-                # segment sharing the physical line, e.g. not the
-                # "Signature: / Date:" case) can be a multiline label — a
-                # split-line segment is a short discrete field, never a
-                # blank-area label.
+                # A colon marks this segment as an actual field label, as
+                # opposed to a title/subtitle/instructional sentence — those
+                # never end in a colon and are excluded here rather than
+                # guessed at from spacing alone. Only a line consisting of a
+                # single label (no sibling segment sharing the physical
+                # line, e.g. not the "Signature: / Date:" case) can be a
+                # multiline label — a split-line segment is a short discrete
+                # field, never a blank-area label.
+                if not phrase.has_colon or not phrase.text:
+                    continue
+
                 has_large_gap_below = (
                     len(group) == 1
                     and next_box is not None
@@ -355,7 +373,7 @@ class LocalFieldDetectionProvider:
                 if has_large_gap_below and not phrase.trailing_text:
                     field_type = "multiline_text"
                     confidence = 0.75
-                elif phrase.has_colon and phrase.text:
+                else:
                     value_type = (
                         classify_value_pattern(phrase.trailing_text)
                         if phrase.trailing_text
@@ -372,8 +390,6 @@ class LocalFieldDetectionProvider:
                     else:
                         field_type = "text"
                         confidence = 0.55
-                else:
-                    continue
 
                 candidates.append(
                     DetectedFieldCandidate(

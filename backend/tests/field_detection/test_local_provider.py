@@ -280,32 +280,48 @@ def test_result_is_deterministic_across_runs() -> None:
 
 
 def _create_unknown_digital_form_pdf(filepath: str) -> None:
-    """Builds a PDF matching the reported unknown-digital-form.pdf shape:
-    a checkbox choice group, a radio choice group, a label followed by a
-    large blank region, a checkbox-marked confirmation sentence, two
-    labels ("Signature:"/"Date:") sharing one physical line, and a footer
-    document-identifier line that must never be detected as a real field.
+    """Mirrors the real-world unknown-digital-form.pdf reproduction: a
+    title/subtitle with no colon (must be excluded, not misread as a
+    multiline label), a checkbox choice group with its options laid out
+    side-by-side on one line (each option preceded by an unfilled, drawn
+    square — never text glyphs), a radio choice group laid out the same
+    way (each option preceded by an unfilled, drawn circle), a label
+    followed by a large blank region, a vector-checkbox-marked confirmation
+    sentence, two labels ("Signature:"/"Date:") sharing one physical line,
+    and a footer document-identifier line that must never be detected as a
+    real field.
     """
     c = canvas.Canvas(filepath, pagesize=letter)
     c.setFont("Helvetica", 12)
 
-    c.drawString(100, 750, "Request category")
-    c.drawString(100, 725, "[_] Housing")
-    c.drawString(100, 700, "[_] Education")
-    c.drawString(100, 675, "[_] Medical")
+    c.drawString(100, 760, "Community Assistance Request")
+    c.drawString(
+        100, 740, "Phase 11 unknown digital form test - not a predefined template"
+    )
 
-    c.drawString(100, 640, "Preferred contact method")
-    c.drawString(100, 615, "(_) Email")
-    c.drawString(100, 590, "(_) Phone")
-    c.drawString(100, 565, "(_) Post")
+    c.drawString(100, 700, "Request category")
+    c.rect(100, 675, 12, 12, fill=0, stroke=1)
+    c.drawString(118, 677, "Housing")
+    c.rect(260, 675, 12, 12, fill=0, stroke=1)
+    c.drawString(278, 677, "Education")
+    c.rect(420, 675, 12, 12, fill=0, stroke=1)
+    c.drawString(438, 677, "Medical")
 
-    c.drawString(100, 530, "Describe your situation:")
+    c.drawString(100, 640, "Preferred contact method:")
+    c.circle(106, 611, 6, fill=0, stroke=1)
+    c.drawString(118, 605, "Email")
+    c.circle(266, 611, 6, fill=0, stroke=1)
+    c.drawString(278, 605, "Phone")
+    c.circle(426, 611, 6, fill=0, stroke=1)
+    c.drawString(438, 605, "Post")
 
-    c.drawString(100, 350, "[_]")
-    c.drawString(120, 350, "I confirm that the information provided above is accurate.")
+    c.drawString(100, 560, "Describe your situation:")
 
-    c.drawString(100, 310, "Signature:")
-    c.drawString(400, 310, "Date:")
+    c.rect(100, 380, 12, 12, fill=0, stroke=1)
+    c.drawString(118, 382, "I confirm that the information provided above is accurate.")
+
+    c.drawString(100, 340, "Signature:")
+    c.drawString(400, 340, "Date:")
 
     c.drawString(100, 40, "Test document ID: TD-2024-0007")
 
@@ -367,6 +383,22 @@ def test_unknown_digital_form_excludes_footer_document_id(tmp_path: Path) -> Non
     assert not any("TD-2024" in (f.existing_value or "") for f in result.fields)
 
 
+def test_unknown_digital_form_excludes_title_and_subtitle(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "unknown-digital-form.pdf"
+    _create_unknown_digital_form_pdf(str(pdf_path))
+    document = extract_native_document_input(pdf_path)
+
+    result = LocalFieldDetectionProvider().detect(document)
+
+    labels = {f.label for f in result.fields}
+    assert "Community Assistance Request" not in labels
+    assert not any("not a predefined template" in label.lower() for label in labels)
+    assert not any(
+        f.field_type == "multiline_text" and "phase 11" in f.label.lower()
+        for f in result.fields
+    )
+
+
 def test_checkbox_choice_group_options_preserve_display_order() -> None:
     tokens = (
         _token("Request category", x=100, y=100, width=150, height=14),
@@ -414,6 +446,113 @@ def test_radio_choice_group_is_single_choice() -> None:
     assert field.field_type == "radio"
     assert field.multiple is False
     assert field.options == ("Email", "Phone")
+
+
+def test_checkbox_options_side_by_side_on_one_line_form_a_group() -> None:
+    tokens = (
+        _token("Request category", x=100, y=100, width=150, height=14),
+        _token("[_]", x=100, y=125, width=12, height=12),
+        _token("Housing", x=118, y=125, width=60, height=14),
+        _token("[_]", x=280, y=125, width=12, height=12),
+        _token("Education", x=298, y=125, width=70, height=14),
+        _token("[_]", x=470, y=125, width=12, height=12),
+        _token("Medical", x=488, y=125, width=60, height=14),
+    )
+    document = DetectionDocumentInput(
+        page_count=1,
+        pages=(
+            DetectionPageInput(page_number=1, width=612, height=792, tokens=tokens),
+        ),
+    )
+
+    result = LocalFieldDetectionProvider().detect(document)
+
+    assert len(result.fields) == 1
+    field = result.fields[0]
+    assert field.field_type == "multiple_choice"
+    assert field.multiple is True
+    assert field.options == ("Housing", "Education", "Medical")
+
+
+def test_radio_options_side_by_side_on_one_line_form_a_single_choice_group() -> None:
+    tokens = (
+        _token("Preferred contact method", x=100, y=100, width=200, height=14),
+        _token("(_)", x=100, y=125, width=12, height=12),
+        _token("Email", x=118, y=125, width=50, height=14),
+        _token("(_)", x=280, y=125, width=12, height=12),
+        _token("Phone", x=298, y=125, width=50, height=14),
+        _token("(_)", x=470, y=125, width=12, height=12),
+        _token("Post", x=488, y=125, width=40, height=14),
+    )
+    document = DetectionDocumentInput(
+        page_count=1,
+        pages=(
+            DetectionPageInput(page_number=1, width=612, height=792, tokens=tokens),
+        ),
+    )
+
+    result = LocalFieldDetectionProvider().detect(document)
+
+    assert len(result.fields) == 1
+    field = result.fields[0]
+    assert field.field_type == "radio"
+    assert field.multiple is False
+    assert field.options == ("Email", "Phone", "Post")
+
+
+def test_confirmation_sentence_detected_with_no_next_line() -> None:
+    tokens = (
+        _token("[_]", x=100, y=100, width=12, height=12),
+        _token("I", x=118, y=100, width=8, height=12),
+        _token("confirm", x=128, y=100, width=45, height=12),
+        _token("that", x=175, y=100, width=25, height=12),
+        _token("the", x=202, y=100, width=20, height=12),
+        _token("information", x=224, y=100, width=70, height=12),
+        _token("provided", x=296, y=100, width=55, height=12),
+        _token("is", x=353, y=100, width=15, height=12),
+        _token("accurate.", x=370, y=100, width=55, height=12),
+    )
+    document = DetectionDocumentInput(
+        page_count=1,
+        pages=(
+            DetectionPageInput(page_number=1, width=612, height=792, tokens=tokens),
+        ),
+    )
+
+    result = LocalFieldDetectionProvider().detect(document)
+
+    assert len(result.fields) == 1
+    assert result.fields[0].field_type == "checkbox"
+    assert (
+        result.fields[0].label == "I confirm that the information provided is accurate."
+    )
+
+
+def test_colonless_title_line_is_excluded_even_with_large_gap_below() -> None:
+    tokens = (
+        _token(
+            "Phase 11 unknown digital form test - not a predefined template",
+            x=100,
+            y=100,
+            width=350,
+            height=14,
+        ),
+        _token("Email:", x=100, y=400, width=60, height=14),
+    )
+    document = DetectionDocumentInput(
+        page_count=1,
+        pages=(
+            DetectionPageInput(page_number=1, width=612, height=792, tokens=tokens),
+        ),
+    )
+
+    result = LocalFieldDetectionProvider().detect(document)
+
+    labels = [f.label for f in result.fields]
+    assert (
+        "Phase 11 unknown digital form test - not a predefined template" not in labels
+    )
+    assert labels == ["Email"]
 
 
 def test_option_labels_do_not_become_separate_fields() -> None:

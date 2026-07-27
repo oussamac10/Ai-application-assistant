@@ -12,6 +12,7 @@ one DetectionPageInput.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import fitz
 
@@ -36,6 +37,68 @@ _ACROFORM_TYPE_MAP = {
     "ListBox": "choice",
     "Signature": "signature",
 }
+
+# Many forms draw checkbox/radio controls as vector shapes rather than
+# AcroForm widgets or text glyphs — an unfilled (stroked, not filled) small
+# near-square shape. A circular outline (built from Bezier curves, "c" path
+# items) reads as a radio control; a rectilinear outline ("re"/"l" items)
+# reads as a checkbox. These are synthesized into ordinary text-like tokens
+# ("[_]" / "(_)") so the rest of the pipeline's marker_type() detection
+# (classification.py) treats them exactly like a text-drawn marker glyph —
+# no downstream code needs to know whether a marker came from text or
+# vector graphics.
+_MARKER_MIN_SIZE = 4.0
+_MARKER_MAX_SIZE = 24.0
+_MARKER_SQUARENESS_TOLERANCE = 0.35
+
+_CHECKBOX_GLYPH = "[_]"
+_RADIO_GLYPH = "(_)"
+
+
+def _marker_glyph_for_drawing(drawing: dict[str, Any]) -> str | None:
+    if drawing.get("type") != "s":
+        return None
+
+    rect = drawing.get("rect")
+    if rect is None:
+        return None
+
+    width, height = rect.width, rect.height
+    if not (_MARKER_MIN_SIZE <= width <= _MARKER_MAX_SIZE):
+        return None
+    if not (_MARKER_MIN_SIZE <= height <= _MARKER_MAX_SIZE):
+        return None
+    if abs(width - height) > _MARKER_SQUARENESS_TOLERANCE * max(width, height):
+        return None
+
+    item_commands = {item[0] for item in drawing.get("items", [])}
+    if not item_commands:
+        return None
+    if item_commands == {"c"}:
+        return _RADIO_GLYPH
+    if item_commands <= {"re", "l"}:
+        return _CHECKBOX_GLYPH
+    return None
+
+
+def _extract_marker_tokens(page: fitz.Page) -> list[DetectionToken]:
+    tokens: list[DetectionToken] = []
+    for drawing in page.get_drawings():
+        glyph = _marker_glyph_for_drawing(drawing)
+        if glyph is None:
+            continue
+        rect = drawing["rect"]
+        tokens.append(
+            DetectionToken(
+                text=glyph,
+                confidence=1.0,
+                bounding_box=BoundingBox(
+                    x=rect.x0, y=rect.y0, width=rect.width, height=rect.height
+                ),
+                source="native",
+            )
+        )
+    return tokens
 
 
 def extract_native_document_input(pdf_path: Path) -> DetectionDocumentInput:
@@ -75,6 +138,8 @@ def extract_native_document_input(pdf_path: Path) -> DetectionDocumentInput:
                         source="native",
                     )
                 )
+
+            tokens.extend(_extract_marker_tokens(page))
 
             pages.append(
                 DetectionPageInput(
