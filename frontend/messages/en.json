@@ -156,6 +156,7 @@
     "type_checkbox": "Checkbox",
     "type_radio": "Single choice",
     "type_select": "Single choice (dropdown)",
+    "type_multiple_choice": "Multiple choice",
     "type_signature": "Signature",
     "type_unknown": "Unknown",
     "error_generic": "Field detection failed. Please try again.",

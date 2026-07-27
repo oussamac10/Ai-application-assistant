@@ -156,6 +156,7 @@
     "type_checkbox": "Kontrollkästchen",
     "type_radio": "Einzelauswahl",
     "type_select": "Einzelauswahl (Dropdown)",
+    "type_multiple_choice": "Mehrfachauswahl",
     "type_signature": "Unterschrift",
     "type_unknown": "Unbekannt",
     "error_generic": "Felderkennung fehlgeschlagen. Bitte versuchen Sie es erneut.",

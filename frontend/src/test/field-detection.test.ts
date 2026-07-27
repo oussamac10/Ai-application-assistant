@@ -8,8 +8,38 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { FieldDetectionResultResponseSchema } from "../features/field-detection/types";
+import { FIELD_TYPES, FieldDetectionResultResponseSchema } from "../features/field-detection/types";
 import { setDocumentToken } from "../features/document-upload/services/documentCredentials";
+import en from "../../messages/en.json";
+import de from "../../messages/de.json";
+import fr from "../../messages/fr.json";
+import ar from "../../messages/ar.json";
+
+describe("field-detection FIELD_TYPES / translations stay in sync", () => {
+  // Regression guard: the review UI's type <select> renders one <option>
+  // per FIELD_TYPES entry via t(`type_${type}`) (FieldDetectionPanel.tsx).
+  // A backend field_type with no matching FIELD_TYPES/translation entry
+  // has no corresponding <option>, so the bound <select> silently falls
+  // back to displaying the first option ("Text") even though the
+  // underlying data is correct — this caught exactly that class of bug
+  // for "multiple_choice".
+  it("includes multiple_choice", () => {
+    expect(FIELD_TYPES).toContain("multiple_choice");
+  });
+
+  it.each([
+    ["en", en],
+    ["de", de],
+    ["fr", fr],
+    ["ar", ar],
+  ])("every FIELD_TYPES entry has a type_* key in %s.json", (_locale, messages) => {
+    const fieldDetection = (messages as Record<string, Record<string, string>>)
+      .fieldDetection;
+    for (const type of FIELD_TYPES) {
+      expect(fieldDetection[`type_${type}`]).toBeTruthy();
+    }
+  });
+});
 
 describe("FieldDetectionResultResponseSchema", () => {
   it("parses a completed result with fields", () => {

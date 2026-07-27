@@ -156,6 +156,7 @@
     "type_checkbox": "مربع اختيار",
     "type_radio": "اختيار واحد",
     "type_select": "اختيار واحد (قائمة منسدلة)",
+    "type_multiple_choice": "اختيار متعدد",
     "type_signature": "توقيع",
     "type_unknown": "غير معروف",
     "error_generic": "فشل اكتشاف الحقول. يرجى المحاولة مرة أخرى.",

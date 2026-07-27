@@ -156,6 +156,7 @@
     "type_checkbox": "Case à cocher",
     "type_radio": "Choix unique",
     "type_select": "Choix unique (liste déroulante)",
+    "type_multiple_choice": "Choix multiple",
     "type_signature": "Signature",
     "type_unknown": "Inconnu",
     "error_generic": "La détection des champs a échoué. Veuillez réessayer.",

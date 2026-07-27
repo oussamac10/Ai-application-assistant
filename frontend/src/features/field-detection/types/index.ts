@@ -26,6 +26,7 @@ export const FIELD_TYPES = [
   "checkbox",
   "radio",
   "select",
+  "multiple_choice",
   "signature",
   "unknown",
 ] as const;
