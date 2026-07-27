@@ -5,6 +5,7 @@ MockAIProvider provides fully deterministic responses without any external
 calls — it is used in automated tests and as the default development provider.
 """
 
+import json
 import re
 from typing import Protocol, runtime_checkable
 
@@ -22,6 +23,20 @@ from app.ai.schemas import (
     TranslationRequest,
     TranslationResult,
 )
+
+
+def _parse_multiple_choice_answer(answer: str) -> list[str]:
+    """Parses a multi-select answer submitted as a JSON array (the guided
+    session's checkbox UI sends `JSON.stringify(selectedValues)`), falling
+    back to a comma-separated string for any other caller.
+    """
+    try:
+        parsed = json.loads(answer)
+    except (ValueError, TypeError):
+        parsed = None
+    if isinstance(parsed, list):
+        return [str(v).strip() for v in parsed if str(v).strip()]
+    return [v.strip() for v in answer.split(",") if v.strip()]
 
 
 @runtime_checkable
@@ -151,10 +166,19 @@ class MockAIProvider:
                 uncertainties=[],
             )
 
-        if field_type in ("single_choice", "multiple_choice"):
+        if field_type == "single_choice":
             return ExtractionResult(
                 normalizedValue=answer,
                 outputValue=answer,
+                requiresClarification=False,
+                uncertainties=[],
+            )
+
+        if field_type == "multiple_choice":
+            values = _parse_multiple_choice_answer(answer)
+            return ExtractionResult(
+                normalizedValue=values,
+                outputValue=", ".join(values),
                 requiresClarification=False,
                 uncertainties=[],
             )

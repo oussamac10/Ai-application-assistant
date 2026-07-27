@@ -26,7 +26,8 @@
     "clarificationSubtitle": "Wir benötigen zusätzliche Details, um Ihre Antwort zu normalisieren:",
     "confirmTitle": "Extrahierte Informationen bestätigen",
     "originalAnswerLabel": "Ihre ursprüngliche Antwort:",
-    "proposedValueLabel": "Vorgeschlagener Formularwert:"
+    "proposedValueLabel": "Vorgeschlagener Formularwert:",
+    "invalidAnswer": "Diese Antwort ist für diese Frage nicht gültig. Bitte überprüfen Sie Ihre Auswahl und versuchen Sie es erneut."
   },
   "summary": {
     "title": "Sitzungszusammenfassung",

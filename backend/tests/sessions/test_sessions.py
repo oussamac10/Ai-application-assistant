@@ -224,12 +224,24 @@ def test_start_session(form_versions: dict[str, str]) -> None:
     assert response.status_code == 200
     assert response.json()["status"] == "in_progress"
 
-    # Reject starting an already started session (Conflict)
+    # Starting an already-started session is idempotent: no-op success,
+    # not a conflict — a duplicate frontend /start call (e.g. a re-run
+    # effect) must never break the guided-session UI.
     response_started = client.post(
         f"/api/form-sessions/{sess_id}/start",
         headers={"X-Session-Token": token},
     )
-    assert response_started.status_code == 409
+    assert response_started.status_code == 200
+    assert response_started.json()["status"] == "in_progress"
+    assert response_started.json()["sessionId"] == sess_id
+
+    # A third repeated call is equally safe.
+    response_started_again = client.post(
+        f"/api/form-sessions/{sess_id}/start",
+        headers={"X-Session-Token": token},
+    )
+    assert response_started_again.status_code == 200
+    assert response_started_again.json()["status"] == "in_progress"
 
 
 def test_cancel_session(form_versions: dict[str, str]) -> None:

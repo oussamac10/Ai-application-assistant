@@ -72,6 +72,7 @@ export const AnswerResponseSchema = z.object({
   normalizedValue: z.any().nullable().optional(),
   outputValue: z.string().nullable().optional(),
   status: z.string(), // e.g. answered, draft, needs_clarification, awaiting_confirmation, confirmed
+  validationStatus: z.string().optional(),
   clarification: ClarificationResponseSchema.nullable().optional(),
 });
 

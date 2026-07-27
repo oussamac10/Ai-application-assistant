@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -43,6 +43,12 @@ export default function GuidedSession() {
 
   // Clarification form state
   const [clarifyValues, setClarifyValues] = useState<Record<string, any>>({});
+
+  // Guards against firing /start more than once for the same session (React
+  // 18 StrictMode double-invokes effects in dev, and fetchNextQuestion's
+  // identity can change across renders since it depends on the te
+  // translator function).
+  const initializedSessionRef = useRef<string | null>(null);
 
   const fetchNextQuestion = useCallback(async () => {
     try {
@@ -91,6 +97,9 @@ export default function GuidedSession() {
       setStep("error");
       return;
     }
+
+    if (initializedSessionRef.current === sessionId) return;
+    initializedSessionRef.current = sessionId;
 
     async function initSession() {
       try {
@@ -147,6 +156,12 @@ export default function GuidedSession() {
       // Confirmed, advance
       setStep("loading");
       fetchNextQuestion();
+    } else if (ans.status === "draft" && ans.validationStatus === "invalid") {
+      // Deterministic validation rejected the value (e.g. an option not in
+      // the field's configured set) — surface it instead of silently
+      // resetting, so the user knows why nothing advanced.
+      setErrorMsg(t("invalidAnswer"));
+      setStep("answering");
     } else {
       setStep("answering");
     }

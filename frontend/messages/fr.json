@@ -26,7 +26,8 @@
     "clarificationSubtitle": "Nous avons besoin de détails supplémentaires pour normaliser votre réponse :",
     "confirmTitle": "Confirmer les informations extraites",
     "originalAnswerLabel": "Votre réponse originale :",
-    "proposedValueLabel": "Valeur proposée pour le formulaire :"
+    "proposedValueLabel": "Valeur proposée pour le formulaire :",
+    "invalidAnswer": "Cette réponse n'est pas valide pour cette question. Veuillez vérifier votre sélection et réessayer."
   },
   "summary": {
     "title": "Résumé de la session",

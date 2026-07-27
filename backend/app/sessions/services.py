@@ -141,13 +141,16 @@ class SessionService:
     def start_session(self, public_id: str, raw_token: str | None) -> FormSession:
         session = self.get_session(public_id, raw_token)
 
+        # Already active — idempotent no-op so a repeated/duplicate start
+        # request (e.g. React effect re-run) never breaks the UI.
+        if session.status == "in_progress":
+            return session
+
         # Expiry or cancelled sessions are terminal
         if session.status == "expired":
             raise StateConflictError("Cannot start an expired session.")
         if session.status == "cancelled":
             raise StateConflictError("Cannot start a cancelled session.")
-        if session.status == "in_progress":
-            raise StateConflictError("Session is already in progress.")
         if session.status != "session_created":
             raise StateConflictError(
                 f"Cannot transition from state '{session.status}' to 'in_progress'."

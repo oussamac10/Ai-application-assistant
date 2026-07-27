@@ -1,3 +1,4 @@
+import json
 from collections.abc import Generator
 from typing import Any
 
@@ -110,6 +111,50 @@ def session_setup() -> dict[str, Any]:
             ),
         )
 
+        # Add optional field 4 (Request category - multi-select)
+        form_service.add_field_to_draft(
+            version.id,
+            FieldCreate(
+                key="request_category",
+                field_type="multiple_choice",
+                required=False,
+                position=4,
+                translations=[
+                    TranslationSchema(language="en", label="Request category")
+                ],
+                configuration={},
+                options=[
+                    OptionSchema(
+                        value="Housing",
+                        position=1,
+                        translations=[
+                            OptionTranslationSchema(language="en", label="Housing"),
+                            OptionTranslationSchema(language="de", label="Wohnen"),
+                            OptionTranslationSchema(language="ar", label="سكن"),
+                        ],
+                    ),
+                    OptionSchema(
+                        value="Education",
+                        position=2,
+                        translations=[
+                            OptionTranslationSchema(language="en", label="Education"),
+                            OptionTranslationSchema(language="de", label="Bildung"),
+                            OptionTranslationSchema(language="ar", label="تعليم"),
+                        ],
+                    ),
+                    OptionSchema(
+                        value="Medical",
+                        position=3,
+                        translations=[
+                            OptionTranslationSchema(language="en", label="Medical"),
+                            OptionTranslationSchema(language="de", label="Medizinisch"),
+                            OptionTranslationSchema(language="ar", label="طبي"),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
         # Publish version
         form_service.publish_version(version.id)
 
@@ -137,6 +182,98 @@ def session_setup() -> dict[str, Any]:
         "session_id": session_id,
         "token": token,
         "version_id": version_id,
+        "field_ids": fields,
+    }
+
+
+@pytest.fixture
+def multi_choice_session_setup() -> dict[str, Any]:
+    """A minimal session with a single required multiple_choice field, so
+    it participates in the required-field position-scanning logic (unlike
+    the optional `request_category` field in `session_setup`) — used to
+    verify confirming a multi-select answer actually advances the session.
+    """
+    db = SessionLocal()
+    try:
+        form_service = FormService(db)
+        session_service = SessionService(db)
+
+        template = form_service.create_template(
+            key="multi-choice-only", name="Multi Choice Only"
+        )
+        version = form_service.create_draft_version(
+            form_template_id=template.id,
+            source_language="en",
+            supported_output_languages=["en"],
+        )
+
+        form_service.add_field_to_draft(
+            version.id,
+            FieldCreate(
+                key="request_category",
+                field_type="multiple_choice",
+                required=True,
+                position=1,
+                translations=[
+                    TranslationSchema(language="en", label="Request category")
+                ],
+                configuration={},
+                options=[
+                    OptionSchema(
+                        value="Housing",
+                        position=1,
+                        translations=[
+                            OptionTranslationSchema(language="en", label="Housing")
+                        ],
+                    ),
+                    OptionSchema(
+                        value="Education",
+                        position=2,
+                        translations=[
+                            OptionTranslationSchema(language="en", label="Education")
+                        ],
+                    ),
+                    OptionSchema(
+                        value="Medical",
+                        position=3,
+                        translations=[
+                            OptionTranslationSchema(language="en", label="Medical")
+                        ],
+                    ),
+                ],
+            ),
+        )
+        form_service.add_field_to_draft(
+            version.id,
+            FieldCreate(
+                key="next_field",
+                field_type="string",
+                required=True,
+                position=2,
+                translations=[TranslationSchema(language="en", label="Next field")],
+            ),
+        )
+
+        form_service.publish_version(version.id)
+
+        session, token = session_service.create_session(
+            form_version_id=version.id,
+            user_language="en",
+            output_language="en",
+        )
+        db.commit()
+        session_service.start_session(session.public_id, token)
+
+        db.refresh(version)
+        fields = {f.key: f.id for f in version.fields}
+
+        session_id = session.public_id
+    finally:
+        db.close()
+
+    return {
+        "session_id": session_id,
+        "token": token,
         "field_ids": fields,
     }
 
@@ -400,3 +537,130 @@ def test_confirm_summary_workflow(session_setup: dict[str, Any]) -> None:
     assert sess.status == "ready_for_export"
     assert sess.completed_at is not None
     db.close()
+
+
+def test_submit_multiple_choice_valid_array_is_awaiting_confirmation(
+    session_setup: dict[str, Any],
+) -> None:
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    category_id = session_setup["field_ids"]["request_category"]
+
+    response = client.post(
+        f"/api/form-sessions/{session_id}/answers",
+        headers={"X-Session-Token": token},
+        json={
+            "fieldId": category_id,
+            "originalAnswer": json.dumps(["Housing", "Education"]),
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "awaiting_confirmation"
+    assert data["requiresClarification"] is False
+    # Order and selected values are preserved exactly as submitted.
+    assert data["normalizedValue"] == ["Housing", "Education"]
+
+
+def test_submit_multiple_choice_rejects_option_not_in_configured_set(
+    session_setup: dict[str, Any],
+) -> None:
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    category_id = session_setup["field_ids"]["request_category"]
+
+    response = client.post(
+        f"/api/form-sessions/{session_id}/answers",
+        headers={"X-Session-Token": token},
+        json={
+            "fieldId": category_id,
+            "originalAnswer": json.dumps(["Housing", "NotAnOption"]),
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "draft"
+
+
+def test_submit_multiple_choice_accepts_single_selected_option(
+    session_setup: dict[str, Any],
+) -> None:
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    category_id = session_setup["field_ids"]["request_category"]
+
+    response = client.post(
+        f"/api/form-sessions/{session_id}/answers",
+        headers={"X-Session-Token": token},
+        json={"fieldId": category_id, "originalAnswer": json.dumps(["Medical"])},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "awaiting_confirmation"
+    assert data["normalizedValue"] == ["Medical"]
+
+
+def test_multiple_choice_confirm_advances_to_next_question(
+    multi_choice_session_setup: dict[str, Any],
+) -> None:
+    session_id = multi_choice_session_setup["session_id"]
+    token = multi_choice_session_setup["token"]
+    category_id = multi_choice_session_setup["field_ids"]["request_category"]
+    next_field_id = multi_choice_session_setup["field_ids"]["next_field"]
+
+    # The multiple_choice field is required and at position 1, so it must
+    # be the current field before any answer is submitted.
+    res_current_before = client.get(
+        f"/api/form-sessions/{session_id}/current-field",
+        headers={"X-Session-Token": token},
+    )
+    assert res_current_before.json()["fieldId"] == category_id
+
+    res_submit = client.post(
+        f"/api/form-sessions/{session_id}/answers",
+        headers={"X-Session-Token": token},
+        json={
+            "fieldId": category_id,
+            "originalAnswer": json.dumps(["Housing", "Education"]),
+        },
+    )
+    assert res_submit.json()["status"] == "awaiting_confirmation"
+    answer_id = res_submit.json()["answerId"]
+
+    res_confirm = client.post(
+        f"/api/form-sessions/{session_id}/answers/{answer_id}/confirm",
+        headers={"X-Session-Token": token},
+    )
+    assert res_confirm.status_code == 200
+    assert res_confirm.json()["status"] == "confirmed"
+
+    # The session must now serve the next required field.
+    res_current_after = client.get(
+        f"/api/form-sessions/{session_id}/current-field",
+        headers={"X-Session-Token": token},
+    )
+    assert res_current_after.json()["fieldId"] == next_field_id
+
+
+def test_repeated_session_start_is_safe_and_idempotent(
+    session_setup: dict[str, Any],
+) -> None:
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+
+    # session_setup already started the session once; a duplicate /start
+    # call (mirroring a duplicate frontend init effect) must succeed as a
+    # no-op rather than surface a 409 that could break the guided-session UI.
+    response = client.post(
+        f"/api/form-sessions/{session_id}/start",
+        headers={"X-Session-Token": token},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "in_progress"
+
+    # The session must still function normally afterwards.
+    res_current = client.get(
+        f"/api/form-sessions/{session_id}/current-field",
+        headers={"X-Session-Token": token},
+    )
+    assert res_current.status_code == 200

@@ -1,3 +1,4 @@
+import json
 import re
 from typing import Any
 
@@ -20,9 +21,17 @@ def normalize_value(field_type: str, raw_val: Any) -> Any:
 
     elif field_type == "multiple_choice":
         if not isinstance(raw_val, list):
-            # Parse CSV if it's a string
             if isinstance(raw_val, str):
-                raw_val = [v.strip() for v in raw_val.split(",") if v.strip()]
+                # A provider may hand back the raw JSON-array string
+                # unparsed; fall back to CSV only if it isn't one.
+                try:
+                    parsed = json.loads(raw_val)
+                except (ValueError, TypeError):
+                    parsed = None
+                if isinstance(parsed, list):
+                    raw_val = parsed
+                else:
+                    raw_val = [v.strip() for v in raw_val.split(",") if v.strip()]
             else:
                 return []
         # Remove duplicates preserving order

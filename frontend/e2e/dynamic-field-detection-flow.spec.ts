@@ -55,6 +55,53 @@ function createDigitalPdf(name = "unmatched-digital.pdf"): string {
   return filePath;
 }
 
+/** Builds a minimal valid PDF with a text field ("Full Name:") and a
+ * checkbox choice group ("Request category" heading followed by three
+ * Housing/Education/Medical options, each preceded by a small stroked
+ * square drawn with the raw PDF `re`/`S` operators) — mirroring how real
+ * forms draw checkbox controls as vector shapes rather than text glyphs.
+ * Exercises the real LocalFieldDetectionProvider end-to-end, matching the
+ * marker-geometry synthesis in backend/app/field_detection/extraction.py.
+ */
+function createMultipleChoicePdf(name = "unmatched-multiple-choice.pdf"): string {
+  const content = [
+    "BT /F1 18 Tf 100 750 Td (Full Name:) Tj 250 0 Td (Jane Doe) Tj ET",
+    "BT /F1 12 Tf 100 700 Td (Request category) Tj ET",
+    "100 675 12 12 re S",
+    "BT /F1 12 Tf 118 677 Td (Housing) Tj ET",
+    "260 675 12 12 re S",
+    "BT /F1 12 Tf 278 677 Td (Education) Tj ET",
+    "420 675 12 12 re S",
+    "BT /F1 12 Tf 438 677 Td (Medical) Tj ET",
+  ].join("\n");
+
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /MediaBox [0 0 612 792] /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+  ];
+
+  let body = "%PDF-1.4\n";
+  const offsets: number[] = [0];
+  objects.forEach((obj, index) => {
+    offsets.push(Buffer.byteLength(body, "latin1"));
+    body += `${index + 1} 0 obj\n${obj}\nendobj\n`;
+  });
+
+  const xrefOffset = Buffer.byteLength(body, "latin1");
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i <= objects.length; i++) {
+    body += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  const filePath = path.join(os.tmpdir(), name);
+  fs.writeFileSync(filePath, Buffer.from(body, "latin1"));
+  return filePath;
+}
+
 test.describe("Dynamic field detection flow — End-to-end (requires backend)", () => {
   test.skip(
     ({ browserName }) => process.env.CI !== "true" && browserName === "chromium",
@@ -164,5 +211,68 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     });
     await expect(page.getByText(/Supported Template Recognized/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /Detect Fields/i })).not.toBeVisible();
+  });
+
+  test("dynamically detected multiple_choice question: select options, submit, and advance to the next question", async ({
+    page,
+  }) => {
+    await goToLanding(page);
+
+    const multiChoicePdf = createMultipleChoicePdf();
+    await page.locator("input[type='file']").setInputFiles(multiChoicePdf);
+    await expect(page.getByText("unmatched-multiple-choice.pdf")).toBeVisible();
+
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /Upload and Analyze/i }).click();
+
+    await expect(page.getByText(/Document Analysis Complete/i)).toBeVisible({
+      timeout: 15000,
+    });
+    await page.getByRole("button", { name: /Detect Fields/i }).click();
+    await expect(page).toHaveURL(/\/application\/document\/.+\/detect-fields/);
+
+    await expect(page.getByText(/Detect Form Fields/i)).toBeVisible();
+    await page.getByRole("button", { name: /^Start Detection$/i }).click();
+    await expect(page.getByText(/field\(s\) detected/i)).toBeVisible({ timeout: 15000 });
+
+    // Confirm both detected fields (the text field and the choice group)
+    // in one action, mirroring how a real reviewer would proceed.
+    await page.getByRole("button", { name: /Confirm all high-confidence fields/i }).click();
+
+    const createQuestionsBtn = page.getByRole("button", { name: /Create Questions/i });
+    await expect(createQuestionsBtn).toBeEnabled();
+    await createQuestionsBtn.click();
+
+    await page.waitForURL(/\/application\/session\/.+/, { timeout: 15000 });
+    expect(page.url()).not.toMatch(/token/i);
+
+    // First guided question — the text field.
+    await page.waitForSelector("form");
+    await page.locator("input[type='text']").fill("Jane Doe");
+    await page.getByRole("button", { name: "continue" }).or(page.getByText("continue")).click();
+    await expect(page.getByText("Confirm Extracted Information")).toBeVisible({
+      timeout: 10000,
+    });
+    await page.getByRole("button", { name: "Confirm" }).click();
+
+    // Second guided question — the dynamically detected multiple_choice
+    // "Request category" field. Selecting more than one option and
+    // submitting must reach the confirm screen, not silently stall.
+    await expect(page.getByText("Request category")).toBeVisible({ timeout: 10000 });
+    await page.getByLabel("Housing").check();
+    await page.getByLabel("Education").check();
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    await expect(page.getByText("Confirm Extracted Information")).toBeVisible({
+      timeout: 10000,
+    });
+    await page.getByRole("button", { name: "Confirm" }).click();
+
+    // Both required fields are now confirmed — the session must actually
+    // advance (to the summary screen), not get stuck re-serving the same
+    // multiple_choice question.
+    await page.waitForURL(/\/application\/session\/.+\/summary/, { timeout: 15000 });
+
+    fs.unlinkSync(multiChoicePdf);
   });
 });

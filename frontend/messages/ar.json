@@ -26,7 +26,8 @@
     "clarificationSubtitle": "نحتاج إلى تفاصيل إضافية لمعالجة إجابتك وتأكيدها:",
     "confirmTitle": "تأكيد المعلومات المستخرجة",
     "originalAnswerLabel": "إجابتك الأصلية:",
-    "proposedValueLabel": "القيمة المقترحة للحقل:"
+    "proposedValueLabel": "القيمة المقترحة للحقل:",
+    "invalidAnswer": "هذه الإجابة غير صالحة لهذا السؤال. يرجى التحقق من اختيارك والمحاولة مرة أخرى."
   },
   "summary": {
     "title": "ملخص الجلسة",

@@ -26,7 +26,8 @@
     "clarificationSubtitle": "We need additional details to normalize your answer:",
     "confirmTitle": "Confirm Extracted Information",
     "originalAnswerLabel": "Your original answer:",
-    "proposedValueLabel": "Proposed form value:"
+    "proposedValueLabel": "Proposed form value:",
+    "invalidAnswer": "That answer isn't valid for this question. Please check your selection and try again."
   },
   "summary": {
     "title": "Session Summary",
