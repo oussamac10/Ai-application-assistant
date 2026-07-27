@@ -232,6 +232,49 @@ def test_radio_candidate_options_are_preserved(tmp_path: Path) -> None:
         db.close()
 
 
+def test_multiple_choice_candidate_options_are_preserved(tmp_path: Path) -> None:
+    """Guards the "fieldConfig is empty so we don't know what the options
+    are" regression: a confirmed multiple_choice candidate's options must
+    flow through, in order, into the generated FormField's real options."""
+    from app.field_detection.providers.base import DetectedFieldCandidate
+
+    db, doc, token = _upload_digital_document(tmp_path)
+    try:
+        candidate = DetectedFieldCandidate(
+            candidate_key="choice-1",
+            page_number=1,
+            label="Request category",
+            normalized_name="request_category",
+            field_type="multiple_choice",
+            confidence=0.85,
+            source="native",
+            multiple=True,
+            options=("Housing", "Education", "Medical"),
+        )
+        service = FieldDetectionService(
+            db, provider=MockFieldDetectionProvider(candidates=[candidate])
+        )
+        result = service.request_detection(doc.public_id, token)
+        service.update_field(
+            doc.public_id, token, result.fields[0].public_id, review_status="confirmed"
+        )
+
+        session, _token = service.create_session_from_confirmed_fields(
+            doc.public_id, token, "en", "en"
+        )
+
+        stored_session = SessionRepository(db).get_session_by_public_id(
+            session.public_id
+        )
+        field = stored_session.version.fields[0]
+        assert field.field_type == "multiple_choice"
+        assert [o.value for o in field.options] == ["Housing", "Education", "Medical"]
+        for option in field.options:
+            assert any(t.language == "en" for t in option.translations)
+    finally:
+        db.close()
+
+
 def test_checkbox_candidate_becomes_boolean_question(tmp_path: Path) -> None:
     candidate = _candidate("cb-1", "I Agree To The Terms", "checkbox")
     db, doc, token = _upload_digital_document(tmp_path)

@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+import app.ai.factory as ai_factory
 from app.database.session import SessionLocal
 from app.forms.schemas import (
     FieldCreate,
@@ -598,6 +599,79 @@ def test_submit_multiple_choice_accepts_single_selected_option(
     data = response.json()
     assert data["status"] == "awaiting_confirmation"
     assert data["normalizedValue"] == ["Medical"]
+
+
+def test_multiple_choice_submission_never_calls_ai_provider(
+    session_setup: dict[str, Any],
+) -> None:
+    """Choice fields are validated deterministically against their own
+    configured options — the AI provider must never be consulted, so a
+    dynamically detected field with no AI-visible option context (or any
+    AI outage) can never block a valid submission."""
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    category_id = session_setup["field_ids"]["request_category"]
+
+    class _ExplodingProvider:
+        async def extract_value(self, request: Any) -> Any:
+            raise AssertionError("AI provider must not be called for choice fields")
+
+    original = ai_factory._provider
+    ai_factory._provider = _ExplodingProvider()
+    try:
+        response = client.post(
+            f"/api/form-sessions/{session_id}/answers",
+            headers={"X-Session-Token": token},
+            json={
+                "fieldId": category_id,
+                "originalAnswer": json.dumps(["Housing", "Education"]),
+            },
+        )
+    finally:
+        ai_factory._provider = original
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "awaiting_confirmation"
+    assert data["requiresClarification"] is False
+    assert data["clarification"] is None
+
+
+def test_submit_single_choice_valid_option_is_awaiting_confirmation(
+    session_setup: dict[str, Any],
+) -> None:
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    marital_status_id = session_setup["field_ids"]["marital_status"]
+
+    response = client.post(
+        f"/api/form-sessions/{session_id}/answers",
+        headers={"X-Session-Token": token},
+        json={"fieldId": marital_status_id, "originalAnswer": "married"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "awaiting_confirmation"
+    assert data["requiresClarification"] is False
+    assert data["normalizedValue"] == "married"
+
+
+def test_submit_single_choice_rejects_option_not_in_configured_set(
+    session_setup: dict[str, Any],
+) -> None:
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    marital_status_id = session_setup["field_ids"]["marital_status"]
+
+    response = client.post(
+        f"/api/form-sessions/{session_id}/answers",
+        headers={"X-Session-Token": token},
+        json={"fieldId": marital_status_id, "originalAnswer": "not_a_real_status"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "draft"
+    assert data["requiresClarification"] is False
 
 
 def test_multiple_choice_confirm_advances_to_next_question(

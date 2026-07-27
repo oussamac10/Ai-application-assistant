@@ -129,6 +129,11 @@ def create_session_from_confirmed_fields(
                 else []
             )
 
+            # Options live exclusively in the FormFieldOption rows created
+            # via `options=` below (config_validation.py's strict per-type
+            # allowlist rejects an "options" key inside `configuration` for
+            # choice fields) — both answer validation and the frontend read
+            # the real `field.options` relationship, never `configuration`.
             form_service.add_field_to_draft(
                 version.id,
                 FieldCreate(

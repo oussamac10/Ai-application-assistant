@@ -256,9 +256,16 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await page.getByRole("button", { name: "Confirm" }).click();
 
     // Second guided question — the dynamically detected multiple_choice
-    // "Request category" field. Selecting more than one option and
-    // submitting must reach the confirm screen, not silently stall.
+    // "Request category" field. All detected options must be offered.
     await expect(page.getByText("Request category")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByLabel("Housing")).toBeVisible();
+    await expect(page.getByLabel("Education")).toBeVisible();
+    await expect(page.getByLabel("Medical")).toBeVisible();
+
+    // Selecting two configured options and submitting must go straight to
+    // the confirm screen — never the clarification screen (the regression:
+    // the field's own detected options weren't reaching answer validation,
+    // so a valid multi-select answer was rejected as needing clarification).
     await page.getByLabel("Housing").check();
     await page.getByLabel("Education").check();
     await page.getByRole("button", { name: "Continue" }).click();
@@ -266,6 +273,7 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await expect(page.getByText("Confirm Extracted Information")).toBeVisible({
       timeout: 10000,
     });
+    await expect(page.getByText("Clarification Required")).not.toBeVisible();
     await page.getByRole("button", { name: "Confirm" }).click();
 
     // Both required fields are now confirmed — the session must actually

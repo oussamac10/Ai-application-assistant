@@ -19,6 +19,18 @@ from app.sessions.services import (
     ValidationError,
 )
 
+# Choice fields are rendered by the frontend as a <select>/checkbox group
+# bound directly to each option's canonical value — the submitted answer is
+# already the exact canonical value(s), never free text needing AI
+# interpretation. Per the "deterministic validation over AI" domain rule,
+# these are validated deterministically against the field's own configured
+# options and never routed through the AI provider: an AI call would need
+# the option set repeated in its prompt context (which submit_answer never
+# populated) just to reproduce a membership check plain code already does
+# reliably, and — for a dynamically detected field with no other AI-visible
+# description of its options — could not answer at all.
+_DETERMINISTIC_CHOICE_TYPES = ("single_choice", "multiple_choice")
+
 
 class AnswerService:
     def __init__(self, db: Session, ai_provider: AIProvider | None = None):
@@ -229,6 +241,11 @@ class AnswerService:
         answer.confirmed_by_user = False
         answer.confirmed_at = None
 
+        if field.field_type in _DETERMINISTIC_CHOICE_TYPES:
+            self._apply_choice_answer(answer, field, original_answer)
+            self.repo.save_answer(answer)
+            return answer
+
         # Call MockAIProvider
         req = ExtractionRequest(
             fieldType=field.field_type,
@@ -271,6 +288,41 @@ class AnswerService:
         # Save
         self.repo.save_answer(answer)
         return answer
+
+    @staticmethod
+    def _apply_choice_answer(
+        answer: FormAnswer, field: FormField, original_answer: str
+    ) -> None:
+        """Deterministically normalizes and validates a single_choice/
+        multiple_choice answer against the field's own configured options
+        — no AI call, no clarification. The submitted value(s) either match
+        a configured option or they don't; there is nothing for an AI
+        provider to interpret or clarify.
+        """
+        norm_val = normalize_value(field.field_type, original_answer)
+        is_valid, _err = validate_value(
+            field.field_type,
+            norm_val,
+            field.required,
+            field.configuration,
+            options=field.options,
+        )
+
+        answer.normalized_value = norm_val
+        answer.requires_clarification = False
+
+        if is_valid:
+            answer.output_value = (
+                ", ".join(norm_val)
+                if field.field_type == "multiple_choice"
+                else norm_val
+            )
+            answer.validation_status = "valid"
+            answer.status = "awaiting_confirmation"
+        else:
+            answer.output_value = None
+            answer.validation_status = "invalid"
+            answer.status = "draft"
 
     def submit_clarification(
         self,

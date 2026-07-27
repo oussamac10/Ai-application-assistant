@@ -79,6 +79,19 @@ describe("Guided session — multiple_choice submit and advance", () => {
     vi.resetModules();
   });
 
+  it("displays every detected option for a dynamically generated multiple_choice question", async () => {
+    const { default: GuidedSession } = await import(
+      "@/app/application/session/[sessionId]/page"
+    );
+    render(<GuidedSession />);
+
+    await waitFor(() => expect(screen.getByText("Request category")).toBeDefined());
+
+    expect(screen.getByLabelText("Housing")).toBeDefined();
+    expect(screen.getByLabelText("Education")).toBeDefined();
+    expect(screen.getByLabelText("Medical")).toBeDefined();
+  });
+
   it("selects options, submits, confirms, and advances to the next question", async () => {
     submitAnswerMock.mockResolvedValue({
       id: "answer-1",
