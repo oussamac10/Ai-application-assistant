@@ -54,6 +54,7 @@ class FieldDetectionService:
         db: Session,
         provider: FieldDetectionProvider | None = None,
         ai_provider: AIProvider | None = None,
+        current_user_id: str | None = None,
     ):
         self.db = db
         self.repo = FieldDetectionRepository()
@@ -63,6 +64,11 @@ class FieldDetectionService:
         self.ai_provider: AIProvider = (
             ai_provider if ai_provider is not None else MockAIProvider()
         )
+        # Resolved from the auth cookie, never trusted from the client body
+        # — every document lookup below authorizes against this (or, for
+        # anonymous callers, the ownership token) via SourceDocumentService,
+        # mirroring the dual-ownership model used by sessions/answers/pdf.
+        self.current_user_id = current_user_id
 
     @property
     def provider(self) -> FieldDetectionProvider:
@@ -102,9 +108,11 @@ class FieldDetectionService:
         )
 
     def request_detection(
-        self, document_public_id: str, ownership_token: str
+        self, document_public_id: str, ownership_token: str | None
     ) -> FieldDetectionResult:
-        doc = self.document_service.get_document(document_public_id, ownership_token)
+        doc = self.document_service.get_document(
+            document_public_id, ownership_token, self.current_user_id
+        )
         source_type, ocr_result = self._determine_source(doc)
 
         analysis_version = settings.FIELD_DETECTION_ANALYSIS_VERSION
@@ -183,9 +191,11 @@ class FieldDetectionService:
         return result
 
     def get_detection_result(
-        self, document_public_id: str, ownership_token: str
+        self, document_public_id: str, ownership_token: str | None
     ) -> FieldDetectionResult:
-        doc = self.document_service.get_document(document_public_id, ownership_token)
+        doc = self.document_service.get_document(
+            document_public_id, ownership_token, self.current_user_id
+        )
         result = self.repo.get_by_source_document_and_version(
             self.db, doc.id, settings.FIELD_DETECTION_ANALYSIS_VERSION
         )
@@ -198,11 +208,13 @@ class FieldDetectionService:
     async def create_session_from_confirmed_fields(
         self,
         document_public_id: str,
-        ownership_token: str,
+        ownership_token: str | None,
         user_language: str,
         output_language: str,
     ) -> tuple[FormSession, str]:
-        doc = self.document_service.get_document(document_public_id, ownership_token)
+        doc = self.document_service.get_document(
+            document_public_id, ownership_token, self.current_user_id
+        )
         result = self.repo.get_by_source_document_and_version(
             self.db, doc.id, settings.FIELD_DETECTION_ANALYSIS_VERSION
         )
@@ -211,11 +223,17 @@ class FieldDetectionService:
                 "No completed field-detection result exists for this document."
             )
         return await create_session_from_confirmed_fields(
-            self.db, doc, result, user_language, output_language, self.ai_provider
+            self.db,
+            doc,
+            result,
+            user_language,
+            output_language,
+            self.ai_provider,
+            current_user_id=self.current_user_id,
         )
 
     def _resolve_field(
-        self, document_public_id: str, ownership_token: str, field_public_id: str
+        self, document_public_id: str, ownership_token: str | None, field_public_id: str
     ) -> DetectedField:
         result = self.get_detection_result(document_public_id, ownership_token)
         field = self.repo.get_field_by_public_id(self.db, field_public_id)
@@ -228,7 +246,7 @@ class FieldDetectionService:
     def update_field(
         self,
         document_public_id: str,
-        ownership_token: str,
+        ownership_token: str | None,
         field_public_id: str,
         *,
         label: str | None = None,
@@ -282,7 +300,7 @@ class FieldDetectionService:
         return field
 
     def reject_field(
-        self, document_public_id: str, ownership_token: str, field_public_id: str
+        self, document_public_id: str, ownership_token: str | None, field_public_id: str
     ) -> DetectedField:
         """Marks a candidate as rejected rather than deleting it, preserving
         review history."""

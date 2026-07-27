@@ -101,6 +101,21 @@ All commands run locally via `backend/venv/bin/python` (not Docker) against the 
 
 The Docker `backend` container was found crash-looping (`ModuleNotFoundError: No module named 'argon2'`) at the start of this phase's work — its image predated the `requirements.txt` changes already staged from a previous session. Rebuilt (`docker compose build backend && docker compose up -d backend`); now healthy.
 
+## Post-completion bug fix: field-detection/OCR/document authorization regression
+
+Real usage after this phase's initial completion surfaced `401 Unauthorized` on `GET /api/source-documents/{id}/field-detection` (and, by the same root cause, the OCR and document-analysis endpoints, and the field-detection-confirmed-fields session-creation endpoint) for any document created while authenticated, or belonging to a claimed application.
+
+**Root cause:** `app/field_detection/service.py` and `app/ocr/service.py` were never updated for the Phase 12 dual-ownership model — they called `SourceDocumentService.get_document(document_id, token)` with no `current_user_id`, so any document with `user_id` set (created while logged in, or claimed) was unreachable via the auth cookie; only the original anonymous token could ever work, and once claimed, that token was invalidated with no replacement path. Separately, `ApplicationService.claim` only transferred document ownership if the frontend supplied a second `document_token` — which it never does — so claiming a session never actually claimed its linked document at all, leaving field-detection/OCR permanently anonymous-only even after a successful claim.
+
+**Fix:**
+- `FieldDetectionService`/`OCRService` gained a `current_user_id` constructor parameter, threaded into every `get_document` call and into `create_session_from_confirmed_fields` (which now also sets `source_document_id`/`current_user_id` on the created session, matching `SourceDocumentService.create_session_from_document`).
+- All 5 field-detection routes and both OCR routes now accept `current_user: User | None = Depends(get_current_user_optional)` and an optional (not required) `X-Document-Token` header.
+- `ApplicationService.claim` now transfers the linked `SourceDocument`'s ownership unconditionally (once the session's own token has verified) rather than requiring a separate, never-sent document token — the document's ownership was already validated server-side at the moment the session was created from it, so that trust carries forward.
+
+**Tests:** `backend/tests/field_detection/test_field_detection_authorization.py` (8 new tests) — anonymous with/without token, authenticated owner/non-owner, logged-in-but-unclaimed (token still required), claim transfers ownership + invalidates old token, rejected claim never mutates ownership. Full suite: 312 passed (was 304); ruff/mypy clean; frontend 77 passed unaffected; Playwright 15 passed/11 skipped/1 pre-existing unrelated failure, unchanged.
+
+**Files changed:** `app/field_detection/service.py`, `app/field_detection/api/routes.py`, `app/field_detection/question_bridge.py`, `app/ocr/service.py`, `app/ocr/api/routes.py`, `app/applications/services.py`, `.env.example` (documented the previously-undocumented `AUTH_*`/`ALLOWED_ORIGINS` settings), new test file above.
+
 ---
 
 ## Next Phases (not yet started)

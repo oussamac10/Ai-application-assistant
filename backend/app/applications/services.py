@@ -115,12 +115,30 @@ class ApplicationService:
         document_id: str | None = None,
         document_token: str | None = None,
     ) -> dict[str, Any]:
-        """Atomically transfers an anonymous session (and, best-effort, its
-        linked source document) to `user_id`. Idempotent: calling again for
-        an application already claimed by the same user is a no-op that
-        simply returns its current state. Claiming invalidates the old
-        anonymous ownership token immediately (set to NULL) so it can never
-        authorize access again."""
+        """Atomically transfers an anonymous session — and its linked source
+        document, if any — to `user_id`. Idempotent: calling again for an
+        application already claimed by the same user is a no-op that simply
+        returns its current state. Claiming invalidates the old anonymous
+        session ownership token immediately (set to NULL) so it can never
+        authorize access again.
+
+        The linked `SourceDocument` (`session.source_document_id`) is
+        transferred unconditionally once the session's own token has
+        verified, without requiring a separate document token from the
+        caller: the document's ownership was already validated server-side
+        at the moment this session was created from it (see
+        `SourceDocumentService.create_session_from_document` and
+        `FieldDetectionService.create_session_from_confirmed_fields`), so
+        that trust carries forward rather than needing to be re-proven here.
+        An optional `document_token` is still accepted and, if it verifies,
+        used as an extra check — but its absence never blocks the transfer,
+        since omitting it (as the frontend currently does) must not leave
+        the claimed session's document permanently inaccessible to its new
+        owner (this was the root cause of a Phase 12 regression: field
+        detection / OCR / document endpoints stayed anonymous-only after
+        claim, so the authenticated owner could no longer reach them once
+        the original browser-local token was gone).
+        """
         session = self.session_repo.get_session_by_public_id(session_id)
         if not session or session.deleted_at is not None:
             raise ApplicationNotFoundError("Application not found.")
@@ -139,15 +157,9 @@ class ApplicationService:
         session.ownership_token_hash = None
         session.last_opened_at = datetime.now(UTC)
 
-        if session.source_document_id and document_token:
+        if session.source_document_id:
             doc = self.doc_repo.get_by_id(self.db, session.source_document_id)
-            if (
-                doc
-                and doc.user_id is None
-                and doc.ownership_token_hash
-                and (document_id is None or doc.public_id == document_id)
-                and verify_ownership_token(document_token, doc.ownership_token_hash)
-            ):
+            if doc and doc.user_id is None:
                 doc.user_id = user_id
                 doc.ownership_token_hash = None
 

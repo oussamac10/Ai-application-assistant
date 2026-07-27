@@ -136,6 +136,7 @@ async def create_session_from_confirmed_fields(
     user_language: str,
     output_language: str,
     ai_provider: AIProvider,
+    current_user_id: str | None = None,
 ) -> tuple[FormSession, str]:
     confirmed_fields = [
         field for field in detection_result.fields if field.review_status == "confirmed"
@@ -229,4 +230,6 @@ async def create_session_from_confirmed_fields(
         form_version_id=version.id,
         user_language=user_language,
         output_language=output_language,
+        current_user_id=current_user_id,
+        source_document_id=doc.id,
     )

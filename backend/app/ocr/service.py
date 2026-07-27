@@ -44,12 +44,15 @@ class OCRService:
         db: Session,
         provider: OCRProvider | None = None,
         renderer: PageRenderer | None = None,
+        current_user_id: str | None = None,
     ):
         self.db = db
         self.repo = OCRRepository()
         self.document_service = SourceDocumentService(db)
         self._provider = provider
         self._renderer = renderer
+        # See FieldDetectionService for the same dual-ownership rationale.
+        self.current_user_id = current_user_id
 
     @property
     def provider(self) -> OCRProvider:
@@ -77,9 +80,11 @@ class OCRService:
             )
 
     def request_ocr(
-        self, document_public_id: str, ownership_token: str, language: str
+        self, document_public_id: str, ownership_token: str | None, language: str
     ) -> OCRResult:
-        doc = self.document_service.get_document(document_public_id, ownership_token)
+        doc = self.document_service.get_document(
+            document_public_id, ownership_token, self.current_user_id
+        )
         self._check_eligibility(doc, language)
 
         existing = self.repo.get_by_source_document_id(self.db, doc.id)
@@ -159,9 +164,11 @@ class OCRService:
         return result
 
     def get_ocr_result(
-        self, document_public_id: str, ownership_token: str
+        self, document_public_id: str, ownership_token: str | None
     ) -> OCRResult:
-        doc = self.document_service.get_document(document_public_id, ownership_token)
+        doc = self.document_service.get_document(
+            document_public_id, ownership_token, self.current_user_id
+        )
         result = self.repo.get_by_source_document_id(self.db, doc.id)
         if result is None:
             raise OCRNotFoundError("No OCR result exists for this document yet.")

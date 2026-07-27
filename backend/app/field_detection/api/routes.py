@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.ai.factory import get_ai_provider
 from app.ai.mock_provider import AIProvider
+from app.auth.dependencies import get_current_user_optional
+from app.auth.models import User
 from app.database.session import get_db
 from app.documents.schemas import SessionCreateRequest, SessionCreateResponse
 from app.field_detection.schemas import (
@@ -26,10 +28,13 @@ router = APIRouter()
 )
 def request_field_detection(
     document_id: str,
-    x_document_token: str = Header(..., alias="X-Document-Token"),
+    x_document_token: str | None = Header(default=None, alias="X-Document-Token"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = FieldDetectionService(db)
+    service = FieldDetectionService(
+        db, current_user_id=current_user.id if current_user else None
+    )
     result = service.request_detection(document_id, x_document_token)
     return build_field_detection_response(document_id, result)
 
@@ -41,10 +46,13 @@ def request_field_detection(
 )
 def get_field_detection_result(
     document_id: str,
-    x_document_token: str = Header(..., alias="X-Document-Token"),
+    x_document_token: str | None = Header(default=None, alias="X-Document-Token"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = FieldDetectionService(db)
+    service = FieldDetectionService(
+        db, current_user_id=current_user.id if current_user else None
+    )
     result = service.get_detection_result(document_id, x_document_token)
     return build_field_detection_response(document_id, result)
 
@@ -58,10 +66,13 @@ def update_detected_field(
     document_id: str,
     field_id: str,
     body: DetectedFieldUpdateRequest,
-    x_document_token: str = Header(..., alias="X-Document-Token"),
+    x_document_token: str | None = Header(default=None, alias="X-Document-Token"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = FieldDetectionService(db)
+    service = FieldDetectionService(
+        db, current_user_id=current_user.id if current_user else None
+    )
     field = service.update_field(
         document_id,
         x_document_token,
@@ -87,10 +98,13 @@ def update_detected_field(
 def reject_detected_field(
     document_id: str,
     field_id: str,
-    x_document_token: str = Header(..., alias="X-Document-Token"),
+    x_document_token: str | None = Header(default=None, alias="X-Document-Token"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = FieldDetectionService(db)
+    service = FieldDetectionService(
+        db, current_user_id=current_user.id if current_user else None
+    )
     field = service.reject_field(document_id, x_document_token, field_id)
     return build_detected_field_schema(field)
 
@@ -103,11 +117,16 @@ def reject_detected_field(
 async def create_session_from_field_detection(
     document_id: str,
     body: SessionCreateRequest,
-    x_document_token: str = Header(..., alias="X-Document-Token"),
+    x_document_token: str | None = Header(default=None, alias="X-Document-Token"),
     db: Session = Depends(get_db),
     ai_provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
-    service = FieldDetectionService(db, ai_provider=ai_provider)
+    service = FieldDetectionService(
+        db,
+        ai_provider=ai_provider,
+        current_user_id=current_user.id if current_user else None,
+    )
     session, session_token = await service.create_session_from_confirmed_fields(
         document_id, x_document_token, body.language, body.outputLanguage
     )
