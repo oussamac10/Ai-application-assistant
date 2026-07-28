@@ -83,7 +83,17 @@ The Next.js frontend is structured for localization, secure step-based workflow 
 - **`sessionCredentials` Service**: Manages `ownershipToken` mappings in `sessionStorage` isolated by browser tab.
 - **Secure API Client (`apiClient.ts`)**: Appends the tab's `ownershipToken` using the `X-Session-Token` request header. It completely avoids URL token injection.
 
-### 3. Workflow Routing & Dynamic Rendering
+### 3. Automatic Upload-to-Questions Orchestration (Phase 13)
+
+`app/field_detection/orchestration.py::PrepareQuestionsService` composes document analysis, OCR,
+field detection, deterministic confidence routing, and question generation into one idempotent
+call (`POST /api/source-documents/{id}/prepare-questions`). Normal users never drive OCR/detection/
+review as separate manual steps; the frontend's `DocumentUploadForm` calls this endpoint
+automatically after upload and navigates straight to the guided session. The Phase 11 manual
+review screen (`FieldDetectionPanel`) is unchanged and still reachable directly for admin/debug
+use — see [ADR 0012](decisions/0012-automatic-confidence-routing.md).
+
+### 4. Workflow Routing & Dynamic Rendering
 - **Guided Form Container (`/application/session/[sessionId]/page.tsx`)**: Integrates standard, clarification, and confirmation sub-flows based on backend answer state transitions.
 - **`FieldRenderer` Component**: A unified entrypoint rendering appropriate input inputs for all 14 field types including:
   - Text: `string`, `person_name`, `country`, `money`

@@ -40,6 +40,19 @@ def use_mock_provider():
     settings.FIELD_DETECTION_PROVIDER = original
 
 
+@pytest.fixture(autouse=True)
+def use_manual_review_mode():
+    """This file exercises the Phase 11 manual field-review API contract
+    (every field starts pending_review; only an explicit PATCH/session call
+    changes that) — the admin/debug mode Phase 13 preserves unmodified. The
+    Phase 13 automatic-confidence-routing behavior is covered separately in
+    test_confidence.py and test_orchestration.py."""
+    original = settings.FIELD_DETECTION_REVIEW_MODE
+    settings.FIELD_DETECTION_REVIEW_MODE = "manual"
+    yield
+    settings.FIELD_DETECTION_REVIEW_MODE = original
+
+
 def _create_digital_pdf(filepath: str) -> None:
     c = canvas.Canvas(filepath, pagesize=letter)
     c.drawString(100, 700, "Just some unmatched content")

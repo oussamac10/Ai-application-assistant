@@ -22,7 +22,7 @@ test.describe("OCR flow — End-to-end (requires backend)", () => {
     "Skipped in local dev unless CI=true; requires live backend with database"
   );
 
-  test("upload scanned PDF shows OCR-required state with Start OCR button", async ({
+  test("upload scanned PDF: OCR runs automatically then guided questions start (Phase 13)", async ({
     page,
   }) => {
     await goToLanding(page);
@@ -43,22 +43,18 @@ test.describe("OCR flow — End-to-end (requires backend)", () => {
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Upload and Analyze/i }).click();
 
-    await expect(page.getByText(/Document Analysis Complete/i)).toBeVisible({
-      timeout: 15000,
-    });
-    await expect(page.getByText(/OCR Recognition Needed/i)).toBeVisible();
-
-    const startOcrBtn = page.getByRole("button", { name: /Start OCR/i });
-    await expect(startOcrBtn).toBeVisible();
-    await startOcrBtn.click();
-
-    await expect(page).toHaveURL(/\/application\/document\/.+\/ocr/);
-    await expect(page.getByText(/Extract Text with OCR/i)).toBeVisible();
-
-    await page.getByRole("button", { name: /^Start OCR$/i }).click();
-
-    await expect(page.getByText(/OCR Result/i)).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/Mock OCR page 1/i)).toBeVisible();
+    // Phase 13: no "Document Analysis Complete"/"Start OCR" manual step —
+    // OCR + field detection + question generation run automatically. A
+    // blank scanned fixture may yield no usable questions, in which case
+    // the safe "could not process" message is shown instead of a session —
+    // either outcome is acceptable here; a manual OCR button must not be.
+    await expect(page.getByRole("button", { name: /Start OCR/i })).not.toBeVisible();
+    await Promise.race([
+      page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 25000 }),
+      page.getByText(/could not confidently process|no usable questions/i).waitFor({
+        timeout: 25000,
+      }),
+    ]);
   });
 
   test("OCR panel renders RTL when Arabic is selected", async ({ page }) => {
@@ -80,14 +76,12 @@ test.describe("OCR flow — End-to-end (requires backend)", () => {
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /تحميل وتحليل|Upload and Analyze/i }).click();
 
-    await expect(page.getByText(/OCR Recognition Needed|بدء التعرف الضوئي/i)).toBeVisible({
-      timeout: 15000,
-    });
-
-    const startOcrBtn = page.getByRole("button", { name: /بدء التعرف الضوئي/i });
-    await startOcrBtn.click();
-
-    await expect(page).toHaveURL(/\/application\/document\/.+\/ocr/);
+    // RTL must remain active during automatic processing (Phase 13).
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+    await Promise.race([
+      page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 25000 }),
+      page.getByText(/تعذّر|could not confidently process/i).waitFor({ timeout: 25000 }),
+    ]);
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   });
 });

@@ -2,47 +2,60 @@
 
 ## Phase
 
-Phase 12 - User Accounts and Persistent Sessions
+Phase 13 - Automatic Upload-to-Questions User Flow
 
 ## Branch
 
-`feature/user-accounts-persistent-sessions`
+`feature/automatic-upload-to-questions`
 
 ## Base
 
-`feature/dynamic-field-detection`
+`feature/user-accounts-persistent-sessions`
 
 ## Objective
 
-Add secure first-party email/password user accounts and persistent applications on top of the existing anonymous, token-owned session model — without breaking anonymous usage. Authenticated users can save, resume, rename, and delete applications, and claim an anonymous application into their account.
+Replace the normal-user unknown-form workflow (upload → detect fields → manually review every
+detected field → confirm fields → generate questions → answer) with an automatic flow: upload →
+analyze → detect fields → automatically decide what is usable → generate questions → begin guided
+answering. Normal users must not be required to review technical field definitions. The Phase 11
+field-review UI remains available only for admin/development/debug use and genuine low-confidence
+fallback cases.
 
 ## Reuse
 
-- `FormSession` as the persistent "application" (no separate aggregate) — Phase 3
-- anonymous ownership-token hashing pattern (`app/sessions/security.py`) reused for auth session tokens
-- existing session/answer/PDF-export workflow, completely unmodified in shape
+- `FieldDetectionResult`/`DetectedField` (Phase 11) — confidence routing is layered on top, not a
+  replacement
+- `create_session_from_confirmed_fields` (Phase 11 question bridge) — extended to optionally
+  include auto-usable (not just manually confirmed) fields
+- dual-ownership authorization (Phase 12) — reused unmodified for the new orchestration endpoint
+- existing OCR/field-detection idempotent request/reuse pattern — orchestration composes these
+  services rather than re-implementing detection or OCR
 
 ## In scope
 
-- `User`/`AuthSession` models + Argon2id password hashing + migration
-- register/login/logout/me/refresh endpoints, generic error responses
-- HttpOnly auth cookie + CSRF double-submit protection; explicit CORS allowlist
-- `FormSession`/`SourceDocument` extended with nullable `user_id` (dual ownership model)
-- atomic, idempotent anonymous-application claim endpoint
-- application history API (list/detail/rename/delete), summary-only responses
-- frontend: register, login, logout, account menu, My Applications, resume, rename, delete, claim prompt — en/de/fr/ar, RTL preserved
-- `pytest-asyncio` added to `requirements.txt`
-- backend/frontend/Playwright tests, ADR 0011, `docs/user-accounts.md`
+- deterministic confidence routing (`FIELD_AUTO_CONFIRM_THRESHOLD`,
+  `FIELD_CLARIFICATION_THRESHOLD`, `FIELD_DETECTION_REVIEW_MODE`)
+- single idempotent orchestration endpoint:
+  `POST /api/source-documents/{id}/prepare-questions`
+- automatic question generation from high/medium-confidence fields; low-confidence fields excluded
+  and surfaced only as a plain-language uncertainty flag
+- review metadata persisted on `FieldDetectionResult` for later Phase 14 consumption
+- frontend: upload goes straight to guided questions with simple progress messages; no mandatory
+  field-review step; existing Phase 11 review UI preserved behind a development-only debug flag
+- known predefined forms keep their existing fast path (no OCR/detection/AI)
+- backend/frontend tests for the new orchestration and confidence-routing behavior
 
 ## Out of scope
 
-- Phase 13 (administration and content review)
-- password reset / email verification flows
-- multi-factor authentication
-- OAuth/social login
+- Phase 14 (administration and content review) — only review metadata is persisted, no admin UI/role
+- Phase 15 (dynamic PDF mapping, filling, preview, export of arbitrary unknown PDFs)
+- background job queues — orchestration remains synchronous, matching the existing OCR/detection
+  request pattern
+- changes to the PDF structural analyzer's `next_step` classification itself (Phase 9)
 
 ## Status
 
-Complete. All in-scope items implemented and verified — see root `TODO.md` "Verification" section for exact check results, including the one pre-existing environment-specific exception unrelated to Phase 12 (the `guided-flow.spec.ts` fixture/tab-default gap carried since Phase 9/10).
+In progress.
 
-See `docs/user-accounts.md` for the user guide and `docs/decisions/0011-user-accounts-persistent-sessions.md` for the architecture decisions.
+See `docs/phases/phase-13-automatic-upload-to-questions.md` for the full specification (once
+written) and `docs/decisions/0012-automatic-confidence-routing.md` for the architecture decision.

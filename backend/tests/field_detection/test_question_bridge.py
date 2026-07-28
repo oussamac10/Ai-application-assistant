@@ -7,6 +7,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.database.session import SessionLocal
 from app.documents.service import SourceDocumentService
 from app.field_detection.errors import (
@@ -16,6 +17,18 @@ from app.field_detection.errors import (
 from app.field_detection.providers.mock import MockFieldDetectionProvider
 from app.field_detection.service import FieldDetectionService
 from app.sessions.repositories import SessionRepository
+
+
+@pytest.fixture(autouse=True)
+def use_manual_review_mode() -> Generator[None, None, None]:
+    """This file tests the Phase 11 manual-confirmation contract of
+    create_session_from_confirmed_fields(include_auto_usable=False, the
+    default) — see test_orchestration.py for the Phase 13
+    include_auto_usable=True behavior."""
+    original = settings.FIELD_DETECTION_REVIEW_MODE
+    settings.FIELD_DETECTION_REVIEW_MODE = "manual"
+    yield
+    settings.FIELD_DETECTION_REVIEW_MODE = original
 
 
 @pytest.fixture(autouse=True)

@@ -11,9 +11,18 @@ The AI Form Assistant bridges the language gap by allowing users to complete for
 
 It guides the user through the form one field at a time, normalizing, validating, and confirming answers.
 
-## Current MVP Phase: MVP Phase 7 — Frontend Guided Form Experience
+## Current Phase: Phase 13 — Automatic Upload-to-Questions User Flow
 
-This repository contains the implementation of MVP Phase 7. It establishes:
+See [`docs/claude/current-phase.md`](docs/claude/current-phase.md) and
+[`docs/phases/phase-13-automatic-upload-to-questions.md`](docs/phases/phase-13-automatic-upload-to-questions.md)
+for the current phase. Uploading a PDF now analyzes, detects fields, and starts guided questions
+automatically — no manual field-review step for normal users; see
+[`docs/field-detection.md`](docs/field-detection.md) and
+[ADR 0012](docs/decisions/0012-automatic-confidence-routing.md).
+
+### MVP Phase 7 — Frontend Guided Form Experience (original foundation)
+
+The sections below describe Phase 7, the guided-form UI foundation the product still builds on:
 * **Client-Side UI Localization**: Dynamic switching between English (`en`), Deutsch (`de`), Français (`fr`), and Arabic (`ar`).
 * **Arabic RTL Layout Support**: Automatic toggling of HTML `dir="rtl"` and RTL-compliant UI flows when Arabic is selected.
 * **Privacy Notice Compliance**: Explicit checkbox acceptance is required before starting any session.

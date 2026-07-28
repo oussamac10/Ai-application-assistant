@@ -106,7 +106,19 @@
     "error_privacy_not_accepted": "Die Datenschutzerklärung muss akzeptiert werden.",
     "error_document_analysis_failed": "PDF-Strukturanalyse fehlgeschlagen.",
     "start_ocr": "OCR starten",
-    "detect_fields": "Felder erkennen"
+    "detect_fields": "Felder erkennen",
+    "processing_generic": "Ihre Fragen werden vorbereitet …",
+    "processing_reading": "Dokument wird gelesen …",
+    "processing_detecting": "Erforderliche Angaben werden erkannt …",
+    "processing_preparing": "Ihre Fragen werden vorbereitet …",
+    "uncertainty_title": "Ein Abschnitt benötigt möglicherweise eine Bestätigung",
+    "uncertainty_body": "Wir konnten einen Teil dieses Formulars nicht sicher lesen. Sie können mit den gefundenen Fragen fortfahren.",
+    "continue_with_detected": "Weiter",
+    "review_uncertain_section": "Unsicheren Abschnitt prüfen",
+    "could_not_process_title": "Dieses Formular konnte nicht sicher verarbeitet werden",
+    "no_usable_questions_body": "Wir haben in diesem Dokument keine verwendbaren Fragen gefunden. Sie können es erneut versuchen oder eine andere Datei hochladen.",
+    "debug_open_review": "Technische Überprüfung öffnen (Debug)",
+    "processing_failed": "Dieses Dokument konnte nicht verarbeitet werden."
   },
   "documentOcr": {
     "title": "Text mit OCR extrahieren",

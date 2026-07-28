@@ -49,6 +49,8 @@ Click **My Applications** to see everything you've saved: its form, current stat
 - Your session cookie is not readable by page scripts and is never placed in a URL.
 - Only you can see, resume, rename, or delete your own saved applications.
 - Deleting an application does not un-delete it — there is no recovery.
+- Uploading a form (Phase 13) processes and starts questions automatically for both signed-in and
+  anonymous users, using the same ownership model as every other document/session action.
 
 ---
 

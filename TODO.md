@@ -15,106 +15,125 @@
 | 9 — Form Upload and Document Analysis | `feature/form-upload-analysis` | ✅ Done |
 | 10 — OCR Integration | `feature/ocr-integration` | ✅ Done |
 | 11 — Dynamic Field Detection | `feature/dynamic-field-detection` | ✅ Done |
+| 12 — User Accounts and Persistent Sessions | `feature/user-accounts-persistent-sessions` | ✅ Done |
+
+Archived phase TODOs live under `docs/progress/`.
 
 ---
 
 ## Current Task
 
-**Phase 12 — User Accounts and Persistent Sessions.** Branch: `feature/user-accounts-persistent-sessions`. Base: `feature/dynamic-field-detection`. **Status: Complete.**
+**Phase 13 — Automatic Upload-to-Questions User Flow.** Branch: `feature/automatic-upload-to-questions`. Base: `feature/user-accounts-persistent-sessions`. **Status: Complete.**
 
 ## Goal
 
-Add secure first-party email/password user accounts and persistent applications on top of the existing anonymous, token-owned session model — without breaking anonymous usage. Authenticated users can save, resume, rename, and delete applications, and claim an anonymous application into their account. Phase 13 (administration and content review) is explicitly out of scope.
-
-See `docs/phases/phase-12-user-accounts-persistent-sessions.md` for the full specification.
+Replace the normal-user unknown-form workflow (upload → detect fields → manually review every
+detected field → confirm fields → generate questions → answer) with: upload → analyze → detect
+fields → automatically decide what is usable → generate questions → begin guided answering.
+Normal users must never be required to review raw field detection output. See
+`docs/claude/current-phase.md` for the full scope.
 
 ## Acceptance Criteria
 
-- [x] `User` model + Argon2id password hashing, never plaintext/reversible
-- [x] `AuthSession` (refresh/session token) model, HMAC-hashed at rest, mirroring the existing ownership-token pattern
-- [x] Register / login / logout / me / refresh endpoints, generic error responses (no account enumeration)
-- [x] Secure HttpOnly, SameSite, (prod) Secure auth cookie; CSRF protection for cookie-authenticated mutations
-- [x] `FormSession`/`SourceDocument` extended with nullable `user_id` — anonymous ownership path fully preserved
-- [x] Atomic, idempotent anonymous-application claim endpoint; old ownership token invalidated after claim
-- [x] One consistent authorization layer; no IDOR; same not-found/unauthorized behavior as existing ownership checks
-- [x] Application history API (list/detail/rename/delete) with safe summary-only list responses
-- [x] Frontend: register, login, logout, account menu, My Applications, resume, rename, delete — en/de/fr/ar, RTL preserved
-- [x] Resume reuses existing session/answer state — no duplicate sessions, no re-running OCR/detection/AI translation unnecessarily
-- [x] Reversible Alembic migration; anonymous data unaffected by upgrade
-- [x] `pytest-asyncio` added to `requirements.txt`; async tests no longer silently skip in a clean Docker image
-- [x] Backend, frontend, and Playwright tests per the test plan
-- [x] ADR for auth/session architecture; `docs/user-accounts.md` user-facing docs; privacy/security docs updated
+- [x] Deterministic confidence-routing config (`FIELD_AUTO_CONFIRM_THRESHOLD`,
+      `FIELD_CLARIFICATION_THRESHOLD`, `FIELD_DETECTION_REVIEW_MODE`) — no AI-decided routing
+- [x] Auto-confirm rules implemented per field type; unclassifiable (`unknown`) type never
+      auto-confirmed; choice fields without options never auto-confirmed
+- [x] Duplicate/overlap handling preserved (Phase 11's `normalization.py` dedup/ordering, reused
+      unmodified — no changes needed for this phase)
+- [x] Single idempotent orchestration endpoint composing analyze → OCR (if needed) → detect →
+      auto-confirm → generate questions → create/reuse session
+- [x] Known predefined forms bypass OCR/detection/AI entirely (fast path preserved)
+- [x] Existing completed detection/OCR/question results are reused, never redundantly recomputed
+- [x] Question generation resolution order preserved unmodified (question_bridge/resolver untouched)
+- [x] Choice field configuration (stable `value`, ordered `displayLabel` options) preserved
+      end-to-end (unchanged path, only which fields are included changed)
+- [x] Review metadata persisted on `FieldDetectionResult` for later Phase 14 consumption, without
+      exposing private answers
+- [x] Normal-user uncertainty handling: uncertain fields excluded from question generation, never
+      silently guessed into an unsafe question
+- [x] Frontend: upload → automatic processing → guided questions, with plain-language progress
+      messages only; no raw field-review UI shown by default
+- [x] Phase 11 field-review UI preserved behind an explicit development/debug-only gate
+- [x] Dual ownership (Phase 12) preserved for every new/changed endpoint; no IDOR
+- [x] Resume does not reprocess (no duplicate OCR/detection/session/AI calls)
+- [x] Backend/frontend/Playwright tests for the new behavior
+- [x] ADR 0012; `docs/phases/phase-13-automatic-upload-to-questions.md`; updated
+      `docs/architecture.md`, `docs/security.md`, `docs/privacy.md`, `docs/field-detection.md`,
+      `docs/user-accounts.md`, `.env.example`, `docker-compose.yml`
 
 ## Planned Steps
 
-- [x] Phase initialization and documentation
-- [x] `User`/`AuthSession` models + migration
-- [x] Password hashing + auth token security module (mirrors `app/sessions/security.py`)
-- [x] Auth service + API routes + cookie/CSRF handling
-- [x] Ownership extension (`user_id` on `FormSession`/`SourceDocument`) + migration
-- [x] Authorization dependency usable by both anonymous-token and authenticated-user paths (sessions, documents, PDF export)
-- [x] Claim flow (service + endpoint + tests)
-- [x] Application history API (list/detail/rename/delete)
-- [x] Frontend auth pages + My Applications + claim prompt (4 languages, RTL)
-- [x] Resume-state verification (no duplicate work; removed a client-side guard that blocked cookie-only resume)
-- [x] Backend/frontend/Playwright test suites
-- [x] Documentation, `.env.example`, full verification pass
+- [x] Phase initialization and documentation (this file, current-phase.md, roadmap, archive Phase 12)
+- [x] Confidence-routing config + deterministic decision module + tests
+- [x] Auto-assign `DetectedField.review_status` at detection time in `auto` mode; preserve legacy
+      `manual` mode for the existing Phase 11 review UI
+- [x] Extend question-bridge session creation to optionally include auto-usable (not just manually
+      confirmed) fields; add review-metadata persistence + migration
+- [x] Orchestration service + `POST /api/source-documents/{id}/prepare-questions` endpoint
+- [x] Frontend: automatic upload → processing → guided-session flow; simple progress messages;
+      uncertainty screen; debug-mode gate for the Phase 11 review UI
+- [x] Backend/frontend/Playwright tests
+- [x] Documentation, `.env.example`, verification pass
 
 ## Decisions and Assumptions
 
-- `FormSession` is extended in place to serve as the persistent "application" (Option B) rather than introducing a separate `Application` aggregate — `FormSession` already models id, status, form reference, timestamps, and progress; ownership today is already centralized at exactly two root aggregates (`FormSession`, `SourceDocument`), so duplicating that into a third aggregate would only create sync risk without a clear benefit.
-- Existing `FormSession.status` values are reused as-is; no new status vocabulary is introduced for "application" state.
-- Auth session tokens follow the exact same HMAC-SHA256-hash-at-rest, one-time-exposure pattern already used for anonymous ownership tokens (`app/sessions/security.py`), not JWTs — consistent with the codebase's existing security model and avoiding a new class of token-validation logic.
-- Argon2id via `argon2-cffi` for password hashing (industry-standard, no existing hashing dependency in the repo to reuse).
-- `pytest-asyncio` is added to `requirements.txt` as part of this phase, fixing a pre-existing dependency-tracking gap documented since Phase 5/6 verification passes.
-- `allow_origins=["*"]` combined with `allow_credentials=True` (pre-existing CORS config) is invalid once cookies are involved — browsers reject the combination per the CORS spec. Replaced with an explicit `ALLOWED_ORIGINS` allowlist setting (default: `http://localhost:3000,http://localhost:3003`, the two known local dev origins).
-- Application soft-delete reuses the existing `deleted` terminal session status from the domain's documented session state machine (`docs/claude/domain-rules.md`) rather than inventing a new status value; a deleted session is excluded from `GET /applications` and rejected (generic 401, same as any unauthorized access) by `SessionService.get_session`.
-- The claim endpoint accepts an optional `documentId`/`documentToken` pair to best-effort also claim the session's linked `SourceDocument` under the same user; if that token is absent or doesn't verify, only the session itself is claimed — this is intentionally silent (non-fatal) since the document isn't required for the guided session/answer/export flow to keep working.
+- `"pending_review"` is reused (not replaced) as the "medium confidence, auto-usable" status in
+  `auto` mode, rather than inventing a fourth status — see ADR 0012 §1.
+- `FIELD_DETECTION_REVIEW_MODE` controls only *when* `review_status` is assigned, not the API
+  surface — the Phase 11 manual review endpoints/schemas/UI are completely unchanged (ADR 0012 §2).
+- `PrepareQuestionsService` stays synchronous, matching every existing OCR/detection endpoint;
+  background processing is explicitly deferred to Phase 17.
+- OCR language for the automatic flow defaults to the user's interface language (falls back to
+  `en` if unsupported) — no document-language detection exists yet; same limitation Phase 10 had.
+- `questionGenerationFallbackUsed` (listed as example review-metadata in the original request) was
+  not implemented — would require threading a per-field AI-fallback flag through `translate_text`;
+  judged out of scope for this phase. The underlying safe-fallback behavior is unaffected.
+- The debug/admin review route is gated only by a build-time flag / dev-only query param, not a
+  new auth role — a broad admin role was explicitly out of scope per the phase brief; Phase 14
+  owns real admin authentication.
 
 ## Blockers
 
-- None identified before implementation.
+None encountered.
 
 ## Verification
 
-All commands run locally via `backend/venv/bin/python` (not Docker) against the same Postgres instance the Docker stack uses, per session instructions:
+Ran directly via `backend/venv/bin/python` (not Docker) for pytest/ruff/mypy/alembic, and against
+the rebuilt Docker stack (`docker compose build backend frontend && docker compose up -d`) for
+Playwright, per this session's instructions.
 
+- `venv/bin/python -m pytest -q` (`PYTHONPATH=.`) → **334 passed**, 0 failed, 0 skipped (312
+  baseline + 22 new: 10 in `test_confidence.py`, 9 in `test_orchestration.py`, 3 in
+  `test_prepare_questions_api.py`).
 - `venv/bin/python -m ruff check .` → All checks passed.
-- `venv/bin/python -m ruff format --check .` → 8 pre-existing files would reformat (`app/documents/*.py` and `tests/documents/test_documents.py`, documented since Phase 10, untouched); all other 157 files already formatted.
-- `venv/bin/python -m mypy app` → Success: no issues found in 128 source files.
-- `PYTHONPATH=. venv/bin/python -m pytest -q` → **304 passed**, 0 failed, 0 skipped (includes 27 new Phase 12 tests: 10 in `tests/auth/`, 17 in `tests/applications/`).
-- `venv/bin/python -m alembic downgrade -1` then `upgrade head` → clean round-trip; full suite re-verified passing after.
-- `cd frontend && npm run typecheck` → clean (`tsc --noEmit`, no output).
+- `venv/bin/python -m ruff format --check .` on changed files → clean (all Phase 13 files
+  formatted); the one pre-existing `tests/documents/test_documents.py`/`app/documents/*.py`
+  formatting exception (documented since Phase 10) is untouched, as instructed.
+- `venv/bin/python -m mypy app` → Success: no issues found in 130 source files.
+- `venv/bin/python -m alembic downgrade -1` then `upgrade head` → clean round-trip for
+  `897a1e1874ae_add_field_detection_review_metadata.py`.
+- `cd frontend && npm run typecheck` → clean.
 - `npm run lint` → "No ESLint warnings or errors".
-- `npm test` → **77 passed** (0 failed), including 8 new Phase 12 tests (`LoginForm`/`RegisterForm`, My Applications page list/rename/delete/redirect).
-- `PLAYWRIGHT_BASE_URL=http://localhost:3003 npx playwright test` (against the rebuilt Docker frontend, backend rebuilt with `argon2-cffi`/`pytest-asyncio` present) → **15 passed**, 11 skipped (pre-existing: require live Ollama/local OCR/field-detection providers, unrelated to this phase), **1 failed**: `guided-flow.spec.ts` — pre-existing gap (the landing page's default tab is "Upload Form"; that spec never clicks "Select Manually" before looking for `#form-select`), tracked since Phase 9/10, not a Phase 12 regression. All 3 new Phase 12 specs pass (`user-accounts-persistent-sessions-flow.spec.ts` ×2, `user-accounts-rtl-check.spec.ts`).
-
-### Bugs found and fixed during this phase's own verification (not present before Phase 12's changes)
-
-- `PDFExportService`/`app/pdf/api/routes.py` did not know about the new dual-ownership model (`ownership_token_hash` became nullable), which would have permanently broken PDF export for any claimed session. Extended `_verify_ownership`/`create_export` to the same dual-ownership check used by `SessionService`/`SourceDocumentService`, and made the `X-Session-Token` header optional on both export endpoints.
-- The guided-session and summary frontend pages hard-blocked on a missing anonymous `sessionStorage` token before making any request — which is exactly the state a claimed (authenticated-owned) session resume is in. Removed the client-side guard; the request itself now succeeds via the auth cookie or fails with the normal error state.
-- `frontend/src/app/applications/page.tsx`'s initial load effect depended on `router` and a callback re-created each render; because the mocked `useRouter()` in tests (and, in principle, any consumer re-creating a router reference) is not guaranteed stable, this caused a refetch loop that silently reverted an in-flight rename/delete. Fixed by removing the unstable dependencies from the effect.
-- Backend test setup: recreating `TestClient(app)` as a context manager per test (`with TestClient(app) as c`) was destabilizing the shared SQLAlchemy connection pool and leaving `idle in transaction` connections that blocked subsequent `TRUNCATE` calls in local test runs. Switched to one module-level `TestClient(app)` instance per test file (matching the existing `tests/sessions/test_sessions.py` pattern), with cookies cleared per test instead.
-- A test fixture (`published_form_version` in `tests/applications/test_applications.py`) called `service.publish_version()` on a version with no fields, which raises — since the fixture had no `try/finally`, the `SessionLocal()` connection was never closed, leaking an open transaction that blocked later tests' `TRUNCATE`. Fixed by adding a required field before publishing and wrapping the fixture body in `try/finally`.
-
-### Environment note
-
-The Docker `backend` container was found crash-looping (`ModuleNotFoundError: No module named 'argon2'`) at the start of this phase's work — its image predated the `requirements.txt` changes already staged from a previous session. Rebuilt (`docker compose build backend && docker compose up -d backend`); now healthy.
-
-## Post-completion bug fix: field-detection/OCR/document authorization regression
-
-Real usage after this phase's initial completion surfaced `401 Unauthorized` on `GET /api/source-documents/{id}/field-detection` (and, by the same root cause, the OCR and document-analysis endpoints, and the field-detection-confirmed-fields session-creation endpoint) for any document created while authenticated, or belonging to a claimed application.
-
-**Root cause:** `app/field_detection/service.py` and `app/ocr/service.py` were never updated for the Phase 12 dual-ownership model — they called `SourceDocumentService.get_document(document_id, token)` with no `current_user_id`, so any document with `user_id` set (created while logged in, or claimed) was unreachable via the auth cookie; only the original anonymous token could ever work, and once claimed, that token was invalidated with no replacement path. Separately, `ApplicationService.claim` only transferred document ownership if the frontend supplied a second `document_token` — which it never does — so claiming a session never actually claimed its linked document at all, leaving field-detection/OCR permanently anonymous-only even after a successful claim.
-
-**Fix:**
-- `FieldDetectionService`/`OCRService` gained a `current_user_id` constructor parameter, threaded into every `get_document` call and into `create_session_from_confirmed_fields` (which now also sets `source_document_id`/`current_user_id` on the created session, matching `SourceDocumentService.create_session_from_document`).
-- All 5 field-detection routes and both OCR routes now accept `current_user: User | None = Depends(get_current_user_optional)` and an optional (not required) `X-Document-Token` header.
-- `ApplicationService.claim` now transfers the linked `SourceDocument`'s ownership unconditionally (once the session's own token has verified) rather than requiring a separate, never-sent document token — the document's ownership was already validated server-side at the moment the session was created from it, so that trust carries forward.
-
-**Tests:** `backend/tests/field_detection/test_field_detection_authorization.py` (8 new tests) — anonymous with/without token, authenticated owner/non-owner, logged-in-but-unclaimed (token still required), claim transfers ownership + invalidates old token, rejected claim never mutates ownership. Full suite: 312 passed (was 304); ruff/mypy clean; frontend 77 passed unaffected; Playwright 15 passed/11 skipped/1 pre-existing unrelated failure, unchanged.
-
-**Files changed:** `app/field_detection/service.py`, `app/field_detection/api/routes.py`, `app/field_detection/question_bridge.py`, `app/ocr/service.py`, `app/ocr/api/routes.py`, `app/applications/services.py`, `.env.example` (documented the previously-undocumented `AUTH_*`/`ALLOWED_ORIGINS` settings), new test file above.
+- `npm test` → **81 passed** (0 failed): 77 baseline + 4 new
+  (`document-upload-automatic-flow.test.tsx`).
+- `CI=true PLAYWRIGHT_BASE_URL=http://localhost:3003 npx playwright test` (rebuilt Docker images,
+  `FIELD_DETECTION_PROVIDER=local`, `OCR_PROVIDER=local`, `AI_PROVIDER=ollama`) → **27 passed**,
+  **1 failed** (`guided-flow.spec.ts` — the pre-existing default-tab gap, documented since Phase
+  9/10, unrelated to this phase), 0 skipped. One test
+  (`dynamic-field-detection-flow.spec.ts`'s unknown-digital-PDF auto flow) was flaky on first
+  attempt (timing, passed on retry) — see "Known limitations" in the phase doc.
+- Retrofitted 5 existing Phase 9/10/11 Playwright specs
+  (`dynamic-field-detection-flow.spec.ts`, `ocr-flow.spec.ts`, `upload-analysis-flow.spec.ts`,
+  `select-manually-translation-flow.spec.ts`) whose assertions depended on the now-removed manual
+  "Detect Fields"/"Start OCR"/"Document Analysis Complete" UI; added
+  `automatic-upload-to-questions-flow.spec.ts` for resume idempotency.
+- Fixed a real bug found by the new orchestration tests: `PrepareQuestionsService._run_ocr` was
+  passing `None` instead of the caller's ownership token to `OCRService.request_ocr`, which would
+  have broken the scanned-PDF automatic flow for every anonymous (non-authenticated) user.
+- Fixed a real regression introduced during the frontend refactor: the top-level error banner's
+  render condition was narrowed to `stage === "error"`, which hid client-side file-validation
+  errors (invalid type / too large) since those never change `stage` away from `"idle"`.
 
 ---
 
@@ -122,19 +141,25 @@ Real usage after this phase's initial completion surfaced `401 Unauthorized` on 
 
 | Phase | Description |
 |---|---|
-| **13** | Administration and content review |
+| **14** | Administration and content review |
+| **15** | Dynamic PDF mapping, filling, preview, and export |
 
 ---
 
 ## Known Deferred Items
 
-Carried from Phase 9/10/11:
+Carried from Phase 9/10/11/12 (see `docs/progress/phase-12-user-accounts-persistent-sessions.md`):
 
-- `guided-flow.spec.ts` fails against a fresh dev environment: the landing page's default tab is "Upload Form", but that spec never clicks "Select Manually" before looking for `#form-select`. Pre-existing since the upload feature (Phase 9) changed the default tab; not touched in Phase 12 since it's unrelated to accounts/persistence.
-- Full repository Ruff formatting still includes one pre-existing formatting issue under `tests/documents/test_documents.py`, predating Phase 10, intentionally left unchanged.
-- The local `.env.example`/`docker-compose.yml` `OCR_PROVIDER=local`, `FIELD_DETECTION_PROVIDER=local`, and `AI_PROVIDER=ollama` overrides (pre-existing, intentionally untouched) make a number of Playwright specs that expect the mock providers report as `skipped` rather than run against real Tesseract/Ollama — not a defect in any completed phase's code.
+- `guided-flow.spec.ts` default-tab gap (pre-existing since Phase 9/10, unrelated to this phase).
+- One pre-existing Ruff formatting exception under `tests/documents/test_documents.py`.
 
-## Phase 12 Known Limitations
+## Phase 13 Known Limitations
 
-- No password reset, email verification, or multi-factor authentication — out of scope for this phase.
-- The claim flow's best-effort `SourceDocument` claiming requires the frontend to still hold the document's own ownership token; if that token was already lost (e.g. a different tab), only the `FormSession` itself is claimed. The guided session/answer/export flow does not depend on document access after initial creation, so this has no functional impact on resuming.
+- OCR language for the automatic flow defaults to the user's interface language (no
+  document-language detection exists) — same limitation Phase 10 already had.
+- Orchestration remains synchronous; large/slow documents block the request for their full
+  processing time. Background processing is Phase 17's concern.
+- The debug/admin field-review route has no additional authentication beyond the existing
+  document-ownership check — Phase 14 introduces real admin authentication.
+- `review_metadata` does not track per-field AI-translation-fallback usage (see "Decisions and
+  Assumptions" above).

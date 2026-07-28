@@ -81,6 +81,20 @@ Wait for the current detection run to finish before starting a new one.
 
 ---
 
+## Phase 13: automatic use for normal users
+
+As of Phase 13, normal users never see this manual review screen. Uploading a document calls
+`POST /api/source-documents/{id}/prepare-questions`, which analyzes, runs OCR (only if needed),
+runs detection, applies deterministic confidence routing (`app/field_detection/confidence.py`),
+generates questions from what's safe to use automatically, and starts the guided session — all in
+one idempotent call. See [Phase 13 — Automatic Upload-to-Questions Flow](phases/phase-13-automatic-upload-to-questions.md)
+and [ADR 0012](decisions/0012-automatic-confidence-routing.md) for the full behavior.
+
+This page (and the manual confirm/reject/create-questions endpoints described above) remains
+fully functional, unchanged, for admin/development/debug use — reachable directly at
+`/application/document/{id}/detect-fields`, and linked from the upload flow only when
+`NEXT_PUBLIC_ENABLE_DETECTION_DEBUG_UI=true` or (outside production) a `?debug=1` query param.
+
 ## Related
 
 - [Document Upload and Analysis](document-upload-analysis.md)

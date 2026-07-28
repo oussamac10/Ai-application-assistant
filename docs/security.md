@@ -96,3 +96,19 @@ Because the auth cookie is sent automatically by the browser, every cookie-authe
 
 `POST /applications/claim` verifies the anonymous ownership token, then — in one transaction — sets `user_id` and clears `ownership_token_hash` to `NULL`, permanently invalidating the old token. The operation is idempotent for the same user and rejected (generic `401`) for a different one, matching the rest of this document's IDOR-prevention pattern. See ADR 0011 for the full rationale.
 
+---
+
+## 6. Automatic Upload-to-Questions Orchestration (Phase 13)
+
+`POST /api/source-documents/{id}/prepare-questions` authorizes exactly like every other document/
+session endpoint (dual ownership, Section 5) — it adds no new authorization model. Its response
+(`PrepareQuestionsResponse`) is deliberately shaped to exclude confidence scores, provider names,
+internal field keys, bounding boxes, and candidate/rejected-field lists; only a session id, an
+ownership token (on first creation), and a plain-language uncertainty count are ever returned to
+the normal-user flow. Confidence-routing thresholds are plain configuration, never derived from or
+sent to Ollama, so the decision is reproducible and cannot be influenced by document content in an
+unaccountable way. The technical field-review screen from Phase 11 remains fully authorized the
+same way it always was; it is simply not linked to from the normal upload flow unless
+`NEXT_PUBLIC_ENABLE_DETECTION_DEBUG_UI=true` (never set in production). See
+[ADR 0012](decisions/0012-automatic-confidence-routing.md).
+

@@ -7,6 +7,7 @@ from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.core.config import settings
 from app.documents.models import SourceDocument
 from app.documents.service import SourceDocumentService
+from app.field_detection.confidence import decide_auto_review_status
 from app.field_detection.constants import FIELD_TYPES, REVIEW_STATUSES
 from app.field_detection.errors import (
     FieldDetectionAlreadyProcessingError,
@@ -28,7 +29,10 @@ from app.field_detection.providers.base import (
     FieldDetectionProvider,
 )
 from app.field_detection.providers.mock import MockFieldDetectionProvider
-from app.field_detection.question_bridge import create_session_from_confirmed_fields
+from app.field_detection.question_bridge import (
+    build_review_metadata,
+    create_session_from_confirmed_fields,
+)
 from app.field_detection.repository import FieldDetectionRepository
 from app.ocr.models import OCRResult
 from app.ocr.repository import OCRRepository
@@ -211,6 +215,7 @@ class FieldDetectionService:
         ownership_token: str | None,
         user_language: str,
         output_language: str,
+        include_auto_usable: bool = False,
     ) -> tuple[FormSession, str]:
         doc = self.document_service.get_document(
             document_public_id, ownership_token, self.current_user_id
@@ -222,7 +227,7 @@ class FieldDetectionService:
             raise FieldDetectionNotFoundError(
                 "No completed field-detection result exists for this document."
             )
-        return await create_session_from_confirmed_fields(
+        session, token = await create_session_from_confirmed_fields(
             self.db,
             doc,
             result,
@@ -230,7 +235,11 @@ class FieldDetectionService:
             output_language,
             self.ai_provider,
             current_user_id=self.current_user_id,
+            include_auto_usable=include_auto_usable,
         )
+        result.review_metadata = build_review_metadata(result)
+        self.repo.update(self.db, result)
+        return session, token
 
     def _resolve_field(
         self, document_public_id: str, ownership_token: str | None, field_public_id: str
@@ -313,6 +322,16 @@ class FieldDetectionService:
     def _candidate_to_model(
         self, candidate: DetectedFieldCandidate, display_order: int
     ) -> DetectedField:
+        # In "auto" mode, the normal-user upload flow (Phase 13) never shows
+        # a manual review step, so review_status must already reflect the
+        # deterministic confidence decision at detection time. In "manual"
+        # mode every candidate starts "pending_review", preserving the exact
+        # Phase 11 admin/debug review-screen behavior.
+        if settings.FIELD_DETECTION_REVIEW_MODE == "auto":
+            review_status = decide_auto_review_status(candidate)
+        else:
+            review_status = "pending_review"
+
         return DetectedField(
             page_number=candidate.page_number,
             display_order=display_order,
@@ -326,7 +345,7 @@ class FieldDetectionService:
             label_bounding_box=_box_to_dict(candidate.label_bounding_box),
             input_bounding_box=_box_to_dict(candidate.input_bounding_box),
             existing_value=candidate.existing_value,
-            review_status="pending_review",
+            review_status=review_status,
             options=[
                 DetectedFieldOption(value=value, position=position)
                 for position, value in enumerate(candidate.options)

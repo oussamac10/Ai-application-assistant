@@ -26,19 +26,21 @@ AI Form Assistant helps users upload, understand, complete, and export forms thr
 7. Frontend Guided Form Experience
 8. PDF Template Mapping and Export
 9. Form Upload and Document Analysis
-
-## Roadmap
-
 10. OCR Integration
 11. Dynamic Form Field Detection
 12. User Accounts and Saved Applications
-13. Administration and Content Review
-14. Security, Privacy, and Data Retention Hardening
-15. Background Jobs and Processing Queues
-16. Object Storage and Secure Downloads
-17. Production AI Provider Integration
-18. Payments and Subscription Plans
-19. Monitoring, Analytics, and Audit Logs
-20. Production Deployment and Release
+
+## Roadmap
+
+13. Automatic Upload-to-Questions User Flow
+14. Administration and Content Review
+15. Dynamic PDF Mapping, Filling, Preview, and Export
+16. Security, Privacy, and Data Retention Hardening
+17. Background Jobs and Processing Queues
+18. Object Storage and Secure Downloads
+19. Production AI Provider Integration
+20. Payments and Subscription Plans
+21. Monitoring, Analytics, and Audit Logs
+22. Production Deployment and Release
 
 Do not introduce later-phase infrastructure early.

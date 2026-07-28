@@ -1,0 +1,183 @@
+import React from "react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+
+const pushMock = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
+}));
+
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
+const uploadDocumentMock = vi.fn();
+vi.mock("../services/apiClient", () => ({
+  uploadDocument: (...args: unknown[]) => uploadDocumentMock(...args),
+}));
+
+const prepareQuestionsMock = vi.fn();
+vi.mock("../../field-detection/services/apiClient", () => ({
+  prepareQuestions: (...args: unknown[]) => prepareQuestionsMock(...args),
+}));
+
+vi.mock("../../field-detection/debugMode", () => ({
+  isDetectionDebugUiEnabled: () => false,
+}));
+
+const BASE_UPLOAD_RESULT = {
+  documentId: "doc-1",
+  ownershipToken: "doc-token-1",
+  status: "analyzed",
+  expiresAt: "2026-01-01T00:00:00Z",
+};
+
+afterEach(() => {
+  vi.clearAllMocks();
+  sessionStorage.clear();
+});
+
+async function selectAndSubmitFile() {
+  const { default: DocumentUploadForm } = await import("../components/DocumentUploadForm");
+  render(<DocumentUploadForm currentLocale="en" />);
+
+  const file = new File(["%PDF-1.4"], "test.pdf", { type: "application/pdf" });
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+  fireEvent.change(input, { target: { files: [file] } });
+
+  const checkbox = await screen.findByRole("checkbox");
+  fireEvent.click(checkbox);
+
+  const submitButton = screen.getByRole("button", { name: /upload_and_analyze/i });
+  fireEvent.click(submitButton);
+}
+
+describe("DocumentUploadForm — automatic upload-to-questions flow (Phase 13)", () => {
+  it("navigates straight to the guided session for a high-confidence unknown digital PDF, with no manual review step", async () => {
+    uploadDocumentMock.mockResolvedValue({
+      ...BASE_UPLOAD_RESULT,
+      analysis: {
+        pageCount: 1,
+        documentType: "digital_pdf",
+        hasNativeText: true,
+        hasAcroForm: false,
+        hasEmbeddedImages: false,
+        isProbablyScanned: false,
+        matchedTemplate: null,
+        nextStep: "dynamic_field_detection",
+      },
+    });
+    prepareQuestionsMock.mockResolvedValue({
+      documentId: "doc-1",
+      status: "ready",
+      sessionId: "session-1",
+      ownershipToken: "session-token-1",
+      reusedExistingSession: false,
+      uncertainty: null,
+    });
+
+    await selectAndSubmitFile();
+
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/application/session/session-1")
+    );
+    expect(screen.queryByText(/detect_fields/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/start_ocr/i)).not.toBeInTheDocument();
+  });
+
+  it("navigates straight through for a known predefined form (fast path)", async () => {
+    uploadDocumentMock.mockResolvedValue({
+      ...BASE_UPLOAD_RESULT,
+      analysis: {
+        pageCount: 1,
+        documentType: "fillable_pdf",
+        hasNativeText: true,
+        hasAcroForm: true,
+        hasEmbeddedImages: false,
+        isProbablyScanned: false,
+        matchedTemplate: { templateKey: "basic-registration-v1", formKey: "basic-registration", formVersion: 1 },
+        nextStep: "supported_template",
+      },
+    });
+    prepareQuestionsMock.mockResolvedValue({
+      documentId: "doc-1",
+      status: "ready",
+      sessionId: "session-2",
+      ownershipToken: "session-token-2",
+      reusedExistingSession: false,
+      uncertainty: null,
+    });
+
+    await selectAndSubmitFile();
+
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/application/session/session-2")
+    );
+  });
+
+  it("shows a plain-language uncertainty screen (not a raw field editor) and continues on request", async () => {
+    uploadDocumentMock.mockResolvedValue({
+      ...BASE_UPLOAD_RESULT,
+      analysis: {
+        pageCount: 1,
+        documentType: "digital_pdf",
+        hasNativeText: true,
+        hasAcroForm: false,
+        hasEmbeddedImages: false,
+        isProbablyScanned: false,
+        matchedTemplate: null,
+        nextStep: "dynamic_field_detection",
+      },
+    });
+    prepareQuestionsMock.mockResolvedValue({
+      documentId: "doc-1",
+      status: "ready",
+      sessionId: "session-3",
+      ownershipToken: "session-token-3",
+      reusedExistingSession: false,
+      uncertainty: { hasUncertainFields: true, uncertainFieldCount: 1 },
+    });
+
+    await selectAndSubmitFile();
+
+    const continueButton = await screen.findByText(/continue_with_detected/i);
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(/fieldId/i)).not.toBeInTheDocument();
+
+    fireEvent.click(continueButton);
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/application/session/session-3")
+    );
+  });
+
+  it("shows a safe message (no technical detail) when no usable questions were found", async () => {
+    uploadDocumentMock.mockResolvedValue({
+      ...BASE_UPLOAD_RESULT,
+      analysis: {
+        pageCount: 1,
+        documentType: "digital_pdf",
+        hasNativeText: true,
+        hasAcroForm: false,
+        hasEmbeddedImages: false,
+        isProbablyScanned: false,
+        matchedTemplate: null,
+        nextStep: "dynamic_field_detection",
+      },
+    });
+    prepareQuestionsMock.mockResolvedValue({
+      documentId: "doc-1",
+      status: "needs_clarification",
+      sessionId: null,
+      ownershipToken: null,
+      reusedExistingSession: false,
+      uncertainty: { hasUncertainFields: true, uncertainFieldCount: 1 },
+    });
+
+    await selectAndSubmitFile();
+
+    await screen.findByText(/could_not_process_title/i);
+    expect(screen.getByText(/no_usable_questions_body/i)).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+});

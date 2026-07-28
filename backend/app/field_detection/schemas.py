@@ -103,6 +103,33 @@ def build_detected_field_schema(field: "DetectedField") -> DetectedFieldSchema:
     )
 
 
+class UncertaintyInfoSchema(BaseModel):
+    hasUncertainFields: bool = Field(..., serialization_alias="hasUncertainFields")
+    uncertainFieldCount: int = Field(..., serialization_alias="uncertainFieldCount")
+
+    class Config:
+        populate_by_name = True
+
+
+class PrepareQuestionsResponse(BaseModel):
+    """Plain-language-safe response for the automatic upload-to-questions
+    orchestration endpoint. Deliberately excludes confidence numbers,
+    provider names, field keys, and any other technical detail — see
+    docs/claude/domain-rules.md and docs/security.md."""
+
+    documentId: str = Field(..., serialization_alias="documentId")
+    status: str  # "ready" | "needs_clarification" | "failed"
+    sessionId: str | None = Field(None, serialization_alias="sessionId")
+    ownershipToken: str | None = Field(None, serialization_alias="ownershipToken")
+    reusedExistingSession: bool = Field(
+        False, serialization_alias="reusedExistingSession"
+    )
+    uncertainty: UncertaintyInfoSchema | None = None
+
+    class Config:
+        populate_by_name = True
+
+
 def build_field_detection_response(
     document_public_id: str, result: "FieldDetectionResult"
 ) -> FieldDetectionResultResponse:

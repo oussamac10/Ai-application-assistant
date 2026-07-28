@@ -3,9 +3,11 @@
 import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { uploadDocument, createSessionFromDocument } from "../services/apiClient";
+import { uploadDocument } from "../services/apiClient";
 import { setDocumentToken } from "../services/documentCredentials";
 import { setSessionToken } from "../../form-session/services/sessionCredentials";
+import { prepareQuestions } from "../../field-detection/services/apiClient";
+import { isDetectionDebugUiEnabled } from "../../field-detection/debugMode";
 import { DocumentUploadResponse } from "../types";
 import { ApiError } from "../../form-session/services/apiClient";
 
@@ -13,22 +15,36 @@ interface DocumentUploadFormProps {
   currentLocale: string;
 }
 
+// "processing" covers reading/OCR/detecting/preparing-questions in one
+// simple step for the normal user — see docs/phases/phase-13-... for the
+// message-per-nextStep mapping.
+type Stage =
+  | "idle"
+  | "uploading"
+  | "analyzing"
+  | "processing"
+  | "uncertain"
+  | "review_required"
+  | "error";
+
 export default function DocumentUploadForm({ currentLocale }: DocumentUploadFormProps) {
   const router = useRouter();
   const t = useTranslations("documentUpload");
-  const tc = useTranslations("common");
 
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [privacyAccepted, setPrivacyAccepted] = useState<boolean>(false);
   const [outputLanguage, setOutputLanguage] = useState<string>("en");
-  const [stage, setStage] = useState<"idle" | "uploading" | "analyzing" | "success" | "error">("idle");
+  const [stage, setStage] = useState<Stage>("idle");
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<DocumentUploadResponse | null>(null);
-  const [sessionCreating, setSessionCreating] = useState<boolean>(false);
+  const [pendingDocumentId, setPendingDocumentId] = useState<string | null>(null);
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  const [uncertainFieldCount, setUncertainFieldCount] = useState<number>(0);
+  const [processingNextStep, setProcessingNextStep] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const debugUiEnabled = isDetectionDebugUiEnabled();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -74,9 +90,62 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
     setStage("idle");
     setUploadProgress(0);
     setErrorMsg(null);
-    setAnalysisResult(null);
+    setPendingDocumentId(null);
+    setPendingSessionId(null);
+    setUncertainFieldCount(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const goToSession = (sessionId: string) => {
+    router.push(`/application/session/${sessionId}`);
+  };
+
+  const runAutomaticProcessing = async (result: DocumentUploadResponse) => {
+    const documentId = result.documentId;
+    setPendingDocumentId(documentId);
+
+    if (result.analysis?.nextStep === "review_required") {
+      setStage("review_required");
+      return;
+    }
+
+    setProcessingNextStep(result.analysis?.nextStep || null);
+    setStage("processing");
+    try {
+      const prepared = await prepareQuestions(documentId, currentLocale, outputLanguage);
+
+      if (prepared.sessionId && prepared.ownershipToken) {
+        setSessionToken(prepared.sessionId, prepared.ownershipToken);
+      }
+
+      if (prepared.status === "needs_clarification" || !prepared.sessionId) {
+        setUncertainFieldCount(prepared.uncertainty?.uncertainFieldCount || 0);
+        setStage("review_required");
+        return;
+      }
+
+      if (prepared.uncertainty?.hasUncertainFields) {
+        setPendingSessionId(prepared.sessionId);
+        setUncertainFieldCount(prepared.uncertainty.uncertainFieldCount);
+        setStage("uncertain");
+        return;
+      }
+
+      goToSession(prepared.sessionId);
+    } catch (err: any) {
+      setStage("error");
+      if (err instanceof ApiError) {
+        const key = `error_${err.detail}`;
+        let msg = t(key);
+        if (!msg || msg === key) {
+          msg = t(`error_${err.message}`) || err.detail || t("processing_failed") || "We could not process this document.";
+        }
+        setErrorMsg(msg);
+      } else {
+        setErrorMsg(t("processing_failed") || "We could not process this document.");
+      }
     }
   };
 
@@ -89,7 +158,6 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
       setUploadProgress(0);
       setErrorMsg(null);
 
-      // Perform streaming upload tracking progress
       const result = await uploadDocument(
         file,
         currentLocale,
@@ -103,20 +171,16 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
         }
       );
 
-      // Store document credentials securely
       if (result.ownershipToken) {
         setDocumentToken(result.documentId, result.ownershipToken);
       }
 
-      setAnalysisResult(result);
-      setStage("success");
+      await runAutomaticProcessing(result);
     } catch (err: any) {
       setStage("error");
       if (err instanceof ApiError) {
-        // Map backend custom error code to localized message
-        const key = `error_${err.detail}`; // using detail containing code
+        const key = `error_${err.detail}`;
         let msg = t(key);
-        // Fallback checks
         if (!msg || msg === key) {
           msg = t(`error_${err.message}`) || err.detail || "Upload validation failed.";
         }
@@ -127,38 +191,24 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
     }
   };
 
-  const handleStartSession = async () => {
-    if (!analysisResult || sessionCreating) return;
-    const documentId = analysisResult.documentId;
-
-    try {
-      setSessionCreating(true);
-      setErrorMsg(null);
-
-      const sessionResult = await createSessionFromDocument(
-        documentId,
-        currentLocale,
-        outputLanguage
-      );
-
-      // Store session ownership token
-      setSessionToken(sessionResult.sessionId, sessionResult.ownershipToken);
-
-      // Redirect to session guided flow
-      router.push(`/application/session/${sessionResult.sessionId}`);
-    } catch (err: any) {
-      setSessionCreating(false);
-      setErrorMsg(err.detail || err.message || "Failed to create guided session.");
-    }
-  };
-
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
 
+  const processingMessage = () => {
+    if (stage !== "processing") return "";
+    if (processingNextStep === "ocr_required") {
+      return t("processing_reading") || "Reading the document…";
+    }
+    if (processingNextStep === "dynamic_field_detection") {
+      return t("processing_detecting") || "Detecting the information requested…";
+    }
+    return t("processing_preparing") || "Preparing your questions…";
+  };
+
   return (
     <div className="space-y-6">
-      {errorMsg && (
+      {errorMsg && stage !== "review_required" && stage !== "uncertain" && (
         <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
           {errorMsg}
         </div>
@@ -306,129 +356,82 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
         </div>
       )}
 
-      {/* Analyzing loader screen */}
+      {/* Analyzing loader screen — simple message only, no technical detail */}
       {stage === "analyzing" && (
         <div className="flex flex-col items-center justify-center p-8 space-y-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-indigo-500" />
           <p className="text-sm text-slate-400">
-            {t("analyzing") || "Analyzing PDF structure..."}
+            {t("analyzing") || "Reading the document…"}
           </p>
         </div>
       )}
 
-      {/* Successful analysis results screen */}
-      {stage === "success" && analysisResult?.analysis && (
+      {/* Automatic processing screen — covers OCR/detection/question
+          generation behind one plain-language message. Normal users never
+          see provider names, confidence numbers, or a field-review step. */}
+      {stage === "processing" && (
+        <div className="flex flex-col items-center justify-center p-8 space-y-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-indigo-500" />
+          <p className="text-sm text-slate-400">{processingMessage()}</p>
+          {debugUiEnabled && pendingDocumentId && (
+            <a
+              className="text-xs text-slate-600 underline hover:text-slate-400"
+              href={`/application/document/${pendingDocumentId}/detect-fields`}
+            >
+              {t("debug_open_review") || "Open technical review (debug)"}
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Uncertainty screen — plain language only, no raw field editor */}
+      {stage === "uncertain" && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 space-y-4">
-            <h2 className="text-xl font-bold text-slate-200">
-              {t("analysis_complete") || "Document Analysis Complete"}
-            </h2>
-
-            {/* Structure characteristics checklist */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2 text-slate-300">
-                <span className="font-semibold text-slate-400">{t("pages_count") || "Pages:"}</span>
-                <span>{analysisResult.analysis.pageCount}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <span className="font-semibold text-slate-400">{t("document_type") || "Type:"}</span>
-                <span>
-                  {analysisResult.analysis.documentType === "fillable_pdf"
-                    ? t("fillable_pdf") || "Fillable PDF"
-                    : analysisResult.analysis.documentType === "digital_pdf"
-                    ? t("digital_pdf") || "Digital PDF"
-                    : analysisResult.analysis.documentType === "scanned_pdf"
-                    ? t("scanned_pdf") || "Scanned PDF"
-                    : analysisResult.analysis.documentType === "hybrid_pdf"
-                    ? t("hybrid_pdf") || "Hybrid PDF"
-                    : t("unknown_pdf") || "Unknown PDF"}
-                </span>
-              </div>
-            </div>
-
-            {/* Detail results indicators */}
-            <div className="space-y-2 pt-2 border-t border-slate-900 text-xs text-slate-400">
-              <div className="flex items-center justify-between">
-                <span>{t("has_native_text") || "Contains Native Text:"}</span>
-                <span className={analysisResult.analysis.hasNativeText ? "text-emerald-400 font-bold" : "text-slate-600"}>
-                  {analysisResult.analysis.hasNativeText ? "YES" : "NO"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>{t("has_acroform") || "Contains Interactive Form Fields:"}</span>
-                <span className={analysisResult.analysis.hasAcroForm ? "text-emerald-400 font-bold" : "text-slate-600"}>
-                  {analysisResult.analysis.hasAcroForm ? "YES" : "NO"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>{t("has_images") || "Contains Embedded Images:"}</span>
-                <span className={analysisResult.analysis.hasEmbeddedImages ? "text-indigo-400 font-bold" : "text-slate-600"}>
-                  {analysisResult.analysis.hasEmbeddedImages ? "YES" : "NO"}
-                </span>
-              </div>
-            </div>
-
-            {/* Match output & Next step instruction card */}
-            <div className="rounded-xl bg-slate-900 p-4 space-y-3">
-              {analysisResult.analysis.nextStep === "supported_template" && (
-                <>
-                  <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{t("template_matched") || "Supported Template Recognized"}</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    {t("template_matched_body") || "We have a pre-mapped translation system for this document. You can complete it in your native language."}
-                  </p>
-                </>
-              )}
-
-              {analysisResult.analysis.nextStep === "ocr_required" && (
-                <>
-                  <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span>{t("ocr_required_title") || "OCR Recognition Needed"}</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    {t("ocr_required_body") || "This form appears to be scanned or image-based. We can extract its text using local OCR."}
-                  </p>
-                </>
-              )}
-
-              {analysisResult.analysis.nextStep === "dynamic_field_detection" && (
-                <>
-                  <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{t("dynamic_detection_title") || "Dynamic Field Detection Available"}</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    {t("dynamic_detection_body") || "This is a digital document that does not match any predefined templates. We can detect candidate fields for you to review."}
-                  </p>
-                </>
-              )}
-
-              {analysisResult.analysis.nextStep === "review_required" && (
-                <>
-                  <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{t("review_required_title") || "Manual Review Required"}</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    {t("review_required_body") || "The analysis signals for this document are inconclusive. Manual support review is required."}
-                  </p>
-                </>
-              )}
-            </div>
+          <div className="rounded-2xl border border-amber-800/60 bg-amber-950/20 p-6 space-y-3 text-center">
+            <h3 className="text-lg font-bold text-amber-200">
+              {t("uncertainty_title") || "One section may need confirmation"}
+            </h3>
+            <p className="text-sm text-amber-300/90 leading-relaxed">
+              {t("uncertainty_body") ||
+                "We could not confidently read one part of this form. You can continue with the questions we found."}
+            </p>
           </div>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold text-white hover:opacity-95"
+              onClick={() => pendingSessionId && goToSession(pendingSessionId)}
+            >
+              {t("continue_with_detected") || "Continue"}
+            </button>
+            {debugUiEnabled && pendingDocumentId && (
+              <a
+                className="flex-1 flex items-center justify-center rounded-xl bg-slate-800 py-3.5 text-sm font-bold text-slate-300 hover:bg-slate-700 hover:text-white"
+                href={`/application/document/${pendingDocumentId}/detect-fields`}
+              >
+                {t("review_uncertain_section") || "Review uncertain section"}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
-          {/* Action triggers */}
+      {/* Could-not-process screen — safe, plain message; document/session
+          is preserved for retry, nothing meaningless is generated */}
+      {stage === "review_required" && (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 text-center space-y-3">
+            <h3 className="text-lg font-bold text-slate-200">
+              {t("could_not_process_title") || "We could not confidently process this form"}
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              {uncertainFieldCount > 0
+                ? t("no_usable_questions_body") ||
+                  "We found no usable questions in this document. You can try again or upload a different file."
+                : t("review_required_body") ||
+                  "The analysis signals for this document are inconclusive."}
+            </p>
+          </div>
           <div className="flex gap-4">
             <button
               type="button"
@@ -437,49 +440,13 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
             >
               {t("restart") || "Reset / Try Another"}
             </button>
-
-            {analysisResult.analysis.nextStep === "supported_template" && (
-              <button
-                type="button"
-                disabled={sessionCreating}
-                className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold text-white hover:opacity-95 disabled:opacity-40 disabled:pointer-events-none"
-                onClick={handleStartSession}
+            {debugUiEnabled && pendingDocumentId && (
+              <a
+                className="flex-1 flex items-center justify-center rounded-xl bg-slate-800 py-3.5 text-sm font-bold text-slate-300 hover:bg-slate-700 hover:text-white"
+                href={`/application/document/${pendingDocumentId}/detect-fields`}
               >
-                {sessionCreating ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                    <span>{tc("loading")}</span>
-                  </div>
-                ) : (
-                  <span>{t("start_completion") || "Start Guided Form"}</span>
-                )}
-              </button>
-            )}
-
-            {analysisResult.analysis.nextStep === "ocr_required" && (
-              <button
-                type="button"
-                className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold text-white hover:opacity-95"
-                onClick={() =>
-                  router.push(`/application/document/${analysisResult.documentId}/ocr`)
-                }
-              >
-                {t("start_ocr") || "Start OCR"}
-              </button>
-            )}
-
-            {analysisResult.analysis.nextStep === "dynamic_field_detection" && (
-              <button
-                type="button"
-                className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold text-white hover:opacity-95"
-                onClick={() =>
-                  router.push(
-                    `/application/document/${analysisResult.documentId}/detect-fields`
-                  )
-                }
-              >
-                {t("detect_fields") || "Detect Fields"}
-              </button>
+                {t("debug_open_review") || "Open technical review (debug)"}
+              </a>
             )}
           </div>
         </div>

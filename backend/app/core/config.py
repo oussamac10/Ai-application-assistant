@@ -47,6 +47,26 @@ class Settings(BaseSettings):
     FIELD_DETECTION_PROVIDER: str = "mock"
     FIELD_DETECTION_ANALYSIS_VERSION: int = 1
 
+    # Automatic upload-to-questions confidence routing (Phase 13). Deterministic
+    # thresholds only — Ollama is never allowed to decide auto-confirmation.
+    # A candidate's confidence >= FIELD_AUTO_CONFIRM_THRESHOLD is auto-confirmed
+    # (high confidence). Between FIELD_CLARIFICATION_THRESHOLD (inclusive) and
+    # FIELD_AUTO_CONFIRM_THRESHOLD (exclusive) is "medium" confidence: still
+    # usable for automatic question generation, but flagged for later admin
+    # review rather than silently marked confirmed. Below
+    # FIELD_CLARIFICATION_THRESHOLD is "low" confidence and is never used to
+    # generate a question automatically.
+    FIELD_AUTO_CONFIRM_THRESHOLD: float = 0.75
+    FIELD_CLARIFICATION_THRESHOLD: float = 0.4
+    # "auto": review_status is assigned automatically per the thresholds above
+    # and the normal-user upload flow generates questions without a manual
+    # review step. "manual": preserves the exact Phase 11 behavior — every
+    # detected field starts as pending_review and only an explicit reviewer
+    # action (PATCH .../fields/{id}) can mark it confirmed. Debug/admin
+    # tooling can always reach the Phase 11 review screen regardless of this
+    # setting; this only controls the *normal-user* upload path's default.
+    FIELD_DETECTION_REVIEW_MODE: str = "auto"
+
     # AI Provider
     AI_PROVIDER: str = "mock"
     AI_ALLOW_MOCK_FALLBACK: bool = False
@@ -179,6 +199,23 @@ class Settings(BaseSettings):
         if self.FIELD_DETECTION_ANALYSIS_VERSION <= 0:
             raise ValueError(
                 "FIELD_DETECTION_ANALYSIS_VERSION must be a positive integer."
+            )
+        if not (0.0 <= self.FIELD_CLARIFICATION_THRESHOLD <= 1.0):
+            raise ValueError(
+                "FIELD_CLARIFICATION_THRESHOLD must be between 0.0 and 1.0."
+            )
+        if not (0.0 <= self.FIELD_AUTO_CONFIRM_THRESHOLD <= 1.0):
+            raise ValueError(
+                "FIELD_AUTO_CONFIRM_THRESHOLD must be between 0.0 and 1.0."
+            )
+        if self.FIELD_CLARIFICATION_THRESHOLD > self.FIELD_AUTO_CONFIRM_THRESHOLD:
+            raise ValueError(
+                "FIELD_CLARIFICATION_THRESHOLD must not exceed "
+                "FIELD_AUTO_CONFIRM_THRESHOLD."
+            )
+        if self.FIELD_DETECTION_REVIEW_MODE not in ("auto", "manual"):
+            raise ValueError(
+                "FIELD_DETECTION_REVIEW_MODE must be one of: auto, manual."
             )
         return self
 

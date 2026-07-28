@@ -72,5 +72,27 @@ export const SessionCreateResponseSchema = z.object({
 
 export type SessionCreateResponse = z.infer<typeof SessionCreateResponseSchema>;
 
+// Phase 13 — plain-language-safe response for the automatic
+// upload-to-questions orchestration endpoint. Deliberately has no
+// confidence/provider/field-key fields: the normal-user flow never reads
+// them, only debug/admin tooling (FieldDetectionResultResponse above) does.
+export const UncertaintyInfoSchema = z.object({
+  hasUncertainFields: z.boolean(),
+  uncertainFieldCount: z.number(),
+});
+
+export type UncertaintyInfo = z.infer<typeof UncertaintyInfoSchema>;
+
+export const PrepareQuestionsResponseSchema = z.object({
+  documentId: z.string(),
+  status: z.enum(["ready", "needs_clarification", "failed"]),
+  sessionId: z.string().nullable().optional(),
+  ownershipToken: z.string().nullable().optional(),
+  reusedExistingSession: z.boolean().default(false),
+  uncertainty: UncertaintyInfoSchema.nullable().optional(),
+});
+
+export type PrepareQuestionsResponse = z.infer<typeof PrepareQuestionsResponseSchema>;
+
 // LOW_CONFIDENCE_THRESHOLD mirrors backend/app/field_detection/constants.py
 export const LOW_CONFIDENCE_THRESHOLD = 0.4;

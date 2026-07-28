@@ -252,7 +252,7 @@ test.describe("Upload flow — End-to-end (requires backend)", () => {
     "Skipped in local dev unless CI=true; requires live backend with database"
   );
 
-  test("upload predefined registration PDF triggers supported_template result and start button", async ({
+  test("upload predefined registration PDF goes straight to guided questions (Phase 13 automatic flow)", async ({
     page,
   }) => {
     page.on("console", (msg) =>
@@ -281,17 +281,15 @@ test.describe("Upload flow — End-to-end (requires backend)", () => {
     // Start upload
     await page.getByRole("button", { name: /Upload and Analyze/i }).click();
 
-    // Wait for analysis to complete (uploading → analyzing → success)
-    await expect(page.getByText(/Document Analysis Complete/i)).toBeVisible({
+    // Phase 13: a known predefined template requires no OCR/detection/AI and
+    // no intermediate "Document Analysis Complete" screen or manual "Start
+    // Guided Form" click — the guided session starts automatically.
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
       timeout: 15000,
     });
-
-    // Should show supported template matched state
-    await expect(page.getByText(/Supported Template Recognized/i)).toBeVisible();
-
-    // Start guided form button should appear
-    const startBtn = page.getByRole("button", { name: /Start Guided Form/i });
-    await expect(startBtn).toBeVisible();
-    await expect(startBtn).toBeEnabled();
+    expect(page.url()).not.toMatch(/token/i);
+    await expect(
+      page.getByText(/Document Analysis Complete|Supported Template Recognized/i)
+    ).not.toBeVisible();
   });
 });

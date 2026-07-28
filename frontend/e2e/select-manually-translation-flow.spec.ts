@@ -172,10 +172,10 @@ test.describe("Select Manually — language-inconsistency fix (requires backend)
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Upload and Analyze/i }).click();
 
-    await expect(page.getByText(/Document Analysis Complete/i)).toBeVisible({
-      timeout: 15000,
-    });
-    await expect(page.getByText(/Dynamic Field Detection Available/i)).toBeVisible();
+    // Phase 13: the Upload Form flow now processes automatically straight
+    // to the guided session — this just confirms it still works end to end
+    // and wasn't broken by the Select Manually i18n fix.
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 20000 });
 
     fs.unlinkSync(pdf);
   });

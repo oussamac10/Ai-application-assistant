@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.ai.mock_provider import AIProvider
 from app.ai.text_translation import TextTranslation, translate_text
 from app.documents.models import SourceDocument
+from app.field_detection.confidence import AUTO_USABLE_REVIEW_STATUSES
 from app.field_detection.errors import FieldDetectionValidationError
 from app.field_detection.models import DetectedField, FieldDetectionResult
 from app.forms.schemas import (
@@ -129,6 +130,26 @@ def _option_translations(
     return translations
 
 
+def build_review_metadata(
+    detection_result: FieldDetectionResult,
+) -> dict[str, int | str]:
+    """Safe, non-sensitive counters persisted on the detection result for
+    later Phase 14 admin/content-review consumption. Never includes answer
+    values, labels, or document text — counts and status only."""
+    fields = detection_result.fields
+    return {
+        "autoConfirmedCount": sum(1 for f in fields if f.review_status == "confirmed"),
+        "mediumConfidenceCount": sum(
+            1 for f in fields if f.review_status == "pending_review"
+        ),
+        "needsClarificationCount": sum(
+            1 for f in fields if f.review_status == "needs_clarification"
+        ),
+        "rejectedCount": sum(1 for f in fields if f.review_status == "rejected"),
+        "totalFieldCount": len(fields),
+    }
+
+
 async def create_session_from_confirmed_fields(
     db: Session,
     doc: SourceDocument,
@@ -137,9 +158,30 @@ async def create_session_from_confirmed_fields(
     output_language: str,
     ai_provider: AIProvider,
     current_user_id: str | None = None,
+    include_auto_usable: bool = False,
 ) -> tuple[FormSession, str]:
+    """Builds guided-session questions from the fields on `detection_result`
+    that are safe to use.
+
+    `include_auto_usable=False` (default) preserves the exact Phase 11
+    contract: only fields a human explicitly marked "confirmed" via the
+    review UI are used — this is what the admin/debug review screen calls.
+
+    `include_auto_usable=True` is used by the Phase 13 automatic upload
+    flow: it additionally includes fields the deterministic confidence
+    router (`app/field_detection/confidence.py`) already judged safe
+    ("pending_review" in auto mode means medium-confidence-but-usable, not
+    "awaiting human review" — see that module's docstring). Fields the
+    router marked "needs_clarification", and any "rejected" field, are
+    never included either way.
+    """
+    usable_statuses = (
+        AUTO_USABLE_REVIEW_STATUSES if include_auto_usable else frozenset({"confirmed"})
+    )
     confirmed_fields = [
-        field for field in detection_result.fields if field.review_status == "confirmed"
+        field
+        for field in detection_result.fields
+        if field.review_status in usable_statuses
     ]
     if not confirmed_fields:
         raise FieldDetectionValidationError(

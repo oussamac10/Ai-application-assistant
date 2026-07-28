@@ -31,7 +31,15 @@ To prevent accidental data exposure:
 - Form answers (`original_answer`, `normalized_value`, `output_value`) are strictly excluded from all application logs, tracebacks, and stdout/stderr messages.
 - Log statements report only high-level actions, public identifiers (`public_id`), and execution metrics.
 
-## 5. Ephemeral Answers Storage
+## 5. Automatic Upload-to-Questions Review Metadata (Phase 13)
+
+`FieldDetectionResult.review_metadata` stores only aggregate counts (auto-confirmed / medium-
+confidence / needs-clarification / rejected / total field counts) for later Phase 14 admin review
+— never a field label, detected value, option text, or user answer. The normal-user response from
+`POST /api/source-documents/{id}/prepare-questions` carries only a session id, an ownership token,
+and a count of uncertain fields — no document content.
+
+## 6. Ephemeral Answers Storage
 - Form answers are stored in the database only for the duration of the active session.
 - When a session is deleted, all corresponding `form_answers` rows are deleted automatically via database cascade deletes.
 - Answers are only available to the client who provides the correct `X-Session-Token` header.

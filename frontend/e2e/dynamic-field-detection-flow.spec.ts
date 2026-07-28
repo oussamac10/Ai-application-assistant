@@ -108,7 +108,7 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     "Skipped in local dev unless CI=true; requires live backend with database"
   );
 
-  test("upload unmatched digital PDF, detect fields, confirm, and start guided questions", async ({
+  test("upload unmatched digital PDF: automatic processing starts guided questions with no manual field review (Phase 13)", async ({
     page,
   }) => {
     await goToLanding(page);
@@ -120,44 +120,18 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Upload and Analyze/i }).click();
 
-    await expect(page.getByText(/Document Analysis Complete/i)).toBeVisible({
-      timeout: 15000,
+    // Phase 13: no "Document Analysis Complete" screen, no "Detect Fields"
+    // button, no technical review step — processing runs automatically and
+    // lands directly on the first guided question.
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
+      timeout: 20000,
     });
-    await expect(page.getByText(/Dynamic Field Detection Available/i)).toBeVisible();
-
-    const detectBtn = page.getByRole("button", { name: /Detect Fields/i });
-    await expect(detectBtn).toBeVisible();
-    await detectBtn.click();
-
-    await expect(page).toHaveURL(/\/application\/document\/.+\/detect-fields/);
-    // Ownership token must never appear in the URL.
     expect(page.url()).not.toMatch(/token/i);
+    await expect(page.getByText(/Detect Form Fields|field\(s\) detected/i)).not.toBeVisible();
 
-    await expect(page.getByText(/Detect Form Fields/i)).toBeVisible();
-    await page.getByRole("button", { name: /^Start Detection$/i }).click();
-
-    await expect(page.getByText(/field\(s\) detected/i)).toBeVisible({ timeout: 15000 });
-
-    const confirmButtons = page.getByRole("button", { name: /^Confirm$/i });
-    await confirmButtons.first().click();
-    await expect(page.getByText(/1 confirmed/i)).toBeVisible();
-
-    // The generated guided question must correspond to the confirmed
-    // detected field's own label, not an unrelated catalog question.
-    const detectedLabel = await page.locator("input").first().inputValue();
-
-    const createQuestionsBtn = page.getByRole("button", { name: /Create Questions/i });
-    await expect(createQuestionsBtn).toBeEnabled();
-    await createQuestionsBtn.click();
-
-    await expect(page).toHaveURL(/\/application\/session\/.+/, { timeout: 15000 });
-    expect(page.url()).not.toMatch(/token/i);
-
-    // The guided question label must match the confirmed field's label
-    // (mock provider produces one field per page, e.g. "Mock field page 1").
-    await expect(page.getByText(detectedLabel, { exact: false })).toBeVisible({
-      timeout: 10000,
-    });
+    // The high-confidence "Full Name:" text field must have produced a
+    // guided question (not an unrelated catalog question).
+    await expect(page.getByText(/Full Name/i)).toBeVisible({ timeout: 10000 });
 
     // Answer the single generated question and complete the session.
     await page.locator("input[type='text']").fill("Test Value");
@@ -206,10 +180,11 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Upload and Analyze/i }).click();
 
-    await expect(page.getByText(/Document Analysis Complete/i)).toBeVisible({
+    // Known predefined template: no OCR/detection/AI, no review screen —
+    // straight to the guided session (Phase 13 fast path preserved).
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
       timeout: 15000,
     });
-    await expect(page.getByText(/Supported Template Recognized/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /Detect Fields/i })).not.toBeVisible();
   });
 
@@ -225,25 +200,11 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Upload and Analyze/i }).click();
 
-    await expect(page.getByText(/Document Analysis Complete/i)).toBeVisible({
-      timeout: 15000,
+    // Phase 13: automatic processing — no manual detect/confirm/create-
+    // questions steps — lands directly on the first guided question.
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
+      timeout: 20000,
     });
-    await page.getByRole("button", { name: /Detect Fields/i }).click();
-    await expect(page).toHaveURL(/\/application\/document\/.+\/detect-fields/);
-
-    await expect(page.getByText(/Detect Form Fields/i)).toBeVisible();
-    await page.getByRole("button", { name: /^Start Detection$/i }).click();
-    await expect(page.getByText(/field\(s\) detected/i)).toBeVisible({ timeout: 15000 });
-
-    // Confirm both detected fields (the text field and the choice group)
-    // in one action, mirroring how a real reviewer would proceed.
-    await page.getByRole("button", { name: /Confirm all high-confidence fields/i }).click();
-
-    const createQuestionsBtn = page.getByRole("button", { name: /Create Questions/i });
-    await expect(createQuestionsBtn).toBeEnabled();
-    await createQuestionsBtn.click();
-
-    await page.waitForURL(/\/application\/session\/.+/, { timeout: 15000 });
     expect(page.url()).not.toMatch(/token/i);
 
     // First guided question — the text field.
@@ -309,26 +270,8 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Analysieren|Upload and Analyze/i }).click();
 
-    await expect(page.getByText(/Dokumentenanalyse|Document Analysis Complete/i)).toBeVisible({
-      timeout: 15000,
-    });
-    await page.getByRole("button", { name: /Felder erkennen|Detect Fields/i }).click();
-    await expect(page).toHaveURL(/\/application\/document\/.+\/detect-fields/);
-
-    await page.getByRole("button", { name: /Erkennung starten|^Start Detection$/i }).click();
-    await expect(page.getByText(/Feld\(er\) erkannt|field\(s\) detected/i)).toBeVisible({ timeout: 15000 });
-
-    await page
-      .getByRole("button", { name: /Alle .* bestätigen|Confirm all high-confidence fields/i })
-      .click();
-
-    const createQuestionsBtn = page.getByRole("button", {
-      name: /Fragen erstellen|Create Questions/i,
-    });
-    await expect(createQuestionsBtn).toBeEnabled();
-    await createQuestionsBtn.click();
-
-    await page.waitForURL(/\/application\/session\/.+/, { timeout: 15000 });
+    // Phase 13: automatic processing — no manual detect/confirm steps.
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 20000 });
 
     // First question — the text field. Its label must be translated (not
     // the literal English source text).
@@ -395,27 +338,10 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /تحليل|Upload and Analyze/i }).click();
 
-    await expect(page.getByText(/تحليل المستند|Document Analysis Complete/i)).toBeVisible({
-      timeout: 15000,
-    });
-    // RTL must remain active throughout the flow, not just on the landing page.
+    // Phase 13: automatic processing — no manual detect/confirm steps. RTL
+    // must remain active throughout, including the processing screen.
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-
-    await page.getByRole("button", { name: /اكتشاف الحقول|Detect Fields/i }).click();
-    await expect(page).toHaveURL(/\/application\/document\/.+\/detect-fields/);
-    await page.getByRole("button", { name: /بدء الاكتشاف|^Start Detection$/i }).click();
-    await expect(page.getByText(/تم اكتشاف \d+ حقل|field\(s\) detected/i)).toBeVisible({ timeout: 15000 });
-
-    await page
-      .getByRole("button", { name: /تأكيد.*عالية|Confirm all high-confidence fields/i })
-      .click();
-    const createQuestionsBtn = page.getByRole("button", {
-      name: /إنشاء الأسئلة|Create Questions/i,
-    });
-    await expect(createQuestionsBtn).toBeEnabled();
-    await createQuestionsBtn.click();
-
-    await page.waitForURL(/\/application\/session\/.+/, { timeout: 15000 });
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 20000 });
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 
     await page.waitForSelector("form");

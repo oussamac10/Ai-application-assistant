@@ -4,6 +4,8 @@ import {
   DetectedField,
   FieldDetectionResultResponse,
   FieldDetectionResultResponseSchema,
+  PrepareQuestionsResponse,
+  PrepareQuestionsResponseSchema,
   SessionCreateResponse,
   SessionCreateResponseSchema,
 } from "../types";
@@ -110,6 +112,29 @@ export async function rejectDetectedField(
 
   const data = await response.json();
   return data as DetectedField;
+}
+
+/** Phase 13 — the single call the normal-user upload flow makes: analyze ->
+ * OCR (if needed) -> detect fields -> auto-confirm what's safe -> generate
+ * questions -> create/reuse the guided session. Idempotent: safe to call
+ * again (e.g. on resume) without reprocessing or duplicating the session. */
+export async function prepareQuestions(
+  documentId: string,
+  language: string,
+  outputLanguage: string
+): Promise<PrepareQuestionsResponse> {
+  const response = await fetch(`/api/source-documents/${documentId}/prepare-questions`, {
+    method: "POST",
+    headers: authHeaders(documentId),
+    body: JSON.stringify({ language, outputLanguage }),
+  });
+
+  if (!response.ok) {
+    throw await parseErrorResponse(response);
+  }
+
+  const data = await response.json();
+  return PrepareQuestionsResponseSchema.parse(data);
 }
 
 export async function createSessionFromFieldDetection(

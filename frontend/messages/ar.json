@@ -106,7 +106,19 @@
     "error_privacy_not_accepted": "يجب قبول سياسة الخصوصية للمتابعة.",
     "error_document_analysis_failed": "فشل التحليل البنيوي لملف PDF.",
     "start_ocr": "بدء التعرف الضوئي على النصوص",
-    "detect_fields": "اكتشاف الحقول"
+    "detect_fields": "اكتشاف الحقول",
+    "processing_generic": "جارٍ إعداد أسئلتك…",
+    "processing_reading": "جارٍ قراءة المستند…",
+    "processing_detecting": "جارٍ اكتشاف المعلومات المطلوبة…",
+    "processing_preparing": "جارٍ إعداد أسئلتك…",
+    "uncertainty_title": "قد يحتاج أحد الأقسام إلى تأكيد",
+    "uncertainty_body": "لم نتمكن من قراءة جزء من هذا النموذج بثقة. يمكنك المتابعة بالأسئلة التي وجدناها.",
+    "continue_with_detected": "متابعة",
+    "review_uncertain_section": "مراجعة القسم غير المؤكد",
+    "could_not_process_title": "تعذّر علينا معالجة هذا النموذج بثقة",
+    "no_usable_questions_body": "لم نجد أي أسئلة قابلة للاستخدام في هذا المستند. يمكنك المحاولة مرة أخرى أو تحميل ملف آخر.",
+    "debug_open_review": "فتح المراجعة التقنية (تصحيح الأخطاء)",
+    "processing_failed": "تعذّرت معالجة هذا المستند."
   },
   "documentOcr": {
     "title": "استخراج النص باستخدام التعرف الضوئي (OCR)",

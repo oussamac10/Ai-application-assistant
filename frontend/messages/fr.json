@@ -106,7 +106,19 @@
     "error_privacy_not_accepted": "La politique de confidentialité doit être acceptée.",
     "error_document_analysis_failed": "L'analyse structurelle du PDF a échoué.",
     "start_ocr": "Démarrer l'OCR",
-    "detect_fields": "Détecter les champs"
+    "detect_fields": "Détecter les champs",
+    "processing_generic": "Préparation de vos questions…",
+    "processing_reading": "Lecture du document…",
+    "processing_detecting": "Détection des informations demandées…",
+    "processing_preparing": "Préparation de vos questions…",
+    "uncertainty_title": "Une section peut nécessiter une confirmation",
+    "uncertainty_body": "Nous n'avons pas pu lire une partie de ce formulaire avec certitude. Vous pouvez continuer avec les questions trouvées.",
+    "continue_with_detected": "Continuer",
+    "review_uncertain_section": "Vérifier la section incertaine",
+    "could_not_process_title": "Nous n'avons pas pu traiter ce formulaire avec certitude",
+    "no_usable_questions_body": "Nous n'avons trouvé aucune question utilisable dans ce document. Vous pouvez réessayer ou charger un autre fichier.",
+    "debug_open_review": "Ouvrir la révision technique (débogage)",
+    "processing_failed": "Nous n'avons pas pu traiter ce document."
   },
   "documentOcr": {
     "title": "Extraire le texte par OCR",

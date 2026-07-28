@@ -9,16 +9,62 @@ from app.auth.dependencies import get_current_user_optional
 from app.auth.models import User
 from app.database.session import get_db
 from app.documents.schemas import SessionCreateRequest, SessionCreateResponse
+from app.field_detection.orchestration import PrepareQuestionsService
 from app.field_detection.schemas import (
     DetectedFieldSchema,
     DetectedFieldUpdateRequest,
     FieldDetectionResultResponse,
+    PrepareQuestionsResponse,
+    UncertaintyInfoSchema,
     build_detected_field_schema,
     build_field_detection_response,
 )
 from app.field_detection.service import FieldDetectionService
 
 router = APIRouter()
+
+
+@router.post(
+    "/source-documents/{document_id}/prepare-questions",
+    response_model=PrepareQuestionsResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def prepare_questions(
+    document_id: str,
+    body: SessionCreateRequest,
+    x_document_token: str | None = Header(default=None, alias="X-Document-Token"),
+    db: Session = Depends(get_db),
+    ai_provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Any:
+    """Single idempotent orchestration entrypoint for the normal-user upload
+    flow (Phase 13): analyze -> OCR (if needed) -> detect fields ->
+    automatically decide what is usable -> generate questions -> create or
+    reuse the guided session. Known predefined-template documents take the
+    existing fast path with no OCR/detection/AI call at all."""
+    service = PrepareQuestionsService(
+        db,
+        ai_provider=ai_provider,
+        current_user_id=current_user.id if current_user else None,
+    )
+    result = await service.prepare(
+        document_id, x_document_token, body.language, body.outputLanguage
+    )
+    return PrepareQuestionsResponse(
+        documentId=result.document_public_id,
+        status=result.status,
+        sessionId=result.session.public_id if result.session else None,
+        ownershipToken=result.ownership_token,
+        reusedExistingSession=result.reused_existing_session,
+        uncertainty=(
+            UncertaintyInfoSchema(
+                hasUncertainFields=result.uncertainty.has_uncertain_fields,
+                uncertainFieldCount=result.uncertainty.uncertain_field_count,
+            )
+            if result.uncertainty
+            else None
+        ),
+    )
 
 
 @router.post(

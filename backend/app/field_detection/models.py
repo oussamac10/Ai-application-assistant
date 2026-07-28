@@ -73,6 +73,11 @@ class FieldDetectionResult(Base):
     average_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Phase 13: safe counters only (auto-confirmed/medium/needs-clarification/
+    # rejected/total field counts) for later Phase 14 admin review — never
+    # populated with field labels, values, or document text. See
+    # app/field_detection/question_bridge.py:build_review_metadata.
+    review_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

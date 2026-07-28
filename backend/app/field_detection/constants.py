@@ -36,6 +36,12 @@ REVIEW_STATUSES = (
     "confirmed",
     "edited",
     "rejected",
+    # Phase 13: assigned automatically in FIELD_DETECTION_REVIEW_MODE="auto"
+    # for a candidate that is unsafe to use without a human/user decision
+    # (unknown type, or a choice field with no options). Never included in
+    # automatic question generation; distinct from "pending_review" (which,
+    # in auto mode, means "medium confidence, still usable automatically").
+    "needs_clarification",
 )
 
 # Where a candidate's evidence (text/coordinates) originated.

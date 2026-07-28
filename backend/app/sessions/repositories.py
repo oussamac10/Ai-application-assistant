@@ -48,6 +48,21 @@ class SessionRepository:
         )
         return self.db.scalars(stmt).first()
 
+    def get_latest_session_by_source_document_id(
+        self, source_document_id: str
+    ) -> FormSession | None:
+        """Used for orchestration idempotency (Phase 13): a repeated
+        prepare-questions request for the same document must never create a
+        second session. Only non-retryable (live or completed) sessions
+        block recreation — cancelled/failed sessions allow a fresh attempt."""
+        stmt = (
+            select(FormSession)
+            .where(FormSession.source_document_id == source_document_id)
+            .where(FormSession.deleted_at.is_(None))
+            .order_by(FormSession.created_at.desc())
+        )
+        return self.db.scalars(stmt).first()
+
     def find_expired_sessions(self, now: datetime) -> list[FormSession]:
         # Expired means expires_at is past now AND status is not terminal
         # Terminal statuses for cleanup: expired, cancelled, completed
