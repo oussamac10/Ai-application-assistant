@@ -64,6 +64,8 @@ async def prepare_questions(
             if result.uncertainty
             else None
         ),
+        errorCode=result.error_code,
+        stage=result.stage,
     )
 
 

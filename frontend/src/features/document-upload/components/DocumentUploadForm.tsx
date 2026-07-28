@@ -9,7 +9,7 @@ import { setSessionToken } from "../../form-session/services/sessionCredentials"
 import { prepareQuestions } from "../../field-detection/services/apiClient";
 import { isDetectionDebugUiEnabled } from "../../field-detection/debugMode";
 import { DocumentUploadResponse } from "../types";
-import { ApiError } from "../../form-session/services/apiClient";
+import { resolveUploadErrorMessage } from "../utils/resolveUploadErrorMessage";
 
 interface DocumentUploadFormProps {
   currentLocale: string;
@@ -120,6 +120,12 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
         setSessionToken(prepared.sessionId, prepared.ownershipToken);
       }
 
+      if (prepared.status === "failed") {
+        setStage("error");
+        setErrorMsg(resolveUploadErrorMessage(t, prepared.errorCode));
+        return;
+      }
+
       if (prepared.status === "needs_clarification" || !prepared.sessionId) {
         setUncertainFieldCount(prepared.uncertainty?.uncertainFieldCount || 0);
         setStage("review_required");
@@ -136,16 +142,7 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
       goToSession(prepared.sessionId);
     } catch (err: any) {
       setStage("error");
-      if (err instanceof ApiError) {
-        const key = `error_${err.detail}`;
-        let msg = t(key);
-        if (!msg || msg === key) {
-          msg = t(`error_${err.message}`) || err.detail || t("processing_failed") || "We could not process this document.";
-        }
-        setErrorMsg(msg);
-      } else {
-        setErrorMsg(t("processing_failed") || "We could not process this document.");
-      }
+      setErrorMsg(resolveUploadErrorMessage(t, err));
     }
   };
 
@@ -178,16 +175,7 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
       await runAutomaticProcessing(result);
     } catch (err: any) {
       setStage("error");
-      if (err instanceof ApiError) {
-        const key = `error_${err.detail}`;
-        let msg = t(key);
-        if (!msg || msg === key) {
-          msg = t(`error_${err.message}`) || err.detail || "Upload validation failed.";
-        }
-        setErrorMsg(msg);
-      } else {
-        setErrorMsg(err.message || "An unexpected error occurred during upload.");
-      }
+      setErrorMsg(resolveUploadErrorMessage(t, err));
     }
   };
 

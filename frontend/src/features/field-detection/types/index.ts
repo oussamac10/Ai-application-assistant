@@ -90,6 +90,10 @@ export const PrepareQuestionsResponseSchema = z.object({
   ownershipToken: z.string().nullable().optional(),
   reusedExistingSession: z.boolean().default(false),
   uncertainty: UncertaintyInfoSchema.nullable().optional(),
+  // Populated only when status === "failed" — a stable machine-readable
+  // code (never a raw exception message) and which processing step failed.
+  errorCode: z.string().nullable().optional(),
+  stage: z.string().nullable().optional(),
 });
 
 export type PrepareQuestionsResponse = z.infer<typeof PrepareQuestionsResponseSchema>;

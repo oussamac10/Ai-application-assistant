@@ -118,7 +118,8 @@
     "could_not_process_title": "Nous n'avons pas pu traiter ce formulaire avec certitude",
     "no_usable_questions_body": "Nous n'avons trouvé aucune question utilisable dans ce document. Vous pouvez réessayer ou charger un autre fichier.",
     "debug_open_review": "Ouvrir la révision technique (débogage)",
-    "processing_failed": "Nous n'avons pas pu traiter ce document."
+    "processing_failed": "Nous n'avons pas pu traiter ce document.",
+    "error_generic_fallback": "Nous n'avons pas pu traiter ce document. Veuillez réessayer."
   },
   "documentOcr": {
     "title": "Extraire le texte par OCR",

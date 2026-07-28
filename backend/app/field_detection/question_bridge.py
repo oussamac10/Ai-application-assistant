@@ -22,6 +22,8 @@ produced via the AI provider only when the two differ. Stable option
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.ai.mock_provider import AIProvider
@@ -40,6 +42,8 @@ from app.forms.services import FormService
 from app.forms.services import ValidationError as FormValidationError
 from app.sessions.models import FormSession
 from app.sessions.services import SessionService
+
+logger = logging.getLogger(__name__)
 
 # Assumed language of detected label/option text — see module docstring.
 # Kept independent of `user_language` so the resolver's static-translation
@@ -202,16 +206,27 @@ async def create_session_from_confirmed_fields(
     version = form_service.create_draft_version(
         form_template_id=template.id,
         source_language=_DEFAULT_SOURCE_LANGUAGE,
-        supported_output_languages=sorted({_DEFAULT_SOURCE_LANGUAGE, user_language}),
+        # Must include output_language itself, not just the source/user
+        # languages — otherwise a user who picks an output language that
+        # differs from both (e.g. English interface, German output) makes
+        # SessionService.create_session() below reject its own freshly
+        # created version with "output language is not supported", an
+        # unhandled-looking failure for a perfectly normal selection.
+        supported_output_languages=sorted(
+            {_DEFAULT_SOURCE_LANGUAGE, user_language, output_language}
+        ),
         origin="dynamic_detection",
         pdf_template_key=None,
     )
 
     used_keys: set[str] = set()
-    try:
-        for position, detected_field in enumerate(confirmed_fields):
+    added_field_count = 0
+    skipped_field_count = 0
+    position = 0
+    for detected_field in confirmed_fields:
+        key = _unique_key(detected_field.normalized_name, used_keys)
+        try:
             field_type = _map_field_type(detected_field)
-            key = _unique_key(detected_field.normalized_name, used_keys)
 
             label_translation = await translate_text(
                 ai_provider,
@@ -260,12 +275,43 @@ async def create_session_from_confirmed_fields(
                     options=options,
                 ),
             )
+            added_field_count += 1
+            position += 1
+        except FormValidationError:
+            # One bad candidate (e.g. a choice group whose config still
+            # can't be validated) must not fail the whole document when
+            # other usable fields exist — skip only this field and keep
+            # going. Never logs field content (label/options), only that a
+            # skip happened and the detected field_type.
+            skipped_field_count += 1
+            logger.warning(
+                "Skipping one detected field that failed form validation "
+                "(field_type=%s); %d field(s) already added, continuing.",
+                detected_field.field_type,
+                added_field_count,
+            )
+            continue
 
+    if added_field_count == 0:
+        raise FieldDetectionValidationError(
+            "No confirmed fields could be turned into usable questions.",
+            "field_detection_invalid_result",
+        )
+
+    try:
         form_service.publish_version(version.id)
     except FormValidationError as e:
         raise FieldDetectionValidationError(
             str(e), "field_detection_invalid_result"
         ) from e
+
+    if skipped_field_count:
+        logger.info(
+            "Dynamic question generation: %d field(s) added, %d skipped "
+            "after per-field validation failure.",
+            added_field_count,
+            skipped_field_count,
+        )
 
     session_service = SessionService(db)
     return session_service.create_session(

@@ -118,7 +118,8 @@
     "could_not_process_title": "Dieses Formular konnte nicht sicher verarbeitet werden",
     "no_usable_questions_body": "Wir haben in diesem Dokument keine verwendbaren Fragen gefunden. Sie können es erneut versuchen oder eine andere Datei hochladen.",
     "debug_open_review": "Technische Überprüfung öffnen (Debug)",
-    "processing_failed": "Dieses Dokument konnte nicht verarbeitet werden."
+    "processing_failed": "Dieses Dokument konnte nicht verarbeitet werden.",
+    "error_generic_fallback": "Wir konnten dieses Dokument nicht verarbeiten. Bitte versuchen Sie es erneut."
   },
   "documentOcr": {
     "title": "Text mit OCR extrahieren",

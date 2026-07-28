@@ -180,4 +180,107 @@ describe("DocumentUploadForm — automatic upload-to-questions flow (Phase 13)",
     expect(screen.getByText(/no_usable_questions_body/i)).toBeInTheDocument();
     expect(pushMock).not.toHaveBeenCalled();
   });
+
+  it("shows the generic translated fallback (never a raw key) when the backend error has no error code", async () => {
+    uploadDocumentMock.mockResolvedValue({
+      ...BASE_UPLOAD_RESULT,
+      analysis: {
+        pageCount: 3,
+        documentType: "digital_pdf",
+        hasNativeText: true,
+        hasAcroForm: false,
+        hasEmbeddedImages: false,
+        isProbablyScanned: false,
+        matchedTemplate: null,
+        nextStep: "dynamic_field_detection",
+      },
+    });
+    // Reproduces the reported bug's exact shape: a backend response with
+    // no recognized error code, surfaced through ApiError.detail === null.
+    prepareQuestionsMock.mockRejectedValue({
+      name: "ApiError",
+      status: 422,
+      message: "Output language 'fr' is not supported by this form version.",
+      detail: null,
+    });
+
+    await selectAndSubmitFile();
+
+    expect((await screen.findAllByText("error_generic_fallback")).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/error_null/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/documentUpload\./i)).not.toBeInTheDocument();
+  });
+
+  it("shows the generic translated fallback for an unrecognized error code", async () => {
+    uploadDocumentMock.mockResolvedValue({
+      ...BASE_UPLOAD_RESULT,
+      analysis: {
+        pageCount: 3,
+        documentType: "digital_pdf",
+        hasNativeText: true,
+        hasAcroForm: false,
+        hasEmbeddedImages: false,
+        isProbablyScanned: false,
+        matchedTemplate: null,
+        nextStep: "dynamic_field_detection",
+      },
+    });
+    prepareQuestionsMock.mockRejectedValue({
+      name: "ApiError",
+      status: 500,
+      message: "document_processing_failed",
+      detail: "document_processing_failed",
+    });
+
+    await selectAndSubmitFile();
+
+    expect((await screen.findAllByText("error_generic_fallback")).length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(/error_document_processing_failed/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the specific translated message for a known upload error code", async () => {
+    uploadDocumentMock.mockRejectedValue({
+      name: "ApiError",
+      status: 422,
+      message: "Only PDF files are supported.",
+      detail: "invalid_file_type",
+    });
+
+    await selectAndSubmitFile();
+
+    expect((await screen.findAllByText("error_invalid_file_type")).length).toBeGreaterThan(0);
+  });
+
+  it("shows a structured 'failed' orchestration result via the generic fallback, not a raw code", async () => {
+    uploadDocumentMock.mockResolvedValue({
+      ...BASE_UPLOAD_RESULT,
+      analysis: {
+        pageCount: 3,
+        documentType: "digital_pdf",
+        hasNativeText: true,
+        hasAcroForm: false,
+        hasEmbeddedImages: false,
+        isProbablyScanned: false,
+        matchedTemplate: null,
+        nextStep: "dynamic_field_detection",
+      },
+    });
+    prepareQuestionsMock.mockResolvedValue({
+      documentId: "doc-1",
+      status: "failed",
+      sessionId: null,
+      ownershipToken: null,
+      reusedExistingSession: false,
+      uncertainty: null,
+      errorCode: "document_processing_failed",
+      stage: "question_generation",
+    });
+
+    await selectAndSubmitFile();
+
+    expect((await screen.findAllByText("error_generic_fallback")).length).toBeGreaterThan(0);
+    expect(pushMock).not.toHaveBeenCalled();
+  });
 });

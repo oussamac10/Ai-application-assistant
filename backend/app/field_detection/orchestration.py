@@ -15,6 +15,7 @@ message on the frontend), matching the rest of the codebase's convention.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -22,18 +23,42 @@ from sqlalchemy.orm import Session
 from app.ai.mock_provider import AIProvider
 from app.documents.models import SourceDocument
 from app.documents.service import SourceDocumentService
-from app.field_detection.errors import FieldDetectionValidationError
+from app.field_detection.errors import (
+    FieldDetectionError,
+    FieldDetectionValidationError,
+)
 from app.field_detection.providers.base import FieldDetectionProvider
 from app.field_detection.service import FieldDetectionService
 from app.ocr.constants import SUPPORTED_OCR_LANGUAGES
-from app.ocr.errors import OCRValidationError
+from app.ocr.errors import OCRError, OCRValidationError
 from app.ocr.service import OCRService
 from app.sessions.models import FormSession
 from app.sessions.repositories import SessionRepository
+from app.sessions.services import (
+    ResourceNotFoundError as SessionResourceNotFoundError,
+)
+from app.sessions.services import (
+    StateConflictError as SessionStateConflictError,
+)
+from app.sessions.services import (
+    ValidationError as SessionValidationError,
+)
+
+logger = logging.getLogger(__name__)
 
 # A live or already-completed session blocks recreation (idempotent reuse).
 # A cancelled/failed session allows a fresh processing attempt.
 _RETRYABLE_SESSION_STATUSES = frozenset({"cancelled", "failed"})
+
+# Processing stages surfaced in PrepareQuestionsResult.stage, matching the
+# steps described in docs/phases/phase-13-automatic-upload-to-questions.md.
+STAGE_OCR = "ocr"
+STAGE_FIELD_DETECTION = "field_detection"
+STAGE_QUESTION_GENERATION = "question_generation"
+
+# Safe, generic fallback code for any failure not already carrying its own
+# specific error_code — the frontend maps this to one translated message.
+_GENERIC_FAILURE_CODE = "document_processing_failed"
 
 
 @dataclass
@@ -51,6 +76,11 @@ class PrepareQuestionsResult:
     reused_existing_session: bool = False
     uncertainty: UncertaintyInfo | None = None
     error_code: str | None = None
+    # Which step failed, when status == "failed" — never shown to the user
+    # verbatim; the frontend picks a translated message from error_code.
+    # Persisted so a retry can skip already-completed steps (see
+    # FieldDetectionService.request_detection's own idempotent reuse).
+    stage: str | None = None
 
 
 class PrepareQuestionsService:
@@ -114,7 +144,10 @@ class PrepareQuestionsService:
             )
 
         if next_step == "ocr_required":
-            self._run_ocr(doc, ownership_token, user_language)
+            try:
+                self._run_ocr(doc, ownership_token, user_language)
+            except OCRError as e:
+                return self._failed_result(document_public_id, stage=STAGE_OCR, exc=e)
 
         field_detection_service = FieldDetectionService(
             self.db,
@@ -122,7 +155,14 @@ class PrepareQuestionsService:
             ai_provider=self.ai_provider,
             current_user_id=self.current_user_id,
         )
-        field_detection_service.request_detection(document_public_id, ownership_token)
+        try:
+            field_detection_service.request_detection(
+                document_public_id, ownership_token
+            )
+        except FieldDetectionError as e:
+            return self._failed_result(
+                document_public_id, stage=STAGE_FIELD_DETECTION, exc=e
+            )
 
         try:
             (
@@ -140,7 +180,22 @@ class PrepareQuestionsService:
                 return self._no_usable_questions_result(
                     document_public_id, field_detection_service, ownership_token
                 )
-            raise
+            return self._failed_result(
+                document_public_id, stage=STAGE_QUESTION_GENERATION, exc=e
+            )
+        except (
+            SessionValidationError,
+            SessionResourceNotFoundError,
+            SessionStateConflictError,
+        ) as e:
+            # A field-content or version-level problem already surfaces as
+            # FieldDetectionValidationError above; this catches a failure
+            # from the *session-creation* step itself (e.g. a language/
+            # state mismatch) — same safe treatment, never a raw 4xx/5xx
+            # with no error_code reaching the client.
+            return self._failed_result(
+                document_public_id, stage=STAGE_QUESTION_GENERATION, exc=e
+            )
 
         result = field_detection_service.get_detection_result(
             document_public_id, ownership_token
@@ -184,6 +239,35 @@ class PrepareQuestionsService:
                 uncertain_field_count=clarification_count or len(result.fields),
             ),
             error_code="no_usable_questions",
+        )
+
+    def _failed_result(
+        self,
+        document_public_id: str,
+        *,
+        stage: str,
+        exc: Exception,
+    ) -> PrepareQuestionsResult:
+        """Converts any processing failure at a given stage into a safe,
+        structured result instead of letting the exception propagate as a
+        raw/unmapped HTTP error. Logs the exception type and stage only —
+        never document text, field labels, or answer content. The uploaded
+        document itself is untouched (nothing deletes it), so the user can
+        simply retry; a retry re-enters `prepare()` and each already-
+        completed step (OCR, detection) is reused via its own existing
+        idempotent "completed" check rather than rerun.
+        """
+        logger.error(
+            "Automatic processing failed at stage=%s (document=%s): %s",
+            stage,
+            document_public_id,
+            type(exc).__name__,
+        )
+        return PrepareQuestionsResult(
+            status="failed",
+            document_public_id=document_public_id,
+            error_code=_GENERIC_FAILURE_CODE,
+            stage=stage,
         )
 
     def _run_ocr(

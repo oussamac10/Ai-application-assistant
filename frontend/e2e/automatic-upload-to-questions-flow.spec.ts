@@ -74,4 +74,32 @@ test.describe("Automatic upload-to-questions flow — End-to-end (requires backe
 
     fs.unlinkSync(pdf);
   });
+
+  test("an output language that differs from the interface language does not fail (real-PDF bug regression)", async ({
+    page,
+  }) => {
+    // Root cause of the reported "documentUpload.error_null" failure: the
+    // dynamic form version's supported_output_languages only ever included
+    // {"en", interfaceLanguage}, so picking an output language outside
+    // that set (any completely normal UI selection) crashed session
+    // creation with an unhandled, error-code-less exception.
+    await goToLanding(page);
+
+    const pdf = createDigitalPdf("language-mismatch.pdf");
+    await page.locator("input[type='file']").setInputFiles(pdf);
+    await page.locator("#upload-output-select").selectOption("fr");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /Upload and Analyze/i }).click();
+
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 20000 });
+    expect(page.url()).not.toMatch(/token/i);
+
+    // No raw translation key or the literal "error_null"/"null" string
+    // must ever appear anywhere on the page.
+    const bodyText = await page.locator("body").innerText();
+    expect(bodyText).not.toMatch(/documentUpload\./i);
+    expect(bodyText).not.toMatch(/error_null/i);
+
+    fs.unlinkSync(pdf);
+  });
 });

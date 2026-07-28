@@ -125,6 +125,11 @@ class PrepareQuestionsResponse(BaseModel):
         False, serialization_alias="reusedExistingSession"
     )
     uncertainty: UncertaintyInfoSchema | None = None
+    # Populated only when status == "failed" — a stable machine-readable
+    # code the frontend maps to one translated message, and which
+    # processing step failed. Never a raw exception message.
+    errorCode: str | None = Field(None, serialization_alias="errorCode")
+    stage: str | None = None
 
     class Config:
         populate_by_name = True
