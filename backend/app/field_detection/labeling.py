@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.field_detection.classification import is_blank_run
 from app.field_detection.geometry import (
     DEFAULT_PROXIMITY_GAP,
     group_tokens_into_lines,
@@ -27,7 +28,32 @@ class LinePhrase:
     source: str  # the dominant token source contributing to this line
     has_colon: bool = False
     trailing_text: str = ""  # text on the same line after the colon, if any
+    # True when this segment carries its own fillable-blank marker (a run
+    # of dots/underscores/etc, see classification.is_blank_run) — either
+    # after a colon, or (no colon at all) split from a plain label like
+    # "IBAN ________________" that relies on layout, not punctuation, to
+    # mark where the label ends and the input area begins.
+    has_blank_marker: bool = False
     tokens: tuple[DetectionToken, ...] = field(default_factory=tuple)
+
+
+def _split_on_blank_marker(
+    tokens: list[DetectionToken],
+) -> tuple[str, str, bool] | None:
+    """For a colon-less segment, finds the first blank-run token and splits
+    the label from it. Returns None if no blank-run token is present or the
+    label portion would be empty (a line that is itself just a blank run,
+    e.g. a decorative separator, is not a field on its own)."""
+    for index, token in enumerate(tokens):
+        if is_blank_run(token.text):
+            label_tokens = tokens[:index]
+            trailing_tokens = tokens[index:]
+            label_text = " ".join(t.text for t in label_tokens).strip()
+            trailing_text = " ".join(t.text for t in trailing_tokens).strip()
+            if not label_text:
+                return None
+            return label_text, trailing_text, True
+    return None
 
 
 def _phrase_from_segment(
@@ -38,11 +64,19 @@ def _phrase_from_segment(
     source = segment_tokens[0].source
 
     has_colon = ":" in full_text
+    has_blank_marker = False
     if has_colon:
         before, _, after = full_text.partition(":")
         label_text, trailing = before.strip(), after.strip()
+        has_blank_marker = bool(trailing) and any(
+            is_blank_run(part) for part in trailing.split()
+        )
     else:
-        label_text, trailing = full_text.strip(), ""
+        split = _split_on_blank_marker(segment_tokens)
+        if split is not None:
+            label_text, trailing, has_blank_marker = split
+        else:
+            label_text, trailing = full_text.strip(), ""
 
     return LinePhrase(
         text=label_text,
@@ -51,6 +85,7 @@ def _phrase_from_segment(
         source=source,
         has_colon=has_colon,
         trailing_text=trailing,
+        has_blank_marker=has_blank_marker,
         tokens=tuple(segment_tokens),
     )
 

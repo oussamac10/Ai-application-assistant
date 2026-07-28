@@ -134,23 +134,47 @@ def _option_translations(
     return translations
 
 
+_CHOICE_FIELD_TYPES = frozenset({"radio", "select", "multiple_choice"})
+
+
 def build_review_metadata(
     detection_result: FieldDetectionResult,
 ) -> dict[str, int | str]:
     """Safe, non-sensitive counters persisted on the detection result for
     later Phase 14 admin/content-review consumption. Never includes answer
-    values, labels, or document text — counts and status only."""
+    values, labels, or document text — counts and status only.
+
+    The `*ExcludedCount` breakdown gives Phase 14 a meaningful reason for
+    each "needs_clarification" field without storing any of its actual
+    content: an unclassifiable type, a choice group missing its options,
+    or (the remainder) confidence below the clarification threshold.
+    """
     fields = detection_result.fields
+    needs_clarification = [
+        f for f in fields if f.review_status == "needs_clarification"
+    ]
+    unknown_type_excluded = sum(
+        1 for f in needs_clarification if f.field_type == "unknown"
+    )
+    missing_options_excluded = sum(
+        1
+        for f in needs_clarification
+        if f.field_type in _CHOICE_FIELD_TYPES and not f.options
+    )
+    low_confidence_excluded = (
+        len(needs_clarification) - unknown_type_excluded - missing_options_excluded
+    )
     return {
         "autoConfirmedCount": sum(1 for f in fields if f.review_status == "confirmed"),
         "mediumConfidenceCount": sum(
             1 for f in fields if f.review_status == "pending_review"
         ),
-        "needsClarificationCount": sum(
-            1 for f in fields if f.review_status == "needs_clarification"
-        ),
+        "needsClarificationCount": len(needs_clarification),
         "rejectedCount": sum(1 for f in fields if f.review_status == "rejected"),
         "totalFieldCount": len(fields),
+        "unknownTypeExcludedCount": unknown_type_excluded,
+        "missingOptionsExcludedCount": missing_options_excluded,
+        "lowConfidenceExcludedCount": max(low_confidence_excluded, 0),
     }
 
 

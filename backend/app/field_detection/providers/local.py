@@ -33,11 +33,14 @@ from app.field_detection.classification import (
     choice_group_confidence,
     classify_label,
     classify_value_pattern,
+    is_blank_run,
     is_confirmation_sentence,
     is_footer_metadata,
+    is_probably_prose_label,
     marker_type,
 )
 from app.field_detection.geometry import (
+    CLOSE_BELOW_RATIO,
     is_close_below,
     is_large_vertical_gap,
     union_bounding_box,
@@ -70,6 +73,27 @@ _ACROFORM_TYPE_MAP = {
     "signature": "signature",
     "text": "text",
 }
+
+# German sentence-embedded blank triggers (see
+# LocalFieldDetectionProvider._detect_inline_blank_fields). Deterministic
+# and deliberately narrow — matched only against the last word of a
+# segment (date) or the first word of the following segment (currency
+# unit), never against arbitrary prose.
+_INLINE_DATE_TRIGGER_WORDS = frozenset({"am", "datum", "termin"})
+_INLINE_CURRENCY_TRIGGER_WORDS = frozenset(
+    {
+        "beträgt",
+        "betraegt",
+        "kostet",
+        "betragen",
+        "miete",
+        "kaution",
+        "nebenkosten",
+        "vorauszahlung",
+        "gesamtmiete",
+    }
+)
+_INLINE_CURRENCY_SUFFIX_WORDS = frozenset({"euro", "eur", "€"})
 
 _HUMANIZE_UNDERSCORE = str.maketrans("_-", "  ")
 
@@ -195,6 +219,18 @@ class LocalFieldDetectionProvider:
 
             candidates.extend(
                 self._detect_confirmation_checkboxes(
+                    page.page_number, line_groups, consumed
+                )
+            )
+
+            candidates.extend(
+                self._detect_label_above_blank_line_fields(
+                    page.page_number, line_groups, consumed
+                )
+            )
+
+            candidates.extend(
+                self._detect_inline_blank_fields(
                     page.page_number, line_groups, consumed
                 )
             )
@@ -353,16 +389,40 @@ class LocalFieldDetectionProvider:
                 if is_footer_metadata(phrase.text, phrase.bounding_box.y, page.height):
                     continue
 
-                # A colon marks this segment as an actual field label, as
-                # opposed to a title/subtitle/instructional sentence — those
-                # never end in a colon and are excluded here rather than
-                # guessed at from spacing alone. Only a line consisting of a
-                # single label (no sibling segment sharing the physical
-                # line, e.g. not the "Signature: / Date:" case) can be a
-                # multiline label — a split-line segment is a short discrete
-                # field, never a blank-area label.
-                if not phrase.has_colon or not phrase.text:
+                # A label needs either a colon or its own detected blank-
+                # run marker (dots/underscores — see
+                # classification.is_blank_run) to be treated as an actual
+                # field, as opposed to a title/subtitle/instructional
+                # sentence — plain prose has neither and is excluded here
+                # rather than guessed at from spacing alone. Only a line
+                # consisting of a single label (no sibling segment sharing
+                # the physical line, e.g. not the "Signature: / Date:"
+                # case) can be a multiline label — a split-line segment is
+                # a short discrete field, never a blank-area label.
+                if not (phrase.has_colon or phrase.has_blank_marker):
                     continue
+                if not phrase.text:
+                    continue
+                # A colon-terminated sentence that merely happens to end
+                # with ":" (e.g. introducing a list) is not a field label —
+                # only guard the colon path; a blank-run marker is strong
+                # enough evidence on its own regardless of label length.
+                if (
+                    phrase.has_colon
+                    and not phrase.has_blank_marker
+                    and is_probably_prose_label(phrase.text)
+                ):
+                    continue
+
+                # A blank-run marker (e.g. "……………") is a placeholder for
+                # where the user will write their answer — it is never
+                # real prefilled data, so it must never be surfaced as
+                # existing_value (which the UI would otherwise show as a
+                # pre-filled answer to confirm).
+                trailing_is_blank_only = bool(phrase.trailing_text) and all(
+                    is_blank_run(part) or not part
+                    for part in phrase.trailing_text.split()
+                )
 
                 has_large_gap_below = (
                     len(group) == 1
@@ -376,7 +436,7 @@ class LocalFieldDetectionProvider:
                 else:
                     value_type = (
                         classify_value_pattern(phrase.trailing_text)
-                        if phrase.trailing_text
+                        if phrase.trailing_text and not trailing_is_blank_only
                         else None
                     )
                     label_type = classify_label(phrase.text)
@@ -387,6 +447,12 @@ class LocalFieldDetectionProvider:
                     elif label_type != "text":
                         field_type = label_type
                         confidence = 0.65
+                    elif phrase.has_blank_marker:
+                        # No keyword matched, but a real blank-run marker
+                        # is direct layout evidence this is a genuine
+                        # fillable field (not a guess from spacing alone).
+                        field_type = "text"
+                        confidence = 0.6
                     else:
                         field_type = "text"
                         confidence = 0.55
@@ -403,8 +469,145 @@ class LocalFieldDetectionProvider:
                         confidence=confidence,
                         source=phrase.source,
                         label_bounding_box=phrase.bounding_box,
-                        existing_value=phrase.trailing_text or None,
+                        existing_value=(
+                            None
+                            if trailing_is_blank_only
+                            else (phrase.trailing_text or None)
+                        ),
                     )
                 )
+
+        return candidates
+
+    def _detect_label_above_blank_line_fields(
+        self,
+        page_number: int,
+        line_groups: list[list[LinePhrase]],
+        consumed: set[int],
+    ) -> list[DetectedFieldCandidate]:
+        """A label on its own line, immediately followed by a line that is
+        *only* a blank-run marker (dots/underscores) — a layout German
+        bureaucratic forms commonly use for wider input areas ("IBAN" on
+        one line, the fillable underline directly below it), with no colon
+        and no same-line marker at all."""
+        candidates: list[DetectedFieldCandidate] = []
+        line_boxes = [_line_box(group) for group in line_groups]
+
+        for index, group in enumerate(line_groups):
+            if index in consumed or len(group) != 1:
+                continue
+            phrase = group[0]
+            if phrase.has_colon or phrase.has_blank_marker or not phrase.text:
+                continue
+            if is_probably_prose_label(phrase.text) or is_blank_run(phrase.text):
+                continue
+
+            next_index = index + 1
+            if next_index >= len(line_groups) or next_index in consumed:
+                continue
+            next_group = line_groups[next_index]
+            if len(next_group) != 1:
+                continue
+            next_phrase = next_group[0]
+            if not next_phrase.text or not is_blank_run(next_phrase.text):
+                continue
+            if not is_close_below(
+                line_boxes[index], line_boxes[next_index], CLOSE_BELOW_RATIO
+            ):
+                continue
+
+            consumed.add(index)
+            consumed.add(next_index)
+
+            label_type = classify_label(phrase.text)
+            field_type = label_type
+            confidence = 0.65 if label_type != "text" else 0.55
+
+            candidates.append(
+                DetectedFieldCandidate(
+                    candidate_key=f"page{page_number}-labelabove-{index}",
+                    page_number=page_number,
+                    label=phrase.text,
+                    normalized_name=normalize_field_name(phrase.text),
+                    field_type=field_type,
+                    confidence=confidence,
+                    source=phrase.source,
+                    label_bounding_box=phrase.bounding_box,
+                    input_bounding_box=next_phrase.bounding_box,
+                )
+            )
+
+        return candidates
+
+    def _detect_inline_blank_fields(
+        self,
+        page_number: int,
+        line_groups: list[list[LinePhrase]],
+        consumed: set[int],
+    ) -> list[DetectedFieldCandidate]:
+        """Sentence-embedded blanks: a date or amount value left blank in
+        the middle of a prose sentence (e.g. "Das Vertragsverhältnis
+        beginnt am ... und endet am ...", "Die monatliche Grundmiete
+        beträgt ... Euro."). Exporters commonly leave enough horizontal
+        space for handwriting that `split_line_into_segments` already
+        splits the sentence around it — detected here only when a segment
+        ends with a recognized German date/amount trigger word (or the
+        following segment starts with a currency unit), never from
+        arbitrary prose, so normal legal paragraphs are never mistaken for
+        fields."""
+        candidates: list[DetectedFieldCandidate] = []
+
+        for index, group in enumerate(line_groups):
+            if index in consumed or len(group) < 2:
+                continue
+
+            found_any = False
+            for segment_index in range(len(group) - 1):
+                current = group[segment_index]
+                following = group[segment_index + 1]
+                current_words = current.text.split()
+                if not current_words:
+                    continue
+                last_word = current_words[-1].strip(".,;:").lower()
+                following_words = following.text.split() if following.text else []
+                following_first = (
+                    following_words[0].strip(".,;:").lower() if following_words else ""
+                )
+
+                field_type: str | None = None
+                if last_word in _INLINE_DATE_TRIGGER_WORDS:
+                    field_type = "date"
+                elif following_first in _INLINE_CURRENCY_SUFFIX_WORDS:
+                    lowered_current = {w.strip(".,;:").lower() for w in current_words}
+                    if lowered_current & _INLINE_CURRENCY_TRIGGER_WORDS:
+                        field_type = "currency"
+
+                if field_type is None:
+                    continue
+
+                label = " ".join(current_words[-4:])
+                found_any = True
+                candidates.append(
+                    DetectedFieldCandidate(
+                        candidate_key=(
+                            f"page{page_number}-inline-{index}-{segment_index}"
+                        ),
+                        page_number=page_number,
+                        label=label,
+                        normalized_name=normalize_field_name(
+                            f"{label}_{index}_{segment_index}"
+                        ),
+                        field_type=field_type,
+                        confidence=0.6,
+                        source=(
+                            current.tokens[0].source if current.tokens else "native"
+                        ),
+                        label_bounding_box=current.bounding_box,
+                        input_bounding_box=following.bounding_box,
+                    )
+                )
+
+            if found_any:
+                consumed.add(index)
 
         return candidates

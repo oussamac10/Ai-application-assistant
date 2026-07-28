@@ -102,4 +102,35 @@ test.describe("Automatic upload-to-questions flow — End-to-end (requires backe
 
     fs.unlinkSync(pdf);
   });
+
+  test("German rental-contract PDF (dotted leaders, underscore fields, sentence-embedded blanks) reaches guided questions automatically", async ({
+    page,
+  }) => {
+    // Regression for the reported "no usable questions" failure on
+    // Jobcenter-LK-SM-Muster-Mietvertrag-Zimmer.pdf — a synthetic
+    // equivalent (native text, no AcroForm, Unicode dotted leaders,
+    // underscore runs, sentence-embedded date/amount blanks, repeated
+    // section labels) committed as fixtures/pdf/rental-contract-de.pdf.
+    await goToLanding(page);
+
+    const fixturePdf = path.resolve(
+      __dirname,
+      "../../fixtures/pdf/rental-contract-de.pdf"
+    );
+    await page.locator("input[type='file']").setInputFiles(fixturePdf);
+    await page.locator("#upload-output-select").selectOption("de");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /Upload and Analyze/i }).click();
+
+    // Reaches a real guided question — never the raw technical field-
+    // review screen, and never the "no usable questions" failure message.
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
+      timeout: 20000,
+    });
+    expect(page.url()).not.toMatch(/detect-fields/);
+    await expect(
+      page.getByText(/no usable questions|could not confidently process/i)
+    ).not.toBeVisible();
+    await expect(page.getByText(/Detect Form Fields/i)).not.toBeVisible();
+  });
 });

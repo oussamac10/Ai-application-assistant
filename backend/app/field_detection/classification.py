@@ -43,6 +43,35 @@ _LABEL_KEYWORD_RULES: tuple[tuple[str, str], ...] = (
     ("notes", "multiline_text"),
     ("remarks", "multiline_text"),
     ("explain", "multiline_text"),
+    # German keyword rules (deterministic — see docs/field-detection.md).
+    # Ordered before the generic fallbacks below so e.g. "unterschrift"
+    # (signature) is never mistaken for "schrift"-adjacent text matches.
+    ("unterschrift", "signature"),
+    ("e-mail-adresse", "email"),
+    ("telefon", "phone"),
+    ("handynummer", "phone"),
+    ("geburtsdatum", "date"),
+    ("datum", "date"),
+    ("beginn", "date"),
+    ("beginnt", "date"),
+    ("endet", "date"),
+    ("ablauf", "date"),
+    ("straße", "address"),
+    ("strasse", "address"),
+    ("hausnummer", "address"),
+    ("plz", "address"),
+    ("postleitzahl", "address"),
+    ("wohnort", "address"),
+    ("anschrift", "address"),
+    ("miete", "currency"),
+    ("kaution", "currency"),
+    ("nebenkosten", "currency"),
+    ("betriebskosten", "currency"),
+    ("heizkosten", "currency"),
+    ("vorauszahlung", "currency"),
+    ("euro", "currency"),
+    ("gesamtmiete", "currency"),
+    ("anzahl", "number"),
 )
 
 _EMAIL_VALUE_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -55,6 +84,42 @@ _CURRENCY_VALUE_PATTERN = re.compile(r"^[€$£]?\s?\d+([.,]\d+)?$")
 # exact marker characters.
 _CHECKBOX_MARKER_PATTERN = re.compile(r"^\[.{0,2}\]$")
 _RADIO_MARKER_PATTERN = re.compile(r"^\(.{0,2}\)$")
+
+# A "blank run" is a fillable-input placeholder rendered as repeated
+# punctuation rather than an AcroForm widget or a drawn line: a run of
+# dots, the Unicode ellipsis character, middle dots, underscores, or
+# hyphens (optionally separated by plain spaces, since some exporters emit
+# "word"-tokenized runs like ". . . . ."). Deliberately character-based
+# (not tied to any one document's exact glyph) and requires a minimum
+# length so ordinary punctuation ("...", a single "-", an em dash in prose)
+# is never mistaken for a blank input area.
+_BLANK_RUN_CHARS = frozenset(".…·_-")
+_MIN_BLANK_RUN_LENGTH = 3
+
+
+def is_blank_run(text: str) -> bool:
+    """True if `text` is (once spaces are removed) entirely made of blank-
+    marker characters and at least `_MIN_BLANK_RUN_LENGTH` characters long."""
+    stripped = text.strip()
+    if not stripped:
+        return False
+    non_space = stripped.replace(" ", "")
+    if len(non_space) < _MIN_BLANK_RUN_LENGTH:
+        return False
+    return all(ch in _BLANK_RUN_CHARS for ch in non_space)
+
+
+# A colon-terminated segment with more words than this reads as a prose
+# sentence that merely happens to end in a colon (e.g. "...bindend sind und
+# keiner weiteren Form bedürfen als der Schriftform:" introducing a list)
+# rather than a short field label ("IBAN:", "Straße, Nr.:") — never treated
+# as a field regardless of confidence.
+_MAX_LABEL_WORD_COUNT = 6
+
+
+def is_probably_prose_label(label_text: str) -> bool:
+    return len(label_text.split()) > _MAX_LABEL_WORD_COUNT
+
 
 # First-person confirmation/consent phrasing — generic legal/consent
 # boilerplate wording, not any one document's exact sentence.
@@ -91,6 +156,28 @@ _METADATA_KEYWORDS = (
 _FOOTER_POSITION_RATIO = 0.9
 
 
+_KEYWORD_PATTERN_CACHE: dict[str, re.Pattern[str]] = {}
+
+
+def _keyword_matches(keyword: str, lowered_label: str) -> bool:
+    """Matches `keyword` as a whole word, with an optional trailing "s"
+    for simple English plurals ("comment"/"comments",
+    "amount"/"amounts") — but never mid-word or as a bare prefix.
+    German's heavy compounding otherwise produces false positives: the
+    substring "miete" is both inside "Vermieter" (no boundary before it —
+    correctly rejected) *and* is a literal prefix of "Mieter" ("miete" +
+    "r") — a prefix-only match would misclassify a tenant *name* field as
+    a currency field, so the end of the match must also land on a real
+    word boundary (whole word, or whole word + "s"), not merely "keyword
+    optionally followed by more letters". `\\b` correctly respects
+    Unicode letters (umlauts, ß) for `str` patterns."""
+    pattern = _KEYWORD_PATTERN_CACHE.get(keyword)
+    if pattern is None:
+        pattern = re.compile(rf"\b{re.escape(keyword)}s?\b")
+        _KEYWORD_PATTERN_CACHE[keyword] = pattern
+    return pattern.search(lowered_label) is not None
+
+
 def classify_label(label_text: str) -> str:
     """Guesses a field_type from label wording alone. Returns "text" when
     nothing matches — never invents a more specific type from weak evidence.
@@ -100,7 +187,7 @@ def classify_label(label_text: str) -> str:
         return "text"
 
     for keyword, field_type in _LABEL_KEYWORD_RULES:
-        if keyword in lowered:
+        if _keyword_matches(keyword, lowered):
             return field_type
 
     return "text"
