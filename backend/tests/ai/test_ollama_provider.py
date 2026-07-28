@@ -13,6 +13,7 @@ from app.ai.errors import (
     AIProviderMalformedResponseError,
     AIProviderTimeoutError,
     AIProviderUnavailableError,
+    AIProviderValidationError,
 )
 from app.ai.ollama_provider import OllamaAIProvider
 from app.ai.schemas import (
@@ -251,6 +252,223 @@ async def test_extract_value_malformed_json_recovers_on_repair_retry() -> None:
 
     assert result.normalized_value == "clean value"
     assert mock_post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_extract_value_reasoning_as_key_rejected_then_repaired() -> None:
+    """Reproduces the reported bug: the model returns syntactically valid
+    JSON with the correct top-level keys, but nests its reasoning as the
+    *value* of normalizedValue for a scalar field type (multiline_text)
+    instead of a plain string. Strict shape validation must reject this and
+    trigger the bounded repair retry — never reinterpret the nested dict as
+    the normalized value."""
+    provider = make_provider()
+    bad_resp = MagicMock()
+    bad_resp.status_code = 200
+    bad_resp.raise_for_status = MagicMock()
+    bad_resp.json.return_value = {
+        "response": json.dumps(
+            {
+                "normalizedValue": {
+                    "The user's answer 'Je suis marié' translates to 'I am "
+                    "married' in French, but the field is a multiline_text "
+                    "field...": "marié"
+                },
+                "outputValue": None,
+                "requiresClarification": False,
+                "uncertainties": [],
+            }
+        ),
+        "done": True,
+    }
+    good_resp = _mock_response(
+        {
+            "normalizedValue": "I am married",
+            "outputValue": "I am married",
+            "requiresClarification": False,
+            "uncertainties": [],
+        }
+    )
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[bad_resp, good_resp],
+    ) as mock_post:
+        result = await provider.extract_value(
+            ExtractionRequest(
+                fieldType="multiline_text",
+                answer="Je suis marié",
+                userLanguage="fr",
+                sourceLanguage="fr",
+                outputLanguage="en",
+            )
+        )
+
+    assert result.normalized_value == "I am married"
+    assert mock_post.call_count == 2
+    assert "translates to" not in str(result.model_dump())
+
+
+@pytest.mark.asyncio
+async def test_extract_value_reasoning_as_key_still_bad_after_repair_raises_validation_error() -> (
+    None
+):
+    """If the repair retry also returns the malformed shape, extraction
+    must raise a validation error — never accept the reasoning-as-key
+    object, and never leak the raw model text in the exception."""
+    provider = make_provider()
+
+    def _bad_resp() -> MagicMock:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.raise_for_status = MagicMock()
+        resp.json.return_value = {
+            "response": json.dumps(
+                {
+                    "normalizedValue": {
+                        "The user's answer 'Je suis marié' translates to "
+                        "'I am married'...": "marié"
+                    },
+                    "outputValue": None,
+                    "requiresClarification": False,
+                    "uncertainties": [],
+                }
+            ),
+            "done": True,
+        }
+        return resp
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[_bad_resp(), _bad_resp()],
+    ) as mock_post:
+        with pytest.raises(AIProviderValidationError) as exc_info:
+            await provider.extract_value(
+                ExtractionRequest(
+                    fieldType="multiline_text",
+                    answer="Je suis marié",
+                    userLanguage="fr",
+                    sourceLanguage="fr",
+                    outputLanguage="en",
+                )
+            )
+
+    assert mock_post.call_count == 2
+    assert "marié" not in str(exc_info.value)
+    assert "translates to" not in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_extract_value_unexpected_top_level_key_rejected() -> None:
+    """A response with an extra, unexpected top-level key alongside
+    otherwise-valid keys must be rejected by `extra="forbid"` schema
+    validation, not silently accepted with the extra key ignored."""
+    provider = make_provider()
+    bad_resp = MagicMock()
+    bad_resp.status_code = 200
+    bad_resp.raise_for_status = MagicMock()
+    bad_resp.json.return_value = {
+        "response": json.dumps(
+            {
+                "normalizedValue": "I am married",
+                "outputValue": "I am married",
+                "requiresClarification": False,
+                "uncertainties": [],
+                "reasoning": "The user's answer translates to 'I am married'.",
+            }
+        ),
+        "done": True,
+    }
+    good_resp = _mock_response(
+        {
+            "normalizedValue": "I am married",
+            "outputValue": "I am married",
+            "requiresClarification": False,
+            "uncertainties": [],
+        }
+    )
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[bad_resp, good_resp],
+    ) as mock_post:
+        result = await provider.extract_value(
+            ExtractionRequest(
+                fieldType="multiline_text",
+                answer="Je suis marié",
+                userLanguage="fr",
+                sourceLanguage="fr",
+                outputLanguage="en",
+            )
+        )
+
+    assert result.normalized_value == "I am married"
+    assert mock_post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_extract_value_multiline_french_to_english() -> None:
+    """The exact expected-behavior example from the bug report."""
+    provider = make_provider()
+    expected = {
+        "normalizedValue": "I am married",
+        "outputValue": "I am married",
+        "requiresClarification": False,
+        "uncertainties": [],
+    }
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        return_value=_mock_response(expected),
+    ):
+        result = await provider.extract_value(
+            ExtractionRequest(
+                fieldType="multiline_text",
+                answer="Je suis marié",
+                userLanguage="fr",
+                sourceLanguage="fr",
+                outputLanguage="en",
+            )
+        )
+
+    assert result.normalized_value == "I am married"
+    assert result.output_value == "I am married"
+    assert result.requires_clarification is False
+
+
+@pytest.mark.asyncio
+async def test_extract_value_money_dict_shape_still_accepted() -> None:
+    """The strict shape check must not regress the field types that are
+    documented to legitimately return a structured object (money,
+    person_name) — only field types that expect a scalar are restricted."""
+    provider = make_provider()
+    expected = {
+        "normalizedValue": {"amount": 1800, "currency": "EUR", "period": "monthly"},
+        "outputValue": "1800 EUR monthly",
+        "requiresClarification": False,
+        "uncertainties": [],
+    }
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        return_value=_mock_response(expected),
+    ):
+        result = await provider.extract_value(
+            ExtractionRequest(
+                fieldType="money",
+                answer="1800 euros per month",
+                userLanguage="en",
+                sourceLanguage="en",
+                outputLanguage="en",
+            )
+        )
+
+    assert result.normalized_value == expected["normalizedValue"]
 
 
 @pytest.mark.asyncio

@@ -88,11 +88,24 @@ def session_setup() -> dict[str, Any]:
                 translations=[TranslationSchema(language="en", label="Full name")],
             ),
         )
+        form_service.add_field_to_draft(
+            version.id,
+            FieldCreate(
+                key="bio",
+                field_type="multiline_text",
+                required=False,
+                position=2,
+                translations=[
+                    TranslationSchema(language="en", label="Situation"),
+                    TranslationSchema(language="fr", label="Situation"),
+                ],
+            ),
+        )
         form_service.publish_version(version.id)
 
         session, token = session_service.create_session(
             form_version_id=version.id,
-            user_language="en",
+            user_language="fr",
             output_language="en",
         )
         db.commit()
@@ -255,12 +268,17 @@ def test_ollama_connection_failure_returns_safe_error(
     assert "ollama.invalid" not in response.text.lower()
 
 
-def test_ollama_empty_response_returns_safe_error_not_500(
+def test_ollama_empty_response_falls_back_safely_never_500(
     ollama_provider: OllamaAIProvider, session_setup: dict[str, Any]
 ) -> None:
     """Reproduces the exact real-world failure mode: Ollama answers with
     done=True but an empty `response` (the model's answer was absorbed
-    into `thinking`). Must be a clean 502, never an unhandled 500."""
+    into `thinking`), and the bounded repair retry also comes back empty.
+
+    A response *was* received (this is not a connectivity failure), so the
+    answer submission must not hard-fail: it falls back to the original
+    answer, deterministically normalized, never a 500 and never any
+    "thinking"/raw-model content in the response body."""
     session_id = session_setup["session_id"]
     token = session_setup["token"]
     field_id = session_setup["field_ids"]["full_name"]
@@ -286,5 +304,258 @@ def test_ollama_empty_response_returns_safe_error_not_500(
             json={"fieldId": field_id, "originalAnswer": "oussama"},
         )
 
-    assert response.status_code == 502
+    assert response.status_code == 201
     assert "thinking" not in response.text
+    data = response.json()
+    assert data["requiresClarification"] is False
+
+
+# ---------------------------------------------------------------------------
+# Reasoning-as-object-key bug (French multiline_text -> English)
+# ---------------------------------------------------------------------------
+#
+# Reproduces the exact reported bug: user_language=fr, output_language=en,
+# field_type=multiline_text, answer="Je suis marié". Ollama returns
+# syntactically valid JSON with the correct top-level keys, but nests its
+# reasoning as the *value* of normalizedValue instead of a plain string:
+#   {"normalizedValue": {"The user's answer 'Je suis marié' translates to
+#   'I am married' in French, but the field is a multiline_text field...":
+#   "marié"}, "outputValue": null, "requiresClarification": false,
+#   "uncertainties": []}
+# Before the fix, normalize_value()'s multiline_text branch (`str(raw_val)`)
+# stringified that nested dict verbatim, which is exactly the malformed
+# value the UI showed.
+
+
+def test_reasoning_as_normalized_value_object_key_is_rejected_and_repaired(
+    ollama_provider: OllamaAIProvider, session_setup: dict[str, Any]
+) -> None:
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    field_id = session_setup["field_ids"]["bio"]
+
+    bad_resp = MagicMock()
+    bad_resp.status_code = 200
+    bad_resp.raise_for_status = MagicMock()
+    bad_resp.json.return_value = {
+        "response": json.dumps(
+            {
+                "normalizedValue": {
+                    "The user's answer 'Je suis marié' translates to 'I am "
+                    "married' in French, but the field is a multiline_text "
+                    "field...": "marié"
+                },
+                "outputValue": None,
+                "requiresClarification": False,
+                "uncertainties": [],
+            }
+        ),
+        "done": True,
+    }
+    good_resp = _ollama_http_response(
+        {
+            "normalizedValue": "I am married",
+            "outputValue": "I am married",
+            "requiresClarification": False,
+            "uncertainties": [],
+        }
+    )
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[bad_resp, good_resp],
+    ) as mock_post:
+        response = client.post(
+            f"/api/form-sessions/{session_id}/answers",
+            headers={"X-Session-Token": token},
+            json={"fieldId": field_id, "originalAnswer": "Je suis marié"},
+        )
+
+    assert mock_post.call_count == 2
+    assert response.status_code == 201
+    data = response.json()
+    assert data["normalizedValue"] == "I am married"
+    assert data["outputValue"] == "I am married"
+    assert data["requiresClarification"] is False
+    assert data["originalAnswer"] == "Je suis marié"
+    assert data["status"] == "awaiting_confirmation"
+    # The malformed reasoning-as-key content must never reach the client.
+    assert "translates to" not in response.text
+    assert "multiline_text field" not in response.text
+
+
+def test_reasoning_as_key_still_malformed_after_repair_falls_back_to_original_answer(
+    ollama_provider: OllamaAIProvider, session_setup: dict[str, Any]
+) -> None:
+    """If the repair retry *also* nests reasoning under normalizedValue,
+    the answer must fall back to the original text — never a raw dict, and
+    never a hard failure since a response was received both times."""
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    field_id = session_setup["field_ids"]["bio"]
+
+    def _bad_resp() -> MagicMock:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.raise_for_status = MagicMock()
+        resp.json.return_value = {
+            "response": json.dumps(
+                {
+                    "normalizedValue": {
+                        "The user's answer 'Je suis marié' translates to "
+                        "'I am married'...": "marié"
+                    },
+                    "outputValue": None,
+                    "requiresClarification": False,
+                    "uncertainties": [],
+                }
+            ),
+            "done": True,
+        }
+        return resp
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[_bad_resp(), _bad_resp()],
+    ) as mock_post:
+        response = client.post(
+            f"/api/form-sessions/{session_id}/answers",
+            headers={"X-Session-Token": token},
+            json={"fieldId": field_id, "originalAnswer": "Je suis marié"},
+        )
+
+    assert mock_post.call_count == 2
+    assert response.status_code == 201
+    data = response.json()
+    assert data["normalizedValue"] == "Je suis marié"
+    assert data["requiresClarification"] is False
+    assert data["originalAnswer"] == "Je suis marié"
+    assert "translates to" not in response.text
+
+
+def test_unexpected_top_level_key_rejected_and_repaired(
+    ollama_provider: OllamaAIProvider, session_setup: dict[str, Any]
+) -> None:
+    """A response with an unexpected extra top-level key (alongside
+    otherwise-correct keys) must be rejected by strict schema validation,
+    not silently accepted with the extra key ignored."""
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    field_id = session_setup["field_ids"]["bio"]
+
+    bad_resp = MagicMock()
+    bad_resp.status_code = 200
+    bad_resp.raise_for_status = MagicMock()
+    bad_resp.json.return_value = {
+        "response": json.dumps(
+            {
+                "normalizedValue": "I am married",
+                "outputValue": "I am married",
+                "requiresClarification": False,
+                "uncertainties": [],
+                "reasoning": "The user's answer translates to 'I am married'.",
+            }
+        ),
+        "done": True,
+    }
+    good_resp = _ollama_http_response(
+        {
+            "normalizedValue": "I am married",
+            "outputValue": "I am married",
+            "requiresClarification": False,
+            "uncertainties": [],
+        }
+    )
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[bad_resp, good_resp],
+    ) as mock_post:
+        response = client.post(
+            f"/api/form-sessions/{session_id}/answers",
+            headers={"X-Session-Token": token},
+            json={"fieldId": field_id, "originalAnswer": "Je suis marié"},
+        )
+
+    assert mock_post.call_count == 2
+    assert response.status_code == 201
+    assert response.json()["normalizedValue"] == "I am married"
+
+
+def test_multiline_french_to_english_translation_no_clarification(
+    ollama_provider: OllamaAIProvider, session_setup: dict[str, Any]
+) -> None:
+    """The exact expected-behavior example from the bug report."""
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    field_id = session_setup["field_ids"]["bio"]
+
+    ollama_body = {
+        "normalizedValue": "I am married",
+        "outputValue": "I am married",
+        "requiresClarification": False,
+        "uncertainties": [],
+    }
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        return_value=_ollama_http_response(ollama_body),
+    ):
+        response = client.post(
+            f"/api/form-sessions/{session_id}/answers",
+            headers={"X-Session-Token": token},
+            json={"fieldId": field_id, "originalAnswer": "Je suis marié"},
+        )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["originalAnswer"] == "Je suis marié"
+    assert data["normalizedValue"] == "I am married"
+    assert data["outputValue"] == "I am married"
+    assert data["requiresClarification"] is False
+    assert data["status"] == "awaiting_confirmation"
+    assert isinstance(data["normalizedValue"], str)
+
+
+def test_multiline_text_non_empty_free_form_answer_never_requires_clarification(
+    ollama_provider: OllamaAIProvider, session_setup: dict[str, Any]
+) -> None:
+    """A non-empty multiline_text answer must never be routed to
+    clarification merely for being free-form, even if the model itself
+    (incorrectly) suggests otherwise for a value that deterministically
+    validates fine."""
+    session_id = session_setup["session_id"]
+    token = session_setup["token"]
+    field_id = session_setup["field_ids"]["bio"]
+
+    ollama_body = {
+        "normalizedValue": "  I am married and live in Paris.  ",
+        "outputValue": "I am married and live in Paris.",
+        "requiresClarification": False,
+        "uncertainties": [],
+    }
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        return_value=_ollama_http_response(ollama_body),
+    ):
+        response = client.post(
+            f"/api/form-sessions/{session_id}/answers",
+            headers={"X-Session-Token": token},
+            json={
+                "fieldId": field_id,
+                "originalAnswer": "Je suis marié et je vis à Paris.",
+            },
+        )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "awaiting_confirmation"
+    assert data["requiresClarification"] is False
+    # Whitespace is cleaned by deterministic normalization.
+    assert data["normalizedValue"] == "I am married and live in Paris."

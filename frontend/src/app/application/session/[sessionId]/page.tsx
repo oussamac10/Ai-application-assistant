@@ -17,6 +17,7 @@ import {
 } from "@/features/form-session/services/apiClient";
 import { removeSessionToken } from "@/features/form-session/services/sessionCredentials";
 import { FieldRenderer } from "@/features/form-session/components/FieldRenderer";
+import { formatProposedValue } from "@/features/form-session/utils/formatProposedValue";
 import ClaimBanner from "@/features/applications/components/ClaimBanner";
 
 type FlowStep =
@@ -425,7 +426,11 @@ export default function GuidedSession() {
                         {t("proposedValueLabel")}
                       </p>
                       <p className="text-lg font-bold text-indigo-400">
-                        {lastAnswer.outputValue || JSON.stringify(lastAnswer.normalizedValue)}
+                        {formatProposedValue(
+                          lastAnswer.normalizedValue,
+                          lastAnswer.outputValue,
+                          currentField?.fieldType
+                        )}
                       </p>
                     </div>
                   </div>

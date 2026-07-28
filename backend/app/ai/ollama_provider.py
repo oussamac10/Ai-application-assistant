@@ -27,9 +27,11 @@ from __future__ import annotations
 import json
 import logging
 import pathlib
+from collections.abc import Callable
 from typing import Any
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.errors import (
     AIProviderMalformedResponseError,
@@ -83,6 +85,46 @@ _JSON_REPAIR_SUFFIX = (
     "Respond again with ONLY valid JSON matching the schema above — "
     "no markdown, no commentary, no additional text."
 )
+
+
+class _ExtractValueSchema(BaseModel):
+    """The exact wire shape required of Ollama's raw JSON for value
+    extraction. `extra="forbid"` rejects any response whose top-level keys
+    don't match this schema exactly — in particular a model that embeds its
+    reasoning as an object key instead of following the schema (observed:
+    `{"The user's answer '...' translates to '...' ...": "marié"}`) is
+    rejected outright rather than silently accepted via a lenient `.get()`.
+    Only `requiresClarification` is required; the others default so a model
+    that omits an empty/null field isn't punished for that alone.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    normalizedValue: Any = None
+    outputValue: str | None = None
+    requiresClarification: bool
+    uncertainties: list[str] = Field(default_factory=list)
+
+
+# Field types whose documented (extract_value_v1.txt) normalizedValue shape
+# is itself a structured object/array — every other field type must receive
+# a plain scalar or null. This is what actually catches the reported bug:
+# the malformed response above has the *correct* top-level keys (the
+# reasoning object was nested inside "normalizedValue", not used as a
+# top-level key) but is a dict for a "multiline_text" field, which is not
+# a documented shape for that field type.
+_STRUCTURED_VALUE_FIELD_TYPES = frozenset({"money", "person_name"})
+_ARRAY_VALUE_FIELD_TYPES = frozenset({"multiple_choice"})
+
+
+def _normalized_value_shape_is_valid(field_type: str, value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, dict):
+        return field_type in _STRUCTURED_VALUE_FIELD_TYPES
+    if isinstance(value, list):
+        return field_type in _ARRAY_VALUE_FIELD_TYPES
+    return True
 
 
 class OllamaAIProvider:
@@ -234,6 +276,67 @@ class OllamaAIProvider:
         logger.error("Ollama returned non-JSON content after repair retry")
         raise AIProviderMalformedResponseError("Ollama returned non-JSON content")
 
+    @staticmethod
+    def _safe_validate(
+        parsed: dict[str, Any] | None,
+        validate: Callable[[dict[str, Any]], Any],
+    ) -> Any | None:
+        if parsed is None:
+            return None
+        try:
+            return validate(parsed)
+        except Exception:
+            return None
+
+    async def _call_ollama_structured(
+        self,
+        prompt: str,
+        validate: Callable[[dict[str, Any]], Any],
+    ) -> Any:
+        """Like `_call_ollama`, but additionally enforces a strict response
+        schema — not just JSON syntax — within the same bounded repair
+        budget: a response that is syntactically valid JSON but has the
+        wrong shape (including, but not limited to, the model embedding its
+        reasoning in place of a real value) is treated exactly like
+        malformed JSON and triggers the same single repair retry, never a
+        second retry stacked on top of it. Never exposes the raw model text
+        in a raised exception — only a generic, safe message.
+        """
+        payload = self._build_payload(prompt)
+        text = await self._post(payload)
+        parsed = self._try_parse_json(text)
+        validated = self._safe_validate(parsed, validate)
+        if validated is not None:
+            return validated
+
+        if not text.strip():
+            logger.warning("Ollama returned an empty response; retrying once")
+        elif parsed is None:
+            logger.warning("Ollama returned non-JSON content; retrying once")
+        else:
+            logger.warning(
+                "Ollama returned JSON that did not match the required schema; "
+                "retrying once"
+            )
+
+        repair_payload = self._build_payload(prompt + _JSON_REPAIR_SUFFIX)
+        repair_text = await self._post(repair_payload)
+        repair_parsed = self._try_parse_json(repair_text)
+        repair_validated = self._safe_validate(repair_parsed, validate)
+        if repair_validated is not None:
+            return repair_validated
+
+        if not repair_text.strip() or repair_parsed is None:
+            logger.error("Ollama returned malformed content after repair retry")
+            raise AIProviderMalformedResponseError("Ollama returned malformed content")
+
+        logger.error(
+            "Ollama response did not match the required schema after repair retry"
+        )
+        raise AIProviderValidationError(
+            "Ollama response does not match the required extraction schema"
+        )
+
     def _validate(
         self,
         data: dict[str, Any],
@@ -265,12 +368,25 @@ class OllamaAIProvider:
                 "output_language": request.output_language,
             },
         )
-        raw = await self._call_ollama(prompt)
+
+        field_type = request.field_type
+
+        def validate(data: dict[str, Any]) -> _ExtractValueSchema:
+            parsed = _ExtractValueSchema.model_validate(data)
+            if not _normalized_value_shape_is_valid(field_type, parsed.normalizedValue):
+                raise ValueError(
+                    "normalizedValue has an unexpected shape for this field type"
+                )
+            return parsed
+
+        validated: _ExtractValueSchema = await self._call_ollama_structured(
+            prompt, validate
+        )
         return ExtractionResult(
-            normalizedValue=raw.get("normalizedValue"),
-            outputValue=raw.get("outputValue"),
-            requiresClarification=bool(raw.get("requiresClarification", False)),
-            uncertainties=list(raw.get("uncertainties", [])),
+            normalizedValue=validated.normalizedValue,
+            outputValue=validated.outputValue,
+            requiresClarification=validated.requiresClarification,
+            uncertainties=validated.uncertainties,
         )
 
     async def explain_field(self, request: ExplanationRequest) -> ExplanationResult:

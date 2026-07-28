@@ -1,10 +1,12 @@
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.ai.errors import AIProviderMalformedResponseError, AIProviderValidationError
 from app.ai.mock_provider import AIProvider, MockAIProvider
-from app.ai.schemas import ExtractionRequest
+from app.ai.schemas import ExtractionRequest, ExtractionResult
 from app.ai.text_translation import translate_text
 from app.answers.models import FormAnswer
 from app.answers.normalization.normalization import normalize_value
@@ -19,6 +21,8 @@ from app.sessions.services import (
     StateConflictError,
     ValidationError,
 )
+
+logger = logging.getLogger(__name__)
 
 # Choice fields are rendered by the frontend as a <select>/checkbox group
 # bound directly to each option's canonical value — the submitted answer is
@@ -292,7 +296,42 @@ class AnswerService:
             sourceLanguage=session.source_language,
             outputLanguage=session.output_language,
         )
-        result = await self.ai_provider.extract_value(req)
+        try:
+            result = await self.ai_provider.extract_value(req)
+        except (AIProviderMalformedResponseError, AIProviderValidationError) as exc:
+            # The provider *did* respond (and already spent its one bounded
+            # repair attempt — see OllamaAIProvider._call_ollama_structured)
+            # but never produced a response matching the required schema.
+            # Never surface that raw/malformed content, and never lose the
+            # user's answer over it: fall back to the same deterministic
+            # normalize_value()/validate_value() pipeline used for the
+            # AI-success path, seeded with the original, untranslated
+            # answer. This never forces a clarification purely because
+            # parsing failed — a field that deterministically validates
+            # (e.g. free-form text) proceeds normally; a field that doesn't
+            # (e.g. an unparseable date) is marked invalid, same as any
+            # other invalid answer, letting the user retry.
+            #
+            # A genuine transport failure (AIProviderTimeoutError,
+            # AIProviderUnavailableError — Ollama unreachable/timed out, no
+            # response received at all) is deliberately NOT caught here: it
+            # propagates as the existing 504/503 error, since there is no
+            # response to fall back on and retrying the whole request is
+            # the correct recovery, not silently accepting an unverified
+            # answer.
+            logger.warning(
+                "AI extraction returned a malformed/invalid response for "
+                "field_type=%s; falling back to deterministic normalization "
+                "of the original answer: %s",
+                field.field_type,
+                type(exc).__name__,
+            )
+            result = ExtractionResult(
+                normalizedValue=original_answer,
+                outputValue=None,
+                requiresClarification=False,
+                uncertainties=[],
+            )
 
         if result.requires_clarification:
             answer.normalized_value = result.normalized_value
