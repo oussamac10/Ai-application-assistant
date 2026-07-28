@@ -40,7 +40,10 @@ async function authRequest<T>(
   const response = await fetch(`/api/auth${path}`, {
     ...options,
     headers,
-    credentials: "same-origin",
+    // Explicit "include" (rather than the default/"same-origin") so the
+    // HttpOnly auth cookie and CSRF cookie are always sent, regardless of
+    // how this client is hosted relative to the API in the future.
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -91,13 +94,35 @@ export async function logout(): Promise<void> {
   await authRequest("/logout", { method: "POST" });
 }
 
+// A 401 here is the normal logged-out state, not an application error — it
+// resolves to `null` rather than rejecting. Any other failure (500, network
+// error, malformed response) still rejects and must be handled as a real
+// error by the caller.
+//
+// Concurrent callers (e.g. React Strict Mode's dev-only double effect
+// invocation) share one in-flight request instead of firing two: the
+// promise is cached until it settles, then cleared, so a later, genuinely
+// separate call (e.g. AuthProvider.refresh() after login/logout) always
+// starts a fresh request rather than replaying a stale result.
+let inFlightGetCurrentUser: Promise<AuthUser | null> | null = null;
+
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  try {
-    return await authRequest("/me", { method: "GET" }, UserSchema);
-  } catch (err) {
-    if (err instanceof AuthApiError && err.status === 401) {
-      return null;
-    }
-    throw err;
+  if (inFlightGetCurrentUser) {
+    return inFlightGetCurrentUser;
   }
+
+  inFlightGetCurrentUser = (async () => {
+    try {
+      return await authRequest("/me", { method: "GET" }, UserSchema);
+    } catch (err) {
+      if (err instanceof AuthApiError && err.status === 401) {
+        return null;
+      }
+      throw err;
+    } finally {
+      inFlightGetCurrentUser = null;
+    }
+  })();
+
+  return inFlightGetCurrentUser;
 }

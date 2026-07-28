@@ -72,6 +72,9 @@ export default function RegisterForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                // See LoginForm.tsx — password-manager extensions inject
+                // attributes onto credential inputs after server render.
+                suppressHydrationWarning
               />
             </div>
 
@@ -88,6 +91,7 @@ export default function RegisterForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                suppressHydrationWarning
               />
             </div>
 
@@ -107,6 +111,7 @@ export default function RegisterForm() {
                 value={passwordConfirmation}
                 onChange={(e) => setPasswordConfirmation(e.target.value)}
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                suppressHydrationWarning
               />
             </div>
 

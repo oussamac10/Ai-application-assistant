@@ -70,6 +70,15 @@ export default function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                // Password-manager browser extensions (e.g. Keeper) inject
+                // their own attributes (data-keeper-lock-id, etc.) onto
+                // credential inputs after the server-rendered markup is
+                // sent, which React's hydration diff otherwise flags as a
+                // false-positive mismatch. This app never renders that
+                // attribute itself (nothing in the codebase references it);
+                // narrowly suppressing it only on this input avoids masking
+                // a genuine hydration bug elsewhere.
+                suppressHydrationWarning
               />
             </div>
 
@@ -85,6 +94,9 @@ export default function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                // See the email input above — password managers target
+                // password fields specifically.
+                suppressHydrationWarning
               />
             </div>
 
