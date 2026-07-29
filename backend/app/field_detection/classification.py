@@ -109,6 +109,21 @@ def is_blank_run(text: str) -> bool:
     return all(ch in _BLANK_RUN_CHARS for ch in non_space)
 
 
+def starts_with_blank_run(text: str) -> bool:
+    """True if `text` *begins* with a blank-marker run, i.e. the input area
+    comes first and any trailing words are a suffix of the blank rather
+    than a label (e.g. a signature line rendered "…………………, den"). Such a
+    segment carries no usable label and must not become a question."""
+    stripped = text.strip()
+    leading = 0
+    for ch in stripped:
+        if ch in _BLANK_RUN_CHARS:
+            leading += 1
+        else:
+            break
+    return leading >= _MIN_BLANK_RUN_LENGTH
+
+
 # A colon-terminated segment with more words than this reads as a prose
 # sentence that merely happens to end in a colon (e.g. "...bindend sind und
 # keiner weiteren Form bedürfen als der Schriftform:" introducing a list)

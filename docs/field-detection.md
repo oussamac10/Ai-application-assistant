@@ -95,6 +95,55 @@ fully functional, unchanged, for admin/development/debug use — reachable direc
 `/application/document/{id}/detect-fields`, and linked from the upload flow only when
 `NEXT_PUBLIC_ENABLE_DETECTION_DEBUG_UI=true` or (outside production) a `?debug=1` query param.
 
+## Recognizing input areas that are not AcroForm widgets
+
+Most real-world public-sector forms are Word exports with no interactive fields at all. The local
+provider recognizes the ways such forms mark a fillable area, all deterministically:
+
+| Pattern | Example | How it is recognized |
+|---|---|---|
+| Colon label + blank run on one line | `Name:` … `…………………` | colon, plus a blank-run sibling segment on the same physical line |
+| Blank run in the same segment | `IBAN ________________` | `classification.is_blank_run` on a token within the segment |
+| Label above a blank line | `IBAN` / `________` stacked | lone label whose next close-below line is only a blank run |
+| Sentence-embedded blank | `beginnt am ____ und endet am ____` | an unusually wide inter-word gap (`geometry.INLINE_BLANK_GAP_RATIO`) **plus** an explicit German trigger word beside it |
+| Large blank area below a label | `Sonstige Vereinbarungen:` + gap | `geometry.is_large_vertical_gap` → `multiline_text` |
+
+A "blank run" is any run of 3+ dots, Unicode ellipses (`…`), middle dots (`·`), underscores, or
+hyphens. A blank run is treated strictly as a *placeholder*: it is never stored as the field's
+`existing_value`, so the guided flow never shows dots as a pre-filled answer to confirm.
+
+Sentence-embedded blanks deserve special note, because a wide gap alone is not evidence. Measured
+on real German forms, ordinary word spacing sits at ~0.2× line height — including inside long
+justified legal paragraphs — while a deliberate blank measures ~2.1–2.6×. The threshold sits well
+between the two, **and** a trigger word must sit directly beside the gap (`am`/`der`/`datum` before
+it → date; `Euro`/`EUR`/`€` after it → currency; `Personen`/`Zimmer` after it → integer). Both
+signals are required, so legal prose never produces a field.
+
+## Section context and repeated labels
+
+German contracts reuse the same short label under different parties: `Name:`, `Straße, Nr.` and
+`PLZ, Ort` each appear once under "Zwischen dem Vermieter" (landlord) and again under "und dem
+Mieter" (tenant). Since deduplication keys on `normalized_name`, a section prefix is required or
+the second occurrence of each is silently dropped and the user is only ever asked about one party.
+
+`app/field_detection/sections.py` tracks the active context while scanning each page and prefixes
+every candidate's stable key with it (`vermieter_name`, `mieter_name`). For *party* contexts the
+user-visible label is prefixed too ("Vermieter – Name"), since "Name" twice would be ambiguous in
+the guided flow; for `§ N Titel` sections only the key is prefixed, because "Mietkosten – IBAN"
+tells the user nothing that "IBAN" doesn't.
+
+## What is never turned into a field
+
+- `§ N Titel` section headings.
+- A segment that is itself, or begins with, a blank run (that is the input area, not a label).
+- A label longer than 6 words (prose), or a 3+-word phrase starting in lower case — in German and
+  English alike a real label is a capitalized noun phrase or an acronym, whereas a wrapped
+  sentence continues in lower case ("wird folgender Mietvertrag geschlossen:").
+- Footer/margin metadata (keyword **and** bottom-of-page position both required).
+- A choice group named only by a bare connective ("oder"), or whose "options" are complete
+  sentences — those are independent alternative statements, and swallowing them as options would
+  hide the real fillable fields inside them.
+
 ## Related
 
 - [Document Upload and Analysis](document-upload-analysis.md)

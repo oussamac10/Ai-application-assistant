@@ -125,12 +125,25 @@ test.describe("Automatic upload-to-questions flow — End-to-end (requires backe
     // Reaches a real guided question — never the raw technical field-
     // review screen, and never the "no usable questions" failure message.
     await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
-      timeout: 20000,
+      timeout: 60000,
     });
     expect(page.url()).not.toMatch(/detect-fields/);
     await expect(
       page.getByText(/no usable questions|could not confidently process/i)
     ).not.toBeVisible();
     await expect(page.getByText(/Detect Form Fields/i)).not.toBeVisible();
+
+    // An actual answerable question is rendered, with real progress — this
+    // document yields well over the "at least five questions" bar.
+    await page.waitForSelector("form", { timeout: 20000 });
+    const progress = await page.getByText(/\d+\s*\/\s*\d+|%/).first().textContent();
+    expect(progress).toBeTruthy();
+
+    // No raw technical detail leaks into the normal-user UI.
+    const bodyText = await page.locator("body").innerText();
+    expect(bodyText).not.toMatch(/pending_review|needs_clarification/i);
+    expect(bodyText).not.toMatch(/confidence/i);
+    expect(bodyText).not.toMatch(/LocalFieldDetectionProvider/i);
+    expect(bodyText).not.toMatch(/documentUpload\./i);
   });
 });

@@ -27,6 +27,20 @@ SEGMENT_GAP_HEIGHT_RATIO = 3.5
 # than a normal single-line follow-up.
 LARGE_VERTICAL_GAP_RATIO = 2.5
 
+# Within one physical line, a horizontal gap larger than this multiple of
+# token height marks a *fillable blank* left in running text (e.g. the
+# empty space in "beginnt am ____ und endet am ____"), as opposed to normal
+# inter-word spacing. Measured on real Word-generated German forms: normal
+# word spacing sits at ~0.20-0.22x line height (including inside long
+# justified legal paragraphs), while a deliberate blank measures ~2.1-2.6x
+# — so this threshold sits far above ordinary spacing and far below a real
+# blank, and a callers' trigger-word check (see
+# LocalFieldDetectionProvider._detect_inline_blank_fields) is still
+# required before any candidate is emitted. Deliberately lower than
+# SEGMENT_GAP_HEIGHT_RATIO: segment splitting governs *separate labels*
+# sharing a line, which needs a wider gap than an in-sentence blank.
+INLINE_BLANK_GAP_RATIO = 1.2
+
 # A heading and the option line directly below it must be within this
 # multiple of line height to be considered part of the same choice group.
 CLOSE_BELOW_RATIO = 2.5

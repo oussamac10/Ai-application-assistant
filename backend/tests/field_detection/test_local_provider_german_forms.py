@@ -160,30 +160,126 @@ def test_label_above_far_blank_line_is_not_linked() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _word_tokens(
+    words: list[tuple[str, float]], y: float = 200, height: float = 14
+) -> tuple[DetectionToken, ...]:
+    """Builds one token per word at explicit x positions, mirroring how
+    PyMuPDF's `get_text("words")` actually reports a line — the inline-blank
+    detector measures the gap between adjacent *word* tokens, so a test
+    fixture must not lump a whole phrase into one token."""
+    return tuple(
+        _token(text, x=x, y=y, width=max(len(text) * 5.0, 4.0), height=height)
+        for text, x in words
+    )
+
+
 def test_sentence_embedded_date_fields_are_detected() -> None:
-    tokens = (
-        _token("Das Vertragsverhältnis beginnt am", x=40, y=200, width=180),
-        _token("und endet am", x=280, y=200, width=80),
-        _token(".", x=420, y=200, width=6),
+    # "Das Vertragsverhältnis beginnt am ____ und endet am ____ ." — the two
+    # blanks are pure whitespace, marked only by a wide gap after "am".
+    tokens = _word_tokens(
+        [
+            ("Das", 40),
+            ("Vertragsverhältnis", 62),
+            ("beginnt", 160),
+            ("am", 200),
+            # wide blank gap (>1.2 x 14pt height) before "und"
+            ("und", 280),
+            ("endet", 300),
+            ("am", 330),
+            # wide blank gap before the final full stop
+            (".", 420),
+        ]
     )
     result = LocalFieldDetectionProvider().detect(_single_page_document(tokens))
 
     date_fields = [f for f in result.fields if f.field_type == "date"]
     assert len(date_fields) == 2
-    assert any("beginnt am" in f.label for f in date_fields)
-    assert any("endet am" in f.label for f in date_fields)
+    assert any(f.label.endswith("beginnt am") for f in date_fields)
+    assert any(f.label.endswith("endet am") for f in date_fields)
+    # Page number and both bounding boxes are preserved for later mapping.
+    for field in date_fields:
+        assert field.page_number == 1
+        assert field.label_bounding_box is not None
+        assert field.input_bounding_box is not None
 
 
 def test_sentence_embedded_amount_field_is_detected() -> None:
-    tokens = (
-        _token("Die monatliche Grundmiete beträgt", x=40, y=200, width=190),
-        _token("Euro.", x=280, y=200, width=40),
+    # "Die monatliche Grundmiete beträgt ____ Euro."
+    tokens = _word_tokens(
+        [
+            ("Die", 40),
+            ("monatliche", 62),
+            ("Grundmiete", 130),
+            ("beträgt", 200),
+            # wide blank gap before the currency unit
+            ("Euro.", 300),
+        ]
     )
     result = LocalFieldDetectionProvider().detect(_single_page_document(tokens))
 
     currency_fields = [f for f in result.fields if f.field_type == "currency"]
     assert len(currency_fields) == 1
     assert "beträgt" in currency_fields[0].label
+
+
+def test_sentence_embedded_euro_symbol_amount_is_detected() -> None:
+    # "Die Mietzahlung in Höhe von insgesamt ____ € wird monatlich ..."
+    tokens = _word_tokens(
+        [
+            ("Die", 40),
+            ("Mietzahlung", 62),
+            ("in", 130),
+            ("Höhe", 150),
+            ("von", 180),
+            ("insgesamt", 210),
+            ("€", 300),
+            ("wird", 320),
+            ("monatlich", 350),
+        ]
+    )
+    result = LocalFieldDetectionProvider().detect(_single_page_document(tokens))
+
+    currency_fields = [f for f in result.fields if f.field_type == "currency"]
+    assert len(currency_fields) == 1
+    assert "insgesamt" in currency_fields[0].label
+
+
+def test_sentence_embedded_person_count_is_detected() -> None:
+    # "In den vermieteten Räumlichkeiten sind ____ Personen untergebracht."
+    tokens = _word_tokens(
+        [
+            ("In", 40),
+            ("den", 58),
+            ("vermieteten", 85),
+            ("Räumlichkeiten", 150),
+            ("sind", 230),
+            ("Personen", 320),
+            ("untergebracht.", 380),
+        ]
+    )
+    result = LocalFieldDetectionProvider().detect(_single_page_document(tokens))
+
+    number_fields = [f for f in result.fields if f.field_type == "number"]
+    assert len(number_fields) == 1
+    assert "Personen" in number_fields[0].label
+
+
+def test_normal_word_spacing_never_produces_an_inline_blank_field() -> None:
+    """Ordinary prose containing a date preposition must not become a field
+    just because the trigger word is present — the wide gap is required."""
+    tokens = _word_tokens(
+        [
+            ("Der", 40),
+            ("Vertrag", 62),
+            ("endet", 105),
+            ("am", 135),
+            # normal word spacing (~0.2x height), not a blank
+            ("Monatsende", 155),
+            ("automatisch.", 215),
+        ]
+    )
+    result = LocalFieldDetectionProvider().detect(_single_page_document(tokens))
+    assert [f for f in result.fields if f.field_type == "date"] == []
 
 
 def test_ordinary_prose_sentence_is_never_treated_as_a_field() -> None:
@@ -297,52 +393,123 @@ def _draw(c: canvas.Canvas, y: float, text: str, size: int = 10, x: float = 40) 
 
 
 def build_rental_contract_fixture_pdf(filepath: str) -> None:
-    """A synthetic equivalent of Jobcenter-LK-SM-Muster-Mietvertrag-Zimmer.pdf:
-    3 pages, native text, no AcroForm, Unicode dotted leaders, underscore
-    runs, sentence-embedded date/amount blanks, repeated section labels,
-    German umlauts."""
-    dots = "…" * 32
-    underscores = "_" * 32
+    """A faithful synthetic equivalent of the real
+    Jobcenter-LK-SM-Muster-Mietvertrag-Zimmer.pdf, reproducing every layout
+    trait that actually mattered for detection:
+
+    - 3 pages, native text, no AcroForm widgets, not encrypted;
+    - "Label:" and its Unicode dotted-leader input area rendered far enough
+      apart to land in *separate* segments on the same physical line (this
+      is what the real Word export does, and what the colon+blank-sibling
+      rule handles);
+    - underscore-run input areas for the bank block;
+    - sentence-embedded blanks made of pure whitespace, at the real
+      document's ~2.3x-line-height gap — deliberately below the
+      segment-split threshold, as in the original;
+    - the same short label repeated under a landlord and a tenant section,
+      which must stay two distinct fields;
+    - "§ N Titel" headings and a multi-line legal paragraph plus numbered
+      footnotes, none of which may become fields.
+    """
+    dots = "…" * 25
+    underscores = "_" * 40
 
     c = canvas.Canvas(filepath, pagesize=A4)
 
-    _draw(c, 800, "Mietvertrag für ein Zimmer (Muster)", size=16)
-    _draw(c, 780, "Jobcenter Landkreis – Musterformular", size=9)
-    _draw(c, 750, "1. Vertragsparteien", size=12)
-    _draw(c, 730, f"Name Vermieter {dots}")
-    _draw(c, 710, f"Straße, Nr. {dots}")
-    _draw(c, 690, f"PLZ, Ort {dots}")
-    _draw(c, 660, f"Name Mieter {dots}")
-    _draw(c, 640, f"Straße, Nr. {dots}")
-    _draw(c, 620, f"PLZ, Ort {dots}")
-    _draw(c, 590, "2. Mieträume")
-    _draw(c, 570, f"Anschrift der vermieteten Wohnung {dots}")
-    _draw(c, 550, f"Anzahl der Personen {dots}")
+    # --- page 1: parties (repeated labels) + property + person count -----
+    _draw(c, 780, "Mietvertrag", size=14)
+    _draw(c, 750, "Zwischen dem Vermieter")
+    for y, label in ((720, "Name:"), (700, "Straße, Nr.:"), (680, "PLZ, Ort:")):
+        _draw(c, y, label)
+        _draw(c, y, dots, x=200)  # separate segment on the same line
+    _draw(c, 640, "und dem Mieter")
+    for y, label in ((610, "Name:"), (590, "Straße, Nr.:"), (570, "PLZ, Ort:")):
+        _draw(c, y, label)
+        _draw(c, y, dots, x=200)
+    _draw(c, 530, "wird folgender Mietvertrag geschlossen:")
+    _draw(c, 500, "§ 1 Mietraum / Mieträume", size=11)
+    _draw(c, 480, "Im Haus (Ort, Straße, Haus-Nr., Etage)")
+    _draw(c, 480, dots, x=250)
+    _draw(c, 450, "§ 2 Anzahl der untergebrachten Personen", size=11)
+    # whitespace blank: "sind ____ Personen" (gap ~32pt at ~13.6pt height)
+    _draw(c, 430, "In den vermieteten Räumlichkeiten sind")
+    _draw(c, 430, "Personen untergebracht.", x=250)
     _draw(c, 60, "Seite 1 von 3", size=8)
     c.showPage()
 
-    _draw(c, 800, "3. Mietzeit", size=12)
-    _draw(c, 780, "Das Vertragsverhältnis beginnt am")
-    _draw(c, 400, "und endet am")
-    c.setFont("Helvetica", 10)
-    c.drawString(500, 780, ".")
-    _draw(c, 750, "4. Miete", size=12)
-    _draw(c, 730, "Die monatliche Grundmiete beträgt")
-    c.drawString(320, 730, "Euro.")
-    _draw(c, 700, f"Kontoinhaber {dots}")
-    _draw(c, 680, f"Bank {dots}")
-    _draw(c, 660, f"IBAN {underscores}")
-    _draw(c, 640, f"BIC {underscores}")
+    # --- page 2: dates + amounts (whitespace blanks) + bank block --------
+    _draw(c, 780, "§ 3 Mietdauer", size=11)
+    _draw(c, 755, "Das Vertragsverhältnis beginnt am")
+    _draw(c, 755, "und endet am", x=250)
+    _draw(c, 755, ".", x=350)
+    _draw(c, 730, "Beginn des Mietvertrages ist der")
+    _draw(c, 730, ".", x=250)
+    _draw(c, 700, "§ 4 Mietkosten", size=11)
+    _draw(c, 675, "Die monatliche Grundmiete beträgt")
+    _draw(c, 675, "Euro.", x=250)
+    _draw(c, 655, "Die monatliche Betriebskostenvorauszahlung beträgt")
+    _draw(c, 655, "Euro.", x=320)
+    _draw(c, 635, "Die monatliche Heizkostenvorauszahlung beträgt")
+    _draw(c, 635, "Euro.", x=310)
+    _draw(c, 610, "Die Mietzahlung in Höhe von insgesamt")
+    _draw(c, 610, "€ wird monatlich gezahlt auf:", x=280)
+    for y, label in (
+        (570, "Kontoinhaber:"),
+        (550, "Bank:"),
+        (530, "IBAN:"),
+        (510, "BIC:"),
+    ):
+        _draw(c, y, label)
+        _draw(c, y, underscores, x=200)
+    # Numbered footnotes in the bottom margin — never fields.
+    _draw(
+        c,
+        120,
+        "1 Betriebskosten werden ohne Strom erhoben. Stromabschläge sind",
+        size=8,
+    )
+    _draw(c, 110, "durch den Mieter eigenverantwortlich zu zahlen.", size=8)
     _draw(c, 60, "Seite 2 von 3", size=8)
     c.showPage()
 
-    _draw(c, 800, "5. Unterschriften", size=12)
-    _draw(c, 780, "Ort, Datum")
-    _draw(c, 765, dots)
-    _draw(c, 730, "Unterschrift Vermieter")
-    _draw(c, 715, dots)
-    _draw(c, 680, "Unterschrift Mieter")
-    _draw(c, 665, dots)
+    # --- page 3: legal prose (must be ignored) + signatures -------------
+    _draw(c, 780, "§ 5 Mängel und Schäden an der Wohnung", size=11)
+    _draw(
+        c,
+        755,
+        "1. Zeigt sich in der Wohnung bzw. den überlassenen Räumlichkeiten ein",
+        size=9,
+    )
+    _draw(
+        c,
+        744,
+        "Mangel, so muss dies der Mieter dem Vermieter unverzüglich mitteilen.",
+        size=9,
+    )
+    _draw(
+        c,
+        720,
+        "2. Hat die Wohnung einen nicht unerheblichen Mangel oder fehlt bzw.",
+        size=9,
+    )
+    _draw(
+        c, 709, "entfällt eine zugesicherte Eigenschaft, so kann der Mieter in", size=9
+    )
+    _draw(
+        c,
+        698,
+        "angemessenem Umfang die Miete kürzen, bis der Vermieter den Mangel",
+        size=9,
+    )
+    _draw(c, 687, "abstellt. Weitere Ansprüche bleiben bestehen.", size=9)
+    _draw(c, 650, "§ 6 Kündigungsfrist", size=11)
+    _draw(
+        c,
+        630,
+        "Der Mietvertrag kann durch beide Vertragsparteien mit einer Frist von",
+        size=9,
+    )
+    _draw(c, 619, "4 Wochen zum Monatsende gekündigt werden.", size=9)
     _draw(c, 60, "Seite 3 von 3", size=8)
     c.showPage()
 
@@ -364,14 +531,76 @@ def test_rental_contract_fixture_produces_many_usable_candidates(
         if decide_auto_review_status(f) != "needs_clarification"
     ]
     labels = {f.label for f in usable}
+    keys = {f.normalized_name for f in usable}
 
-    assert len(usable) >= 10
-    assert "Name Vermieter" in labels
-    assert "Name Mieter" in labels
+    # Far more than the "at least five usable questions" bar.
+    assert len(usable) >= 15
+
+    # The landlord's and the tenant's identically-labelled fields both
+    # survive as distinct fields (the whole point of section context).
+    assert "vermieter_name" in keys
+    assert "mieter_name" in keys
+    assert "Vermieter – Name" in labels
+    assert "Mieter – Name" in labels
+
+    # Bank block (underscore input areas).
     assert "IBAN" in labels
     assert "BIC" in labels
+    assert "Kontoinhaber" in labels
+    assert "Bank" in labels
+
     # No decorative dots-only or bare-heading candidate ever appears.
     assert not any(set(label.strip()) <= {"…", " "} for label in labels)
+    assert not any(label.startswith("§") for label in labels)
+
+    # Legal prose, footnotes and the colon-terminated linking sentence are
+    # never turned into fields.
+    for forbidden in (
+        "wird folgender Mietvertrag geschlossen",
+        "Betriebskosten werden ohne Strom erhoben",
+        "Der Mietvertrag kann durch beide Vertragsparteien",
+        "Zeigt sich in der Wohnung",
+    ):
+        assert not any(forbidden in label for label in labels), forbidden
+
+
+def test_rental_contract_fixture_covers_every_required_field_type(
+    tmp_path: Path,
+) -> None:
+    """Every field this document must be able to ask about, with the
+    field type its label/context deterministically implies."""
+    pdf_path = tmp_path / "rental-contract.pdf"
+    build_rental_contract_fixture_pdf(str(pdf_path))
+
+    result = LocalFieldDetectionProvider().detect(
+        extract_native_document_input(pdf_path)
+    )
+    by_key = {f.normalized_name: f for f in result.fields}
+
+    expectations = {
+        "vermieter_name": "text",
+        "vermieter_stra_e_nr": "address",
+        "vermieter_plz_ort": "address",
+        "mieter_name": "text",
+        "mieter_stra_e_nr": "address",
+        "im_haus": "address",
+        "personen": "number",
+        "beginnt_am": "date",
+        "endet_am": "date",
+        "ist_der": "date",
+        "grundmiete": "currency",
+        "insgesamt": "currency",
+        "kontoinhaber": "text",
+        "bank": "text",
+        "iban": "text",
+        "bic": "text",
+    }
+    for fragment, expected_type in expectations.items():
+        field = next((f for k, f in by_key.items() if fragment in k), None)
+        assert field is not None, f"missing field for {fragment!r}"
+        assert (
+            field.field_type == expected_type
+        ), f"{fragment}: expected {expected_type}, got {field.field_type}"
 
 
 # ---------------------------------------------------------------------------
@@ -432,11 +661,13 @@ async def test_rental_contract_reaches_a_real_guided_session(tmp_path: Path) -> 
         assert version is not None
         assert len(version.fields) >= 8
 
+        # Keys are section-prefixed so the landlord's and tenant's
+        # identically-labelled "Name:" fields stay distinct (sections.py).
         field_keys = {f.key for f in version.fields}
-        assert "name_vermieter" in field_keys
-        assert "name_mieter" in field_keys
-        assert "iban" in field_keys
-        assert "bic" in field_keys
+        assert "vermieter_name" in field_keys
+        assert "mieter_name" in field_keys
+        assert any("iban" in k for k in field_keys)
+        assert any("bic" in k for k in field_keys)
     finally:
         db.close()
 
@@ -501,8 +732,8 @@ async def test_one_unknown_type_candidate_does_not_block_the_others(
         assert result.session is not None
         version = FormRepository(db).get_version(result.session.form_version_id)
         field_keys = {f.key for f in version.fields}
-        assert "name_vermieter" in field_keys
-        assert "iban" in field_keys
+        assert "vermieter_name_vermieter" in field_keys
+        assert "vermieter_iban" in field_keys
         assert not any("xyz" in k for k in field_keys)
     finally:
         db.close()

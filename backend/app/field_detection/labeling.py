@@ -6,7 +6,7 @@ not part of the provider-independent contract in providers/base.py.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from app.field_detection.classification import is_blank_run
 from app.field_detection.geometry import (
@@ -34,6 +34,14 @@ class LinePhrase:
     # "IBAN ________________" that relies on layout, not punctuation, to
     # mark where the label ends and the input area begins.
     has_blank_marker: bool = False
+    # True when a *sibling* segment on the same physical line is itself a
+    # blank run. Real forms very commonly render "Name:" and its dotted
+    # input area far enough apart that segment splitting separates them
+    # ("Name:" | "…………………"), so the label segment has no marker of its own
+    # yet is unambiguously a field. Requiring one of these two signals is
+    # what keeps a colon-terminated *prose* line (e.g. "wird folgender
+    # Mietvertrag geschlossen:") from being mistaken for a field label.
+    has_blank_sibling: bool = False
     tokens: tuple[DetectionToken, ...] = field(default_factory=tuple)
 
 
@@ -102,9 +110,15 @@ def build_line_groups(
     groups: list[list[LinePhrase]] = []
     for line_tokens in group_tokens_into_lines(tokens):
         segments = split_line_into_segments(line_tokens)
-        groups.append(
-            [_phrase_from_segment(page_number, segment) for segment in segments]
-        )
+        phrases = [_phrase_from_segment(page_number, segment) for segment in segments]
+        # A blank-run segment anywhere on the line makes every other
+        # segment on that line a blank-adjacent label candidate.
+        if any(is_blank_run(p.text) for p in phrases if not p.has_blank_marker):
+            phrases = [
+                replace(p, has_blank_sibling=True) if not is_blank_run(p.text) else p
+                for p in phrases
+            ]
+        groups.append(phrases)
     return groups
 
 

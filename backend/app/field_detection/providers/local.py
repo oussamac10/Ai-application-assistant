@@ -5,21 +5,33 @@ No AI or cloud dependency. Two mutually exclusive top-level strategies:
 - If the document has AcroForm widgets, they are authoritative: each widget
   already carries a structural field_type, so detection here is about
   finding its nearby label and refining "text" widgets via label wording.
-- Otherwise (plain digital text or OCR output), text is processed in three
+- Otherwise (plain digital text or OCR output), text is processed in five
   ordered passes per page, each pass consuming the lines it recognizes so
   later passes never re-derive a field from the same evidence:
 
   1. Choice groups — a heading line followed by consecutive marker-labeled
      option lines (checkbox brackets -> multiple_choice, radio parens ->
-     single-choice "radio"), read in display order.
+     single-choice "radio"), read in display order. A bare connective
+     ("oder") never names a group, and a "option" that is a full sentence
+     means these are independent statements rather than a choice list.
   2. Confirmation checkboxes — a first-person consent/confirmation sentence
      accompanied by checkbox-marker geometry on the same line.
-  3. Everything else — colon-terminated label/value segments (already split
-     per physical line by labeling.build_line_groups, so e.g. "Signature:"
-     and "Date:" sharing one line become separate segments), plus a
-     colon-less label immediately followed by a large blank vertical gap
-     (classified as multiline_text). Footer/margin metadata lines are
-     excluded from this pass by keyword+position, never by exact text.
+  3. Label-above-blank-line — a lone label whose input area is the
+     blank-run line directly beneath it.
+  4. Sentence-embedded blanks — a value left blank inside running text,
+     visible only as an unusually wide inter-word gap, and only accepted
+     when an explicit German trigger word sits next to that gap
+     ("beginnt am ___", "beträgt ___ Euro", "sind ___ Personen").
+  5. Everything else — label/value segments marked by a colon and/or an
+     adjacent blank run (dots/underscores), plus a colon-less label
+     followed by a large blank vertical gap (classified as
+     multiline_text). Footer/margin metadata lines are excluded from this
+     pass by keyword+position, never by exact text.
+
+Throughout, a candidate found under a party or "§ N" section carries that
+section in its stable key (see sections.py), so the same short label
+repeated for a landlord and a tenant stays two distinct fields instead of
+being deduplicated down to one.
 
 Confidence always reflects how much of this evidence was actually found;
 normalization.py downgrades anything below the low-confidence threshold to
@@ -38,11 +50,14 @@ from app.field_detection.classification import (
     is_footer_metadata,
     is_probably_prose_label,
     marker_type,
+    starts_with_blank_run,
 )
 from app.field_detection.geometry import (
     CLOSE_BELOW_RATIO,
+    INLINE_BLANK_GAP_RATIO,
     is_close_below,
     is_large_vertical_gap,
+    right_edge,
     union_bounding_box,
 )
 from app.field_detection.labeling import (
@@ -65,6 +80,34 @@ from app.field_detection.providers.base import (
     DetectionResult,
     DetectionToken,
 )
+from app.field_detection.sections import (
+    SectionContext,
+    detect_context,
+    is_section_heading,
+)
+
+
+def _contextual_label(label: str, context: SectionContext | None) -> str:
+    """Prefixes a user-visible label with its party context when there is
+    one ("Name" -> "Vermieter – Name"), so two same-named fields from
+    different sections read unambiguously in the guided flow."""
+    if context is None or not context.label_prefix:
+        return label
+    if context.label_prefix.lower() in label.lower():
+        return label
+    return f"{context.label_prefix} – {label}"
+
+
+def _contextual_name(label: str, context: SectionContext | None) -> str:
+    """Builds the stable, deduplication-relevant name, prefixed with the
+    section's key so the same label under two sections stays two fields."""
+    base = normalize_field_name(label)
+    if context is None or not context.key_prefix:
+        return base
+    if base.startswith(f"{context.key_prefix}_"):
+        return base
+    return f"{context.key_prefix}_{base}"
+
 
 _ACROFORM_TYPE_MAP = {
     "checkbox": "checkbox",
@@ -76,24 +119,35 @@ _ACROFORM_TYPE_MAP = {
 
 # German sentence-embedded blank triggers (see
 # LocalFieldDetectionProvider._detect_inline_blank_fields). Deterministic
-# and deliberately narrow — matched only against the last word of a
-# segment (date) or the first word of the following segment (currency
-# unit), never against arbitrary prose.
-_INLINE_DATE_TRIGGER_WORDS = frozenset({"am", "datum", "termin"})
-_INLINE_CURRENCY_TRIGGER_WORDS = frozenset(
-    {
-        "beträgt",
-        "betraegt",
-        "kostet",
-        "betragen",
-        "miete",
-        "kaution",
-        "nebenkosten",
-        "vorauszahlung",
-        "gesamtmiete",
-    }
-)
+# and deliberately narrow — matched only against the single word directly
+# on either side of the wide gap, never against arbitrary prose.
+#
+# Words that, immediately *before* a wide inline gap, mark the blank as a
+# date ("beginnt am ___", "endet am ___", "ist der ___").
+_INLINE_DATE_TRIGGER_WORDS = frozenset({"am", "datum", "termin", "der", "zum", "bis"})
+# Units that, immediately *after* a wide inline gap, mark it as an amount
+# ("beträgt ___ Euro", "insgesamt ___ €").
 _INLINE_CURRENCY_SUFFIX_WORDS = frozenset({"euro", "eur", "€"})
+# Counted nouns that, immediately after a wide gap, mark it as an integer
+# ("sind ___ Personen untergebracht").
+_INLINE_COUNT_NOUNS = frozenset({"personen", "person", "zimmer", "räume", "raume"})
+# How many words before the blank to keep as its label.
+_INLINE_LABEL_MAX_WORDS = 5
+
+# Bare connectives never name a choice group. German forms use a lone
+# "oder" between mutually exclusive *statements* ("Eine Miete wird nicht
+# gezahlt." / "Die monatliche Grundmiete beträgt ___ Euro."); treating that
+# as a group label would swallow those statements as "options" and hide the
+# real fields inside them.
+_CONNECTIVE_ONLY_HEADINGS = frozenset(
+    {"oder", "or", "und", "and", "bzw.", "bzw", "ou", "أو"}
+)
+
+# A choice option is a short phrase ("Küche", "die Waschküche inkl.
+# Waschmaschine und ggf. Trockenplatz"). A complete sentence — which in
+# these forms always ends with a full stop — is an independent statement,
+# not an option.
+_MAX_OPTION_WORDS = 10
 
 _HUMANIZE_UNDERSCORE = str.maketrans("_-", "  ")
 
@@ -204,6 +258,23 @@ class LocalFieldDetectionProvider:
 
         return candidates
 
+    @staticmethod
+    def _build_context_map(
+        line_groups: list[list[LinePhrase]],
+    ) -> dict[int, SectionContext | None]:
+        """Maps each line index to the section context established by the
+        nearest preceding context line (a "§ N Title" heading or a short
+        party-introducing line). See app/field_detection/sections.py."""
+        context_map: dict[int, SectionContext | None] = {}
+        active: SectionContext | None = None
+        for index, group in enumerate(line_groups):
+            line_text = " ".join(p.text for p in group).strip()
+            established = detect_context(line_text)
+            if established is not None:
+                active = established
+            context_map[index] = active
+        return context_map
+
     def _detect_from_text_lines(
         self, document: DetectionDocumentInput
     ) -> list[DetectedFieldCandidate]:
@@ -211,9 +282,10 @@ class LocalFieldDetectionProvider:
 
         for page in document.pages:
             line_groups = build_line_groups(page.page_number, page.tokens)
+            context_map = self._build_context_map(line_groups)
 
             choice_candidates, consumed = self._detect_choice_groups(
-                page.page_number, line_groups
+                page.page_number, line_groups, context_map
             )
             candidates.extend(choice_candidates)
 
@@ -225,22 +297,27 @@ class LocalFieldDetectionProvider:
 
             candidates.extend(
                 self._detect_label_above_blank_line_fields(
-                    page.page_number, line_groups, consumed
+                    page.page_number, line_groups, consumed, context_map
                 )
             )
 
             candidates.extend(
                 self._detect_inline_blank_fields(
-                    page.page_number, line_groups, consumed
+                    page.page_number, line_groups, consumed, context_map
                 )
             )
 
-            candidates.extend(self._detect_normal_fields(page, line_groups, consumed))
+            candidates.extend(
+                self._detect_normal_fields(page, line_groups, consumed, context_map)
+            )
 
         return candidates
 
     def _detect_choice_groups(
-        self, page_number: int, line_groups: list[list[LinePhrase]]
+        self,
+        page_number: int,
+        line_groups: list[list[LinePhrase]],
+        context_map: dict[int, SectionContext | None],
     ) -> tuple[list[DetectedFieldCandidate], set[int]]:
         candidates: list[DetectedFieldCandidate] = []
         consumed: set[int] = set()
@@ -259,6 +336,8 @@ class LocalFieldDetectionProvider:
             heading_text = " ".join(p.text for p in heading_group).strip()
             heading_text = heading_text.rstrip(":").strip()
             if not heading_text:
+                continue
+            if heading_text.lower() in _CONNECTIVE_ONLY_HEADINGS:
                 continue
 
             options: list[tuple[str, str]] = []
@@ -296,6 +375,22 @@ class LocalFieldDetectionProvider:
             if len(options) < 2:
                 continue
 
+            # A real choice option is a short phrase. A complete sentence
+            # (ending in a full stop) means these are not options at all but
+            # consecutive checkbox-prefixed *statements* — independent
+            # alternative clauses whose semantics we cannot safely guess,
+            # and which often contain the real fillable fields themselves
+            # ("Die monatliche Grundmiete beträgt ___ Euro."). Skip the
+            # group rather than invent an incompatible choice; the
+            # individual lines stay available to the later passes, which is
+            # how those inline amounts get detected.
+            if any(
+                option_label.rstrip().endswith(".")
+                or len(option_label.split()) > _MAX_OPTION_WORDS
+                for _, option_label in options
+            ):
+                continue
+
             marker_kinds = {kind for kind, _ in options}
             marker_kind = options[0][0] if len(marker_kinds) == 1 else None
             if marker_kind == "checkbox":
@@ -312,13 +407,31 @@ class LocalFieldDetectionProvider:
             consumed.add(heading_index)
             consumed.update(option_indices)
 
+            # The line immediately above an option list is often the tail
+            # of a prose sentence rather than a real group label ("bzw. die
+            # Zimmer ist/sind abschließbar."). When it reads as prose, fall
+            # back to the enclosing "§ N Title" section name, which is what
+            # actually describes the group.
+            context = context_map.get(heading_index)
+            if is_probably_prose_label(heading_text) or heading_text.endswith("."):
+                if context is not None and context.title:
+                    heading_text = context.title
+                else:
+                    # No section name to fall back on — a choice group with
+                    # only a prose line to name it cannot be described
+                    # safely, so skip it rather than ask an unclear
+                    # question.
+                    consumed.difference_update(option_indices)
+                    consumed.discard(heading_index)
+                    continue
+
             option_boxes = [line_boxes[i] for i in option_indices]
             candidates.append(
                 DetectedFieldCandidate(
                     candidate_key=f"choice-{page_number}-{heading_index}",
                     page_number=page_number,
                     label=heading_text,
-                    normalized_name=normalize_field_name(heading_text),
+                    normalized_name=_contextual_name(heading_text, context),
                     field_type=field_type,
                     confidence=choice_group_confidence(marker_kind),
                     source=heading_tokens[0].source,
@@ -373,6 +486,7 @@ class LocalFieldDetectionProvider:
         page: DetectionPageInput,
         line_groups: list[list[LinePhrase]],
         consumed: set[int],
+        context_map: dict[int, SectionContext | None],
     ) -> list[DetectedFieldCandidate]:
         candidates: list[DetectedFieldCandidate] = []
         line_boxes = [_line_box(group) for group in line_groups]
@@ -388,46 +502,54 @@ class LocalFieldDetectionProvider:
                     continue
                 if is_footer_metadata(phrase.text, phrase.bounding_box.y, page.height):
                     continue
+                # A "§ N ..." heading names a section, never a field.
+                if is_section_heading(phrase.text):
+                    continue
+                # A segment that is itself only a blank run — or that
+                # *starts* with one — is the input area, not a label.
+                if is_blank_run(phrase.text) or starts_with_blank_run(phrase.text):
+                    continue
 
-                # A label needs either a colon or its own detected blank-
-                # run marker (dots/underscores — see
-                # classification.is_blank_run) to be treated as an actual
-                # field, as opposed to a title/subtitle/instructional
-                # sentence — plain prose has neither and is excluded here
-                # rather than guessed at from spacing alone. Only a line
-                # consisting of a single label (no sibling segment sharing
-                # the physical line, e.g. not the "Signature: / Date:"
-                # case) can be a multiline label — a split-line segment is
-                # a short discrete field, never a blank-area label.
-                if not (phrase.has_colon or phrase.has_blank_marker):
-                    continue
-                if not phrase.text:
-                    continue
-                # A colon-terminated sentence that merely happens to end
-                # with ":" (e.g. introducing a list) is not a field label —
-                # only guard the colon path; a blank-run marker is strong
-                # enough evidence on its own regardless of label length.
-                if (
+                # Evidence that this is a field label: a colon (the classic
+                # "Label:" form), a blank run in this same segment ("IBAN
+                # ______"), or a blank run in a sibling segment on the same
+                # line ("Name:" | "…………"), which is how Word-generated
+                # German forms overwhelmingly lay this out.
+                if not (
                     phrase.has_colon
-                    and not phrase.has_blank_marker
-                    and is_probably_prose_label(phrase.text)
+                    or phrase.has_blank_marker
+                    or phrase.has_blank_sibling
                 ):
                     continue
-
-                # A blank-run marker (e.g. "……………") is a placeholder for
-                # where the user will write their answer — it is never
-                # real prefilled data, so it must never be surfaced as
-                # existing_value (which the UI would otherwise show as a
-                # pre-filled answer to confirm).
-                trailing_is_blank_only = bool(phrase.trailing_text) and all(
-                    is_blank_run(part) or not part
-                    for part in phrase.trailing_text.split()
-                )
+                # A long sentence is prose, never a short field label.
+                if is_probably_prose_label(phrase.text):
+                    continue
+                # A multi-word phrase starting in lower case is the tail of
+                # a sentence wrapped from the previous line, not a label —
+                # in both German and English a real label is a capitalized
+                # noun phrase or an acronym ("Name:", "IBAN:", "PLZ, Ort:"),
+                # whereas prose continuations read "wird folgender
+                # Mietvertrag geschlossen:" / "auf folgendes Konto des
+                # Vermieters gezahlt:". A single lower-case word is left
+                # alone, since "email:" is a plausible label.
+                if (
+                    len(phrase.text.split()) >= 3
+                    and phrase.text[:1].islower()
+                    and not phrase.has_blank_marker
+                ):
+                    continue
 
                 has_large_gap_below = (
                     len(group) == 1
                     and next_box is not None
                     and is_large_vertical_gap(phrase.bounding_box, next_box)
+                )
+                trailing_is_blank_only = bool(phrase.trailing_text) and all(
+                    is_blank_run(part) or not part
+                    for part in phrase.trailing_text.split()
+                )
+                has_real_trailing_value = (
+                    bool(phrase.trailing_text) and not trailing_is_blank_only
                 )
 
                 if has_large_gap_below and not phrase.trailing_text:
@@ -436,7 +558,7 @@ class LocalFieldDetectionProvider:
                 else:
                     value_type = (
                         classify_value_pattern(phrase.trailing_text)
-                        if phrase.trailing_text and not trailing_is_blank_only
+                        if has_real_trailing_value
                         else None
                     )
                     label_type = classify_label(phrase.text)
@@ -447,7 +569,7 @@ class LocalFieldDetectionProvider:
                     elif label_type != "text":
                         field_type = label_type
                         confidence = 0.65
-                    elif phrase.has_blank_marker:
+                    elif phrase.has_blank_marker or phrase.has_blank_sibling:
                         # No keyword matched, but a real blank-run marker
                         # is direct layout evidence this is a genuine
                         # fillable field (not a guess from spacing alone).
@@ -457,22 +579,26 @@ class LocalFieldDetectionProvider:
                         field_type = "text"
                         confidence = 0.55
 
+                context = context_map.get(index)
                 candidates.append(
                     DetectedFieldCandidate(
                         candidate_key=(
                             f"page{page.page_number}-line{index}-seg{segment_index}"
                         ),
                         page_number=page.page_number,
-                        label=phrase.text,
-                        normalized_name=normalize_field_name(phrase.text),
+                        label=_contextual_label(phrase.text, context),
+                        normalized_name=_contextual_name(phrase.text, context),
                         field_type=field_type,
                         confidence=confidence,
                         source=phrase.source,
                         label_bounding_box=phrase.bounding_box,
+                        # A blank-run marker (e.g. "……………") is a placeholder
+                        # for where the user will write their answer — it is
+                        # never real prefilled data, so it must never be
+                        # surfaced as existing_value (which the UI would
+                        # otherwise show as a pre-filled answer to confirm).
                         existing_value=(
-                            None
-                            if trailing_is_blank_only
-                            else (phrase.trailing_text or None)
+                            phrase.trailing_text if has_real_trailing_value else None
                         ),
                     )
                 )
@@ -484,6 +610,7 @@ class LocalFieldDetectionProvider:
         page_number: int,
         line_groups: list[list[LinePhrase]],
         consumed: set[int],
+        context_map: dict[int, SectionContext | None],
     ) -> list[DetectedFieldCandidate]:
         """A label on its own line, immediately followed by a line that is
         *only* a blank-run marker (dots/underscores) — a layout German
@@ -500,6 +627,11 @@ class LocalFieldDetectionProvider:
             if phrase.has_colon or phrase.has_blank_marker or not phrase.text:
                 continue
             if is_probably_prose_label(phrase.text) or is_blank_run(phrase.text):
+                continue
+            # "§ 9 Sonstige Vereinbarungen" names a section; the blank area
+            # under it belongs to that section, but the heading itself is
+            # not a field label and must not become a question.
+            if is_section_heading(phrase.text):
                 continue
 
             next_index = index + 1
@@ -521,14 +653,15 @@ class LocalFieldDetectionProvider:
 
             label_type = classify_label(phrase.text)
             field_type = label_type
-            confidence = 0.65 if label_type != "text" else 0.55
+            confidence = 0.65 if label_type != "text" else 0.6
 
+            context = context_map.get(index)
             candidates.append(
                 DetectedFieldCandidate(
                     candidate_key=f"page{page_number}-labelabove-{index}",
                     page_number=page_number,
-                    label=phrase.text,
-                    normalized_name=normalize_field_name(phrase.text),
+                    label=_contextual_label(phrase.text, context),
+                    normalized_name=_contextual_name(phrase.text, context),
                     field_type=field_type,
                     confidence=confidence,
                     source=phrase.source,
@@ -544,68 +677,98 @@ class LocalFieldDetectionProvider:
         page_number: int,
         line_groups: list[list[LinePhrase]],
         consumed: set[int],
+        context_map: dict[int, SectionContext | None],
     ) -> list[DetectedFieldCandidate]:
-        """Sentence-embedded blanks: a date or amount value left blank in
-        the middle of a prose sentence (e.g. "Das Vertragsverhältnis
-        beginnt am ... und endet am ...", "Die monatliche Grundmiete
-        beträgt ... Euro."). Exporters commonly leave enough horizontal
-        space for handwriting that `split_line_into_segments` already
-        splits the sentence around it — detected here only when a segment
-        ends with a recognized German date/amount trigger word (or the
-        following segment starts with a currency unit), never from
-        arbitrary prose, so normal legal paragraphs are never mistaken for
-        fields."""
+        """Sentence-embedded blanks: a value left blank inside running text
+        (e.g. "Das Vertragsverhältnis beginnt am ____ und endet am ____.",
+        "Die monatliche Grundmiete beträgt ____ Euro.", "sind ____
+        Personen untergebracht").
+
+        These blanks are pure whitespace — no dots, no underscores, no
+        AcroForm widget — so the only signal is an unusually wide gap
+        between two adjacent words. Measured on real Word-generated German
+        forms, normal word spacing is ~0.2x line height while a deliberate
+        blank is ~2.1-2.6x, so `INLINE_BLANK_GAP_RATIO` separates them with
+        a wide margin (see geometry.py).
+
+        A wide gap alone is never enough to emit a field: the words
+        immediately around the gap must also match an explicit German
+        trigger (a date preposition before it, a currency unit or counted
+        noun after it). That keeps justified legal paragraphs — which can
+        stretch inter-word spacing — from ever producing candidates.
+        """
         candidates: list[DetectedFieldCandidate] = []
 
         for index, group in enumerate(line_groups):
-            if index in consumed or len(group) < 2:
+            if index in consumed:
                 continue
 
             found_any = False
-            for segment_index in range(len(group) - 1):
-                current = group[segment_index]
-                following = group[segment_index + 1]
-                current_words = current.text.split()
-                if not current_words:
-                    continue
-                last_word = current_words[-1].strip(".,;:").lower()
-                following_words = following.text.split() if following.text else []
-                following_first = (
-                    following_words[0].strip(".,;:").lower() if following_words else ""
-                )
-
-                field_type: str | None = None
-                if last_word in _INLINE_DATE_TRIGGER_WORDS:
-                    field_type = "date"
-                elif following_first in _INLINE_CURRENCY_SUFFIX_WORDS:
-                    lowered_current = {w.strip(".,;:").lower() for w in current_words}
-                    if lowered_current & _INLINE_CURRENCY_TRIGGER_WORDS:
-                        field_type = "currency"
-
-                if field_type is None:
-                    continue
-
-                label = " ".join(current_words[-4:])
-                found_any = True
-                candidates.append(
-                    DetectedFieldCandidate(
-                        candidate_key=(
-                            f"page{page_number}-inline-{index}-{segment_index}"
-                        ),
-                        page_number=page_number,
-                        label=label,
-                        normalized_name=normalize_field_name(
-                            f"{label}_{index}_{segment_index}"
-                        ),
-                        field_type=field_type,
-                        confidence=0.6,
-                        source=(
-                            current.tokens[0].source if current.tokens else "native"
-                        ),
-                        label_bounding_box=current.bounding_box,
-                        input_bounding_box=following.bounding_box,
+            # Scan the whole physical line in reading order rather than
+            # per segment: depending on how wide the blank is, segment
+            # splitting may or may not have already cut the line at exactly
+            # that gap, and the blank must be found either way.
+            tokens = sorted(_line_tokens(group), key=lambda t: t.bounding_box.x)
+            if len(tokens) >= 2:
+                for token_index, (before, after) in enumerate(
+                    zip(tokens, tokens[1:], strict=False)
+                ):
+                    gap = after.bounding_box.x - right_edge(before.bounding_box)
+                    height = max(
+                        before.bounding_box.height, after.bounding_box.height, 1.0
                     )
-                )
+                    if gap <= INLINE_BLANK_GAP_RATIO * height:
+                        continue
+
+                    preceding_word = before.text.strip(".,;:()").lower()
+                    following_word = after.text.strip(".,;:()").lower()
+
+                    if preceding_word in _INLINE_DATE_TRIGGER_WORDS:
+                        field_type = "date"
+                    elif following_word in _INLINE_CURRENCY_SUFFIX_WORDS:
+                        field_type = "currency"
+                    elif following_word in _INLINE_COUNT_NOUNS:
+                        field_type = "number"
+                    else:
+                        continue
+
+                    # Label from the words leading up to the blank — that
+                    # is what actually identifies the value being asked for
+                    # ("Die monatliche Grundmiete beträgt").
+                    words_before = [t.text for t in tokens[: token_index + 1]]
+                    label = " ".join(words_before[-_INLINE_LABEL_MAX_WORDS:]).strip()
+                    label = label.lstrip("[_] ").strip()
+                    if following_word in _INLINE_COUNT_NOUNS:
+                        label = f"{label} {after.text}".strip()
+                    if not label:
+                        continue
+
+                    context = context_map.get(index)
+                    found_any = True
+                    candidates.append(
+                        DetectedFieldCandidate(
+                            candidate_key=(
+                                f"page{page_number}-inline-{index}-{token_index}"
+                            ),
+                            page_number=page_number,
+                            label=label,
+                            # The label already carries the words leading up
+                            # to the blank, so two blanks on one line stay
+                            # distinct ("Das Vertragsverhältnis beginnt am"
+                            # vs "beginnt am und endet am") without needing
+                            # a positional suffix — and, deliberately, two
+                            # *identically* worded blanks in one section
+                            # (the same clause repeated for a befristet /
+                            # unbefristet alternative) collapse into one
+                            # question instead of asking the user twice.
+                            normalized_name=_contextual_name(label, context),
+                            field_type=field_type,
+                            confidence=0.6,
+                            source=before.source,
+                            label_bounding_box=before.bounding_box,
+                            input_bounding_box=after.bounding_box,
+                        )
+                    )
 
             if found_any:
                 consumed.add(index)
