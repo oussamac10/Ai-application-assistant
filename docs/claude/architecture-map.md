@@ -16,6 +16,9 @@
 - `backend/app/field_detection/`: dynamic field-detection provider abstraction, extraction, review API, question-generation bridge, Phase 13 confidence routing (`confidence.py`) and orchestration (`orchestration.py`)
 - `backend/app/field_detection/notices.py`: deterministic filtering of non-field
   document content (notices, instructions, footers)
+- `backend/app/field_detection/quality.py`: Phase 16 deterministic
+  extraction-quality score; `providers/hybrid.py`: local-first routing that
+  escalates to Azure only below the threshold
 - `backend/app/field_detection/option_groups.py`: Phase 15 selection-mark grouping and
   evidence-based parent-label inference; `requiredness.py`: three-state required/optional
   detection; `direction.py`: RTL-aware reading order

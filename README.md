@@ -24,6 +24,14 @@ questions that have no value, and a rejection lists every blocking field by key 
 instead of one sentence about one field. See
 [ADR 0016](docs/decisions/0016-three-state-requiredness-and-structured-confirmation.md).
 
+Field detection then gained a `hybrid` provider: the local pass runs on every document, its
+output is scored deterministically, and Azure Document Intelligence is called only when that
+score says the document was not read — so an ordinary digital form costs nothing while a hard one
+still works. Escalation can only improve the answer, and no model participates in the decision to
+spend. Set `FIELD_DETECTION_PROVIDER=hybrid`; it works with Azure unconfigured, in which case it
+simply serves the local result. See
+[ADR 0017](docs/decisions/0017-hybrid-local-first-field-detection.md).
+
 Phase 15 (completed) —
 [`docs/phases/phase-15-azure-translator.md`](docs/phases/phase-15-azure-translator.md).
 Translation now lives behind its own `TranslationProvider` abstraction (mock / Ollama / Azure

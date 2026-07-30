@@ -69,20 +69,32 @@ Decisions and rejected alternatives:
 
 ## Part 2 — Hybrid local-first detection
 
-Not started. Attempt local detection first, score extraction quality deterministically, call Azure
-only when the local result is insufficient, preserve cached Azure results, record fallback
-reasons, enforce page and cost limits, and compare both providers against fixed fixtures. AI never
-decides provider spending.
+`FIELD_DETECTION_PROVIDER=hybrid` runs the local pass on every document, scores it
+deterministically (`app/field_detection/quality.py`: field count, label quality, input evidence
+and provider confidence, weighted — no model, no network call), and calls Azure only below
+`HYBRID_LOCAL_QUALITY_THRESHOLD`.
+
+Escalation can only improve the answer: a failure, a missing configuration, or an Azure result
+scoring no higher all serve the local result. `HYBRID_MAX_ESCALATION_PAGES` blocks long documents
+regardless of score, checked before quality so the reported reason is the useful one. Cost
+accounting follows the engine that actually answered, and `hybrid` deliberately does not fail
+startup without Azure credentials — unconfigured means "cannot escalate".
+
+Decisions: [ADR 0017](../decisions/0017-hybrid-local-first-field-detection.md).
 
 ## Out of scope
 
 - Per-field admin override of requiredness (carried)
+- Per-tenant/per-period spend caps and escalation-rate dashboards (Phase 23)
 - Background jobs / progress polling (Phase 20)
-- Billing or quota enforcement — cost *limits* only, no metering product
 
 ## Status
 
-Part 1 implemented and verified. Part 2 not started.
+Both parts implemented and verified, committed separately.
 
-Backend **859 passed**, ruff / `ruff format --check` / mypy clean (157 files), migration
+Backend **891 passed**, ruff / `ruff format --check` / mypy clean (159 files), migration
 `cae821cb676c` round-trips. Frontend **157 passed**, lint and typecheck clean.
+
+Live under `hybrid`: the German rental contract scores 0.826 and is served locally with **no
+Azure call**; a one-field PDF escalates and has its equal-scoring Azure result discarded
+(`azure_not_better`). Both guards observed in production, not only in tests.

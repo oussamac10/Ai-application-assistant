@@ -62,8 +62,12 @@ _METERED_PROVIDERS = frozenset({"azure"})
 
 def _active_model_id() -> str | None:
     """The model identifier that participates in the cache fingerprint.
-    Only remote providers have one."""
-    if settings.FIELD_DETECTION_PROVIDER == "azure":
+
+    `hybrid` is included even though it usually answers locally: when it does
+    escalate, the answer came from that model, and a model change must
+    invalidate the cached result exactly as it does for `azure`.
+    """
+    if settings.FIELD_DETECTION_PROVIDER in ("azure", "hybrid"):
         return settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID
     return None
 
@@ -101,6 +105,10 @@ def build_default_provider() -> FieldDetectionProvider:
         )
 
         return AzureDocumentIntelligenceProvider()
+    if settings.FIELD_DETECTION_PROVIDER == "hybrid":
+        from app.field_detection.providers.hybrid import HybridFieldDetectionProvider
+
+        return HybridFieldDetectionProvider()
     raise FieldDetectionValidationError(
         f"Unknown field detection provider '{settings.FIELD_DETECTION_PROVIDER}'.",
         "field_detection_not_required",
@@ -407,12 +415,17 @@ class FieldDetectionService:
     def _record_cache_hit(
         self, doc: SourceDocument, existing: FieldDetectionResult
     ) -> None:
-        if settings.FIELD_DETECTION_PROVIDER not in _METERED_PROVIDERS:
+        # Keyed on the provider that actually produced the stored fields, not
+        # the configured one. Under `hybrid` the configured name says nothing
+        # about cost: a locally-answered document is free, and an escalated one
+        # is a saved Azure call worth recording.
+        served_by = existing.provider_name or settings.FIELD_DETECTION_PROVIDER
+        if served_by not in _METERED_PROVIDERS:
             return
         try:
             record_provider_usage(
                 self.db,
-                provider=settings.FIELD_DETECTION_PROVIDER,
+                provider=served_by,
                 source_document_id=doc.id,
                 model_id=_active_model_id(),
                 api_version=settings.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,

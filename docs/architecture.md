@@ -81,8 +81,20 @@ selected by `FIELD_DETECTION_PROVIDER`:
 FieldDetectionProvider (Protocol)
 ├── MockFieldDetectionProvider          deterministic, for tests/dev
 ├── LocalFieldDetectionProvider         rules-based, no network, the default
-└── AzureDocumentIntelligenceProvider   hosted Azure Document Intelligence (opt-in)
+├── AzureDocumentIntelligenceProvider   hosted Azure Document Intelligence (opt-in)
+└── HybridFieldDetectionProvider        local-first, escalating to Azure (Phase 16)
 ```
+
+`hybrid` runs the local pass on every document, scores the result
+deterministically (`app/field_detection/quality.py`: field count, label quality,
+input evidence and the provider's own confidence, weighted), and calls Azure only
+below `HYBRID_LOCAL_QUALITY_THRESHOLD` — so an ordinary digital form costs
+nothing. Escalation can only improve the answer: a failure, a missing
+configuration, or an Azure result that scores no higher all serve the local
+result, and `HYBRID_MAX_ESCALATION_PAGES` blocks long documents regardless of
+score. No model participates in the decision, per the domain rule that AI never
+decides provider spending. See
+[ADR 0017](decisions/0017-hybrid-local-first-field-detection.md).
 
 The Azure provider converts Azure `words`/`selectionMarks` into the same `DetectionToken`
 shape the local provider consumes and reuses its text passes, then adds Azure's own

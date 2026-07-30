@@ -4,9 +4,29 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Phase 16 **Part 1** — validation and requiredness stabilization. Part 2 (hybrid local-first
-detection routing) has not been started, per the brief's instruction not to begin routing work
-until these regressions are fixed, tested, documented, committed and manually verified.
+Phase 16, **both parts**, committed separately as instructed:
+
+- `fix: stabilize optional unknown and required field validation`
+- `feat: add hybrid local-first document detection`
+
+Part 1 is described in full below. Part 2 adds `FIELD_DETECTION_PROVIDER=hybrid`: the local pass
+runs on every document, its output is scored deterministically
+(`app/field_detection/quality.py` — field count, label quality, input evidence and the provider's
+own confidence, weighted; no model, no network call), and Azure is called only below
+`HYBRID_LOCAL_QUALITY_THRESHOLD`. Escalation can only improve the answer — a failure, a missing
+configuration, or an Azure result scoring no higher all serve the local result — and
+`HYBRID_MAX_ESCALATION_PAGES` blocks long documents regardless of score.
+
+Live under `hybrid`, both guards fired in production rather than only in tests:
+
+```
+used=local reason=local_sufficient  pages=3 local_score=0.826 local_fields=19   (Azure never called)
+used=local reason=azure_not_better  pages=1 local_score=0.482 azure_score=0.482
+```
+
+`.env` was restored to `FIELD_DETECTION_PROVIDER=azure` afterwards — switching the deployment
+default to `hybrid` is an operational decision, not one this work should make silently.
+See [ADR 0017](../decisions/0017-hybrid-local-first-field-detection.md).
 
 ## What was actually wrong
 
@@ -121,10 +141,18 @@ nine more evidence cases in `tests/field_detection/test_requiredness.py`, and on
 
 ## Next action
 
-Phase 16 **Part 2** — hybrid local-first detection routing. Only after Part 1 is committed as
-`fix: stabilize optional unknown and required field validation` and manually verified against a
-real form.
+Phase 16 is complete. Do not start Phase 17 (Administration and Content Review) until explicitly
+requested.
+
+Two things are worth doing before then, both operational rather than code:
+
+- Decide whether the deployment default becomes `FIELD_DETECTION_PROVIDER=hybrid`. The evidence
+  says yes — the reference document is served free and correctly — but it changes billing
+  behaviour, so it is the user's call.
+- Per-tenant/per-period spend caps and escalation-rate visibility are deliberately deferred to
+  Phase 23; the routing log line is the only view today.
 
 ## Decisions
 
-[ADR 0016](../decisions/0016-three-state-requiredness-and-structured-confirmation.md).
+[ADR 0016](../decisions/0016-three-state-requiredness-and-structured-confirmation.md),
+[ADR 0017](../decisions/0017-hybrid-local-first-field-detection.md).

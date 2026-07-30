@@ -148,6 +148,14 @@ holds a third-party API key. The controls around it:
 - **Off by default, double-gated.** Both `AZURE_DOCUMENT_INTELLIGENCE_ENABLED=true` and
   `FIELD_DETECTION_PROVIDER=azure` are required; enabling one alone is rejected at startup,
   so a document cannot be sent to a third party by a single-variable mistake.
+- **Hybrid routing keeps the same gate.** `FIELD_DETECTION_PROVIDER=hybrid` escalates to Azure
+  only when `AZURE_DOCUMENT_INTELLIGENCE_ENABLED` is true *and* an endpoint and key are present;
+  with any of those missing it serves the local result and records `azure_not_configured`. A
+  document is never uploaded to a third party as a side effect of a poor local score alone.
+  The escalation decision itself is deterministic arithmetic (`app/field_detection/quality.py`) —
+  no model can decide to send a document off-machine or to spend money — and
+  `HYBRID_MAX_ESCALATION_PAGES` caps what may be sent at all. The routing log line carries scores,
+  counts and durations only: no label, coordinate, page text or credential.
 - **Fail fast, but only when selected.** Missing/invalid Azure settings raise at startup
   when Azure is the chosen provider; the local and mock providers keep working with every
   `AZURE_*` variable unset.

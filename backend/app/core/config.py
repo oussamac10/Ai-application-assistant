@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _SUPPORTED_PROVIDERS = frozenset({"mock", "ollama"})
 _SUPPORTED_OCR_PROVIDERS = frozenset({"mock", "local"})
-_SUPPORTED_FIELD_DETECTION_PROVIDERS = frozenset({"mock", "local", "azure"})
+_SUPPORTED_FIELD_DETECTION_PROVIDERS = frozenset({"mock", "local", "azure", "hybrid"})
 _SUPPORTED_TRANSLATION_PROVIDERS = frozenset({"mock", "ollama", "azure"})
 
 
@@ -118,6 +118,21 @@ class Settings(BaseSettings):
     AZURE_DOCUMENT_INTELLIGENCE_API_VERSION: str = "2024-11-30"
     AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT_SECONDS: int = 120
     AZURE_DOCUMENT_INTELLIGENCE_MAX_RETRIES: int = 1
+
+    # Hybrid local-first routing (Phase 16). The local pass always runs; Azure
+    # is called only when the local result scores below the threshold. Both
+    # limits are deterministic — no model participates in a spending decision.
+    #
+    # The threshold is a weighted quality score in 0-1 (see
+    # app/field_detection/quality.py). 0.55 sits between the reference
+    # documents: the German rental contract and the French employment form
+    # score well above it locally, the Arabic form that collapsed to two
+    # candidates scores far below.
+    HYBRID_LOCAL_QUALITY_THRESHOLD: float = 0.55
+    # A hard ceiling on what may be escalated. A long document is where an
+    # automatic hosted call is most expensive and least likely to be intended,
+    # so it is never escalated regardless of quality.
+    HYBRID_MAX_ESCALATION_PAGES: int = 10
 
     # "auto": review_status is assigned automatically per the thresholds above
     # and the normal-user upload flow generates questions without a manual
@@ -329,10 +344,21 @@ class Settings(BaseSettings):
             raise ValueError(
                 "FIELD_DETECTION_REVIEW_MODE must be one of: auto, manual."
             )
+        if not (0.0 <= self.HYBRID_LOCAL_QUALITY_THRESHOLD <= 1.0):
+            raise ValueError(
+                "HYBRID_LOCAL_QUALITY_THRESHOLD must be between 0.0 and 1.0."
+            )
+        if self.HYBRID_MAX_ESCALATION_PAGES <= 0:
+            raise ValueError("HYBRID_MAX_ESCALATION_PAGES must be a positive integer.")
         # Azure credentials are validated only when Azure is actually the
         # selected provider — the local/mock providers must keep working
         # with every AZURE_* setting unset. Error messages never echo the
         # key back, only the name of the missing/invalid setting.
+        #
+        # `hybrid` is deliberately *not* included: it runs the local pass
+        # first and treats an unconfigured Azure as "cannot escalate", which
+        # is a documented, working mode. Failing startup there would make the
+        # cheap default impossible to deploy without a paid account.
         if self.FIELD_DETECTION_PROVIDER == "azure":
             if not self.AZURE_DOCUMENT_INTELLIGENCE_ENABLED:
                 raise ValueError(

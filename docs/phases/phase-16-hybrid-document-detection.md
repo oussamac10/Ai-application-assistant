@@ -159,10 +159,96 @@ plus `e2e/requiredness-and-skip-flow.spec.ts`.
 
 ## Part 2 — Hybrid local-first detection
 
-Not started. Begins only once Part 1 is committed and manually verified.
+Rationale and rejected alternatives:
+[ADR 0017](../decisions/0017-hybrid-local-first-field-detection.md).
 
-Planned: attempt local detection first, score extraction quality
-deterministically, call Azure only when the local result is insufficient,
-preserve cached Azure results, record fallback reasons, enforce page and cost
-limits, and compare both providers against fixed fixtures. No AI decides
-provider spending.
+`FIELD_DETECTION_PROVIDER=hybrid` runs the local pass first and calls Azure only
+when the local result was measurably poor.
+
+```
+app/field_detection/quality.py            deterministic extraction score
+app/field_detection/providers/hybrid.py   the routing itself
+```
+
+### The score
+
+Four weighted signals, computed from the candidates themselves — no model, no
+network call, and deliberately **not** a confidence about the document:
+
+| signal | weight | catches |
+|---|---|---|
+| field count | 0.25 | a form that yielded one or two candidates was not read |
+| label quality | 0.40 | placeholder/numeric/one-character labels — geometry found, questions not |
+| input evidence | 0.20 | labels with nowhere to write |
+| mean confidence | 0.15 | the local provider's own per-candidate confidence |
+
+### The decision
+
+```
+local pass runs (always)
+├── score >= HYBRID_LOCAL_QUALITY_THRESHOLD  -> local_sufficient
+├── pages > HYBRID_MAX_ESCALATION_PAGES      -> page_limit_exceeded
+├── Azure not configured                     -> azure_not_configured
+└── otherwise escalate
+    ├── Azure raises                         -> azure_failed        (serve local)
+    ├── Azure scores no higher               -> azure_not_better    (serve local)
+    └── Azure scores higher                  -> escalated_to_azure  (serve Azure)
+```
+
+Every branch serves *something*: a failed escalation costs time and nothing
+else. The page limit is checked before quality, so a blocked document reports
+the limit rather than its score.
+
+### Configuration
+
+```bash
+FIELD_DETECTION_PROVIDER=hybrid
+HYBRID_LOCAL_QUALITY_THRESHOLD=0.55   # escalate below this
+HYBRID_MAX_ESCALATION_PAGES=10        # hard ceiling, whatever the score
+```
+
+`hybrid` does **not** require Azure credentials. Unconfigured means "cannot
+escalate", which is a working mode identical to the old `local` provider.
+
+### Cost accounting
+
+An escalated result keeps Azure's own `provider_name`, so it is metered and its
+model/request id recorded; a locally-answered document reports no diagnostics at
+all, because there was no metered call to describe. Cache hits are metered
+against the *stored* provider name. The cache fingerprint includes the Azure
+model id under `hybrid` too, so a model change invalidates an escalated result.
+
+### Measured on the committed German rental contract
+
+| | score | fields | label quality | input evidence |
+|---|---|---|---|---|
+| local | **0.826** | 19 | 1.00 | 0.42 |
+| Azure (recorded response, same PDF) | 0.826 | 19 | 1.00 | 0.42 |
+
+Well above the 0.55 threshold, so a document like it is never billed — and the
+two providers agree exactly, because the Azure provider reuses the local text
+passes over Azure's tokens. On this document escalation would have bought
+nothing, which is the case local-first exists for.
+
+### Live verification (`FIELD_DETECTION_PROVIDER=hybrid`, real stack)
+
+```
+used=local reason=local_sufficient  pages=3 local_score=0.826 local_fields=19
+                                    azure_duration=0.00s          <- never called
+used=local reason=azure_not_better  pages=1 local_score=0.482 local_fields=1
+                                    azure_score=0.482 azure_fields=1 azure_duration=4.48s
+```
+
+Both guards observed in production, not only in tests: the German contract is
+served locally with no Azure call at all, and a one-field PDF escalates
+correctly but has its equal-scoring Azure result discarded.
+`automatic-upload-to-questions-flow.spec.ts` under `hybrid`: 3 passed (14.1 s).
+
+### Tests
+
+`tests/field_detection/test_hybrid_routing.py` (28) covers the score and every
+routing branch with a stubbed Azure side.
+`tests/field_detection/test_hybrid_fixture_comparison.py` (4) runs both
+providers over the committed PDF and its recorded Azure response, so a change to
+either extractor that would flip a real document's routing fails in CI rather
+than on a bill.
