@@ -42,7 +42,10 @@
     "submitSummary": "Confirm and Finalize Summary",
     "warning": "Important: By confirming, you verify that all details are correct. No automatic submission is performed.",
     "skipped": "Skipped",
-    "missingRequired": "Missing required answer"
+    "missingRequired": "Missing required answer",
+    "notAnswered": "Not answered",
+    "invalidAnswer": "Answer needs attention",
+    "blockedByFields": "{count} question(s) still need your attention before you can finalize."
   },
   "complete": {
     "title": "Form Ready for Export",

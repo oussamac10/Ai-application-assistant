@@ -200,16 +200,17 @@ def _log_question_shape(document_public_id: str, fields: list[DetectedField]) ->
     )
 
 
-def _resolve_required(detected_field: DetectedField) -> bool:
-    """Whether the generated question blocks progress when left empty.
+def _resolve_requiredness(detected_field: DetectedField) -> str:
+    """What the *document* said about this field: required, optional, unknown.
 
-    A detection that already carries an explicit flag (an AcroForm field says
-    so outright) is trusted. Otherwise the label is inspected for a marker,
-    and anything unmarked resolves to *not* blocking.
+    A detection carrying an explicit flag (an AcroForm field says so outright)
+    is trusted; otherwise the label is inspected for a marker. Absence of a
+    marker is recorded as `unknown` and stays that way — it is not resolved to
+    either answer, because the document gave neither.
     """
-    if detected_field.required is not None:
-        return bool(detected_field.required)
-    return detect_requiredness(detected_field.label or "").blocks_progress
+    return detect_requiredness(
+        detected_field.label or "", acroform_required=detected_field.required
+    ).state
 
 
 def _requiredness_counts(fields: list[DetectedField]) -> dict[str, int]:
@@ -217,13 +218,7 @@ def _requiredness_counts(fields: list[DetectedField]) -> dict[str, int]:
     label ever reaches a log through this."""
     counts = {"required": 0, "optional": 0, "unknown": 0}
     for detected in fields:
-        if detected.required is True:
-            counts["required"] += 1
-        elif detected.required is False:
-            counts["optional"] += 1
-        else:
-            state = detect_requiredness(detected.label or "").state
-            counts["required" if state == "required" else state] += 1
+        counts[_resolve_requiredness(detected)] += 1
     return counts
 
 
@@ -629,8 +624,9 @@ async def create_session_from_confirmed_fields(
                     # Defaulting an unmarked field to required blocked users
                     # on fields the form never insisted on; `unknown` is
                     # recorded honestly and does not block. See
-                    # app/field_detection/requiredness.py.
-                    required=_resolve_required(detected_field),
+                    # app/field_detection/requiredness.py. `required` is
+                    # derived from this by FormService.
+                    requiredness=_resolve_requiredness(detected_field),
                     position=position,
                     configuration={},
                     translations=_label_translations(

@@ -57,6 +57,10 @@ class CurrentFieldResponse(BaseSchema):
     key: str
     field_type: str
     required: bool
+    # "required" | "optional" | "unknown". `required` is the legacy boolean and
+    # cannot express "the document said nothing"; the frontend shows a
+    # requiredness label only for the two states that are actually a finding.
+    requiredness: str = "unknown"
     position: int
     label: str
     help_text: str | None = None
@@ -79,13 +83,23 @@ class SummaryFieldAnswer(BaseSchema):
     field_key: str
     label: str
     required: bool
+    requiredness: str = "unknown"
     original_answer: str | None = None
     normalized_value: Any | None = None
     output_value: str | None = None
     status: str = "unanswered"
+    # "unreached" | "unanswered" | "skipped" | "answered" | "invalid".
+    # What the user did, independent of what the document demanded — the
+    # summary must tell a deliberate skip from a question never reached.
+    answer_state: str = "unreached"
     validation_status: str = "not_checked"
     confirmed_by_user: bool = False
 
 
 class SummaryResponse(BaseSchema):
     fields: list[SummaryFieldAnswer]
+
+
+class ReopenFieldResponse(BaseSchema):
+    field_id: str
+    position: int

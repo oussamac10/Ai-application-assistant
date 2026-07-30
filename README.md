@@ -11,9 +11,20 @@ The AI Form Assistant bridges the language gap by allowing users to complete for
 
 It guides the user through the form one field at a time, normalizing, validating, and confirming answers.
 
-## Current Phase: Phase 15 — Azure Translator Integration
+## Current Phase: Phase 16 — Hybrid Document Detection
 
 See [`docs/claude/current-phase.md`](docs/claude/current-phase.md) and
+[`docs/phases/phase-16-hybrid-document-detection.md`](docs/phases/phase-16-hybrid-document-detection.md).
+
+The phase opens with a stabilization pass on validation and requiredness. A field now records
+what the document actually declared — `required`, `optional`, or **`unknown`** when it said
+nothing — instead of a boolean that had to guess, and the interface shows no requiredness label
+at all for `unknown` rather than claiming "Optional". Confirming the summary no longer validates
+questions that have no value, and a rejection lists every blocking field by key and reason code
+instead of one sentence about one field. See
+[ADR 0016](docs/decisions/0016-three-state-requiredness-and-structured-confirmation.md).
+
+Phase 15 (completed) —
 [`docs/phases/phase-15-azure-translator.md`](docs/phases/phase-15-azure-translator.md).
 Translation now lives behind its own `TranslationProvider` abstraction (mock / Ollama / Azure
 Translator) rather than riding on the AI provider, the document's source language is detected

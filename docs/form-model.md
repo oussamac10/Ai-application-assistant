@@ -35,7 +35,11 @@ Represents a question or input field inside a form version.
 - `form_version_id` (UUID): Reference to parent version.
 - `key` (String): Unique field identifier within version.
 - `field_type` (String): One of: `string`, `multiline_text`, `date`, `integer`, `decimal`, `money`, `boolean`, `single_choice`, `multiple_choice`, `email`, `phone`, `address`, `country`, `person_name`.
-- `required` (Boolean): Validation requirement.
+- `requiredness` (String): What the *document* declared. One of:
+  - `required`: the form said so (AcroForm flag, adjacent asterisk, an explicit marker word, or a form-level "all fields are required" statement).
+  - `optional`: the form said so ("Optional", "Facultatif", "Freiwillig", "اختياري", or a native flag).
+  - `unknown`: the form said nothing. Never collapsed into either direction — it neither blocks the user nor claims the document made a statement it did not.
+- `required` (Boolean): Legacy validation requirement, **derived** from `requiredness` (`required == (requiredness == "required")`) and kept in sync on every write. Not the source of truth: a boolean cannot express `unknown`, which is the ordinary case for a detected form.
 - `position` (Integer): Ordering position.
 - `configuration` (JSON): Validation constraints depending on field type.
 

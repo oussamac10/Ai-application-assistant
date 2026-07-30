@@ -6,7 +6,8 @@ import { useTranslations } from "next-intl";
 import {
   getSummary,
   confirmSummary,
-  changeAnswer,
+  reopenField,
+  ApiError,
   Summary,
 } from "@/features/form-session/services/apiClient";
 import { removeSessionToken } from "@/features/form-session/services/sessionCredentials";
@@ -24,6 +25,10 @@ export default function SessionSummary() {
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // fieldKey -> reason code, from the last rejected confirmation.
+  const [blockingFields, setBlockingFields] = useState<Map<string, string>>(
+    new Map(),
+  );
 
   useEffect(() => {
     // No early credential check: a claimed session has no anonymous token
@@ -46,18 +51,17 @@ export default function SessionSummary() {
     loadSummary();
   }, [sessionId, te]);
 
-  const handleEditField = async (
-    fieldId: string,
-    originalAnswer: string | null,
-  ) => {
+  const handleEditField = async (fieldId: string) => {
     try {
       setLoading(true);
       setErrorMsg(null);
 
-      // Call changeAnswer with the existing originalAnswer (if null, empty string) to unconfirm it
-      await changeAnswer(sessionId, fieldId, originalAnswer || "");
+      // Reopen is navigation, not a submission. Editing used to re-submit the
+      // field's existing answer to un-confirm it, which sent an empty string
+      // for a question that had none — so skipped and unanswered questions
+      // could not be edited at all.
+      await reopenField(sessionId, fieldId);
 
-      // Redirect back to guided workflow page. The backend will serve this field since it is now unconfirmed.
       router.push(`/application/session/${sessionId}`);
     } catch (err: any) {
       setErrorMsg(te(err.message) || "Failed to initiate field edit.");
@@ -78,6 +82,23 @@ export default function SessionSummary() {
       // Redirect to export/complete screen
       router.push(`/application/session/${sessionId}/complete`);
     } catch (err: any) {
+      // The backend names every blocking question rather than one generic
+      // sentence, so mark them all at once instead of sending the user round
+      // the loop field by field.
+      if (err instanceof ApiError && err.status === 409) {
+        const blocking = [
+          ...err.missingRequiredFields,
+          ...err.invalidAnswerFields,
+        ];
+        if (blocking.length > 0) {
+          setBlockingFields(
+            new Map(blocking.map((p) => [p.fieldKey, p.reason])),
+          );
+          setErrorMsg(t("blockedByFields", { count: blocking.length }));
+          setSubmitting(false);
+          return;
+        }
+      }
       setErrorMsg(
         te(err.message) || "Failed to finalize summary confirmation.",
       );
@@ -101,9 +122,42 @@ export default function SessionSummary() {
     );
   }
 
-  const hasIncompleteFields = summary?.fields.some(
-    (f) => f.required && f.status !== "confirmed",
-  );
+  /** The three states the summary must tell apart, plus the two it already
+   * knew. Derived from `answerState` (what the user did) crossed with
+   * requiredness (what the document demanded) — never from one alone, which is
+   * how a deliberate skip came to be reported as an invalid value. */
+  type RowState =
+    | "confirmed"
+    | "skipped"
+    | "notAnswered"
+    | "missingRequired"
+    | "invalid"
+    | "pending";
+
+  const rowState = (f: Summary["fields"][number]): RowState => {
+    const requiredness =
+      f.requiredness ?? (f.required ? "required" : "unknown");
+    const state = f.answerState ?? (f.status === "skipped" ? "skipped" : null);
+
+    if (state === "skipped") return "skipped";
+    if (state === "invalid") return "invalid";
+    if (f.status === "confirmed") return "confirmed";
+    // A required question is not finished until it is confirmed — answered but
+    // unconfirmed still blocks, and the backend says so too.
+    if (requiredness === "required") return "missingRequired";
+    if (state === "unreached" || state === "unanswered" || !f.originalAnswer) {
+      // A form that said nothing asked for nothing, so nothing is *missing*.
+      return "notAnswered";
+    }
+    return "pending";
+  };
+
+  // Optional and unknown questions left unanswered never block. Only an
+  // explicitly required question without a confirmed answer does.
+  const hasIncompleteFields = summary?.fields.some((f) => {
+    const state = rowState(f);
+    return state === "missingRequired" || state === "invalid";
+  });
 
   return (
     <main className="flex min-h-screen flex-col bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 text-slate-100 px-4 py-12 sm:px-6 lg:px-8">
@@ -141,25 +195,30 @@ export default function SessionSummary() {
                   </thead>
                   <tbody className="divide-y divide-slate-850">
                     {summary?.fields.map((f) => {
-                      const isConfirmed = f.status === "confirmed";
-                      // A skipped optional question is a decision, not a
-                      // problem: it must never be shown as missing or invalid.
-                      const isSkipped = f.status === "skipped";
-                      const isRequiredIncomplete =
-                        f.required && !isConfirmed && !isSkipped;
+                      const state = rowState(f);
+                      const blocks =
+                        state === "missingRequired" ||
+                        state === "invalid" ||
+                        blockingFields.has(f.fieldKey);
+                      const isRequired =
+                        (f.requiredness ??
+                          (f.required ? "required" : "unknown")) === "required";
 
                       return (
                         <tr
                           key={f.fieldId}
+                          data-testid={`summary-row-${f.fieldKey}`}
+                          data-state={state}
                           className={`transition ${
-                            isRequiredIncomplete
-                              ? "bg-rose-950/10"
-                              : "hover:bg-slate-900/20"
+                            blocks ? "bg-rose-950/10" : "hover:bg-slate-900/20"
                           }`}
                         >
                           <td className="px-4 py-4 font-semibold text-slate-200">
                             {f.label}
-                            {f.required && (
+                            {/* Only a real finding is marked. An unmarked
+                                question shows nothing rather than claiming
+                                the form said something it did not. */}
+                            {isRequired && (
                               <span className="text-indigo-400 ml-1">*</span>
                             )}
                           </td>
@@ -171,27 +230,32 @@ export default function SessionSummary() {
                           </td>
                           <td className="px-4 py-4">
                             <span
+                              data-testid={`summary-status-${f.fieldKey}`}
                               className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                isConfirmed
+                                state === "confirmed"
                                   ? "bg-emerald-500/10 text-emerald-400"
-                                  : isRequiredIncomplete
+                                  : blocks
                                     ? "bg-rose-500/10 text-rose-400 animate-pulse"
                                     : "bg-slate-800 text-slate-400"
                               }`}
                             >
-                              {isSkipped
+                              {state === "skipped"
                                 ? t("skipped")
-                                : isRequiredIncomplete
-                                  ? t("missingRequired")
-                                  : f.status}
+                                : state === "notAnswered"
+                                  ? t("notAnswered")
+                                  : state === "missingRequired"
+                                    ? t("missingRequired")
+                                    : state === "invalid"
+                                      ? t("invalidAnswer")
+                                      : f.status}
                             </span>
                           </td>
                           <td className="px-4 py-4 text-right">
+                            {/* Every row is editable, including a skipped or
+                                never answered one. */}
                             <button
                               type="button"
-                              onClick={() =>
-                                handleEditField(f.fieldId, f.originalAnswer)
-                              }
+                              onClick={() => handleEditField(f.fieldId)}
                               className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition"
                             >
                               {tc("edit")}

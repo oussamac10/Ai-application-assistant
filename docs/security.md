@@ -66,7 +66,10 @@ stateDiagram-v2
 - **Field Context Verification**: The API validates that the requested field ID belongs to the active form version associated with the session. Requests targeting fields outside this version are rejected with a `422 Unprocessable Entity` validation error.
 - **One Answer Per Field**: The database layer enforces a unique constraint `uq_session_field_answer` on `(session_id, field_id)`. Re-submitting or editing an answer overwrites the existing record in-place instead of creating duplicates.
 - **Server-Side Validation**: All input normalization and validation occur deterministically on the backend to prevent bypasses or injections.
-- **Final Summary Consistency**: The session finalization endpoint (`POST /confirm-summary`) double-checks that all required fields are confirmed, no errors exist, and no answers are in clarification states.
+- **Final Summary Consistency**: The session finalization endpoint (`POST /confirm-summary`) double-checks that every **explicitly required** field is confirmed and that no *submitted* answer is invalid or awaiting clarification. Questions the document marked optional, or marked in no way at all, never block finalization whether they were skipped or simply left alone.
+- **Validators See Values Only**: A blank submission is rejected with `422` rather than stored, and a skip stores nulls. Nothing null, blank, skipped or unreached is ever passed to the date parser, the email/number/currency/enum validators, normalization, AI clarification or the confirmation workflow — so no validator can report on a value that does not exist.
+- **Structured, Private-Free Rejections**: A rejected finalization returns `code: "summary_not_confirmable"` with `missing_required_fields` and `invalid_answer_fields`. Each entry carries a **field key and a reason code only**. Submitted values, human labels and normalized forms are private and never appear in an error response or a log line — `tests/answers/test_confirm_summary_requiredness.py` asserts this directly.
+- **Counts-Only Confirmation Diagnostics**: The one log line per confirmation attempt records field and answer *counts* by state (`required_fields`, `unknown_requiredness_fields`, `missing_required_fields`, `skipped_fields`, `invalid_answered_fields`, …) and nothing else — no answer, name, address, email, IBAN, ownership token or document text.
 
 ---
 

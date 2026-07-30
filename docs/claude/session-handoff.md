@@ -4,145 +4,127 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Phase 15 follow-up: automatic document-language detection, honest provider metrics, RTL field
-grouping, and removal of the output-language selector. Azure Translator is now live and verified.
+Phase 16 **Part 1** — validation and requiredness stabilization. Part 2 (hybrid local-first
+detection routing) has not been started, per the brief's instruction not to begin routing work
+until these regressions are fixed, tested, documented, committed and manually verified.
 
-### What was actually wrong
-
-Live testing produced this log line:
+## What was actually wrong
 
 ```
-provider=azure  provider_latency=42.62s  detected_source=en  fallback_calls=1
+POST /api/form-sessions/{id}/confirm-summary
+409  {"detail": "Field 'date_de_d_but_d_emploi' contains invalid value."}
 ```
 
-Every part of it was misleading, and it took four separate fixes:
+The field was empty. Every clause of that response was wrong, and two independent defects met in
+one line of `confirm_summary`:
 
-1. **No document-language detection existed.** `detected_source=en` was Ollama's *assumed*
-   language recorded as if it were a detection. Azure's `detectedLanguage` could never have
-   filled the gap on its own — it only arrives *with* a translation, so a document needing none
-   has no answer.
-2. **One combined latency field.** Azure was failing in ~0.15 s; Ollama was spending the 42.6 s.
-3. **Counters incremented on provider *selection*.** That produced the impossible
-   `provider_calls=1 characters=0 latency=0.00s`.
-4. **`normalize_field_name` stripped non-ASCII**, so every Arabic label became the literal
-   `"field"` and deduplication collapsed a 27-field form into 2 questions. Separately, Azure
-   merged three rows into one key-value pair.
+```python
+if ans:
+    if ans.validation_status != "valid":
+        raise StateConflictError(f"Field '{field.key}' contains invalid value.")
+```
 
-### What was built
+1. **It ran on the absence of a value.** `if ans:` fires for any answer record. A skip stores
+   `validation_status="not_checked"` *by design*, so deliberately skipping an optional question
+   made the summary permanently unconfirmable — reported as an invalid value, about a field that
+   had none.
+2. **Requiredness was a boolean.** Phase 15 built three-state detection
+   (`app/field_detection/requiredness.py`) and then discarded the third state:
+   `question_bridge` collapsed it through `blocks_progress` into `FormField.required: bool`. For
+   a detected form `unknown` is the *majority* case, so most questions became required. The
+   frontend read the same boolean and rendered an unconditional paragraph — labelling every
+   unmarked question "Optional", a claim no document had made.
+3. The first `raise` won, so a user with several problems found them one request at a time.
+4. Editing from the summary re-submitted the field's stored answer to un-confirm it, which meant
+   submitting an empty string for a question that had none — so skipped and unanswered questions
+   were not editable at all.
 
-- `app/language/` — `DocumentLanguageDetector` (local, deterministic, dependency-free; script
-  first, then function-word frequency), filtered sampling, persistence on `source_documents`
-  (migration `e1975a7403eb`), reuse, documented precedence, and `und` as a real answer.
-- `TranslationUsage.source_language_is_detected` — an assumption can no longer outvote a real
-  detection.
-- Separate `primary_*` / `fallback_*` metrics plus `fallback_reason`; counters come from real
-  outbound requests; a failed call carries its own cost on the exception.
-- Azure custom-subdomain path (`/translator/text/v3.0/translate`) *and* the global `/translate`,
-  with 404 mapped to `endpoint_not_found` and never retried.
-- `normalize_field_name`: ASCII slug first (German/English byte-identical), Unicode fallback,
-  deterministic hash for punctuation-only labels.
-- Multi-line Azure key-value keys split into one candidate per line.
-- Direction-aware geometry for `ar`/`he`/`fa`/`ur`.
-- `tests/conftest.py` pins providers so the suite never calls a live service.
-- The upload flow's "Select completed form language" dropdown is gone; `outputLanguage` is
-  optional and resolved from the detected document language.
+## What was built
 
-## Third round — question shape (options, compound fields, requiredness)
-
-Live French-form testing showed the pipeline preserving a document's *text* but losing its
-*semantics*. Fixed:
-
-- `app/field_detection/option_groups.py` — a selection-mark row becomes **one** question.
-  Previously each option became its own free-text question and the real question never
-  existed. Group naming: recognised option set -> section heading -> neutral + review flag.
-  One question per row, never merged (adjacent rows can be unrelated questions).
-- `classification.compound_concepts()` — "Code postal, ville" keeps `address` (which is
-  permissive) while unrelated pairs ("Lieu et date") fall back to `text`. The rejection of
-  `70188, Stuttgart` was the address validator demanding street *and* city; it now needs
-  one recognisable part.
-- `app/field_detection/requiredness.py` — three states from evidence. Everything defaulted
-  to required before, blocking users on fields the form never insisted on. No evidence ->
-  `unknown`, which never blocks.
-- `app/answers/normalization/context.py` — proper-noun labels pin the answer's **output**
-  value verbatim (`stuttgart` was being transliterated into Arabic); currency comes from
-  the label (`2000` was becoming `USD 2000`), with an invented currency removed but a
-  user-typed one kept.
-- Validation errors render once: field-level for 400/422, banner for global failures.
-- French language detection fixed by weighting function words by how many languages claim
-  them ("de" says little, "vous" is decisive) and keeping only discriminative diacritics.
-
-Result (French form, Arabic UI): 6 option groups, 23 options folded in, **0** option labels
-leaking as text questions, `Code postal, ville` accepting `70188, Stuttgart`, 38 fields
-`unknown` requiredness and none blocking, 4.64 s. German and Arabic unchanged.
-
-**Two regressions this introduced, found and fixed:** progress read "Question 1 of 0
-(100%)" and the summary was unreachable, both because they counted *required* fields only.
-`ProgressInfo` gained `totalQuestions`/`answeredQuestions`.
-
-## Fourth round — non-field content and optional skipping
-
-- **"Attention" became question 1.** A notice has a field's exact shape, and its body text
-  was being read as the field's *existing value*. `app/field_detection/notices.py` filters
-  notices/instructions/footers, but only when the layout offers no way to enter anything —
-  rejecting a real field is worse than keeping a spurious one.
-- **Skip did nothing.** The handler only re-fetched the current field, and that endpoint
-  returns the stored position, which nothing had moved.
-  `POST /form-sessions/{id}/fields/{field_id}/skip` now persists `status="skipped"` with
-  null values (migration `4575e921695e` makes `original_answer` nullable, with a backfill
-  in the downgrade), runs no validation or normalization, refuses required fields, advances
-  the position and counts toward progress. The summary shows "Skipped", never "missing".
-
-Live: question 1 is now `Nom de famille`; skipping advances to `Prénom`, stores
-`status=skipped` with nulls, and moves progress 0 -> 1 of 37.
-
-## Live results (Azure Translator working, global endpoint)
-
-| | German (UI fr) | Arabic (UI en) | German (UI ar) |
-|---|---|---|---|
-| `source_language` | **de** (0.89) | **ar** (0.99) | de |
-| Azure primary | 1 req, 0.15 s, `2xx` | 1 req, 0.21 s, `2xx` | 1 req, 0.35 s, `2xx` |
-| Fallback | 0 | 0 | 0 |
-| Translation total | **0.19 s** | **0.45 s** | 0.40 s |
-| Total | **5.36 s** | **5.92 s** | 5.35 s |
-| Questions | 24 | **29** (was 2) | 24 |
-
-Repeat request: 0.046 s, zero provider calls. Merged multi-label questions: 0. Stable choice
-values unchanged. Arabic byte-intact.
+- **`FormField.requiredness`** (`required | optional | unknown`) as the source of truth;
+  `required` stays as a derived legacy boolean, kept consistent by
+  `forms/services.py::resolve_requiredness`. Migration `cae821cb676c` backfills existing rows
+  from that boolean (the only evidence they carry) and round-trips.
+- **`app/answers/states.py`** — requiredness (what the *document* said) and answer state
+  (`unreached | unanswered | skipped | answered | invalid`, what the *user* did) as two
+  independent dimensions. Neither is inferred from the other; only the cross-product decides.
+- **`app/answers/errors.py`** — `SummaryNotConfirmableError`, a 409 listing every blocking field
+  as `{field_key, reason}`. Keys and stable reason codes only; a test asserts no submitted value
+  or label appears.
+- **Blank submissions refused** (422) rather than stored, so nothing null, blank, skipped or
+  unreached reaches a validator, normalizer or the AI provider.
+- **Skip** allowed for `optional` *and* `unknown`, refused only for `required`.
+- **`POST /form-sessions/{id}/fields/{field_id}/reopen`** — editing is navigation. It moves the
+  position and withdraws confirmation without touching the value.
+- **`get_current_field`** now honours a deliberately moved position (skip, reopen) instead of
+  always jumping to the first incomplete required field, which would have undone both.
+- **Frontend** — no requiredness label at all for `unknown`; Skip for `optional` and `unknown`,
+  never tied to the input value; the summary distinguishes Skipped / Not answered / Missing
+  required answer / Answer needs attention with every row editable; a rejected confirmation marks
+  every field the backend named. A response missing `requiredness` is read as `unknown`.
+- **Counts-only diagnostics** per confirmation attempt.
+- A leading asterisk (`* Nom`) is now recognised alongside a trailing one, per the brief's
+  evidence list — the regex was anchored to the end only.
 
 ## Verification
 
-Backend **666 passed**, ruff clean, `ruff format --check` clean, mypy clean (151 files),
-migration `e1975a7403eb` round-trips. Frontend **133 passed**, lint and typecheck clean.
-Playwright: see `TODO.md` — several specs were retrofitted because they drove the removed
-`#upload-output-select`.
+Backend **859 passed** (was 809), ruff clean, `ruff format --check` clean on changed files, mypy
+clean (157 files), migration `cae821cb676c` round-trips. Frontend **157 passed** (was 138), lint
+and typecheck clean.
+
+Playwright **30 passed, 1 flaky, 3 failed** — `guided-flow.spec.ts` (pre-existing since Phase 9)
+plus Azure Document Intelligence F0 rate limiting, confirmed in the backend log as
+`code=azure_rate_limited` / `HTTP 429 Too Many Requests` after several uploads in quick
+succession. The new `requiredness-and-skip-flow.spec.ts` run alone after a pause: **4 passed**.
+
+Its fourth test was originally a flaw in the *test*: it tried to type `"pas une date"` into a
+field that renders as a native `<input type="date">`, which refuses a malformed value before the
+app sees it. An invalid date is unreachable through this UI, so it is asserted at the API level
+(`test_case_5_invalid_date_reports_invalid_date`) and the E2E test now covers the other half of
+the reported failure — an empty date is never treated as an answer.
+
+Live on the running stack against a detected French document: `nom_de_famille` reports
+`requiredness=unknown` and no longer blocks; a blank submission returns 422; `confirm-summary`
+returns the structured 409 naming only `signature` (the one asterisk-marked field) with
+`reason=missing_required`; skipping every non-required question then confirms with HTTP 200 —
+the exact scenario that produced the reported failure.
+
+New tests: `tests/answers/test_confirm_summary_requiredness.py` (22, including the six reported
+`date_de_d_but_d_emploi` cases), `tests/field_detection/test_requiredness_persistence.py` (16),
+nine more evidence cases in `tests/field_detection/test_requiredness.py`, and on the frontend
+`guided-session-requiredness.test.tsx` (8), `summary-answer-states.test.tsx` (7),
+`reopen-and-summary-errors.test.ts` (4), plus `e2e/requiredness-and-skip-flow.spec.ts`.
 
 ## Operational gotchas worth remembering
 
-- `docker compose restart` does **not** re-read `.env`; use `up -d --force-recreate`. A stale
-  container showed the old endpoint and key while the file on disk was already correct.
+- **Playwright needs `PLAYWRIGHT_BASE_URL=http://localhost:3003`.** The compose frontend
+  publishes 3003; `playwright.config.ts` defaults to 3000. Without it *every* spec fails on page
+  load, including trivial landing-page ones — which looks like a catastrophic regression and is
+  not one.
 - Never run backend pytest and Playwright against the same dev database at once — pytest
-  `TRUNCATE`s `form_templates` and wipes the fixture mid-run.
+  `TRUNCATE`s `form_templates` and wipes the `basic-registration` fixture mid-run. Reseed with
+  `docker compose exec backend python -m app.commands.load_fixture`.
+- `docker compose restart` does **not** re-read `.env`; use `up -d --force-recreate`.
+- A component test that mocks `next-intl` must return a *stable* function per namespace. The
+  summary page lists its translator in an effect's dependency array, so a fresh function each
+  render re-runs the effect forever and the page never leaves "loading".
 
 ## Known limitations carried forward
 
-- The local detector covers Latin-script European languages and the major non-Latin scripts; it
-  is not a general-purpose language identifier.
-- Azure's key-value grouping remains the dominant signal for Arabic forms — the local text
-  passes contribute only one candidate there.
-- The translation cache is process-local and dropped on restart.
-- Preparation is still synchronous; background jobs remain Phase 20.
-- `guided-flow.spec.ts` default-tab gap (pre-existing since Phase 9).
-- Azure Document Intelligence F0 rate-limits the E2E suite (`HTTP 429`); affected specs
-  pass when re-run after a pause.
-- A long wrapped checklist splits into one question per row (never merged).
-- Azure mistranslates some isolated one-word options (`Français` -> `الإنجليزية`), verified
-  as provider quality with correct per-item ids, not an id-mapping fault.
+- Requiredness has no per-field admin override; the three states are carried and reviewable but
+  not editable.
+- The French employment form from live testing is not committed (it is a real document); the E2E
+  spec builds a synthetic equivalent carrying the three requiredness cases.
+- Everything carried from Phase 15 (process-local translation cache, synchronous preparation,
+  RTL detection quality, `guided-flow.spec.ts` default-tab gap, Azure F0 rate limiting) is
+  unchanged.
 
 ## Next action
 
-Phase 15 is complete and verified end to end. Do not start Phase 16 until explicitly requested.
+Phase 16 **Part 2** — hybrid local-first detection routing. Only after Part 1 is committed as
+`fix: stabilize optional unknown and required field validation` and manually verified against a
+real form.
 
 ## Decisions
 
-[ADR 0015](../decisions/0015-translation-provider-and-azure-translator.md), including the
-addendum covering detection, metrics and RTL grouping.
+[ADR 0016](../decisions/0016-three-state-requiredness-and-structured-confirmation.md).

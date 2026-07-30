@@ -21,6 +21,10 @@
   detection; `direction.py`: RTL-aware reading order
 - `backend/app/answers/normalization/context.py`: deterministic field context
   (currency from the label, proper nouns preserved verbatim)
+- `backend/app/answers/states.py`: Phase 16 requiredness (`required | optional |
+  unknown`) and answer state (`unreached | unanswered | skipped | answered |
+  invalid`) as two independent dimensions; `errors.py`: the structured
+  `summary_not_confirmable` 409 (field keys and reason codes only)
 - `backend/app/language/`: Phase 15 document-language detection
   (`detector.py`), filtered sampling (`sampling.py`), persistence/reuse and
   precedence (`service.py`)

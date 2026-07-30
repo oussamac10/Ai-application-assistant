@@ -8,6 +8,7 @@ from app.ai.errors import AIProviderMalformedResponseError, AIProviderValidation
 from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.ai.schemas import ExtractionRequest, ExtractionResult
 from app.ai.text_translation import translate_text
+from app.answers.errors import FieldProblem, SummaryNotConfirmableError
 from app.answers.models import FormAnswer
 from app.answers.normalization.context import (
     apply_currency_context,
@@ -15,6 +16,18 @@ from app.answers.normalization.context import (
 )
 from app.answers.normalization.normalization import normalize_value
 from app.answers.repositories import AnswerRepository
+from app.answers.states import (
+    ANSWERED,
+    INVALID,
+    REQUIRED,
+    SKIPPED,
+    UNANSWERED,
+    UNREACHED,
+    answer_state,
+    field_requiredness,
+    is_declaration,
+    is_skippable,
+)
 from app.answers.validation.validation import validate_value
 from app.core.config import settings
 from app.forms.models import FormField
@@ -66,6 +79,31 @@ def _source_label(field: FormField) -> str:
 # description of its options — could not answer at all.
 _DETERMINISTIC_CHOICE_TYPES = ("single_choice", "multiple_choice")
 
+# Why an answered value cannot be accepted, by field type. A stable code the
+# frontend can translate — never a sentence, and never the value itself.
+_INVALID_REASON_BY_TYPE: dict[str, str] = {
+    "date": "invalid_date",
+    "email": "invalid_email",
+    "phone": "invalid_phone",
+    "number": "invalid_number",
+    "integer": "invalid_number",
+    "decimal": "invalid_number",
+    "money": "invalid_currency",
+    "currency": "invalid_currency",
+    "country": "invalid_country",
+    "iban": "invalid_iban",
+    "boolean": "invalid_boolean",
+    "single_choice": "invalid_choice",
+    "multiple_choice": "invalid_choice",
+}
+
+
+def _invalid_reason(field: FormField, answer: FormAnswer) -> str:
+    """The stable reason code for an answer that failed."""
+    if answer.requires_clarification:
+        return "needs_clarification"
+    return _INVALID_REASON_BY_TYPE.get(field.field_type, "invalid_value")
+
 
 class AnswerService:
     def __init__(
@@ -107,7 +145,9 @@ class AnswerService:
                 "percentage": 0,
             }
 
-        required_field_ids = {f.id for f in version.fields if f.required}
+        required_field_ids = {
+            f.id for f in version.fields if field_requiredness(f) == REQUIRED
+        }
         total_required = len(required_field_ids)
 
         # Progress the *user* sees is measured over every question they are
@@ -214,6 +254,9 @@ class AnswerService:
             "key": field.key,
             "field_type": field.field_type,
             "required": field.required,
+            # Three states, so the frontend can show "Required", "Optional",
+            # or — when the document said nothing — no label at all.
+            "requiredness": field_requiredness(field),
             "position": field.position,
             "label": label,
             "help_text": help_text,
@@ -231,23 +274,34 @@ class AnswerService:
         if not version or not version.fields:
             raise ResourceNotFoundError("No fields found for this form version.")
 
-        # First incomplete required field
-        # (unanswered, draft, needs_clarification, awaiting_confirmation),
-        # otherwise next position.
         answers = {a.field_id: a for a in self.repo.get_answers_for_session(session.id)}
-        current_field = None
 
-        for field in version.fields:
+        def still_open(field: FormField) -> bool:
             ans = answers.get(field.id)
-            if field.required and (not ans or ans.status != "confirmed"):
-                current_field = field
-                break
+            # A skipped question is dealt with: the user decided about it and
+            # must not be dragged back to it.
+            return ans is None or ans.status not in ("confirmed", "skipped")
 
-        # Fallback to the session's stored position if all required fields are confirmed
-        if not current_field:
-            stored_pos = session.current_field_position
-            fields_by_pos = {f.position: f for f in version.fields}
-            current_field = fields_by_pos.get(stored_pos) or version.fields[0]
+        fields_by_pos = {f.position: f for f in version.fields}
+        stored = fields_by_pos.get(session.current_field_position)
+
+        # The stored position wins whenever it still needs attention. Skip and
+        # "edit this one" both move it deliberately, and a rule that always
+        # jumped to the first incomplete required field would undo them.
+        if stored is not None and still_open(stored):
+            current_field = stored
+        else:
+            # Otherwise resume at the first question that still needs an
+            # answer, mandatory ones first.
+            first_required_open: FormField | None = next(
+                (
+                    f
+                    for f in version.fields
+                    if field_requiredness(f) == REQUIRED and still_open(f)
+                ),
+                None,
+            )
+            current_field = first_required_open or stored or version.fields[0]
 
         # Update session position
         session.current_field_position = current_field.position
@@ -329,6 +383,17 @@ class AnswerService:
         if not field:
             raise ValidationError(
                 "Field does not belong to the session's form version."
+            )
+
+        # A blank submission is not an answer, and it is not a skip either.
+        # Storing it would send an empty string into normalization, the
+        # validators and the AI provider — all of which then report something
+        # about a value that does not exist. Skipping is an explicit action
+        # with its own endpoint and its own state.
+        if not original_answer or not original_answer.strip():
+            raise ValidationError(
+                "An answer cannot be empty. Skip the question instead to leave "
+                "it unanswered."
             )
 
         # Get or create answer
@@ -464,8 +529,10 @@ class AnswerService:
         stored answer carries `status="skipped"` with null values, runs no
         validation and no normalization, and needs no confirmation.
 
-        Skipping a *required* field is refused — the whole point of requiredness
-        is that those cannot be left empty.
+        Skipping is allowed for `optional` **and** `unknown`. Unknown does not
+        mean required: when the document carries no marker, the user must be
+        able to move past a question the form never asked them to answer. Only
+        an explicitly `required` field refuses.
         """
         session = self.session_service.get_session(
             session_id, raw_token, self.current_user_id
@@ -479,7 +546,7 @@ class AnswerService:
             raise ValidationError(
                 "Field does not belong to the session's form version."
             )
-        if field.required:
+        if not is_skippable(field):
             raise ValidationError("A required question cannot be skipped.")
 
         answer = self.repo.get_answer(session.id, field_id)
@@ -514,6 +581,53 @@ class AnswerService:
             field.position,
         )
         return answer
+
+    def reopen_field(
+        self, session_id: str, field_id: str, raw_token: str | None
+    ) -> dict[str, Any]:
+        """Moves the guided flow back to one question so it can be edited.
+
+        The summary's "Edit" used to re-submit the field's existing answer to
+        un-confirm it, which could not work for a question with nothing in it:
+        it submitted an empty string, and — now that a blank is refused — would
+        fail outright. Editing is a *navigation* action, so it moves the
+        session's position and clears confirmation without touching the stored
+        value. A skipped question stays skipped until the user answers it.
+        """
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
+        if session.status != "in_progress":
+            raise StateConflictError("Session is not in progress.")
+
+        version = self.form_repo.get_version(session.form_version_id)
+        if not version:
+            raise ResourceNotFoundError("Form version not found.")
+
+        field = next((f for f in version.fields if f.id == field_id), None)
+        if not field:
+            raise ValidationError(
+                "Field does not belong to the session's form version."
+            )
+
+        answer = self.repo.get_answer(session.id, field_id)
+        if answer is not None and answer.status == "confirmed":
+            # Back to the state a valid answer sits in before confirmation —
+            # the value is kept, only the user's acceptance of it is withdrawn.
+            answer.status = "awaiting_confirmation"
+            answer.confirmed_by_user = False
+            answer.confirmed_at = None
+            self.repo.save_answer(answer)
+
+        session.current_field_position = field.position
+        self.db.commit()
+
+        logger.info(
+            "Question reopened for editing: session=%s position=%d",
+            session.public_id,
+            field.position,
+        )
+        return {"field_id": field.id, "position": field.position}
 
     @staticmethod
     def _apply_choice_answer(
@@ -728,10 +842,16 @@ class AnswerService:
                     "field_key": field.key,
                     "label": translated["label"],
                     "required": field.required,
+                    "requiredness": field_requiredness(field),
                     "original_answer": ans.original_answer if ans else None,
                     "normalized_value": ans.normalized_value if ans else None,
                     "output_value": ans.output_value if ans else None,
                     "status": ans.status if ans else "unanswered",
+                    # What the *user* did, independent of requiredness. The
+                    # summary needs to tell "skipped" from "never reached"
+                    # from "missing a required answer", and `status` alone
+                    # cannot: it says "unanswered" for both of the first two.
+                    "answer_state": answer_state(ans),
                     "validation_status": ans.validation_status
                     if ans
                     else "not_checked",
@@ -740,6 +860,103 @@ class AnswerService:
             )
 
         return summary
+
+    @staticmethod
+    def _log_confirmation_diagnostics(
+        session: Any,
+        version: Any,
+        answers: dict[str, FormAnswer],
+        missing: list[FieldProblem],
+        invalid: list[FieldProblem],
+    ) -> None:
+        """One line saying why a session is or is not confirmable.
+
+        Counts only. No label, no key, no submitted value and no token — the
+        question "why is this form stuck?" is answerable from shape alone, and
+        answers are private (`docs/claude/working-rules.md`).
+        """
+        by_requiredness = {REQUIRED: 0, "optional": 0, "unknown": 0}
+        unanswered_optional = unanswered_unknown = skipped = 0
+        for field in version.fields:
+            state = field_requiredness(field)
+            by_requiredness[state] = by_requiredness.get(state, 0) + 1
+            answer = answers.get(field.id)
+            answer_status = answer_state(answer)
+            if answer_status == SKIPPED:
+                skipped += 1
+            elif answer_status in (UNREACHED, UNANSWERED):
+                if state == "optional":
+                    unanswered_optional += 1
+                elif state == "unknown":
+                    unanswered_unknown += 1
+
+        logger.info(
+            "Summary confirmation check: session=%s confirmable=%s "
+            "required_fields=%d optional_fields=%d unknown_requiredness_fields=%d "
+            "missing_required_fields=%d unanswered_optional_fields=%d "
+            "unanswered_unknown_fields=%d skipped_fields=%d "
+            "invalid_answered_fields=%d",
+            session.public_id,
+            not (missing or invalid),
+            by_requiredness[REQUIRED],
+            by_requiredness["optional"],
+            by_requiredness["unknown"],
+            len(missing),
+            unanswered_optional,
+            unanswered_unknown,
+            skipped,
+            len(invalid),
+        )
+
+    def _missing_required_fields(
+        self, version: Any, answers: dict[str, FormAnswer]
+    ) -> list[FieldProblem]:
+        """Explicitly required questions with nothing usable in them.
+
+        Only `requiredness == "required"` is considered. A question the
+        document never marked cannot be "missing" — there was nothing to
+        supply.
+        """
+        problems: list[FieldProblem] = []
+        for field in version.fields:
+            if field_requiredness(field) != REQUIRED:
+                continue
+            ans = answers.get(field.id)
+            state = answer_state(ans)
+            if state in (UNREACHED, UNANSWERED):
+                problems.append(
+                    FieldProblem(
+                        field.key,
+                        "declaration_not_accepted"
+                        if is_declaration(field)
+                        else "missing_required",
+                    )
+                )
+            elif state == SKIPPED:
+                # Skip is refused for required fields, so this is only
+                # reachable if requiredness changed after the skip.
+                problems.append(FieldProblem(field.key, "required_question_skipped"))
+            elif state == ANSWERED and ans is not None and ans.status != "confirmed":
+                problems.append(FieldProblem(field.key, "not_confirmed"))
+        return problems
+
+    def _invalid_answer_fields(
+        self, version: Any, answers: dict[str, FormAnswer]
+    ) -> list[FieldProblem]:
+        """Questions the user *did* answer whose value cannot be accepted.
+
+        Requiredness is irrelevant here: a wrong date is wrong on an optional
+        field too. Absence is equally irrelevant — an unanswered or skipped
+        question has no value to be invalid, which is precisely what the old
+        single-pass check got wrong.
+        """
+        problems: list[FieldProblem] = []
+        for field in version.fields:
+            ans = answers.get(field.id)
+            if answer_state(ans) != INVALID or ans is None:
+                continue
+            problems.append(FieldProblem(field.key, _invalid_reason(field, ans)))
+        return problems
 
     def confirm_summary(self, session_id: str, raw_token: str | None) -> Any:
         session = self.session_service.get_session(
@@ -752,24 +969,18 @@ class AnswerService:
         if not version:
             raise ResourceNotFoundError("Form version not found.")
 
-        # Check required fields
         answers = {a.field_id: a for a in self.repo.get_answers_for_session(session.id)}
-        for field in version.fields:
-            ans = answers.get(field.id)
-            if field.required:
-                if not ans or ans.status != "confirmed":
-                    raise StateConflictError(
-                        f"Required field '{field.key}' must be confirmed."
-                    )
-            if ans:
-                if ans.requires_clarification:
-                    raise StateConflictError(
-                        f"Field '{field.key}' requires clarification."
-                    )
-                if ans.validation_status != "valid":
-                    raise StateConflictError(
-                        f"Field '{field.key}' contains invalid value."
-                    )
+
+        # Two independent questions, asked separately and reported together, so
+        # the user sees everything blocking them at once instead of fixing one
+        # field per round trip.
+        missing = self._missing_required_fields(version, answers)
+        invalid = self._invalid_answer_fields(version, answers)
+
+        self._log_confirmation_diagnostics(session, version, answers, missing, invalid)
+
+        if missing or invalid:
+            raise SummaryNotConfirmableError(missing, invalid)
 
         # Transition: in_progress -> awaiting_final_confirmation -> ready_for_export
         session.status = "awaiting_final_confirmation"

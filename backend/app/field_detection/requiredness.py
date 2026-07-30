@@ -62,9 +62,12 @@ _OPTIONAL_MARKERS: tuple[str, ...] = (
     "إن وجد",
 )
 
-# A trailing asterisk is the near-universal "required" marker. Anchored to the
-# end so a footnote reference mid-sentence does not count.
-_ASTERISK = re.compile(r"[*∗]\s*$")
+# An asterisk adjacent to the label is the near-universal "required" marker.
+# Anchored to one end or the other so a footnote reference mid-sentence ("See
+# note * for details") does not count. RTL forms commonly lead with it, LTR
+# forms commonly trail it.
+_TRAILING_ASTERISK = re.compile(r"[*∗]\s*$")
+_LEADING_ASTERISK = re.compile(r"^\s*[*∗]\s*(?=\S)")
 
 # A form-level statement that everything is mandatory.
 _ALL_REQUIRED_STATEMENTS: tuple[str, ...] = (
@@ -132,7 +135,8 @@ def detect_requiredness(
         return Requiredness(OPTIONAL, "optional_marker", 0.9)
     if _contains(haystack, _REQUIRED_MARKERS):
         return Requiredness(REQUIRED, "required_marker", 0.9)
-    if _ASTERISK.search(label.strip()):
+    stripped = label.strip()
+    if _TRAILING_ASTERISK.search(stripped) or _LEADING_ASTERISK.search(stripped):
         return Requiredness(REQUIRED, "asterisk", 0.8)
     if all_fields_required:
         return Requiredness(REQUIRED, "form_statement", 0.7)
@@ -143,9 +147,9 @@ def detect_requiredness(
 
 
 def strip_required_marker(label: str) -> str:
-    """Removes a trailing asterisk from a label for display.
+    """Removes an adjacent asterisk from a label for display.
 
     The marker is metadata, not part of the question; the frontend renders its
     own "Required" indicator from the resolved state.
     """
-    return _ASTERISK.sub("", label).strip()
+    return _LEADING_ASTERISK.sub("", _TRAILING_ASTERISK.sub("", label)).strip()

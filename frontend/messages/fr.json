@@ -42,7 +42,10 @@
     "submitSummary": "Confirmer et finaliser le résumé",
     "warning": "Important : En confirmant, vous vérifiez que tous les détails sont corrects. Aucune soumission automatique n'est effectuée.",
     "skipped": "Ignoré",
-    "missingRequired": "Réponse obligatoire manquante"
+    "missingRequired": "Réponse obligatoire manquante",
+    "notAnswered": "Sans réponse",
+    "invalidAnswer": "Réponse à vérifier",
+    "blockedByFields": "{count} question(s) nécessitent encore votre attention avant de finaliser."
   },
   "complete": {
     "title": "Formulaire prêt pour l'exportation",

@@ -11,6 +11,7 @@ from app.answers.schemas import (
     ClarificationResponse,
     ClarifySubmitRequest,
     CurrentFieldResponse,
+    ReopenFieldResponse,
     SummaryResponse,
 )
 from app.answers.services import AnswerService
@@ -132,6 +133,27 @@ def skip_field(
     """Marks an optional question as deliberately unanswered and advances."""
     service = _make_service(db, provider, current_user)
     return service.skip_field(session_id, field_id, x_session_token)
+
+
+@router.post(
+    "/form-sessions/{session_id}/fields/{field_id}/reopen",
+    response_model=ReopenFieldResponse,
+)
+def reopen_field(
+    session_id: str,
+    field_id: str,
+    x_session_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Any:
+    """Sends the guided flow back to one question so the user can edit it.
+
+    Navigation only: the stored answer is left as it is, so a question with
+    nothing in it can be reopened just as easily as an answered one.
+    """
+    service = _make_service(db, provider, current_user)
+    return service.reopen_field(session_id, field_id, x_session_token)
 
 
 @router.put(

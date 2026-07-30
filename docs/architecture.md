@@ -66,6 +66,7 @@ To keep route handlers thin and business logic separate from HTTP concerns, exce
 
 - **ResourceNotFoundError** -> HTTP `404 Not Found`
 - **StateConflictError** / **IntegrityError** -> HTTP `409 Conflict`
+- **SummaryNotConfirmableError** -> HTTP `409 Conflict` with a structured body (`code`, `missing_required_fields`, `invalid_answer_fields`) rather than one sentence, so the client can mark every blocking question at once. Field keys and reason codes only — never a submitted value or a label.
 - **ValidationError** / **ConfigurationValidationError** -> HTTP `422 Unprocessable Entity`
 - **UnauthorizedError** -> HTTP `401 Unauthorized` (used for invalid/missing session ownership tokens)
 
@@ -114,6 +115,27 @@ and reused on later requests. It drives RTL-aware field geometry and is the vers
 `source_language`. `und` records "could not determine" and is never silently turned into `en`.
 The three language concepts stay separate: `source_language` describes the document,
 `user_language` the interface, `output_language` the completed form.
+
+---
+
+## Requiredness and Answer State (Phase 16)
+
+Two independent dimensions, resolved in one place (`app/answers/states.py`) and never
+inferred from each other:
+
+- **`FormField.requiredness`** — `required | optional | unknown`: what the *document*
+  declared, from evidence only (`app/field_detection/requiredness.py`). `unknown` is the
+  ordinary case for a detected form and is never collapsed into either direction.
+  `FormField.required` remains as a derived legacy boolean.
+- **answer state** — `unreached | unanswered | skipped | answered | invalid`: what the
+  *user* did.
+
+Only the cross-product decides anything. Absence blocks confirmation solely where the
+document demanded an answer; an invalid *value* blocks regardless of requiredness. Value
+validators, normalization and the AI provider only ever see a submitted value — a blank
+submission is refused (422) rather than stored, and a skip stores nulls with
+`status="skipped"`. See
+[ADR 0016](decisions/0016-three-state-requiredness-and-structured-confirmation.md).
 
 ---
 

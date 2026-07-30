@@ -324,6 +324,14 @@ export default function GuidedSession() {
     router.push("/application");
   };
 
+  // Three states, not a boolean. A backend that has not been redeployed omits
+  // the field; the legacy boolean then answers "required" or — since it cannot
+  // distinguish "optional" from "nothing was said" — "unknown", which is the
+  // safe reading because it neither blocks the user nor invents a claim.
+  const requiredness = currentField
+    ? (currentField.requiredness ?? (currentField.required ? "required" : "unknown"))
+    : "unknown";
+
   // Progress percentage calculation
   // Count every question, not only the mandatory ones: with evidence-based
   // requiredness a form that marks nothing mandatory showed "Question 1 of 0".
@@ -584,29 +592,33 @@ export default function GuidedSession() {
                   <div className="space-y-1 text-left">
                     <h2 className="text-xl font-bold text-slate-100">
                       {currentField.label}
-                      {currentField.required && (
+                      {requiredness === "required" && (
                         <span className="ms-1 text-rose-400" aria-hidden="true">
                           *
                         </span>
                       )}
                     </h2>
-                    {/* A field is only marked Required when the form actually
-                        said so. Everything else is Optional and can be
-                        skipped — the backend records "unknown" rather than
-                        assuming, so a user is never blocked on a guess. */}
-                    <p
-                      className="text-xs font-medium tracking-wide text-slate-400"
-                      data-testid="requiredness"
-                    >
-                      {currentField.required ? t("required") : t("optional")}
-                    </p>
+                    {/* Only a finding is labelled. When the document carried
+                        no marker the backend records "unknown", and saying
+                        "Optional" there would claim something the form never
+                        said — so nothing is rendered at all. */}
+                    {requiredness !== "unknown" && (
+                      <p
+                        className="text-xs font-medium tracking-wide text-slate-400"
+                        data-testid="requiredness"
+                      >
+                        {requiredness === "required"
+                          ? t("required")
+                          : t("optional")}
+                      </p>
+                    )}
                   </div>
 
                   {/* Render input field */}
                   <FieldRenderer
                     fieldType={currentField.fieldType}
                     fieldKey={currentField.key}
-                    required={currentField.required}
+                    required={requiredness === "required"}
                     configuration={{}}
                     options={currentField.options || []}
                     value={inputValue}
@@ -633,10 +645,10 @@ export default function GuidedSession() {
                     >
                       {tc("back")}
                     </button>
-                    {/* An optional question can be left unanswered. Only a
-                        field the form actually marked required blocks
-                        progress. */}
-                    {!currentField.required && (
+                    {/* Optional *and* unknown can be left unanswered — only a
+                        question the form explicitly marked required blocks
+                        progress. Unknown does not mean required. */}
+                    {requiredness !== "required" && (
                       <button
                         type="button"
                         // Never tied to the input value: skipping is what a

@@ -114,12 +114,14 @@ class FormRepository:
         position: int,
         configuration: dict[str, Any],
         question_key: str | None = None,
+        requiredness: str = "unknown",
     ) -> FormField:
         field = FormField(
             form_version_id=form_version_id,
             key=key,
             field_type=field_type,
             required=required,
+            requiredness=requiredness,
             position=position,
             configuration=configuration,
             question_key=question_key,

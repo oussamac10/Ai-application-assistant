@@ -34,11 +34,17 @@ def test_acroform_flag_beats_a_conflicting_label_marker() -> None:
     "label",
     [
         "Full name *",
+        "* Full name",
         "Nom complet ∗",
+        "Full name (required)",
+        "Full name (mandatory)",
         "Name (Pflichtfeld)",
+        "Nom (obligatoire)",
         "Nom — champ obligatoire",
+        "Nom (requis)",
         "Adresse (erforderlich)",
         "الاسم (مطلوب)",
+        "الاسم (إلزامي)",
     ],
 )
 def test_required_markers_are_detected(label: str) -> None:
@@ -66,6 +72,23 @@ def test_no_evidence_yields_unknown_not_required() -> None:
     assert result.evidence == "no_evidence"
     assert result.is_required is False
     assert result.blocks_progress is False
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "Surname",
+        "Nom de famille",
+        "Nachname",
+        "اسم العائلة",
+        "Date of birth",
+        "E-mail",
+    ],
+)
+def test_semantic_importance_alone_never_produces_required(label: str) -> None:
+    """A surname is obviously important, and a form is still free not to
+    demand it. Importance is our opinion; requiredness is the document's."""
+    assert detect_requiredness(label).state == UNKNOWN
 
 
 def test_unknown_never_blocks_progress() -> None:

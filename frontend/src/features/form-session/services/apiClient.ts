@@ -51,6 +51,10 @@ export const CurrentFieldResponseSchema = z.object({
   key: z.string(),
   fieldType: z.string(),
   required: z.boolean(),
+  // "required" | "optional" | "unknown". `unknown` means the document carried
+  // no marker either way, and the UI must then show no requiredness label
+  // rather than claiming the field is optional.
+  requiredness: z.string().optional(),
   position: z.number(),
   label: z.string(),
   helpText: z.string().nullable().optional(),
@@ -88,9 +92,14 @@ export const SummaryFieldSchema = z.object({
   fieldKey: z.string(),
   label: z.string(),
   required: z.boolean(),
+  requiredness: z.string().optional(),
   originalAnswer: z.string().nullable(),
   outputValue: z.string().nullable(),
   status: z.string(),
+  // What the user did: unreached | unanswered | skipped | answered | invalid.
+  // Distinct from `status`, which reports "unanswered" for both a skipped
+  // question and one never reached.
+  answerState: z.string().optional(),
 });
 
 export const SummaryResponseSchema = z.object({
@@ -101,15 +110,41 @@ export type Summary = z.infer<typeof SummaryResponseSchema>;
 
 // --- API Error Class ---
 
+/** One field blocking confirmation: a stable key and a reason code, never a
+ * submitted value. */
+export interface FieldProblem {
+  fieldKey: string;
+  reason: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
     public detail: string | null = null,
+    /** Set when the backend rejected the summary: every question still
+     * blocking it, so the user can fix them all in one pass instead of one
+     * per round trip. */
+    public missingRequiredFields: FieldProblem[] = [],
+    public invalidAnswerFields: FieldProblem[] = [],
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+function parseFieldProblems(raw: unknown): FieldProblem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) =>
+    item && typeof item === "object" && typeof (item as any).field_key === "string"
+      ? [
+          {
+            fieldKey: (item as any).field_key as string,
+            reason: String((item as any).reason ?? "invalid_value"),
+          },
+        ]
+      : [],
+  );
 }
 
 // --- Fetch client wrapper ---
@@ -141,9 +176,13 @@ async function apiRequest<T>(
 
   if (!response.ok) {
     let detail = null;
+    let missingRequired: FieldProblem[] = [];
+    let invalidAnswers: FieldProblem[] = [];
     try {
       const data = await response.json();
       detail = data.detail || null;
+      missingRequired = parseFieldProblems(data.missing_required_fields);
+      invalidAnswers = parseFieldProblems(data.invalid_answer_fields);
     } catch {
       // ignore
     }
@@ -151,7 +190,13 @@ async function apiRequest<T>(
     if (response.status === 401) {
       throw new ApiError(401, "unauthorized", detail);
     } else if (response.status === 409) {
-      throw new ApiError(409, "conflict", detail);
+      throw new ApiError(
+        409,
+        "conflict",
+        detail,
+        missingRequired,
+        invalidAnswers,
+      );
     } else if (response.status === 422) {
       throw new ApiError(422, "validation", detail);
     } else if (response.status >= 500) {
@@ -309,6 +354,24 @@ export async function confirmAnswer(
     { method: "POST" },
     sessionId,
     AnswerResponseSchema,
+  );
+}
+
+/** Sends the guided flow back to one question so it can be edited.
+ *
+ * Navigation only — the stored answer is untouched, so a skipped or never
+ * answered question reopens just as well as an answered one. Editing used to
+ * re-submit the existing answer, which meant submitting an empty string for a
+ * question that had none. */
+export async function reopenField(
+  sessionId: string,
+  fieldId: string,
+): Promise<{ fieldId: string; position: number }> {
+  return apiRequest(
+    `/form-sessions/${sessionId}/fields/${fieldId}/reopen`,
+    { method: "POST" },
+    sessionId,
+    z.object({ fieldId: z.string(), position: z.number() }),
   );
 }
 

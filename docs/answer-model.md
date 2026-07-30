@@ -25,6 +25,8 @@ Represents a user's answer to a specific form field within an anonymous form ses
   - `needs_clarification`: Missing attributes (e.g. currency/period for money fields).
   - `awaiting_confirmation`: Valid extraction ready for user confirmation.
   - `confirmed`: Formally confirmed by the user.
+  - `skipped`: The user deliberately left the question unanswered. Stored with `original_answer = null` and `normalized_value = null` — never as an empty string, which would be validated, normalized, and indistinguishable from a question never reached.
+- **Derived answer state** (`app/answers/states.py`, not a column): `unreached` (no record) | `unanswered` (a record with no value) | `skipped` | `answered` | `invalid`. Reported to the client as `answerState`. It exists because `status` alone says "unanswered" for both a deliberate skip and a question never opened, and the summary must tell them apart. Crossed with `FormField.requiredness` — and only crossed with it — this decides what blocks confirmation.
 - `validation_status` (String): Validation results. One of:
   - `not_checked`: Has not been checked against Zod/deterministic logic.
   - `valid`: Fully matches required constraints.

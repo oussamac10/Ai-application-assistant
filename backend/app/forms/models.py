@@ -122,7 +122,18 @@ class FormField(Base):
     )
     key: Mapped[str] = mapped_column(String(100), nullable=False)
     field_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Legacy boolean, kept so existing callers and exports keep working. It
+    # is derived from `requiredness` and is *not* the source of truth: it
+    # cannot express "the document said nothing", which is the common case and
+    # the one that was being silently treated as required.
     required: Mapped[bool] = mapped_column(default=True, nullable=False)
+    # "required" | "optional" | "unknown". Three states because two cannot say
+    # what the document actually told us: collapsing `unknown` into either
+    # direction either blocks a user on a field the form never demanded, or
+    # claims a field is optional when nothing said so.
+    requiredness: Mapped[str] = mapped_column(
+        String(10), default="unknown", nullable=False, server_default="unknown"
+    )
     position: Mapped[int] = mapped_column(nullable=False)
     configuration: Mapped[dict[str, Any]] = mapped_column(
         JSONB, default=dict, nullable=False

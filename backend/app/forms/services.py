@@ -36,6 +36,31 @@ class ValidationError(Exception):
     pass
 
 
+_REQUIREDNESS_STATES = ("required", "optional", "unknown")
+
+
+def resolve_requiredness(
+    requiredness: str | None, required: bool | None
+) -> tuple[str, bool]:
+    """Reconciles the three-state column with the legacy boolean.
+
+    Returns `(requiredness, required)`, always consistent. The richer value
+    wins when both are supplied — a caller that says `unknown` while the
+    boolean still defaults to `True` means "the document said nothing", and
+    resolving that to "required" is exactly the bug this replaces.
+    """
+    if requiredness is not None:
+        if requiredness not in _REQUIREDNESS_STATES:
+            raise ValidationError(
+                f"Invalid requiredness '{requiredness}'; expected one of "
+                f"{', '.join(_REQUIREDNESS_STATES)}."
+            )
+        return requiredness, requiredness == "required"
+    if required is None:
+        return "unknown", False
+    return ("required", True) if required else ("optional", False)
+
+
 class FormService:
     def __init__(self, db: Session):
         self.db = db
@@ -139,11 +164,15 @@ class FormService:
                 )
 
         # Insert field
+        requiredness, required = resolve_requiredness(
+            field_data.requiredness, field_data.required
+        )
         field = self.repo.add_field(
             form_version_id=version_id,
             key=field_data.key,
             field_type=field_data.field_type,
-            required=field_data.required,
+            required=required,
+            requiredness=requiredness,
             position=field_data.position,
             configuration=field_data.configuration,
             question_key=field_data.question_key,
@@ -199,8 +228,10 @@ class FormService:
         if field_data.field_type is not None:
             field.field_type = field_data.field_type
 
-        if field_data.required is not None:
-            field.required = field_data.required
+        if field_data.requiredness is not None or field_data.required is not None:
+            field.requiredness, field.required = resolve_requiredness(
+                field_data.requiredness, field_data.required
+            )
 
         if field_data.position is not None:
             field.position = field_data.position
@@ -372,6 +403,7 @@ class FormService:
                 key=field.key,
                 field_type=field.field_type,
                 required=field.required,
+                requiredness=field.requiredness,
                 position=field.position,
                 configuration=field.configuration,
                 question_key=field.question_key,

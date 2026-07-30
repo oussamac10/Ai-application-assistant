@@ -2,83 +2,87 @@
 
 ## Phase
 
-Phase 15 - Azure Translator Integration
+Phase 16 - Hybrid Document Detection
 
 ## Branch
 
-`feature/azure-translator`
+`feature/hybrid-document-detection`
 
 ## Base
 
-`feature/azure-document-intelligence`
+`feature/azure-translator`
 
 ## Objective
 
-Introduce the `TranslationProvider` abstraction that `docs/claude/domain-rules.md` already names
-but the codebase never had, and implement **Azure Translator** behind it as the provider used for
-translating question labels, choice options and other display text.
+Route field detection **local-first**, calling Azure Document Intelligence only when a
+deterministic quality score says the local result is insufficient — so an ordinary digital PDF
+costs nothing and a hard one still works.
 
-Translation currently rides on `AIProvider.translate_output` / `translate_output_batch`, which
-conflates two unrelated capabilities: language understanding (extraction, clarification, question
-generation — genuinely a language-model job) and plain text translation (a dedicated service does
-this better, faster and more predictably). This phase separates them.
+The phase opens with a **stabilization pass** that must land, be tested, documented, committed and
+manually verified before any routing work begins. That is not preamble: the routing decision is
+about what a document actually yielded, and the question model could not previously say what a
+document had declared.
 
-Azure Translator also fits the batching contract built in Phase 14: its API takes an **array** of
-texts per request and returns results in order, so one request replaces a chunked sequence of
-local-model generations.
+## Part 1 — Validation and requiredness stabilization
 
-## Reuse
+### The failure that motivated it
 
-- Phase 14 `app/ai/batch_translation.py` — the dedup / cache / approved-catalog /
-  per-item-fallback pipeline is provider-agnostic and stays. Only the call at the bottom changes.
-- Phase 14 id-keyed result mapping — Azure returns results positionally, so the adapter must
-  convert position to the caller's ids explicitly rather than trusting order end to end.
-- Phase 14 Azure provider patterns (`AZURE_*` config validated only when selected, bounded
-  timeout/retries, safe error mapping, request-id capture, usage metadata, counts-only
-  diagnostics) — same shape here.
-- The hybrid question-resolution order in `domain-rules.md` is unchanged: an approved reusable
-  question or static translation still wins, and translation is only reached when neither exists.
+```
+POST /api/form-sessions/{id}/confirm-summary
+409  {"detail": "Field 'date_de_d_but_d_emploi' contains invalid value."}
+```
 
-## Scope (confirmed)
+The field was empty. Two root causes:
 
-- `TranslationProvider` protocol + factory (`mock | ollama | azure`), with Ollama kept as an
-  implementation so nothing regresses when Azure is not configured
-- `AZURE_TRANSLATOR_*` backend-only configuration, failing fast only when Azure is selected
-- `AzureTranslatorProvider`: array request, bounded timeout/retries, safe error mapping, per-item
-  validation, usage/character-count metadata
-- Deterministic mock provider; no automated test may call the live service
-- ADR, phase doc, `.env.example` / `docker-compose.yml` passthrough
-- Manual verification against the German rental contract, reporting before/after duration and
-  call counts
+1. **`if ans:` validated any answer record**, value or not. A skipped question stores
+   `validation_status="not_checked"` by design, so skipping an optional question made the summary
+   permanently unconfirmable — reported as an *invalid value*, about a field with no value. The
+   first `raise` also won, so several problems surfaced one request at a time.
+2. **Requiredness was a boolean.** Phase 15 detected three states and then collapsed them, so
+   `unknown` — the majority case for a detected form — became `required`, and the frontend
+   labelled every unmarked question "Optional", a claim no document had made.
 
-Source-language auto-detection was confirmed **in** scope (decision 3): it was Phase 14's largest
-remaining source of wasted work, and it is also a correctness fix — a German document viewed in an
-English interface was never translated, because the interface language matched the assumed source
-language.
+### What was built
+
+- `FormField.requiredness` (`required | optional | unknown`) as the source of truth, with
+  `required` kept as a derived legacy boolean; migration `cae821cb676c` backfills existing rows
+  from that boolean.
+- `app/answers/states.py` — requiredness and answer state (`unreached | unanswered | skipped |
+  answered | invalid`) as two independent dimensions, neither inferred from the other. Only the
+  cross-product decides anything.
+- `confirm_summary` split into separate checks raising `SummaryNotConfirmableError`: a 409
+  carrying `missing_required_fields` and `invalid_answer_fields`, each entry a **field key and a
+  reason code** — never a submitted value or a label.
+- Blank submissions refused (422) rather than stored, so no validator, normalizer or AI call ever
+  receives one.
+- Skip allowed for `optional` **and** `unknown`; refused only for `required`.
+- `POST /form-sessions/{id}/fields/{field_id}/reopen` — editing is navigation, so a skipped or
+  never answered question can be edited (the old path re-submitted the stored answer, which meant
+  submitting an empty string for a question that had none).
+- Frontend: no requiredness label for `unknown`; the summary distinguishes Skipped / Not answered
+  / Missing required answer / Answer needs attention, every row editable; a rejected confirmation
+  marks every field the backend named.
+- Counts-only confirmation diagnostics.
+
+Decisions and rejected alternatives:
+[ADR 0016](../decisions/0016-three-state-requiredness-and-structured-confirmation.md).
+
+## Part 2 — Hybrid local-first detection
+
+Not started. Attempt local detection first, score extraction quality deterministically, call Azure
+only when the local result is insufficient, preserve cached Azure results, record fallback
+reasons, enforce page and cost limits, and compare both providers against fixed fixtures. AI never
+decides provider spending.
 
 ## Out of scope
 
-- Replacing `AIProvider` for anything other than translation
-- Answer-value translation and output-language rendering changes
-- Improving field detection for RTL documents (see the Arabic result in `TODO.md`)
+- Per-field admin override of requiredness (carried)
 - Background jobs / progress polling (Phase 20)
-- Billing or quota enforcement — usage metadata only
+- Billing or quota enforcement — cost *limits* only, no metering product
 
 ## Status
 
-Implemented and verified, with one item explicitly blocked.
+Part 1 implemented and verified. Part 2 not started.
 
-Built: `TranslationProvider` + factory (mock/Ollama/Azure), `AzureTranslatorProvider` with
-positional→id mapping and per-item validation, `AZURE_TRANSLATOR_*` configuration validated only
-when Azure is selected, deterministic identifier protection, source-language detection recorded on
-the generated version, eager interface language with deferred output-language backfill, safe
-provider→fallback→source-text degradation, and counts-only diagnostics.
-
-Measured on the German rental contract: `total_duration` 43.80 s → **5.20 s**,
-`translation_duration` 34.27 s → **0.04 s**, 24 questions unchanged, repeat request 0.05 s with
-zero provider calls. Backend 574 passed, ruff/mypy clean; frontend 129 passed, lint/typecheck
-clean.
-
-**Blocked:** the live Azure Translator path is unverified — no `AZURE_TRANSLATOR_API_KEY` is
-provisioned, so all Azure tests are mocked and the benchmark ran on Ollama. See `TODO.md` →
-"Blocked" for the exact steps to close it.
+Backend **859 passed**, ruff / `ruff format --check` / mypy clean (157 files), migration
+`cae821cb676c` round-trips. Frontend **157 passed**, lint and typecheck clean.

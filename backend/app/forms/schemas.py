@@ -42,7 +42,12 @@ class OptionSchema(BaseSchema):
 class FieldCreate(BaseSchema):
     key: str
     field_type: str
+    # `requiredness` is the source of truth; `required` is derived from it (see
+    # `resolve_requiredness` in app/forms/services.py). A caller that sets
+    # neither gets the historical default — an explicitly declared,
+    # hand-authored template field.
     required: bool = True
+    requiredness: str | None = None
     position: int
     configuration: dict[str, Any] = Field(default_factory=dict)
     question_key: str | None = None
@@ -54,6 +59,7 @@ class FieldUpdate(BaseSchema):
     key: str | None = None
     field_type: str | None = None
     required: bool | None = None
+    requiredness: str | None = None
     position: int | None = None
     configuration: dict[str, Any] | None = None
     question_key: str | None = None
@@ -66,6 +72,7 @@ class FieldResponse(BaseSchema):
     key: str
     field_type: str
     required: bool
+    requiredness: str = "unknown"
     position: int
     configuration: dict[str, Any]
     question_key: str | None = None

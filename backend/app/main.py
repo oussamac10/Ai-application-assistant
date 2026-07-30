@@ -13,6 +13,7 @@ from app.ai.errors import (
     AIProviderValidationError,
 )
 from app.answers.api.routes import router as answers_router
+from app.answers.errors import SummaryNotConfirmableError
 from app.api.health import router as health_router
 from app.applications.api.routes import router as applications_router
 from app.applications.errors import (
@@ -111,6 +112,18 @@ async def state_conflict_handler(
     request: Request, exc: StateConflictError
 ) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(SummaryNotConfirmableError)
+async def summary_not_confirmable_handler(
+    request: Request, exc: SummaryNotConfirmableError
+) -> JSONResponse:
+    """409 with every blocking field listed, by stable key and reason code.
+
+    Never carries a submitted value, a label or a normalized answer — those
+    are private, and the client already knows which field each key is.
+    """
+    return JSONResponse(status_code=409, content=exc.as_dict())
 
 
 @app.exception_handler(SessionStateConflictError)

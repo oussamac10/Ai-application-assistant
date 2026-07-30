@@ -70,6 +70,22 @@ pluggable: `AIProvider`, `OCRProvider`, `StorageProvider`, `TranslationProvider`
 provider family needs a deterministic mock/fixture-based implementation for tests —
 automated tests must never call a live/paid provider.
 
+## Requiredness
+
+A field records what the *document* declared, in three states — `required`, `optional`,
+`unknown` — never a boolean. `unknown` is the ordinary case for a detected form and must
+never be collapsed into either direction: resolving it to `required` blocks a user on a
+question the form never asked, and resolving it to `optional` claims the document said
+something it did not. The UI shows a requiredness label only for a real finding.
+
+Requiredness comes from evidence only (native flag, adjacent asterisk, explicit marker
+word in any supported language, trusted metadata, or a form-level "all fields are
+required" statement). A field's apparent importance is never evidence — a surname with no
+marker stays `unknown`.
+
+Skipping is allowed for `optional` **and** `unknown`, refused for `required`. A skip is its
+own state with null values, never an empty string.
+
 ## Answer and session state
 
 Answers use independent status dimensions, not one combined field:
@@ -86,6 +102,17 @@ Session-level state machine: `session_created → in_progress → awaiting_final
 → ready_for_export → completed`, with terminal/exceptional states `expired | cancelled |
 deleted | failed`. Individual answer-processing states belong to answers, not the
 session.
+
+Beyond `status`, an answer has a derived **answer state**: `unreached | unanswered |
+skipped | answered | invalid` — what the *user* did, as opposed to what the document
+demanded. The two are independent and neither is inferred from the other; only their
+cross-product decides what blocks confirmation. Absence blocks only where the document
+demanded an answer; an invalid *value* blocks regardless of requiredness.
+
+Value validators, normalization, clarification and the AI provider only ever receive an
+actual submitted value. A blank submission is refused rather than stored — it is neither
+an answer nor a skip, and storing it makes validators report on a value that does not
+exist.
 
 ## PDF export
 

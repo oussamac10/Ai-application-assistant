@@ -31,12 +31,12 @@ AI Form Assistant helps users upload, understand, complete, and export forms thr
 12. User Accounts and Saved Applications
 13. Automatic Upload-to-Questions User Flow
 14. Azure Document Intelligence Provider
+15. Azure Translator Integration
 
 ## Roadmap
 
-15. Azure Translator Integration
-16. Administration and Content Review
-17. Hybrid Field-Detection Provider Fallback
+16. Hybrid Document Detection (local-first, Azure fallback) — in progress
+17. Administration and Content Review
 18. Dynamic PDF Mapping, Filling, Preview, and Export
 19. Security, Privacy, and Data Retention Hardening
 20. Background Jobs and Processing Queues

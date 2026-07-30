@@ -42,7 +42,10 @@
     "submitSummary": "Zusammenfassung bestätigen und abschließen",
     "warning": "Wichtig: Mit der Bestätigung verifizieren Sie, dass alle Angaben korrekt sind. Es erfolgt keine automatische Übermittlung.",
     "skipped": "Übersprungen",
-    "missingRequired": "Pflichtangabe fehlt"
+    "missingRequired": "Pflichtangabe fehlt",
+    "notAnswered": "Nicht beantwortet",
+    "invalidAnswer": "Antwort muss geprüft werden",
+    "blockedByFields": "{count} Frage(n) müssen noch bearbeitet werden, bevor Sie abschließen können."
   },
   "complete": {
     "title": "Formular bereit für den Export",
