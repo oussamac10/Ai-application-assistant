@@ -28,7 +28,7 @@ from app.database.session import SessionLocal
 from app.documents.service import SourceDocumentService
 from app.field_detection.providers.base import DetectedFieldCandidate
 from app.field_detection.providers.mock import MockFieldDetectionProvider
-from app.field_detection.question_bridge import _target_languages
+from app.field_detection.question_bridge import _supported_languages
 from app.field_detection.service import FieldDetectionService
 
 
@@ -95,13 +95,13 @@ def _choice_and_text_candidates() -> list[DetectedFieldCandidate]:
     ]
 
 
-def test_target_languages_covers_user_and_output_excluding_source() -> None:
-    assert _target_languages("de", "de") == ["de"]
-    assert _target_languages("en", "de") == ["de"]
-    assert _target_languages("de", "en") == ["de"]
-    assert _target_languages("fr", "ar") == ["ar", "fr"]
-    # Source language alone needs no extra translation row.
-    assert _target_languages("en", "en") == []
+def test_supported_languages_covers_source_user_and_output() -> None:
+    """publish_version demands an option translation for each of these, and
+    create_session rejects a version that omits the output language."""
+    assert _supported_languages("de", "de", "de") == ["de"]
+    assert _supported_languages("en", "en", "de") == ["de", "en"]
+    assert _supported_languages("de", "en", "de") == ["de", "en"]
+    assert _supported_languages("en", "fr", "ar") == ["ar", "en", "fr"]
 
 
 @pytest.mark.parametrize(

@@ -487,7 +487,7 @@ class OllamaAIProvider:
         model can never move one field's translation onto another field. Ids
         the model failed to return are simply absent from the result — the
         caller decides how to recover them (see
-        `app/ai/batch_translation.py`), because silently substituting the
+        `app/translation/service.py`), because silently substituting the
         source text here would hide the failure from that decision.
         """
         if not request.items:

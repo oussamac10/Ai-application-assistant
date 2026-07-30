@@ -12,6 +12,7 @@ from app.answers.models import FormAnswer
 from app.answers.normalization.normalization import normalize_value
 from app.answers.repositories import AnswerRepository
 from app.answers.validation.validation import validate_value
+from app.core.config import settings
 from app.forms.models import FormField
 from app.forms.repositories import FormRepository
 from app.questions.resolver import QuestionResolver
@@ -20,6 +21,12 @@ from app.sessions.services import (
     SessionService,
     StateConflictError,
     ValidationError,
+)
+from app.translation.backfill import backfill_language
+from app.translation.errors import TranslationError
+from app.translation.factory import (
+    build_fallback_translation_provider,
+    build_translation_provider,
 )
 
 logger = logging.getLogger(__name__)
@@ -515,6 +522,34 @@ class AnswerService:
 
         return answer
 
+    async def _backfill_output_language(self, version: Any, language: str) -> None:
+        """Replaces deferred source-text placeholders for `language`.
+
+        Failures are swallowed on purpose: a summary must still render when
+        the translation provider is unavailable, showing source text rather
+        than an error. The placeholder rows are already valid text.
+        """
+        try:
+            await backfill_language(
+                self.db,
+                version,
+                language,
+                build_translation_provider(
+                    settings.TRANSLATION_PROVIDER, self.ai_provider
+                ),
+                build_fallback_translation_provider(
+                    settings.TRANSLATION_FALLBACK_PROVIDER, self.ai_provider
+                ),
+            )
+        except (TranslationError, ValueError) as exc:
+            logger.warning(
+                "Deferred translation backfill failed for version=%s language=%s "
+                "(%s); the summary falls back to source text",
+                version.id,
+                language,
+                type(exc).__name__,
+            )
+
     async def get_summary(
         self, session_id: str, raw_token: str | None
     ) -> list[dict[str, Any]]:
@@ -524,6 +559,14 @@ class AnswerService:
         version = self.form_repo.get_version(session.form_version_id)
         if not version:
             raise ResourceNotFoundError("Form version not found.")
+
+        # Question preparation translates only the interface language and
+        # leaves other supported languages holding source text (Phase 15).
+        # The summary is the first point a user reviews the form as it will be
+        # written, so this is where the output language is actually needed.
+        # Idempotent and a no-op when nothing was deferred.
+        if version.origin == "dynamic_detection":
+            await self._backfill_output_language(version, session.output_language)
 
         answers = {a.field_id: a for a in self.repo.get_answers_for_session(session.id)}
         summary = []

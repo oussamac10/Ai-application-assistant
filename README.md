@@ -11,14 +11,19 @@ The AI Form Assistant bridges the language gap by allowing users to complete for
 
 It guides the user through the form one field at a time, normalizing, validating, and confirming answers.
 
-## Current Phase: Phase 14 — Azure Document Intelligence Provider
+## Current Phase: Phase 15 — Azure Translator Integration
 
-See [`docs/claude/current-phase.md`](docs/claude/current-phase.md),
-[`docs/roadmap.md`](docs/roadmap.md) and
-[`docs/phases/phase-14-azure-document-intelligence.md`](docs/phases/phase-14-azure-document-intelligence.md).
-Azure Document Intelligence is available as an **opt-in** second field-detection provider
-alongside the local detector — see "Optional: Azure Document Intelligence field detection"
-below and [ADR 0013](docs/decisions/0013-azure-document-intelligence-provider.md).
+See [`docs/claude/current-phase.md`](docs/claude/current-phase.md) and
+[`docs/phases/phase-15-azure-translator.md`](docs/phases/phase-15-azure-translator.md).
+Translation now lives behind its own `TranslationProvider` abstraction (mock / Ollama / Azure
+Translator) rather than riding on the AI provider, the document's source language is detected
+instead of assumed, and only the interface language is translated during question preparation —
+see "Optional: Azure Translator" below and
+[ADR 0015](docs/decisions/0015-translation-provider-and-azure-translator.md).
+
+Phase 14 (completed) added Azure Document Intelligence as an **opt-in** second field-detection
+provider alongside the local detector — see "Optional: Azure Document Intelligence field
+detection" below and [ADR 0013](docs/decisions/0013-azure-document-intelligence-provider.md).
 
 Phase 13 (completed) made uploading a PDF analyze, detect fields and start guided questions
 automatically, with no manual field-review step for normal users — see
@@ -164,6 +169,41 @@ To sanity-check the model against a document first, upload it to
 
 Full setup, verification steps and known limitations:
 [`docs/phases/phase-14-azure-document-intelligence.md`](docs/phases/phase-14-azure-document-intelligence.md).
+
+## Optional: Azure Translator
+
+Question labels and choice options are translated by a `TranslationProvider`, selected
+independently of the AI provider. The default keeps everything local:
+
+```bash
+TRANSLATION_PROVIDER=ollama
+TRANSLATION_FALLBACK_PROVIDER=none
+```
+
+Azure Translator can be selected instead (Phase 15), with Ollama kept as a safety net:
+
+```bash
+TRANSLATION_PROVIDER=azure
+TRANSLATION_FALLBACK_PROVIDER=ollama
+AZURE_TRANSLATOR_ENABLED=true
+AZURE_TRANSLATOR_ENDPOINT=https://api.cognitive.microsofttranslator.com
+AZURE_TRANSLATOR_API_KEY=<key from "Keys and Endpoint">
+AZURE_TRANSLATOR_REGION=<the resource's region, e.g. westeurope>
+```
+
+Create the resource in the Azure Portal (**Create a resource → Translator**), then copy **KEY 1**
+and **Location/Region** from its *Keys and Endpoint* blade. The region header is required for a
+regional resource — Azure rejects the request without it.
+
+> **This sends field labels and choice-option labels to Microsoft** — not the document, not its
+> full text, and not any answer a user typed. Text that is entirely an identifier (email, IBAN,
+> BIC, date, phone number, amount, URL, UUID, internal key) is detected deterministically and never
+> transmitted. Disabled by default; requires *both* `AZURE_TRANSLATOR_ENABLED=true` and
+> `TRANSLATION_PROVIDER=azure`. The API key is backend-only and is never exposed to the frontend or
+> logged.
+
+Full setup, benchmark and known limitations:
+[`docs/phases/phase-15-azure-translator.md`](docs/phases/phase-15-azure-translator.md).
 
 ---
 

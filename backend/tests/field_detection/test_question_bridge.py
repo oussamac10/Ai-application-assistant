@@ -7,7 +7,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlalchemy import text
 
-from app.ai.batch_translation import clear_translation_cache
 from app.core.config import settings
 from app.database.session import SessionLocal
 from app.documents.service import SourceDocumentService
@@ -18,6 +17,7 @@ from app.field_detection.errors import (
 from app.field_detection.providers.mock import MockFieldDetectionProvider
 from app.field_detection.service import FieldDetectionService
 from app.sessions.repositories import SessionRepository
+from app.translation.service import clear_translation_cache
 
 
 @pytest.fixture(autouse=True)

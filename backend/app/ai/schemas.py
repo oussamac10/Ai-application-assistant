@@ -148,7 +148,7 @@ class BatchTranslationResult(BaseModel):
     out of order, drops one, or repeats one cannot silently shift every
     later translation onto the wrong field. Missing ids are the caller's
     signal to fall back for exactly those items (see
-    `app/ai/batch_translation.py`).
+    `app/translation/service.py`).
     """
 
     model_config = ConfigDict(populate_by_name=True)

@@ -122,6 +122,15 @@ holds a third-party API key. The controls around it:
 
 - **Backend-only.** `AZURE_DOCUMENT_INTELLIGENCE_API_KEY` is read by
   `app/core/config.py` and used solely in the `Ocp-Apim-Subscription-Key` request header.
+- **Azure Translator (Phase 15)** follows the same rule: `AZURE_TRANSLATOR_API_KEY` is
+  backend-only, travels solely in the `Ocp-Apim-Subscription-Key` header (never a URL, never a log
+  line), and is validated at startup only when Azure is the selected or fallback provider. Azure
+  error bodies are never included in a raised message or a log — they can echo the submitted text
+  back. Translation diagnostics record counts, durations and language codes only; no label, option
+  value, translated string or credential is ever logged.
+- Translation failures are never surfaced to the client. A provider outage degrades to the fallback
+  provider and then to untranslated source text, so no provider error code, status or exception
+  reaches the frontend.
   It is never sent to the frontend, never placed in a URL, and never returned in an API
   response. There is no `NEXT_PUBLIC_` Azure variable.
 - **Never logged.** Log lines record only the model id, api version, page count, duration

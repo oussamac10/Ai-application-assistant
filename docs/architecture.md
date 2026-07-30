@@ -100,6 +100,14 @@ is synchronous and can take tens of seconds; `next.config.js` raises the rewrite
 accordingly and the upload flow retries a bare gateway failure, which is safe because the endpoint
 is idempotent. See [ADR 0014](decisions/0014-batched-translation-and-request-duration.md).
 
+Translation itself lives behind a dedicated `TranslationProvider` abstraction
+(`app/translation/`), separate from `AIProvider`: mock, Ollama and Azure Translator implementations,
+selected by `TRANSLATION_PROVIDER` with an optional fallback. Azure detects the document's source
+language, which becomes the generated form version's `source_language` instead of an assumed one.
+Only the interface language is translated during preparation; other supported languages hold
+source-text placeholders that `app/translation/backfill.py` fills on demand. See
+[ADR 0015](decisions/0015-translation-provider-and-azure-translator.md).
+
 ---
 
 ## Frontend Architecture

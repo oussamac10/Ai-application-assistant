@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.ai.mock_provider import AIProvider
+from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.documents.models import SourceDocument
 from app.documents.service import SourceDocumentService
 from app.field_detection.errors import (
@@ -44,6 +44,7 @@ from app.sessions.services import (
 from app.sessions.services import (
     ValidationError as SessionValidationError,
 )
+from app.translation.base import TranslationProvider
 
 logger = logging.getLogger(__name__)
 
@@ -88,18 +89,26 @@ class PrepareQuestionsService:
     def __init__(
         self,
         db: Session,
-        ai_provider: AIProvider,
+        ai_provider: AIProvider | None = None,
         current_user_id: str | None = None,
         field_detection_provider: FieldDetectionProvider | None = None,
+        translation_provider: TranslationProvider | None = None,
+        fallback_translation_provider: TranslationProvider | None = None,
     ):
         self.db = db
-        self.ai_provider = ai_provider
+        self.ai_provider: AIProvider = (
+            ai_provider if ai_provider is not None else MockAIProvider()
+        )
         self.current_user_id = current_user_id
         self.document_service = SourceDocumentService(db)
         self.session_repo = SessionRepository(db)
         # Test-only seam: production callers always leave this None so
         # FieldDetectionService resolves the configured provider itself.
         self._field_detection_provider = field_detection_provider
+        # Same seam for translation (Phase 15): production leaves these None
+        # and FieldDetectionService resolves the configured providers.
+        self._translation_provider = translation_provider
+        self._fallback_translation_provider = fallback_translation_provider
 
     async def prepare(
         self,
@@ -169,6 +178,8 @@ class PrepareQuestionsService:
             provider=self._field_detection_provider,
             ai_provider=self.ai_provider,
             current_user_id=self.current_user_id,
+            translation_provider=self._translation_provider,
+            fallback_translation_provider=self._fallback_translation_provider,
         )
         detection_started = time.perf_counter()
         try:

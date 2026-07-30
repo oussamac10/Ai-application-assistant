@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _SUPPORTED_PROVIDERS = frozenset({"mock", "ollama"})
 _SUPPORTED_OCR_PROVIDERS = frozenset({"mock", "local"})
 _SUPPORTED_FIELD_DETECTION_PROVIDERS = frozenset({"mock", "local", "azure"})
+_SUPPORTED_TRANSLATION_PROVIDERS = frozenset({"mock", "ollama", "azure"})
 
 
 class Settings(BaseSettings):
@@ -38,6 +39,34 @@ class Settings(BaseSettings):
     # timeouts rather than speed. 3 covers the reference document's chunks in
     # one wave.
     AI_TRANSLATION_CONCURRENCY: int = 3
+
+    # Which provider translates display text (field labels, choice option
+    # labels). Separate from AI_PROVIDER on purpose: translation is a
+    # different capability from language understanding, and a dedicated
+    # service does it faster and more predictably than a local LLM.
+    TRANSLATION_PROVIDER: str = "ollama"
+    # Used only when the primary provider fails, and must differ from it.
+    # Defaults to "none" because the default primary is already Ollama; the
+    # intended production pairing is azure + ollama. Source text remains the
+    # final fallback either way, so a document is never blocked.
+    TRANSLATION_FALLBACK_PROVIDER: str = "none"
+
+    # Azure Translator. Backend-only; never exposed to the frontend.
+    # Validated (fail fast) only when Azure is actually selected — the
+    # mock/ollama providers must keep working with none of this set.
+    AZURE_TRANSLATOR_ENABLED: bool = False
+    AZURE_TRANSLATOR_ENDPOINT: str = "https://api.cognitive.microsofttranslator.com"
+    AZURE_TRANSLATOR_API_KEY: str | None = None
+    # Required for a regional (non-global) resource; Azure rejects the
+    # request without it.
+    AZURE_TRANSLATOR_REGION: str | None = None
+    AZURE_TRANSLATOR_API_VERSION: str = "3.0"
+    AZURE_TRANSLATOR_TIMEOUT_SECONDS: int = 30
+    AZURE_TRANSLATOR_MAX_RETRIES: int = 1
+    # Azure's documented per-request limit is 1000 elements / 50,000 chars;
+    # 50 keeps a single request well inside both while still collapsing a
+    # whole document into one call.
+    AZURE_TRANSLATOR_MAX_BATCH_SIZE: int = 50
 
     FORM_SESSION_TTL_HOURS: int = 24
     SESSION_TOKEN_SECRET: str | None = None
@@ -164,6 +193,57 @@ class Settings(BaseSettings):
                 f"Unknown AI_PROVIDER '{self.AI_PROVIDER}'. "
                 f"Supported values: {sorted(_SUPPORTED_PROVIDERS)}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_translation_provider(self) -> "Settings":
+        if self.TRANSLATION_PROVIDER not in _SUPPORTED_TRANSLATION_PROVIDERS:
+            raise ValueError(
+                f"Unknown TRANSLATION_PROVIDER '{self.TRANSLATION_PROVIDER}'. "
+                f"Supported values: {sorted(_SUPPORTED_TRANSLATION_PROVIDERS)}"
+            )
+        fallback = self.TRANSLATION_FALLBACK_PROVIDER
+        if fallback not in _SUPPORTED_TRANSLATION_PROVIDERS | {"none", ""}:
+            raise ValueError(
+                f"Unknown TRANSLATION_FALLBACK_PROVIDER '{fallback}'. Supported "
+                f"values: {sorted(_SUPPORTED_TRANSLATION_PROVIDERS)} or 'none'."
+            )
+        if fallback == self.TRANSLATION_PROVIDER:
+            raise ValueError(
+                "TRANSLATION_FALLBACK_PROVIDER must differ from "
+                "TRANSLATION_PROVIDER; falling back to the provider that just "
+                "failed only doubles the latency of a failure."
+            )
+
+        if self.AZURE_TRANSLATOR_MAX_BATCH_SIZE < 1:
+            raise ValueError("AZURE_TRANSLATOR_MAX_BATCH_SIZE must be at least 1.")
+        if self.AZURE_TRANSLATOR_TIMEOUT_SECONDS < 1:
+            raise ValueError("AZURE_TRANSLATOR_TIMEOUT_SECONDS must be at least 1.")
+        if self.AZURE_TRANSLATOR_MAX_RETRIES < 0:
+            raise ValueError("AZURE_TRANSLATOR_MAX_RETRIES must not be negative.")
+
+        # Fail fast only when Azure is reachable from configuration — either
+        # as the primary provider or as the configured fallback.
+        azure_selected = "azure" in (
+            self.TRANSLATION_PROVIDER,
+            self.TRANSLATION_FALLBACK_PROVIDER,
+        )
+        if azure_selected:
+            if not self.AZURE_TRANSLATOR_ENABLED:
+                raise ValueError(
+                    "Selecting the azure translation provider requires "
+                    "AZURE_TRANSLATOR_ENABLED=true."
+                )
+            if not (self.AZURE_TRANSLATOR_ENDPOINT or "").strip():
+                raise ValueError(
+                    "AZURE_TRANSLATOR_ENDPOINT must be set when the azure "
+                    "translation provider is selected."
+                )
+            if not (self.AZURE_TRANSLATOR_API_KEY or "").strip():
+                raise ValueError(
+                    "AZURE_TRANSLATOR_API_KEY must be set when the azure "
+                    "translation provider is selected."
+                )
         return self
 
     @model_validator(mode="after")

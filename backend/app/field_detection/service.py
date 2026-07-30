@@ -45,6 +45,11 @@ from app.field_detection.usage import record_provider_usage
 from app.ocr.models import OCRResult
 from app.ocr.repository import OCRRepository
 from app.sessions.models import FormSession
+from app.translation.base import TranslationProvider
+from app.translation.factory import (
+    build_fallback_translation_provider,
+    build_translation_provider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +112,8 @@ class FieldDetectionService:
         provider: FieldDetectionProvider | None = None,
         ai_provider: AIProvider | None = None,
         current_user_id: str | None = None,
+        translation_provider: TranslationProvider | None = None,
+        fallback_translation_provider: TranslationProvider | None = None,
     ):
         self.db = db
         self.repo = FieldDetectionRepository()
@@ -121,6 +128,26 @@ class FieldDetectionService:
         # anonymous callers, the ownership token) via SourceDocumentService,
         # mirroring the dual-ownership model used by sessions/answers/pdf.
         self.current_user_id = current_user_id
+        # Translation is a separate provider family from AIProvider
+        # (Phase 15). Injectable so tests never reach a live service.
+        self._translation_provider = translation_provider
+        self._fallback_translation_provider = fallback_translation_provider
+
+    @property
+    def translation_provider(self) -> TranslationProvider:
+        if self._translation_provider is None:
+            self._translation_provider = build_translation_provider(
+                settings.TRANSLATION_PROVIDER, self.ai_provider
+            )
+        return self._translation_provider
+
+    @property
+    def fallback_translation_provider(self) -> TranslationProvider | None:
+        if self._fallback_translation_provider is None:
+            self._fallback_translation_provider = build_fallback_translation_provider(
+                settings.TRANSLATION_FALLBACK_PROVIDER, self.ai_provider
+            )
+        return self._fallback_translation_provider
 
     @property
     def provider(self) -> FieldDetectionProvider:
@@ -446,6 +473,8 @@ class FieldDetectionService:
             self.ai_provider,
             current_user_id=self.current_user_id,
             include_auto_usable=include_auto_usable,
+            translation_provider=self.translation_provider,
+            fallback_translation_provider=self.fallback_translation_provider,
         )
         result.review_metadata = build_review_metadata(result)
         self.repo.update(self.db, result)

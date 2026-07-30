@@ -57,6 +57,32 @@ id, page count, duration, success/failure, error code, Azure's request id, and w
 result was served from cache. It never stores document text, extracted field labels or
 values, answers, or credentials.
 
+## 5c. Third-Party Translation (Phase 15, opt-in)
+
+Selecting `TRANSLATION_PROVIDER=azure` sends **field labels and choice-option labels** to Microsoft
+Azure Translator. It does not send the document, its full text, or any answer a user typed — only
+the short label strings that must be displayed in the user's language.
+
+What is deliberately withheld even from that:
+
+- Text that is entirely an identifier — email addresses, IBANs, BICs, dates, phone numbers,
+  currency amounts, URLs, UUIDs, internal keys — is detected deterministically
+  (`app/translation/protected.py`) and never transmitted.
+- Stable choice **values** are never translated, in any provider path.
+- Anything already resolved from the approved question catalog, a persisted translation, or the
+  in-process cache is never transmitted, because it is never requested.
+
+Like the Phase 14 document provider, this is off by default and needs two explicit settings
+(`AZURE_TRANSLATOR_ENABLED=true` *and* `TRANSLATION_PROVIDER=azure`). The default
+`TRANSLATION_PROVIDER=ollama` keeps every translation on this system.
+
+Only the interface language is translated during question preparation; the output language is
+translated later, and only if review or export actually needs it — so a user who never reaches
+review never has that text sent anywhere.
+
+Translation logs record counts, durations and language codes only: no label, option value,
+translated string, API key or provider response body is written to a log.
+
 ## 6. Ephemeral Answers Storage
 - Form answers are stored in the database only for the duration of the active session.
 - When a session is deleted, all corresponding `form_answers` rows are deleted automatically via database cascade deletes.

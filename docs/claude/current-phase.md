@@ -39,7 +39,7 @@ local-model generations.
 - The hybrid question-resolution order in `domain-rules.md` is unchanged: an approved reusable
   question or static translation still wins, and translation is only reached when neither exists.
 
-## Proposed scope
+## Scope (confirmed)
 
 - `TranslationProvider` protocol + factory (`mock | ollama | azure`), with Ollama kept as an
   implementation so nothing regresses when Azure is not configured
@@ -51,16 +51,34 @@ local-model generations.
 - Manual verification against the German rental contract, reporting before/after duration and
   call counts
 
-## Proposed out of scope
+Source-language auto-detection was confirmed **in** scope (decision 3): it was Phase 14's largest
+remaining source of wasted work, and it is also a correctness fix — a German document viewed in an
+English interface was never translated, because the interface language matched the assumed source
+language.
+
+## Out of scope
 
 - Replacing `AIProvider` for anything other than translation
 - Answer-value translation and output-language rendering changes
-- Document-language detection (still assumed — see Phase 14's carried limitation, which is the
-  largest remaining source of unnecessary translation work)
+- Improving field detection for RTL documents (see the Arabic result in `TODO.md`)
 - Background jobs / progress polling (Phase 20)
 - Billing or quota enforcement — usage metadata only
 
 ## Status
 
-Not started — scaffolding only. The scope above is a proposal drawn from the Phase 14 patterns and
-has not been confirmed with the user.
+Implemented and verified, with one item explicitly blocked.
+
+Built: `TranslationProvider` + factory (mock/Ollama/Azure), `AzureTranslatorProvider` with
+positional→id mapping and per-item validation, `AZURE_TRANSLATOR_*` configuration validated only
+when Azure is selected, deterministic identifier protection, source-language detection recorded on
+the generated version, eager interface language with deferred output-language backfill, safe
+provider→fallback→source-text degradation, and counts-only diagnostics.
+
+Measured on the German rental contract: `total_duration` 43.80 s → **5.20 s**,
+`translation_duration` 34.27 s → **0.04 s**, 24 questions unchanged, repeat request 0.05 s with
+zero provider calls. Backend 574 passed, ruff/mypy clean; frontend 129 passed, lint/typecheck
+clean.
+
+**Blocked:** the live Azure Translator path is unverified — no `AZURE_TRANSLATOR_API_KEY` is
+provisioned, so all Azure tests are mocked and the benchmark ran on Ollama. See `TODO.md` →
+"Blocked" for the exact steps to close it.

@@ -34,10 +34,10 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.ai.batch_translation import TranslationStats, translate_texts
 from app.ai.mock_provider import AIProvider
 from app.core.config import settings
 from app.documents.models import SourceDocument
@@ -55,6 +55,12 @@ from app.forms.services import ValidationError as FormValidationError
 from app.questions.repositories import QuestionRepository
 from app.sessions.models import FormSession
 from app.sessions.services import SessionService
+from app.translation.base import TranslationProvider
+from app.translation.factory import (
+    build_fallback_translation_provider,
+    build_translation_provider,
+)
+from app.translation.service import TranslationStats, translate_texts
 
 logger = logging.getLogger(__name__)
 
@@ -108,19 +114,23 @@ def _unique_key(base: str, used_keys: set[str]) -> str:
     return candidate
 
 
-def _target_languages(user_language: str, output_language: str) -> list[str]:
-    """Every non-source language the generated version must carry text for.
+def _supported_languages(
+    source_language: str, user_language: str, output_language: str
+) -> list[str]:
+    """Every language the generated version claims to support.
 
-    Both are required, and for different reasons: `user_language` is what
-    the guided questions are displayed in, while `output_language` is what
-    the completed form is written in. `FormService.publish_version`
-    enforces an option translation for *every* supported output language
-    (source language included), so generating only the user-language rows
-    would make a version that claims to support an output language it has
-    no text for — which is exactly how a document containing any choice
-    field failed to publish whenever the two languages differed.
+    `FormService.publish_version` enforces an option translation for each of
+    them, so a version claiming a language it has no rows for cannot be
+    published — which is exactly how a document containing any choice field
+    silently failed whenever the user and output languages differed.
+
+    All three are needed for different reasons: the source language holds the
+    original text (audit and PDF mapping), the user language is what the
+    guided questions display, and the output language is what the completed
+    form is written in — `SessionService.create_session` rejects a version
+    that does not list it.
     """
-    return sorted({user_language, output_language} - {_DEFAULT_SOURCE_LANGUAGE})
+    return sorted({source_language, user_language, output_language})
 
 
 def _approved_catalog_labels(
@@ -145,24 +155,29 @@ def _approved_catalog_labels(
     return approved
 
 
-async def _translations_by_language(
-    db: Session,
-    ai_provider: AIProvider,
-    fields: list[DetectedField],
-    target_languages: list[str],
-    stats: TranslationStats,
-) -> dict[str, dict[str, str]]:
-    """Every translation the whole document needs, as
-    `{language: {source_text: translated_text}}`.
+def _persisted_catalog_labels(
+    db: Session, fields: list[DetectedField], language: str
+) -> dict[str, str]:
+    """Translations already stored for these semantic keys but not yet
+    approved. Lower precedence than approved text and higher than the
+    provider: text translated once and persisted must not be paid for again."""
+    repo = QuestionRepository(db)
+    persisted: dict[str, str] = {}
+    for detected in fields:
+        if not detected.label or detected.label in persisted:
+            continue
+        translation = repo.get_pending_translation(detected.normalized_name, language)
+        if translation is not None and translation.text:
+            persisted[detected.label] = translation.text
+    return persisted
 
-    Collected in one pass before any field is built, which is what makes
-    batching possible: previously each field (and each of its options) issued
-    its own sequential AI call, so a 24-field document made 28 of them and
-    took long enough that the frontend gave up on a request the backend was
-    still working on.
 
-    Choice-option *values* are translated for display only; the stable value
-    written to the form stays the original text.
+def _translatable_texts(fields: list[DetectedField]) -> list[str]:
+    """Every distinct string the document needs rendered in another language:
+    field labels and choice-option display labels.
+
+    Option *values* appear here only as the source of their display label —
+    the stable value written to the form is never translated.
     """
     texts: list[str] = []
     for detected in fields:
@@ -171,20 +186,106 @@ async def _translations_by_language(
         for option in detected.options:
             if option.value:
                 texts.append(option.value)
+    return texts
 
-    by_language: dict[str, dict[str, str]] = {}
-    for language in target_languages:
-        by_language[language] = await translate_texts(
-            ai_provider,
-            texts,
-            _DEFAULT_SOURCE_LANGUAGE,
-            language,
-            batch_size=settings.AI_TRANSLATION_BATCH_SIZE,
-            concurrency=settings.AI_TRANSLATION_CONCURRENCY,
-            stats=stats,
-            approved_lookup=_approved_catalog_labels(db, fields, language),
+
+@dataclass(frozen=True)
+class _PreparedTranslations:
+    """Everything the version builder needs about language.
+
+    `source_language` is the language the document's labels are *actually* in,
+    as reported by the provider — not the assumption the detection pipeline
+    had to make. Carrying it here is what lets the generated version record the
+    original text under its true language instead of mislabelling German text
+    as English.
+    """
+
+    source_language: str
+    by_language: dict[str, dict[str, str]]
+    deferred_languages: tuple[str, ...]
+    detection_confidence: float | None = None
+
+
+def _resolve_source_language(stats: TranslationStats) -> str:
+    """The document's real source language, or the assumed one if no provider
+    reported a detection.
+
+    Exactly one language is chosen even when a mixed document yields several:
+    a form version has a single source language, and the most frequently
+    detected one is the only defensible choice. Ambiguity is logged, never
+    guessed at silently.
+    """
+    detected = stats.detected_source_languages
+    if not detected:
+        return _DEFAULT_SOURCE_LANGUAGE
+    if len(detected) > 1:
+        logger.info(
+            "Multiple source languages detected (%s); using %s for the version",
+            ",".join(detected),
+            detected[0],
         )
-    return by_language
+    return detected[0]
+
+
+async def _prepare_translations(
+    db: Session,
+    fields: list[DetectedField],
+    user_language: str,
+    output_language: str,
+    stats: TranslationStats,
+    provider: TranslationProvider,
+    fallback_provider: TranslationProvider | None,
+) -> _PreparedTranslations:
+    """Resolves the document's source language and translates it into the
+    interface language, in a single batched provider call.
+
+    Ordering matters: translation happens *before* the form version is created,
+    because the provider's detected source language is what the version should
+    record. Field detection cannot detect a document's language, so before this
+    phase every generated version claimed `en` regardless — which both
+    mislabelled the original text and sent German labels on a pointless
+    `en -> de` round trip.
+
+    Only the interface language is translated here. Other supported languages
+    get source-text placeholders that `app/translation/backfill.py` replaces
+    when review or export needs them.
+    """
+    texts = _translatable_texts(fields)
+
+    translated = await translate_texts(
+        texts,
+        user_language,
+        provider,
+        fallback_provider,
+        # None means "detect it" — the whole point of this phase.
+        source_language=None,
+        assumed_source_language=_DEFAULT_SOURCE_LANGUAGE,
+        stats=stats,
+        approved_lookup=_approved_catalog_labels(db, fields, user_language),
+        persisted_lookup=_persisted_catalog_labels(db, fields, user_language),
+    )
+
+    source_language = _resolve_source_language(stats)
+    by_language: dict[str, dict[str, str]] = {}
+
+    # When the document is already in the interface language, the source rows
+    # carry the text and no second set is needed.
+    if user_language != source_language:
+        by_language[user_language] = translated
+
+    deferred = [
+        language
+        for language in {output_language} - {source_language, user_language}
+        if language
+    ]
+    for language in sorted(deferred):
+        by_language[language] = {text: text for text in texts}
+
+    return _PreparedTranslations(
+        source_language=source_language,
+        by_language=by_language,
+        deferred_languages=tuple(sorted(deferred)),
+    )
 
 
 def _translations_for(
@@ -199,27 +300,33 @@ def _translations_for(
 
 
 def _label_translations(
-    source_text: str, translations_by_language: dict[str, str]
+    source_text: str,
+    source_language: str,
+    translations_by_language: dict[str, str],
 ) -> list[TranslationSchema]:
-    """Builds the field-label rows: the original source text is always kept
-    (for mapping/audit), plus one row per target language."""
-    rows = [TranslationSchema(language=_DEFAULT_SOURCE_LANGUAGE, label=source_text)]
+    """Builds the field-label rows: the original text is always kept under the
+    document's own (detected) language for mapping and audit, plus one row per
+    other language. `translations_by_language` never contains the source
+    language, so no row is ever emitted twice."""
+    rows = [TranslationSchema(language=source_language, label=source_text)]
     rows.extend(
         TranslationSchema(language=language, label=label)
         for language, label in translations_by_language.items()
+        if language != source_language
     )
     return rows
 
 
 def _option_translations(
-    source_text: str, translations_by_language: dict[str, str]
+    source_text: str,
+    source_language: str,
+    translations_by_language: dict[str, str],
 ) -> list[OptionTranslationSchema]:
-    rows = [
-        OptionTranslationSchema(language=_DEFAULT_SOURCE_LANGUAGE, label=source_text)
-    ]
+    rows = [OptionTranslationSchema(language=source_language, label=source_text)]
     rows.extend(
         OptionTranslationSchema(language=language, label=label)
         for language, label in translations_by_language.items()
+        if language != source_language
     )
     return rows
 
@@ -277,6 +384,8 @@ async def create_session_from_confirmed_fields(
     ai_provider: AIProvider,
     current_user_id: str | None = None,
     include_auto_usable: bool = False,
+    translation_provider: TranslationProvider | None = None,
+    fallback_translation_provider: TranslationProvider | None = None,
 ) -> tuple[FormSession, str]:
     """Builds guided-session questions from the fields on `detection_result`
     that are safe to use.
@@ -318,6 +427,18 @@ async def create_session_from_confirmed_fields(
             "field_detection_invalid_result",
         )
 
+    # Translation is its own provider family (Phase 15). `ai_provider` is
+    # still required for everything else, and is what the Ollama translation
+    # provider delegates to when it is the selected or fallback backend.
+    if translation_provider is None:
+        translation_provider = build_translation_provider(
+            settings.TRANSLATION_PROVIDER, ai_provider
+        )
+    if fallback_translation_provider is None:
+        fallback_translation_provider = build_fallback_translation_provider(
+            settings.TRANSLATION_FALLBACK_PROVIDER, ai_provider
+        )
+
     form_service = FormService(db)
     template_key = f"dynamic-doc-{doc.public_id}"
     template = form_service.repo.get_template_by_key(template_key)
@@ -328,35 +449,43 @@ async def create_session_from_confirmed_fields(
             description="Auto-generated from user-confirmed detected fields.",
         )
 
+    # Translation runs *before* the version is created, because the provider's
+    # detected source language is what the version must record — see
+    # `_prepare_translations`. One batched provider call for the whole
+    # document; other supported languages get placeholders that
+    # `app/translation/backfill.py` replaces on demand.
+    translation_stats = TranslationStats()
+    translation_started = time.perf_counter()
+    prepared = await _prepare_translations(
+        db,
+        confirmed_fields,
+        user_language,
+        output_language,
+        translation_stats,
+        provider=translation_provider,
+        fallback_provider=fallback_translation_provider,
+    )
+    translation_duration = time.perf_counter() - translation_started
+    source_language = prepared.source_language
+    translations_by_language = prepared.by_language
+
     version = form_service.create_draft_version(
         form_template_id=template.id,
-        source_language=_DEFAULT_SOURCE_LANGUAGE,
+        # The detected language, not an assumption: the original label text is
+        # stored under the language it is actually written in.
+        source_language=source_language,
         # Must include output_language itself, not just the source/user
         # languages — otherwise a user who picks an output language that
         # differs from both (e.g. English interface, German output) makes
         # SessionService.create_session() below reject its own freshly
         # created version with "output language is not supported", an
         # unhandled-looking failure for a perfectly normal selection.
-        supported_output_languages=sorted(
-            {_DEFAULT_SOURCE_LANGUAGE, user_language, output_language}
+        supported_output_languages=_supported_languages(
+            source_language, user_language, output_language
         ),
         origin="dynamic_detection",
         pdf_template_key=None,
     )
-
-    # Every language the version claims to support must actually have text
-    # (see _target_languages for why both user and output language count).
-    target_languages = _target_languages(user_language, output_language)
-
-    # Every translation the document needs, resolved up front in bounded
-    # batches (see app/ai/batch_translation.py) instead of one AI call per
-    # field per language.
-    translation_stats = TranslationStats()
-    translation_started = time.perf_counter()
-    translations_by_language = await _translations_by_language(
-        db, ai_provider, confirmed_fields, target_languages, translation_stats
-    )
-    translation_duration = time.perf_counter() - translation_started
 
     used_keys: set[str] = set()
     added_field_count = 0
@@ -389,7 +518,7 @@ async def create_session_from_confirmed_fields(
                             value=option.value,
                             position=option.position,
                             translations=_option_translations(
-                                option.value, option_translations
+                                option.value, source_language, option_translations
                             ),
                         )
                     )
@@ -407,7 +536,7 @@ async def create_session_from_confirmed_fields(
                     position=position,
                     configuration={},
                     translations=_label_translations(
-                        detected_field.label, label_translations
+                        detected_field.label, source_language, label_translations
                     ),
                     options=options,
                 ),
@@ -444,21 +573,32 @@ async def create_session_from_confirmed_fields(
 
     logger.info(
         "Question generation result: document=%s questions=%d skipped=%d "
-        "version=%s supported_output_languages=%s translation_duration=%.2fs "
-        "unique_texts=%d cache_hits=%d catalog_hits=%d batch_calls=%d "
-        "fallback_calls=%d ollama_call_count=%d untranslated=%d",
+        "version=%s supported_output_languages=%s source_language=%s "
+        "eager_language=%s "
+        "deferred_languages=%s translation_duration=%.2fs provider=%s "
+        "unique_texts=%d protected_skipped=%d catalog_hits=%d persisted_hits=%d "
+        "cache_hits=%d provider_calls=%d fallback_calls=%d characters=%d "
+        "provider_latency=%.2fs detected_source=%s untranslated=%d",
         doc.public_id,
         added_field_count,
         skipped_field_count,
         version.status,
         ",".join(version.supported_output_languages or []),
+        source_language,
+        user_language,
+        ",".join(prepared.deferred_languages) or "-",
         translation_duration,
+        translation_stats.primary_provider or "-",
         translation_stats.unique_texts,
-        translation_stats.cache_hits,
+        translation_stats.protected_skipped,
         translation_stats.catalog_hits,
+        translation_stats.persisted_hits,
+        translation_stats.cache_hits,
         translation_stats.provider_calls,
-        translation_stats.fallback_single_calls,
-        translation_stats.ollama_call_count,
+        translation_stats.fallback_provider_calls,
+        translation_stats.translated_character_count,
+        translation_stats.provider_latency_seconds,
+        ",".join(translation_stats.detected_source_languages) or "-",
         translation_stats.unresolved,
     )
 
