@@ -40,6 +40,8 @@ normalization.py downgrades anything below the low-confidence threshold to
 
 from __future__ import annotations
 
+import logging
+
 from app.field_detection.classification import (
     acroform_widget_confidence,
     choice_group_confidence,
@@ -72,6 +74,11 @@ from app.field_detection.normalization import (
     downgrade_low_confidence,
     normalize_field_name,
     sort_candidates_deterministically,
+)
+from app.field_detection.option_groups import (
+    detect_option_groups,
+    match_option_set,
+    strip_heading_number,
 )
 from app.field_detection.providers.base import (
     BoundingBox,
@@ -148,6 +155,11 @@ _CONNECTIVE_ONLY_HEADINGS = frozenset(
 # Waschmaschine und ggf. Trockenplatz"). A complete sentence — which in
 # these forms always ends with a full stop — is an independent statement,
 # not an option.
+# A section heading is short; a wrapped prose line is not.
+logger = logging.getLogger(__name__)
+
+_MAX_HEADING_WORDS = 8
+
 _MAX_OPTION_WORDS = 10
 
 _HUMANIZE_UNDERSCORE = str.maketrans("_-", "  ")
@@ -167,6 +179,23 @@ def _line_tokens(segments: list[LinePhrase]) -> list[DetectionToken]:
     for segment in segments:
         tokens.extend(segment.tokens)
     return tokens
+
+
+def _row_starts_new_group(collected: tuple[str, ...], row: tuple[str, ...]) -> bool:
+    """Whether `row` belongs to a different question than `collected`.
+
+    Only a *positive* disagreement splits: both sides must match a recognised
+    option set, and the sets must differ. Rows that match nothing (an ordinary
+    wrapped checklist) keep accumulating, which is what keeps a long document
+    list as one question.
+    """
+    collected_set = match_option_set(collected)
+    row_set = match_option_set(row)
+    return (
+        collected_set is not None
+        and row_set is not None
+        and collected_set is not row_set
+    )
 
 
 def _extract_single_option(tokens: list[DetectionToken]) -> tuple[str, str] | None:
@@ -308,6 +337,17 @@ class LocalFieldDetectionProvider:
             )
             candidates.extend(choice_candidates)
 
+            # Option rows the heading-based pass could not claim, because the
+            # form gives them no heading of their own. Runs second and only on
+            # what is left, so existing behaviour is untouched — and every row
+            # it claims is a row whose options would otherwise have become
+            # individual free-text questions.
+            candidates.extend(
+                self._detect_standalone_option_groups(
+                    page.page_number, line_groups, consumed
+                )
+            )
+
             candidates.extend(
                 self._detect_confirmation_checkboxes(
                     page.page_number, line_groups, consumed
@@ -332,6 +372,64 @@ class LocalFieldDetectionProvider:
 
         return candidates
 
+    @staticmethod
+    def _headings_by_line(line_groups: list[list[LinePhrase]]) -> dict[int, str]:
+        """The nearest preceding heading-like line for each line index.
+
+        A heading is a short line carrying no selection markers and no blank
+        run — the kind of line a form uses to introduce a section.
+        """
+        headings: dict[int, str] = {}
+        current = ""
+        for index, group in enumerate(line_groups):
+            text = " ".join(phrase.text for phrase in group).strip()
+            tokens = _line_tokens(group)
+            has_marker = any(marker_type(t.text) is not None for t in tokens)
+            if (
+                text
+                and not has_marker
+                and len(text.split()) <= _MAX_HEADING_WORDS
+                and not text.rstrip().endswith(".")
+            ):
+                current = text
+            headings[index] = current
+        return headings
+
+    def _detect_standalone_option_groups(
+        self,
+        page_number: int,
+        line_groups: list[list[LinePhrase]],
+        consumed: set[int],
+    ) -> list[DetectedFieldCandidate]:
+        headings = self._headings_by_line(line_groups)
+        candidates: list[DetectedFieldCandidate] = []
+
+        for group in detect_option_groups(page_number, line_groups, consumed, headings):
+            candidates.append(
+                DetectedFieldCandidate(
+                    candidate_key=f"option-group-{page_number}-{group.line_indices[0]}",
+                    page_number=page_number,
+                    label=group.label,
+                    normalized_name=normalize_field_name(group.label),
+                    field_type=group.field_type,
+                    confidence=group.confidence,
+                    source="native",
+                    multiple=group.field_type == "multiple_choice",
+                    label_bounding_box=group.bounding_box,
+                    options=group.options,
+                )
+            )
+            logger.info(
+                "Option group detected: page=%d options=%d type=%s "
+                "label_source=%s needs_review=%s",
+                page_number,
+                len(group.options),
+                group.field_type,
+                group.label_source,
+                group.needs_review,
+            )
+        return candidates
+
     def _detect_choice_groups(
         self,
         page_number: int,
@@ -353,7 +451,9 @@ class LocalFieldDetectionProvider:
                 continue
 
             heading_text = " ".join(p.text for p in heading_group).strip()
-            heading_text = heading_text.rstrip(":").strip()
+            # "5. Documents joints" -> "Documents joints". The enumeration is
+            # the form's numbering, not part of the question.
+            heading_text = strip_heading_number(heading_text.rstrip(":").strip())
             if not heading_text:
                 continue
             if heading_text.lower() in _CONNECTIVE_ONLY_HEADINGS:
@@ -386,6 +486,23 @@ class LocalFieldDetectionProvider:
                 if not line_options:
                     break
 
+                # Two adjacent option rows under one heading are not
+                # necessarily one question. A French form lists
+                # "Français / Allemand / Anglais / Arabe" and
+                # "E-mail / Téléphone / Courrier postal" on consecutive rows
+                # with identical spacing under a single "Préférences de
+                # communication" heading — merging them produced one
+                # seven-option question mixing languages with contact
+                # channels. When a row belongs to a *different* recognised
+                # option set than the rows already collected, the group ends
+                # here; the standalone pass then names the new row from its
+                # own set.
+                if options and _row_starts_new_group(
+                    tuple(label for _, label in options),
+                    tuple(label for _, label in line_options),
+                ):
+                    break
+
                 options.extend(line_options)
                 option_indices.append(cursor)
                 previous_box = candidate_box
@@ -413,8 +530,15 @@ class LocalFieldDetectionProvider:
             marker_kinds = {kind for kind, _ in options}
             marker_kind = options[0][0] if len(marker_kinds) == 1 else None
             if marker_kind == "checkbox":
-                field_type = "multiple_choice"
-                multiple = True
+                # Checkbox glyphs usually mean "pick any", but some questions
+                # are exclusive by nature whatever glyph the form drew: you
+                # have one gender and one employment status. A recognised
+                # exclusive set overrides the glyph; anything unrecognised
+                # keeps the glyph's meaning.
+                recognised = match_option_set(tuple(label for _, label in options))
+                exclusive = recognised is not None and recognised.exclusive
+                field_type = "radio" if exclusive else "multiple_choice"
+                multiple = not exclusive
             elif marker_kind == "radio":
                 field_type = "radio"
                 multiple = False

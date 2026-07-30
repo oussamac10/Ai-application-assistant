@@ -16,7 +16,9 @@ class PDFAnalyzer:
             reader = pypdf.PdfReader(filepath)
             page_count = len(reader.pages)
             if page_count == 0:
-                raise DocumentValidationError("PDF contains zero pages.", "malformed_pdf")
+                raise DocumentValidationError(
+                    "PDF contains zero pages.", "malformed_pdf"
+                )
 
             pages_analysis: list[dict[str, Any]] = []
             total_char_count = 0
@@ -28,7 +30,9 @@ class PDFAnalyzer:
             # Check document-level AcroForm
             catalog = reader.trailer.get("/Root")
             if catalog:
-                catalog_obj = catalog.get_object() if hasattr(catalog, "get_object") else catalog
+                catalog_obj = (
+                    catalog.get_object() if hasattr(catalog, "get_object") else catalog
+                )
                 if "/AcroForm" in catalog_obj:
                     has_any_acroform = True
 
@@ -57,13 +61,13 @@ class PDFAnalyzer:
                         elif field_type == "/Tx":
                             ft_str = "text"
 
-                        required = bool(field_info.get("/Ff", 0) & 1)  # Required flag is bit 1
+                        required = bool(
+                            field_info.get("/Ff", 0) & 1
+                        )  # Required flag is bit 1
 
-                        acroform_fields_list.append({
-                            "name": field_name,
-                            "type": ft_str,
-                            "required": required
-                        })
+                        acroform_fields_list.append(
+                            {"name": field_name, "type": ft_str, "required": required}
+                        )
             except Exception:
                 pass
 
@@ -99,10 +103,18 @@ class PDFAnalyzer:
                     try:
                         resources = page.get("/Resources", {})
                         if resources:
-                            resources_obj = resources.get_object() if hasattr(resources, "get_object") else resources
+                            resources_obj = (
+                                resources.get_object()
+                                if hasattr(resources, "get_object")
+                                else resources
+                            )
                             xobject = resources_obj.get("/XObject", {})
                             if xobject:
-                                xobject_obj = xobject.get_object() if hasattr(xobject, "get_object") else xobject
+                                xobject_obj = (
+                                    xobject.get_object()
+                                    if hasattr(xobject, "get_object")
+                                    else xobject
+                                )
                                 for obj_name in xobject_obj:
                                     obj = xobject_obj[obj_name].get_object()
                                     if obj.get("/Subtype") == "/Image":
@@ -121,9 +133,17 @@ class PDFAnalyzer:
                 try:
                     annots = page.get("/Annots")
                     if annots:
-                        annots_obj = annots.get_object() if hasattr(annots, "get_object") else annots
+                        annots_obj = (
+                            annots.get_object()
+                            if hasattr(annots, "get_object")
+                            else annots
+                        )
                         for annot in annots_obj:
-                            annot_obj = annot.get_object() if hasattr(annot, "get_object") else annot
+                            annot_obj = (
+                                annot.get_object()
+                                if hasattr(annot, "get_object")
+                                else annot
+                            )
                             if annot_obj and annot_obj.get("/Subtype") == "/Widget":
                                 page_acroform_count += 1
                 except Exception:
@@ -133,17 +153,19 @@ class PDFAnalyzer:
                 if page_has_native_text and not page_has_large_image:
                     all_pages_scanned = False
 
-                pages_analysis.append({
-                    "page_number": page_num,
-                    "width": width,
-                    "height": height,
-                    "rotation": rotation,
-                    "has_native_text": page_has_native_text,
-                    "native_text_character_count": char_count,
-                    "image_count": image_count,
-                    "has_large_page_image": page_has_large_image,
-                    "acroform_field_count": page_acroform_count,
-                })
+                pages_analysis.append(
+                    {
+                        "page_number": page_num,
+                        "width": width,
+                        "height": height,
+                        "rotation": rotation,
+                        "has_native_text": page_has_native_text,
+                        "native_text_character_count": char_count,
+                        "image_count": image_count,
+                        "has_large_page_image": page_has_large_image,
+                        "acroform_field_count": page_acroform_count,
+                    }
+                )
 
             # Check if any page-level widgets found, update global flag
             if any(p["acroform_field_count"] > 0 for p in pages_analysis):
@@ -172,7 +194,9 @@ class PDFAnalyzer:
                 else:
                     doc_type = "hybrid_pdf"
                     # If most pages are scanned, mark as probably scanned
-                    scanned_pages = sum(1 for p in pages_analysis if p["has_large_page_image"])
+                    scanned_pages = sum(
+                        1 for p in pages_analysis if p["has_large_page_image"]
+                    )
                     if scanned_pages >= page_count / 2:
                         is_probably_scanned = True
             else:
@@ -191,4 +215,6 @@ class PDFAnalyzer:
         except Exception as e:
             if isinstance(e, DocumentValidationError):
                 raise
-            raise DocumentValidationError(f"Failed to analyze PDF structure: {str(e)}", "document_analysis_failed") from e
+            raise DocumentValidationError(
+                f"Failed to analyze PDF structure: {str(e)}", "document_analysis_failed"
+            ) from e

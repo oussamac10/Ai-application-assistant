@@ -44,6 +44,7 @@ from app.documents.models import SourceDocument
 from app.field_detection.confidence import AUTO_USABLE_REVIEW_STATUSES
 from app.field_detection.errors import FieldDetectionValidationError
 from app.field_detection.models import DetectedField, FieldDetectionResult
+from app.field_detection.requiredness import detect_requiredness
 from app.forms.schemas import (
     FieldCreate,
     OptionSchema,
@@ -172,6 +173,58 @@ def _persisted_catalog_labels(
         if translation is not None and translation.text:
             persisted[detected.label] = translation.text
     return persisted
+
+
+def _log_question_shape(document_public_id: str, fields: list[DetectedField]) -> None:
+    """One line describing what kinds of questions a document produced.
+
+    Answers "did the option rows become one question or twenty?" without
+    opening a debugger, and without putting a single label in a log.
+    """
+    counts = _requiredness_counts(fields)
+    choice_types = {"single_choice", "multiple_choice", "radio", "select"}
+    logger.info(
+        "Question shape: document=%s total=%d boolean=%d single_choice=%d "
+        "multiple_choice=%d text=%d option_group_options=%d "
+        "required=%d optional=%d unknown_required_state=%d",
+        document_public_id,
+        len(fields),
+        sum(1 for f in fields if f.field_type == "boolean"),
+        sum(1 for f in fields if f.field_type in ("single_choice", "radio")),
+        sum(1 for f in fields if f.field_type in ("multiple_choice", "select")),
+        sum(1 for f in fields if f.field_type not in choice_types | {"boolean"}),
+        sum(len(f.options or []) for f in fields if f.field_type in choice_types),
+        counts["required"],
+        counts["optional"],
+        counts["unknown"],
+    )
+
+
+def _resolve_required(detected_field: DetectedField) -> bool:
+    """Whether the generated question blocks progress when left empty.
+
+    A detection that already carries an explicit flag (an AcroForm field says
+    so outright) is trusted. Otherwise the label is inspected for a marker,
+    and anything unmarked resolves to *not* blocking.
+    """
+    if detected_field.required is not None:
+        return bool(detected_field.required)
+    return detect_requiredness(detected_field.label or "").blocks_progress
+
+
+def _requiredness_counts(fields: list[DetectedField]) -> dict[str, int]:
+    """Counts by resolved state, for the diagnostics line. Counts only — no
+    label ever reaches a log through this."""
+    counts = {"required": 0, "optional": 0, "unknown": 0}
+    for detected in fields:
+        if detected.required is True:
+            counts["required"] += 1
+        elif detected.required is False:
+            counts["optional"] += 1
+        else:
+            state = detect_requiredness(detected.label or "").state
+            counts["required" if state == "required" else state] += 1
+    return counts
 
 
 def _translatable_texts(fields: list[DetectedField]) -> list[str]:
@@ -572,11 +625,12 @@ async def create_session_from_confirmed_fields(
                 FieldCreate(
                     key=key,
                     field_type=field_type,
-                    required=(
-                        detected_field.required
-                        if detected_field.required is not None
-                        else True
-                    ),
+                    # Requiredness comes from evidence, never from habit.
+                    # Defaulting an unmarked field to required blocked users
+                    # on fields the form never insisted on; `unknown` is
+                    # recorded honestly and does not block. See
+                    # app/field_detection/requiredness.py.
+                    required=_resolve_required(detected_field),
                     position=position,
                     configuration={},
                     translations=_label_translations(
@@ -658,6 +712,9 @@ async def create_session_from_confirmed_fields(
         translation_stats.translated_character_count,
         translation_stats.unresolved,
     )
+
+    # Question-shape diagnostics: counts only, never a label or an answer.
+    _log_question_shape(doc.public_id, confirmed_fields)
 
     session_service = SessionService(db)
     return session_service.create_session(

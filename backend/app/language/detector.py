@@ -112,15 +112,29 @@ _FUNCTION_WORDS: dict[str, frozenset[str]] = {
     ),
 }
 
-# Characters that strongly suggest one Latin-script language. Used only to
-# break a near-tie, never on their own — "Ort" is German but has no umlaut.
+# Characters that point at *one* Latin-script language. Deliberately only the
+# discriminative ones: é/è/à are shared by French, Spanish, Italian and
+# Portuguese, so counting them added the same bonus to all four and decided
+# nothing while inflating the denominator. ß, ñ, œ and ã do discriminate.
 _DIACRITIC_HINTS: dict[str, str] = {
     "de": "äöüßÄÖÜ",
-    "fr": "àâçéèêëîïôûùüÿœÀÂÇÉÈÊËÎÏÔÛÙŸŒ",
-    "es": "áéíóúñ¿¡ÁÉÍÓÚÑ",
-    "it": "àèéìòùÀÈÉÌÒÙ",
-    "pt": "ãõáâêôçÃÕÁÂÊÔÇ",
+    "fr": "çœëïÿÇŒËÏŸ",
+    "es": "ñ¿¡Ñ",
+    "it": "",
+    "pt": "ãõÃÕ",
+    "nl": "ĳĲ",
 }
+
+# How much one function-word match is worth, by how many languages claim the
+# word. "de" appears in four of the lists and says almost nothing; "vous"
+# appears in one and is decisive. Without this, French text scored barely
+# above Dutch and Portuguese on a form whose vocabulary is mostly shared
+# short words, and the document came back `und`.
+_WORD_WEIGHTS: dict[str, float] = {}
+for _vocabulary in _FUNCTION_WORDS.values():
+    for _word in _vocabulary:
+        _WORD_WEIGHTS[_word] = _WORD_WEIGHTS.get(_word, 0.0) + 1.0
+_WORD_WEIGHTS = {word: 1.0 / count for word, count in _WORD_WEIGHTS.items()}
 
 _WORD_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
 
@@ -210,7 +224,9 @@ class LocalDocumentLanguageDetector:
         # 2. Function-word frequency across the Latin-script candidates.
         scores: dict[str, float] = {}
         for language, vocabulary in _FUNCTION_WORDS.items():
-            scores[language] = float(sum(1 for word in words if word in vocabulary))
+            scores[language] = sum(
+                _WORD_WEIGHTS.get(word, 1.0) for word in words if word in vocabulary
+            )
 
         # 3. Diacritics break near-ties only. Weighted below a function-word
         #    match so a single stray character cannot decide a document.

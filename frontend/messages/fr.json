@@ -27,7 +27,10 @@
     "confirmTitle": "Confirmer les informations extraites",
     "originalAnswerLabel": "Votre réponse originale :",
     "proposedValueLabel": "Valeur proposée pour le formulaire :",
-    "invalidAnswer": "Cette réponse n'est pas valide pour cette question. Veuillez vérifier votre sélection et réessayer."
+    "invalidAnswer": "Cette réponse n'est pas valide pour cette question. Veuillez vérifier votre sélection et réessayer.",
+    "required": "Obligatoire",
+    "optional": "Facultatif",
+    "skipQuestion": "Passer cette question"
   },
   "summary": {
     "title": "Résumé de la session",

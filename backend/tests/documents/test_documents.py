@@ -40,7 +40,9 @@ def clean_db() -> Generator[None, None, None]:
         db.close()
 
 
-def create_simple_pdf(filepath: str, pages: int = 1, text_content: str = "AI Form Assistant Test Content"):
+def create_simple_pdf(
+    filepath: str, pages: int = 1, text_content: str = "AI Form Assistant Test Content"
+):
     """Generates a standard text-based digital PDF."""
     c = canvas.Canvas(filepath, pagesize=letter)
     for _ in range(pages):
@@ -49,7 +51,9 @@ def create_simple_pdf(filepath: str, pages: int = 1, text_content: str = "AI For
     c.save()
 
 
-def create_acroform_pdf(filepath: str, fields: list[str], text_content: str = "AcroForm test"):
+def create_acroform_pdf(
+    filepath: str, fields: list[str], text_content: str = "AcroForm test"
+):
     """Generates a fillable PDF with AcroForm text fields."""
     c = canvas.Canvas(filepath, pagesize=letter)
     c.drawString(100, 750, text_content)
@@ -62,12 +66,10 @@ def create_acroform_pdf(filepath: str, fields: list[str], text_content: str = "A
             y=600 - (idx * 50),
             width=200,
             height=20,
-            value=""
+            value="",
         )
     c.showPage()
     c.save()
-
-
 
 
 def create_scanned_pdf(filepath: str, tmp_path: Path):
@@ -94,6 +96,7 @@ def encrypt_pdf(input_path: str, output_path: str, password: str):
 
 
 # --- Service and Analyzer Tests ---
+
 
 def test_upload_and_analyze_digital_pdf(tmp_path: Path) -> None:
     pdf_path = tmp_path / "digital.pdf"
@@ -350,12 +353,20 @@ def test_upload_malformed_pdf_rejected(tmp_path: Path) -> None:
 
 # --- Fingerprint Matching and Template Resolution ---
 
+
 def test_predefined_template_matching(tmp_path: Path) -> None:
     pdf_path = tmp_path / "template.pdf"
     create_acroform_pdf(
         str(pdf_path),
-        ["first_name", "last_name", "date_of_birth", "email", "country", "marital_status"],
-        text_content="AI Form Assistant Basic Registration Version 1.0 (Phase 8 Predefined)"
+        [
+            "first_name",
+            "last_name",
+            "date_of_birth",
+            "email",
+            "country",
+            "marital_status",
+        ],
+        text_content="AI Form Assistant Basic Registration Version 1.0 (Phase 8 Predefined)",
     )
 
     db = SessionLocal()
@@ -386,12 +397,20 @@ def test_predefined_template_matching(tmp_path: Path) -> None:
 
 # --- Endpoint API Tests ---
 
+
 def test_api_upload_flow(client: TestClient, tmp_path: Path) -> None:
     pdf_path = tmp_path / "api_test.pdf"
     create_acroform_pdf(
         str(pdf_path),
-        ["first_name", "last_name", "date_of_birth", "email", "country", "marital_status"],
-        text_content="AI Form Assistant Basic Registration Version 1.0 (Phase 8 Predefined)"
+        [
+            "first_name",
+            "last_name",
+            "date_of_birth",
+            "email",
+            "country",
+            "marital_status",
+        ],
+        text_content="AI Form Assistant Basic Registration Version 1.0 (Phase 8 Predefined)",
     )
 
     with open(pdf_path, "rb") as f:
@@ -402,7 +421,7 @@ def test_api_upload_flow(client: TestClient, tmp_path: Path) -> None:
                 "outputLanguage": "en",
                 "privacyAccepted": "true",
             },
-            files={"file": ("registration.pdf", f, "application/pdf")}
+            files={"file": ("registration.pdf", f, "application/pdf")},
         )
 
     assert response.status_code == 201
@@ -420,8 +439,7 @@ def test_api_upload_flow(client: TestClient, tmp_path: Path) -> None:
 
     # Retrieve safe metadata with header
     get_resp = client.get(
-        f"/api/source-documents/{doc_id}",
-        headers={"X-Document-Token": token}
+        f"/api/source-documents/{doc_id}", headers={"X-Document-Token": token}
     )
     assert get_resp.status_code == 200
     get_data = get_resp.json()
@@ -431,8 +449,7 @@ def test_api_upload_flow(client: TestClient, tmp_path: Path) -> None:
 
     # Reject retrieval with invalid token
     bad_resp = client.get(
-        f"/api/source-documents/{doc_id}",
-        headers={"X-Document-Token": "invalid_token"}
+        f"/api/source-documents/{doc_id}", headers={"X-Document-Token": "invalid_token"}
     )
     assert bad_resp.status_code == 401
 
@@ -459,8 +476,15 @@ def test_api_session_creation_flow(client: TestClient, tmp_path: Path) -> None:
     pdf_path = tmp_path / "api_test.pdf"
     create_acroform_pdf(
         str(pdf_path),
-        ["first_name", "last_name", "date_of_birth", "email", "country", "marital_status"],
-        text_content="AI Form Assistant Basic Registration Version 1.0 (Phase 8 Predefined)"
+        [
+            "first_name",
+            "last_name",
+            "date_of_birth",
+            "email",
+            "country",
+            "marital_status",
+        ],
+        text_content="AI Form Assistant Basic Registration Version 1.0 (Phase 8 Predefined)",
     )
 
     with open(pdf_path, "rb") as f:
@@ -471,7 +495,7 @@ def test_api_session_creation_flow(client: TestClient, tmp_path: Path) -> None:
                 "outputLanguage": "en",
                 "privacyAccepted": "true",
             },
-            files={"file": ("registration.pdf", f, "application/pdf")}
+            files={"file": ("registration.pdf", f, "application/pdf")},
         )
 
     data = response.json()
@@ -482,10 +506,7 @@ def test_api_session_creation_flow(client: TestClient, tmp_path: Path) -> None:
     sess_resp = client.post(
         f"/api/source-documents/{doc_id}/session",
         headers={"X-Document-Token": token},
-        json={
-            "language": "en",
-            "outputLanguage": "de"
-        }
+        json={"language": "en", "outputLanguage": "de"},
     )
     assert sess_resp.status_code == 200
     sess_data = sess_resp.json()
@@ -495,6 +516,7 @@ def test_api_session_creation_flow(client: TestClient, tmp_path: Path) -> None:
 
 
 # --- Expiration & Cleanup command tests ---
+
 
 def test_cleanup_expired_source_documents(tmp_path: Path) -> None:
     db = SessionLocal()

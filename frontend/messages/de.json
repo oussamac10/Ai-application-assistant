@@ -27,7 +27,10 @@
     "confirmTitle": "Extrahierte Informationen bestätigen",
     "originalAnswerLabel": "Ihre ursprüngliche Antwort:",
     "proposedValueLabel": "Vorgeschlagener Formularwert:",
-    "invalidAnswer": "Diese Antwort ist für diese Frage nicht gültig. Bitte überprüfen Sie Ihre Auswahl und versuchen Sie es erneut."
+    "invalidAnswer": "Diese Antwort ist für diese Frage nicht gültig. Bitte überprüfen Sie Ihre Auswahl und versuchen Sie es erneut.",
+    "required": "Pflichtfeld",
+    "optional": "Optional",
+    "skipQuestion": "Diese Frage überspringen"
   },
   "summary": {
     "title": "Sitzungszusammenfassung",

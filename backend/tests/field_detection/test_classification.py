@@ -105,3 +105,48 @@ def test_is_footer_metadata_requires_both_keyword_and_footer_position() -> None:
 def test_choice_group_confidence_prefers_marker_evidence() -> None:
     assert choice_group_confidence("checkbox") > choice_group_confidence(None)
     assert choice_group_confidence("radio") > choice_group_confidence(None)
+
+
+# ---------------------------------------------------------------------------
+# Compound labels (Phase 15 follow-up)
+# ---------------------------------------------------------------------------
+
+
+def test_postal_code_and_city_stays_an_address_not_a_numeric_field() -> None:
+    """ "70188, Stuttgart" was rejected as invalid because the field carried a
+    subtype that could not represent both halves."""
+    from app.field_detection.classification import classify_label
+
+    assert classify_label("Code postal, ville") == "address"
+    assert classify_label("Postal code, city") == "address"
+    assert classify_label("PLZ, Ort") == "address"
+
+
+def test_address_parts_compose_into_one_address() -> None:
+    from app.field_detection.classification import classify_label
+
+    assert classify_label("Im Haus (Ort, Straße, Haus-Nr., Etage)") == "address"
+
+
+def test_unrelated_concepts_fall_back_to_plain_text() -> None:
+    """No single validator is correct for two different things in one box."""
+    from app.field_detection.classification import classify_label
+
+    assert classify_label("Lieu et date") == "text"
+    assert classify_label("Prénom Nom de famille") == "text"
+    assert classify_label("IBAN / numéro de compte") == "text"
+
+
+def test_single_concept_labels_keep_their_specific_type() -> None:
+    from app.field_detection.classification import classify_label
+
+    assert classify_label("Date de naissance") == "date"
+    assert classify_label("Adresse e-mail") == "email"
+    assert classify_label("Ville") == "text"
+
+
+def test_compound_concepts_are_reported() -> None:
+    from app.field_detection.classification import compound_concepts
+
+    assert set(compound_concepts("Code postal, ville")) == {"postal_code", "city"}
+    assert compound_concepts("Ville") == ()

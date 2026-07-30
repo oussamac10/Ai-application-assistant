@@ -9,6 +9,10 @@ from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.ai.schemas import ExtractionRequest, ExtractionResult
 from app.ai.text_translation import translate_text
 from app.answers.models import FormAnswer
+from app.answers.normalization.context import (
+    apply_currency_context,
+    is_proper_noun_field,
+)
 from app.answers.normalization.normalization import normalize_value
 from app.answers.repositories import AnswerRepository
 from app.answers.validation.validation import validate_value
@@ -30,6 +34,25 @@ from app.translation.factory import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _source_label(field: FormField) -> str:
+    """The field's label in the form's own language.
+
+    Deliberately the *source* label, not the translated one: currency words
+    and proper-noun keywords are matched against the wording the document
+    actually used, which is stable, rather than against a translation that
+    varies with the interface language.
+    """
+    version = getattr(field, "version", None)
+    source_language = getattr(version, "source_language", None)
+    translations = list(getattr(field, "translations", []) or [])
+    if source_language:
+        for translation in translations:
+            if translation.language == source_language and translation.label:
+                return str(translation.label)
+    return str(translations[0].label) if translations else ""
+
 
 # Choice fields are rendered by the frontend as a <select>/checkbox group
 # bound directly to each option's canonical value — the submitted answer is
@@ -65,36 +88,69 @@ class AnswerService:
         self.current_user_id = current_user_id
 
     def get_progress(self, session: Any) -> dict[str, int]:
-        """Calculate progress based on confirmed required fields."""
+        """Progress through the questions the user is actually asked.
+
+        Counted over *answerable* fields, not required ones. Since
+        requiredness became evidence-based (Phase 15), a form that marks
+        nothing mandatory has zero required fields — and progress read
+        "Question 1 of 0 (100%)" before the user had answered anything.
+        Completion still checks required fields; only the progress the user
+        sees counts every question.
+        """
         version = self.form_repo.get_version(session.form_version_id)
         if not version:
             return {
                 "confirmedRequiredFields": 0,
                 "totalRequiredFields": 0,
+                "totalQuestions": 0,
+                "answeredQuestions": 0,
                 "percentage": 0,
             }
 
         required_field_ids = {f.id for f in version.fields if f.required}
         total_required = len(required_field_ids)
 
+        # Progress the *user* sees is measured over every question they are
+        # asked. `totalRequiredFields` keeps its own meaning for completion
+        # checks; since requiredness became evidence-based (Phase 15) a form
+        # that marks nothing mandatory has zero of them, and the progress bar
+        # read "Question 1 of 0 (100%)" before a single answer.
+        total_questions = len(version.fields)
+        answers = self.repo.get_answers_for_session(session.id)
+        confirmed_ids = {a.field_id for a in answers if a.status == "confirmed"}
+        answered_questions = sum(
+            1 for f in version.fields if f.id in confirmed_ids
+        )
+
         if total_required == 0:
             return {
                 "confirmedRequiredFields": 0,
                 "totalRequiredFields": 0,
-                "percentage": 100,
+                "totalQuestions": total_questions,
+                "answeredQuestions": answered_questions,
+                "percentage": (
+                    int((answered_questions / total_questions) * 100)
+                    if total_questions
+                    else 100
+                ),
             }
 
-        answers = self.repo.get_answers_for_session(session.id)
         confirmed_required = sum(
             1
             for a in answers
             if a.field_id in required_field_ids and a.status == "confirmed"
         )
 
-        percentage = int((confirmed_required / total_required) * 100)
+        percentage = (
+            int((answered_questions / total_questions) * 100)
+            if total_questions
+            else 0
+        )
         return {
             "confirmedRequiredFields": confirmed_required,
             "totalRequiredFields": total_required,
+            "totalQuestions": total_questions,
+            "answeredQuestions": answered_questions,
             "percentage": percentage,
         }
 
@@ -350,6 +406,18 @@ class AnswerService:
             answer._uncertainties = result.uncertainties  # type: ignore[attr-defined]
         else:
             norm_val = normalize_value(field.field_type, result.normalized_value)
+            # The label is authoritative about currency. A field reading
+            # "Revenu net mensuel en euros" came back as USD; overriding
+            # deterministically is more reliable than prompting harder, and
+            # when the label names no currency none is invented.
+            norm_val, currency_corrected = apply_currency_context(
+                norm_val, _source_label(field), original_answer
+            )
+            if currency_corrected:
+                logger.info(
+                    "Currency corrected from the field label (field_type=%s)",
+                    field.field_type,
+                )
             is_valid, err = validate_value(
                 field.field_type,
                 norm_val,
@@ -359,7 +427,18 @@ class AnswerService:
             )
 
             answer.normalized_value = norm_val
-            answer.output_value = result.output_value
+            # The *output* value is what gets written into the completed form.
+            # For a proper noun that must be the text the user typed: asked to
+            # render an answer in the output language, the model returned
+            # "stuttgart" transliterated into Arabic, and `domain-rules.md`
+            # forbids transliterating a name automatically — a city, an
+            # employer or a bank is a proper noun exactly like a person.
+            # Structured extraction (normalized_value) is still kept; only the
+            # rendered output is pinned.
+            if is_proper_noun_field(_source_label(field), field.field_type):
+                answer.output_value = original_answer
+            else:
+                answer.output_value = result.output_value
             answer.requires_clarification = False
 
             if is_valid:

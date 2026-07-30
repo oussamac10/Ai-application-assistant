@@ -39,6 +39,10 @@ export const FieldOptionSchema = z.object({
 export const ProgressInfoSchema = z.object({
   confirmedRequiredFields: z.number(),
   totalRequiredFields: z.number(),
+  // Progress the user sees runs over every question, not only the mandatory
+  // ones — a form that marks nothing mandatory has zero required fields.
+  totalQuestions: z.number().optional(),
+  answeredQuestions: z.number().optional(),
   percentage: z.number(),
 });
 
@@ -100,7 +104,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
-    public detail: string | null = null
+    public detail: string | null = null,
   ) {
     super(message);
     this.name = "ApiError";
@@ -113,11 +117,11 @@ async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
   sessionId?: string,
-  schema?: z.ZodSchema<T>
+  schema?: z.ZodSchema<T>,
 ): Promise<T> {
   const baseUrl = "/api";
   const headers = new Headers(options.headers || {});
-  
+
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
@@ -165,13 +169,18 @@ async function apiRequest<T>(
 // --- API Client Endpoints ---
 
 export async function getPublishedForms(): Promise<PublishedForm[]> {
-  return apiRequest("/published-forms", { method: "GET" }, undefined, z.array(PublishedFormSchema));
+  return apiRequest(
+    "/published-forms",
+    { method: "GET" },
+    undefined,
+    z.array(PublishedFormSchema),
+  );
 }
 
 export async function createSession(
   versionId: string,
   userLanguage: string,
-  outputLanguage: string
+  outputLanguage: string,
 ): Promise<FormSession> {
   return apiRequest(
     `/form-versions/${versionId}/sessions`,
@@ -180,30 +189,52 @@ export async function createSession(
       body: JSON.stringify({ userLanguage, outputLanguage }),
     },
     undefined,
-    SessionResponseSchema
+    SessionResponseSchema,
   );
 }
 
 export async function getSession(sessionId: string): Promise<FormSession> {
-  return apiRequest(`/form-sessions/${sessionId}`, { method: "GET" }, sessionId, SessionResponseSchema);
+  return apiRequest(
+    `/form-sessions/${sessionId}`,
+    { method: "GET" },
+    sessionId,
+    SessionResponseSchema,
+  );
 }
 
 export async function startSession(sessionId: string): Promise<FormSession> {
-  return apiRequest(`/form-sessions/${sessionId}/start`, { method: "POST" }, sessionId, SessionResponseSchema);
+  return apiRequest(
+    `/form-sessions/${sessionId}/start`,
+    { method: "POST" },
+    sessionId,
+    SessionResponseSchema,
+  );
 }
 
 export async function cancelSession(sessionId: string): Promise<FormSession> {
-  return apiRequest(`/form-sessions/${sessionId}/cancel`, { method: "POST" }, sessionId, SessionResponseSchema);
+  return apiRequest(
+    `/form-sessions/${sessionId}/cancel`,
+    { method: "POST" },
+    sessionId,
+    SessionResponseSchema,
+  );
 }
 
-export async function getCurrentField(sessionId: string): Promise<CurrentField> {
-  return apiRequest(`/form-sessions/${sessionId}/current-field`, { method: "GET" }, sessionId, CurrentFieldResponseSchema);
+export async function getCurrentField(
+  sessionId: string,
+): Promise<CurrentField> {
+  return apiRequest(
+    `/form-sessions/${sessionId}/current-field`,
+    { method: "GET" },
+    sessionId,
+    CurrentFieldResponseSchema,
+  );
 }
 
 export async function submitAnswer(
   sessionId: string,
   fieldId: string,
-  originalAnswer: string
+  originalAnswer: string,
 ): Promise<AnswerResponse> {
   return apiRequest(
     `/form-sessions/${sessionId}/answers`,
@@ -212,14 +243,14 @@ export async function submitAnswer(
       body: JSON.stringify({ fieldId, originalAnswer }),
     },
     sessionId,
-    AnswerResponseSchema
+    AnswerResponseSchema,
   );
 }
 
 export async function submitClarification(
   sessionId: string,
   answerId: string,
-  values: Record<string, any>
+  values: Record<string, any>,
 ): Promise<AnswerResponse> {
   return apiRequest(
     `/form-sessions/${sessionId}/answers/${answerId}/clarify`,
@@ -228,23 +259,26 @@ export async function submitClarification(
       body: JSON.stringify({ values }),
     },
     sessionId,
-    AnswerResponseSchema
+    AnswerResponseSchema,
   );
 }
 
-export async function confirmAnswer(sessionId: string, answerId: string): Promise<AnswerResponse> {
+export async function confirmAnswer(
+  sessionId: string,
+  answerId: string,
+): Promise<AnswerResponse> {
   return apiRequest(
     `/form-sessions/${sessionId}/answers/${answerId}/confirm`,
     { method: "POST" },
     sessionId,
-    AnswerResponseSchema
+    AnswerResponseSchema,
   );
 }
 
 export async function changeAnswer(
   sessionId: string,
   fieldId: string,
-  originalAnswer: string
+  originalAnswer: string,
 ): Promise<AnswerResponse> {
   return apiRequest(
     `/form-sessions/${sessionId}/fields/${fieldId}/answer`,
@@ -253,7 +287,7 @@ export async function changeAnswer(
       body: JSON.stringify({ originalAnswer }),
     },
     sessionId,
-    AnswerResponseSchema
+    AnswerResponseSchema,
   );
 }
 
@@ -262,20 +296,27 @@ export async function previousField(sessionId: string): Promise<CurrentField> {
     `/form-sessions/${sessionId}/previous-field`,
     { method: "POST" },
     sessionId,
-    CurrentFieldResponseSchema
+    CurrentFieldResponseSchema,
   );
 }
 
 export async function getSummary(sessionId: string): Promise<Summary> {
-  return apiRequest(`/form-sessions/${sessionId}/summary`, { method: "GET" }, sessionId, SummaryResponseSchema);
+  return apiRequest(
+    `/form-sessions/${sessionId}/summary`,
+    { method: "GET" },
+    sessionId,
+    SummaryResponseSchema,
+  );
 }
 
-export async function confirmSummary(sessionId: string): Promise<{ status: string }> {
+export async function confirmSummary(
+  sessionId: string,
+): Promise<{ status: string }> {
   return apiRequest(
     `/form-sessions/${sessionId}/confirm-summary`,
     { method: "POST" },
     sessionId,
-    z.object({ status: z.string() })
+    z.object({ status: z.string() }),
   );
 }
 
@@ -308,11 +349,14 @@ export async function createExport(sessionId: string): Promise<ExportResponse> {
     `/form-sessions/${sessionId}/exports`,
     { method: "POST" },
     sessionId,
-    ExportResponseSchema
+    ExportResponseSchema,
   );
 }
 
-export async function downloadExportBlob(sessionId: string, downloadUrl: string): Promise<Blob> {
+export async function downloadExportBlob(
+  sessionId: string,
+  downloadUrl: string,
+): Promise<Blob> {
   const token = getSessionToken(sessionId);
   const headers = new Headers();
   if (token) {
@@ -334,4 +378,3 @@ export async function downloadExportBlob(sessionId: string, downloadUrl: string)
   }
   return response.blob();
 }
-

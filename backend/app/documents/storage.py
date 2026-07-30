@@ -10,7 +10,7 @@ def sanitize_filename(filename: str) -> str:
     """Sanitizes the original filename to keep it safe for metadata."""
     base = os.path.basename(filename)
     # Replace non-alphanumeric characters (except dots, dashes, underscores) with underscores
-    sanitized = re.sub(r'[^a-zA-Z0-9._-]', '_', base)
+    sanitized = re.sub(r"[^a-zA-Z0-9._-]", "_", base)
     # Trim leading/trailing dots/dashes/underscores
     sanitized = sanitized.strip("._-")
     return sanitized if sanitized else "uploaded_document.pdf"

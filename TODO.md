@@ -278,12 +278,73 @@ creation; when omitted the backend resolves it from the detected language, falli
 interface language only for `und`. The manual template flow keeps the choice, because a template
 can genuinely declare several `supportedOutputLanguages`.
 
+## Question-shape follow-up (third round)
+
+Live French-form testing showed the pipeline preserving a document's *text* but losing its
+*semantics*.
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Options became individual text questions | The choice pass needs a heading directly above; real forms omit it | `option_groups.py` second pass on unclaimed rows |
+| Parent questions missing | Nothing inferred a group name | Recognised option sets -> heading -> neutral+review |
+| Languages merged with contact channels | Adjacent rows accumulated into one group | Stop accumulating at a different recognised set |
+| `70188, Stuttgart` rejected | `address` validator demanded street *and* city | Require one recognisable part; compound labels detected |
+| `stuttgart` transliterated | AI normalized without field context | Proper-noun labels pin the output value verbatim |
+| `2000` became `USD 2000` | No currency context | Label wins; invented currency removed; typed currency kept |
+| Every field required | Defaulted to `True` | Three-state evidence-based detection; `unknown` never blocks |
+| Validation error shown twice | One `errorMsg` fed banner and field | Field-level vs global separation |
+
+### Live verification — French form, Arabic UI
+
+| Check | Result |
+|---|---|
+| `source_language` | **fr** (0.39) — French detection fixed by weighting shared function words |
+| Option groups | **6**: Gender + Employment status (`single_choice`), Documents, Communication preferences, Contact method, Declarations (`multiple_choice`) |
+| Options folded into groups | **23** |
+| Option labels leaked as text questions | **0** |
+| "Code postal, ville" | `address`, accepts `70188, Stuttgart` |
+| Requiredness | 38 `unknown`, none blocking; UI shows Required/Optional with Skip |
+| Stable option values | French originals preserved, Arabic for display only |
+| Total duration | 4.64 s |
+
+German and Arabic forms unchanged (`Mietraum / Mieträume` group intact, 21 German
+candidates, Arabic 29 questions).
+
+### Quality gates (run sequentially)
+
+- Backend `pytest` → **755 passed**; ruff and `ruff format --check` clean; mypy clean
+  (154 files).
+- Frontend `npm test` → **133 passed** (18 files); lint and typecheck clean.
+- Playwright → **26 passed, 3 failed, 1 flaky**. Two of the three are Azure Document
+  Intelligence **F0 free-tier rate limiting** (`HTTP 429 Too Many Requests`) triggered by the
+  suite uploading many PDFs in quick succession — verified in the backend log
+  (`azure_rate_limited`), and both pass when re-run after a pause (the multiple-choice spec
+  alone: `1 passed (13.1s)`). The third is `guided-flow.spec.ts`, pre-existing since Phase 9.
+
+### Two regressions this work introduced, found and fixed
+
+- **"Question 1 of 0 (100%)".** Progress counted only *required* fields, so an
+  evidence-based form that marks nothing mandatory reported a total of zero.
+  `ProgressInfo` gained `totalQuestions` / `answeredQuestions`; `totalRequiredFields` keeps
+  its own meaning for completion checks, and the frontend now reads the new fields.
+- **The summary was unreachable.** Completion also keyed off required fields only, so a
+  form with none never advanced. It now completes when every question is answered.
+
+### Tests added
+
+`test_option_groups.py` (25), `test_requiredness.py` (18), `test_normalization_context.py`
+(41 across currency and proper nouns), plus compound-label cases in `test_classification.py`.
+
 ## Carried Deferred Items
 
 - `guided-flow.spec.ts` default-tab gap (pre-existing since Phase 9/10).
 - Pre-existing Ruff formatting exceptions under `app/documents/*` and `tests/documents/`.
 - Preparation is still synchronous; background jobs with progress polling remain Phase 20.
 - The translation cache is process-local and dropped on restart.
+- A long wrapped checklist splits into one question per row (never merged — see above).
+- Azure mistranslates some isolated one-word options (`Français` -> `الإنجليزية`), verified
+  against the provider with correct ids; stable values are unaffected.
+- Requiredness has no per-field admin override until Phase 16.
 - Arabic field *detection* quality (2 fields from 27 candidates, merged labels) — a Phase 13/14
   heuristics limitation with RTL layout, not a translation issue.
 - With Ollama selected, a German document in an English interface is still not translated: the

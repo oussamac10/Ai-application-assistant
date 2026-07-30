@@ -25,7 +25,7 @@ class SourceDocumentRepository:
         # Excludes already deleted or expired statuses from double deletions
         stmt = select(SourceDocument).where(
             SourceDocument.expires_at <= current_time,
-            SourceDocument.status.not_in(["deleted", "expired"])
+            SourceDocument.status.not_in(["deleted", "expired"]),
         )
         return list(db.scalars(stmt).all())
 

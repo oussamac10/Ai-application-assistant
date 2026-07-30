@@ -279,6 +279,110 @@ as `ar`), and is used only as the lower-precedence fallback. A deliberately mixe
 (one German label, one Arabic label) returned per-item detections `('de', 'ar')`, which the
 dominant-language policy then resolves deterministically.
 
+## Question shape: options, compound fields, and requiredness
+
+A third round of live testing (French application form) exposed four defects in how a
+document's *semantics* survived the pipeline.
+
+### Option groups
+
+Selection-mark rows became one free-text question **per option** — "Non-binaire",
+"Je préfère ne pas répondre", "J'accepte la déclaration" — while the question they belong
+to never existed. The existing choice-group pass only recognises a group when a heading
+sits directly above it, which real forms frequently omit.
+
+`app/field_detection/option_groups.py` adds a second pass that runs on the rows the first
+one did not claim, so German behaviour is untouched. Naming a group uses three sources in
+descending confidence:
+
+1. **A recognised option set** — `{femme, homme, non-binaire}` is a gender question in any
+   language, and the options themselves are the evidence. Sets cover gender, employment
+   status, languages, contact method, marital status and yes/no in en/de/fr/ar.
+2. **The nearest section heading**, with numbering stripped ("5. Documents joints" ->
+   "Documents joints").
+3. **A neutral label** (`Selection group`) flagged for review — one question with an
+   honest name beats N spurious text fields, and inventing a question is worse than
+   admitting we do not know it.
+
+`single_choice` vs `multiple_choice` comes from marker glyphs when they are unambiguous
+(parentheses = radio, brackets = checkbox), overridden by a recognised set's own
+exclusivity: you have one gender but may speak several languages.
+
+Each row is its own group. Merging adjacent rows was tried and rejected — the French form
+places languages and contact channels on consecutive rows with identical spacing under one
+heading, so any geometric merge joins two unrelated questions. The existing pass now stops
+accumulating when a row belongs to a *different* recognised set.
+
+### Compound fields
+
+"Code postal, ville" was classified `address`, whose validator demanded both a street and
+a city, so `70188, Stuttgart` was rejected as invalid. Two changes:
+
+- `classification.compound_concepts()` detects labels naming several concepts. Those that
+  compose into one address (postal code + city, street + house number — including the
+  German "Im Haus (Ort, Straße, Haus-Nr., Etage)") keep `address`; unrelated pairs
+  ("Lieu et date", "Prénom Nom de famille", "IBAN / numéro de compte") fall back to plain
+  `text`, because no single validator is correct for two different things in one box.
+- The address validator now requires *one* recognisable part rather than both a street and
+  a city, and returns a specific message with an example.
+
+### Required vs optional
+
+Every detected field defaulted to `required=True` — an assumption, not a finding, and one
+that blocks a user on a field the form never insisted on.
+`app/field_detection/requiredness.py` resolves three states from evidence only: the
+AcroForm flag, an explicit marker word (en/de/fr/ar), a trailing asterisk, or a form-level
+"all fields are required" statement. With no evidence the state is **`unknown`**, which is
+recorded honestly and does *not* block progress. The evidence source and confidence are
+kept so an admin can review or override.
+
+The frontend shows "Required" (with `*`) or "Optional", and an optional question offers a
+Skip control that advances without submitting.
+
+### Normalization safety
+
+- **Proper nouns are preserved verbatim.** `stuttgart` came back transliterated into
+  Arabic. `app/answers/normalization/context.py` recognises proper-noun *labels* (person,
+  place, address, employer, bank, signature, in en/de/fr/ar) and pins the answer's
+  **output** value to what the user typed. Structured extraction is still kept; only the
+  rendered output is fixed, and `domain-rules.md` forbids transliterating a name
+  automatically.
+- **Currency comes from the label.** `2000` on "Montant demandé en euros" came back as
+  `USD 2000`. A currency named in the label now wins outright. When neither the label nor
+  the user's answer names one, an invented currency is removed rather than trusted — but a
+  currency the user actually typed ("1800 EUR monthly") is kept, because that is evidence.
+
+### Error UX
+
+The same validation message was rendered twice: once as a page-level banner and once under
+the field. Field-level problems (HTTP 400/422) now show only next to the input; the banner
+is reserved for unexpected or global failures.
+
+### Diagnostics
+
+```
+Question shape: document=... total=38 boolean=0 single_choice=2 multiple_choice=4
+    text=32 option_group_options=23 required=0 optional=0 unknown_required_state=38
+Option group detected: page=1 options=4 type=radio label_source=option_set
+    needs_review=False
+```
+
+Counts only — no label, option value or answer is ever logged.
+
+### Live result (French form, Arabic UI)
+
+| Check | Result |
+|---|---|
+| `source_language` | **fr** (0.39) |
+| Option groups | **6** — Gender and Employment status as `single_choice`; Documents, Communication preferences, Contact method and Declarations as `multiple_choice` |
+| Options folded into groups | **23** |
+| Option labels leaked as text questions | **0** (was one per option) |
+| "Code postal, ville" | `address` — accepts `70188, Stuttgart` |
+| Requiredness | 38 `unknown`, none blocking |
+| Stable values | French originals preserved; Arabic used only for display |
+| Interface | RTL, Arabic labels |
+| Total duration | 4.64 s |
+
 ## Known limitations
 
 - **The endpoint must be a Translator resource, and it must use the right path.** A Document
@@ -295,3 +399,19 @@ dominant-language policy then resolves deterministically.
   the dominant signal for Arabic forms — the local text passes contribute only one candidate
   there.
 - The translation cache is process-local and dropped on restart.
+- **A long wrapped checklist splits into one question per row.** One question per row is
+  occasionally too granular, but it is never *wrong* in the way a merge would be — see the
+  languages/contact-channel case above.
+- **Azure Translator mistranslates some isolated single words.** `Français` -> `الإنجليزية`
+  ("English") was verified directly against the provider with correct per-item ids and
+  `detectedLanguage: fr`, so this is provider translation quality on a one-word input, not
+  an id-mapping fault. Stable option *values* are unaffected: only the display label is
+  translated.
+- **Azure Document Intelligence F0 rate-limits the E2E suite.** Uploading many PDFs in
+  quick succession returns `HTTP 429`, which surfaces as "We could not process this
+  document". Affected specs pass when re-run after a pause. A paid tier removes it.
+- Progress and completion now count every question, not only mandatory ones — a direct
+  consequence of evidence-based requiredness, and the reason `ProgressInfo` gained
+  `totalQuestions`/`answeredQuestions`.
+- Requiredness has no per-field admin override yet; the evidence and confidence are
+  recorded for the review UI that Phase 16 will add.

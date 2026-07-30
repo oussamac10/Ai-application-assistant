@@ -37,6 +37,12 @@ class AnswerResponse(BaseSchema):
 class ProgressInfo(BaseSchema):
     confirmed_required_fields: int
     total_required_fields: int
+    # Every question the user is asked, and how many they have confirmed.
+    # `total_required_fields` counts only mandatory ones and drives completion;
+    # these two drive the progress the user sees, which must stay meaningful on
+    # a form that marks nothing mandatory.
+    total_questions: int = 0
+    answered_questions: int = 0
     percentage: int
 
 

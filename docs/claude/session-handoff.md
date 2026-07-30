@@ -47,6 +47,38 @@ Every part of it was misleading, and it took four separate fixes:
 - The upload flow's "Select completed form language" dropdown is gone; `outputLanguage` is
   optional and resolved from the detected document language.
 
+## Third round — question shape (options, compound fields, requiredness)
+
+Live French-form testing showed the pipeline preserving a document's *text* but losing its
+*semantics*. Fixed:
+
+- `app/field_detection/option_groups.py` — a selection-mark row becomes **one** question.
+  Previously each option became its own free-text question and the real question never
+  existed. Group naming: recognised option set -> section heading -> neutral + review flag.
+  One question per row, never merged (adjacent rows can be unrelated questions).
+- `classification.compound_concepts()` — "Code postal, ville" keeps `address` (which is
+  permissive) while unrelated pairs ("Lieu et date") fall back to `text`. The rejection of
+  `70188, Stuttgart` was the address validator demanding street *and* city; it now needs
+  one recognisable part.
+- `app/field_detection/requiredness.py` — three states from evidence. Everything defaulted
+  to required before, blocking users on fields the form never insisted on. No evidence ->
+  `unknown`, which never blocks.
+- `app/answers/normalization/context.py` — proper-noun labels pin the answer's **output**
+  value verbatim (`stuttgart` was being transliterated into Arabic); currency comes from
+  the label (`2000` was becoming `USD 2000`), with an invented currency removed but a
+  user-typed one kept.
+- Validation errors render once: field-level for 400/422, banner for global failures.
+- French language detection fixed by weighting function words by how many languages claim
+  them ("de" says little, "vous" is decisive) and keeping only discriminative diacritics.
+
+Result (French form, Arabic UI): 6 option groups, 23 options folded in, **0** option labels
+leaking as text questions, `Code postal, ville` accepting `70188, Stuttgart`, 38 fields
+`unknown` requiredness and none blocking, 4.64 s. German and Arabic unchanged.
+
+**Two regressions this introduced, found and fixed:** progress read "Question 1 of 0
+(100%)" and the summary was unreachable, both because they counted *required* fields only.
+`ProgressInfo` gained `totalQuestions`/`answeredQuestions`.
+
 ## Live results (Azure Translator working, global endpoint)
 
 | | German (UI fr) | Arabic (UI en) | German (UI ar) |
@@ -84,6 +116,11 @@ Playwright: see `TODO.md` — several specs were retrofitted because they drove 
 - The translation cache is process-local and dropped on restart.
 - Preparation is still synchronous; background jobs remain Phase 20.
 - `guided-flow.spec.ts` default-tab gap (pre-existing since Phase 9).
+- Azure Document Intelligence F0 rate-limits the E2E suite (`HTTP 429`); affected specs
+  pass when re-run after a pause.
+- A long wrapped checklist splits into one question per row (never merged).
+- Azure mistranslates some isolated one-word options (`Français` -> `الإنجليزية`), verified
+  as provider quality with correct per-item ids, not an id-mapping fault.
 
 ## Next action
 

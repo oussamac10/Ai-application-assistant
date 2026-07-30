@@ -75,7 +75,9 @@ def validate_pdf_safety(filepath: str) -> None:
         if not catalog:
             return
 
-        catalog_obj = catalog.get_object() if hasattr(catalog, "get_object") else catalog
+        catalog_obj = (
+            catalog.get_object() if hasattr(catalog, "get_object") else catalog
+        )
 
         # Check for active actions at root level
         if "/JavaScript" in catalog_obj or "/JS" in catalog_obj:
@@ -119,12 +121,18 @@ def validate_pdf_safety(filepath: str) -> None:
             if annots:
                 # annots can be an array of indirect references
                 for annot in annots:
-                    annot_obj = annot.get_object() if hasattr(annot, "get_object") else annot
+                    annot_obj = (
+                        annot.get_object() if hasattr(annot, "get_object") else annot
+                    )
                     if not annot_obj:
                         continue
                     action = annot_obj.get("/A")
                     if action:
-                        action_obj = action.get_object() if hasattr(action, "get_object") else action
+                        action_obj = (
+                            action.get_object()
+                            if hasattr(action, "get_object")
+                            else action
+                        )
                         action_type = action_obj.get("/S")
                         if action_type in ("/JavaScript", "/JS", "/Launch"):
                             raise DocumentValidationError(

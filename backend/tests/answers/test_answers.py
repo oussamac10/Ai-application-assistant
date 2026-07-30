@@ -431,13 +431,20 @@ def test_confirm_answer_and_progress(session_setup: dict[str, Any]) -> None:
     assert res_confirm.json()["status"] == "confirmed"
     assert res_confirm.json()["confirmedByUser"] is True
 
-    # Progress should now reflect 50% (1 of 2 required fields confirmed)
+    # Progress is measured over every question the user is asked, not only the
+    # mandatory ones: with evidence-based requiredness (Phase 15) a form that
+    # marks nothing mandatory would otherwise show "Question 1 of 0 (100%)".
+    # The required counters keep their own meaning for completion checks.
     res_field = client.get(
         f"/api/form-sessions/{session_id}/current-field",
         headers={"X-Session-Token": token},
     )
-    assert res_field.json()["progress"]["confirmedRequiredFields"] == 1
-    assert res_field.json()["progress"]["percentage"] == 50
+    progress = res_field.json()["progress"]
+    assert progress["confirmedRequiredFields"] == 1
+    assert progress["totalRequiredFields"] == 2
+    assert progress["answeredQuestions"] == 1
+    assert progress["totalQuestions"] == 4
+    assert progress["percentage"] == 25
 
 
 def test_change_and_edit_answer(session_setup: dict[str, Any]) -> None:

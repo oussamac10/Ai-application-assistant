@@ -33,7 +33,9 @@ class PDFFingerprintRegistry:
                                 pass
         return fingerprints
 
-    def match_document(self, filepath: str, analysis: dict[str, Any]) -> dict[str, Any] | None:
+    def match_document(
+        self, filepath: str, analysis: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Matches a document against registered fingerprints."""
         fingerprints = self._get_fingerprints()
         matches: list[dict[str, Any]] = []
@@ -55,7 +57,12 @@ class PDFFingerprintRegistry:
             return None
         return None
 
-    def _evaluate_match(self, analysis: dict[str, Any], fp: dict[str, Any], reader: pypdf.PdfReader | None) -> bool:
+    def _evaluate_match(
+        self,
+        analysis: dict[str, Any],
+        fp: dict[str, Any],
+        reader: pypdf.PdfReader | None,
+    ) -> bool:
         # 1. Page count must match
         if analysis.get("page_count") != fp.get("pageCount"):
             return False

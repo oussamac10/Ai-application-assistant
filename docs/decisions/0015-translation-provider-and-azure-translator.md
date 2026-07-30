@@ -272,3 +272,89 @@ Known limitations:
 - RTL geometry improves ordering and label association, but Azure's own
   key-value grouping for RTL documents is still the dominant signal for Arabic
   forms; the local text passes contribute little there.
+
+
+---
+
+# Addendum 2 — question shape: option groups, compound fields, requiredness
+
+- Status: Accepted
+- Date: 2026-07-30
+
+Live testing with a French application form showed the pipeline preserving a document's
+*text* faithfully while losing its *semantics*.
+
+## Decisions
+
+### An option row is one question, and naming it is evidence-driven
+
+`[_] Femme [_] Homme [_] Non-binaire` produced three free-text questions and no "Gender".
+`app/field_detection/option_groups.py` groups such rows, running only on rows the existing
+heading-based pass did not claim so nothing already working changes.
+
+The group's name comes from a **recognised option set** first, because the options are
+stronger evidence than any surrounding geometry — a row of `{femme, homme, non-binaire}` is
+a gender question whatever the form calls it, or calls nothing. A section heading is the
+second choice, and a neutral flagged-for-review label the third. Inventing a plausible
+question name was rejected: a wrong question is worse than an unnamed one, and
+`domain-rules.md` forbids inventing information.
+
+**One question per row, never merged across rows.** The French form places
+`Français / Allemand / Anglais / Arabe` and `E-mail / Téléphone / Courrier postal` on
+consecutive rows, same spacing, same heading. No geometric rule can separate them, so any
+merge rule joins two unrelated questions. Splitting a wrapped checklist is a cosmetic
+imperfection; merging two questions is a correctness failure.
+
+Exclusivity comes from glyphs when they are unambiguous, and from the recognised set
+otherwise — one gender, several languages.
+
+### A compound label gets no subtype it cannot honour
+
+"Code postal, ville" was `address`, whose validator demanded a street, so `70188,
+Stuttgart` was invalid. Labels naming several concepts are detected explicitly. Those that
+compose into one address keep `address`; unrelated pairs fall back to `text`. The address
+validator now needs one recognisable part, not two.
+
+This deliberately keeps the German `PLZ, Ort` and `Im Haus (Ort, Straße, Haus-Nr., Etage)`
+as `address` — unchanged behaviour, and the reported rejection was the validator's fault,
+not the type's.
+
+### Requiredness is a three-state finding, not a default
+
+`required=True` for everything is an assumption that blocks users on fields the form never
+insisted on. Evidence: the AcroForm flag, marker words, a trailing asterisk, a form-level
+statement. Absent all of them the state is `unknown` — recorded as such, not resolved to
+"required", and never blocking. The evidence source and confidence are kept for admin
+override.
+
+### Proper nouns are never rewritten, and currency comes from the label
+
+Both were the AI normalizing an answer with no knowledge of the field. Both are now decided
+from the label by plain code, per the domain rule that deterministic logic beats AI wherever
+language understanding is not genuinely required — reading the word "euros" is not language
+understanding.
+
+The proper-noun rule pins the **output** value only; structured extraction is still kept,
+because the bug was the rendered answer being transliterated, not the extraction being
+wrong.
+
+The currency rule has three cases, and the third matters: label wins; nothing anywhere
+means an invented currency is removed; but a currency the *user typed* is kept, because
+that is evidence rather than invention. An earlier version stripped it unconditionally and
+broke a legitimate "1800 EUR monthly" answer.
+
+### One error message, in the right place
+
+Field-level validation shows under the field; the page banner is for global failures. One
+`errorMsg` had fed both.
+
+## Consequences
+
+French form, Arabic interface: 6 option groups (2 exclusive, 4 multi-select), 23 options
+folded into them, **0** option labels leaking as text questions, "Code postal, ville"
+accepting `70188, Stuttgart`, 38 fields resolved as `unknown` requiredness and none
+blocking. German and Arabic forms unchanged.
+
+Known limitations: a wrapped checklist splits per row; Azure mistranslates some isolated
+one-word options (`Français` -> `الإنجليزية`), verified as provider quality rather than an
+id-mapping fault; requiredness has no admin override until Phase 16.

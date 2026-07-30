@@ -193,12 +193,107 @@ def _keyword_matches(keyword: str, lowered_label: str) -> bool:
     return pattern.search(lowered_label) is not None
 
 
+# Concept groups for compound-label detection. A label naming two of these is
+# asking for two different things in one box, and no single subtype can
+# validate it correctly.
+_CONCEPT_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "postal_code",
+        (
+            "postal code",
+            "post code",
+            "postcode",
+            "zip",
+            "plz",
+            "code postal",
+            "الرمز البريدي",
+        ),
+    ),
+    ("city", ("city", "town", "ort", "stadt", "ville", "المدينة")),
+    ("place", ("place", "lieu", "ort", "مكان")),
+    ("date", ("date", "datum", "تاريخ")),
+    ("first_name", ("first name", "given name", "vorname", "prénom", "الاسم الأول")),
+    (
+        "last_name",
+        (
+            "last name",
+            "surname",
+            "family name",
+            "nachname",
+            "familienname",
+            "nom de famille",
+            "اسم العائلة",
+        ),
+    ),
+    ("street", ("street", "straße", "strasse", "rue", "شارع")),
+    (
+        "house_number",
+        ("house number", "hausnummer", "nr.", "no.", "numéro", "رقم المنزل"),
+    ),
+    ("iban", ("iban",)),
+    (
+        "account_number",
+        ("account number", "kontonummer", "numéro de compte", "رقم الحساب"),
+    ),
+    ("bic", ("bic", "swift")),
+)
+
+
+# Parts of one postal address. A label naming several of these is not two
+# questions crammed together — it is an address, and `address` accepts free
+# text. "Im Haus (Ort, Straße, Haus-Nr., Etage)" and "Code postal, ville" are
+# both this shape.
+_ADDRESS_CONCEPTS = frozenset(
+    {"postal_code", "city", "street", "house_number", "place"}
+)
+
+
+def compound_concepts(label_text: str) -> tuple[str, ...]:
+    """The distinct concepts a label names, when it names more than one.
+
+    "Code postal, ville" names a postal code *and* a city; "Lieu et date" a
+    place *and* a date. Returns an empty tuple for an ordinary single-concept
+    label.
+    """
+    lowered = label_text.strip().lower()
+    if not lowered:
+        return ()
+    found: list[str] = []
+    for concept, keywords in _CONCEPT_KEYWORDS:
+        if concept in found:
+            continue
+        if any(_keyword_matches(keyword, lowered) for keyword in keywords):
+            found.append(concept)
+    # "place" and "city" overlap by design (German "Ort" is both); collapsing
+    # them prevents a single word looking like two concepts.
+    if "place" in found and "city" in found:
+        found.remove("place")
+    return tuple(found) if len(found) > 1 else ()
+
+
+def is_compound_label(label_text: str) -> bool:
+    return bool(compound_concepts(label_text))
+
+
 def classify_label(label_text: str) -> str:
     """Guesses a field_type from label wording alone. Returns "text" when
     nothing matches — never invents a more specific type from weak evidence.
     """
     lowered = label_text.strip().lower()
     if not lowered:
+        return "text"
+
+    # A label naming two concepts usually gets no subtype at all: no single
+    # validator is correct for "Lieu et date" or "Prénom Nom de famille".
+    #
+    # The exception is a combination that genuinely composes into one known
+    # type — a postal code with a city, or a street with a house number, is an
+    # address. Those keep `address`, which accepts free text; the reason
+    # "70188, Stuttgart" was rejected was not the type but an over-strict
+    # address validator demanding a street, fixed in
+    # app/answers/validation/validation.py.
+    concepts = compound_concepts(lowered)
+    if concepts and not set(concepts) <= _ADDRESS_CONCEPTS:
         return "text"
 
     for keyword, field_type in _LABEL_KEYWORD_RULES:

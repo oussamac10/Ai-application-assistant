@@ -182,13 +182,19 @@ def validate_value(
         if not isinstance(val, (dict, str)):
             return False, "Address must be a string or a structured object."
         if isinstance(val, dict):
-            # Check basic structure e.g., street must be present
-            street = val.get("street")
-            city = val.get("city")
-            if not street or not city:
+            # At least one recognisable address part. Demanding both a street
+            # *and* a city rejected perfectly good answers: a "postal code,
+            # city" field has no street, so "70188, Stuttgart" was reported
+            # invalid. An address with no identifiable part at all is still
+            # rejected.
+            recognised = any(
+                val.get(part)
+                for part in ("street", "city", "postal_code", "postalCode", "zip")
+            )
+            if not recognised:
                 return (
                     False,
-                    "Address object must contain at least 'street' and 'city'.",
+                    "Enter an address, for example: Hauptstraße 1, 70188 Stuttgart.",
                 )
 
     return True, None
