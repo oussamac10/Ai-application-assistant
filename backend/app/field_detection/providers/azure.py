@@ -37,6 +37,7 @@ decision in `app/field_detection/confidence.py`.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 
 import fitz
@@ -126,11 +127,23 @@ class AzureDocumentIntelligenceProvider:
             )
             raise
 
+        normalization_started = time.perf_counter()
         candidates = self._candidates_from_response(response, document)
 
         candidates = [downgrade_low_confidence(c) for c in candidates]
         candidates = deduplicate_candidates(candidates)
         candidates = sort_candidates_deterministically(candidates)
+        normalization_duration = time.perf_counter() - normalization_started
+
+        # Split so a slow request is attributable to the remote service
+        # rather than to our own conversion (or the reverse).
+        logger.info(
+            "Azure detect timing: azure_duration=%.2fs normalization_duration=%.2fs "
+            "candidates=%d",
+            response.duration_seconds,
+            normalization_duration,
+            len(candidates),
+        )
 
         self.last_diagnostics = AzureCallDiagnostics(
             model_id=response.model_id,

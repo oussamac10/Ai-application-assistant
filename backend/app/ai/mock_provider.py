@@ -10,6 +10,8 @@ import re
 from typing import Protocol, runtime_checkable
 
 from app.ai.schemas import (
+    BatchTranslationRequest,
+    BatchTranslationResult,
     ClarificationRequest,
     ClarificationResult,
     ExplanationRequest,
@@ -65,6 +67,11 @@ class AIProvider(Protocol):
         self,
         request: TranslationRequest,
     ) -> TranslationResult: ...
+
+    async def translate_output_batch(
+        self,
+        request: BatchTranslationRequest,
+    ) -> BatchTranslationResult: ...
 
     async def translate_question(
         self,
@@ -228,6 +235,15 @@ class MockAIProvider:
     async def translate_output(self, request: TranslationRequest) -> TranslationResult:
         # In mock mode we return the original text unchanged
         return TranslationResult(translatedText=request.text)
+
+    async def translate_output_batch(
+        self, request: BatchTranslationRequest
+    ) -> BatchTranslationResult:
+        # Unchanged text, but keyed exactly like the real provider so tests
+        # exercise the same id-mapping path.
+        return BatchTranslationResult(
+            translationsById={item.id: item.text for item in request.items}
+        )
 
     async def translate_question(
         self, request: QuestionTranslationRequest

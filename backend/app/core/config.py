@@ -25,6 +25,20 @@ class Settings(BaseSettings):
     # app/main.py sets this up explicitly (see the basicConfig call there).
     LOG_LEVEL: str = "INFO"
 
+    # How many texts go into one batched AI translation request. Small local
+    # models follow a long multi-item instruction less reliably, so the work
+    # is chunked rather than sent as a single request; 12 kept every item
+    # correctly mapped on the reference document while cutting a 28-call
+    # sequence to 3 calls. Raise only with measurement.
+    AI_TRANSLATION_BATCH_SIZE: int = 12
+
+    # How many batched translation requests may be in flight at once. Bounded
+    # on purpose: a single local Ollama instance serializes work beyond its
+    # own parallelism, so an unbounded fan-out would convert latency into
+    # timeouts rather than speed. 3 covers the reference document's chunks in
+    # one wave.
+    AI_TRANSLATION_CONCURRENCY: int = 3
+
     FORM_SESSION_TTL_HOURS: int = 24
     SESSION_TOKEN_SECRET: str | None = None
 

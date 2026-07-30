@@ -8,7 +8,9 @@
 - `backend/app/forms/`: form definitions and versions
 - `backend/app/sessions/`: anonymous sessions and ownership
 - `backend/app/questions/`: catalog and answer resolution
-- `backend/app/ai/`: Ollama/provider abstractions
+- `backend/app/ai/`: Ollama/provider abstractions, shared text translation
+  (`text_translation.py`) and batched/deduplicated/cached translation
+  (`batch_translation.py`)
 - `backend/app/pdf/`: PDF mappings and export
 - `backend/app/documents/`: upload, storage, validation, analysis
 - `backend/app/ocr/`: local OCR provider abstraction, page rendering, OCR API

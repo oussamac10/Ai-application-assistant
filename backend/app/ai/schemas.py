@@ -116,6 +116,46 @@ class TranslationResult(BaseModel):
     translated_text: str = Field(alias="translatedText")
 
 
+class BatchTranslationItem(BaseModel):
+    """One text to translate, carried with the stable id the caller uses to
+    map the result back. The id is the caller's own index — never the field
+    key or any other application identifier, so nothing about the document
+    leaves via the id."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: int
+    text: str
+
+
+class BatchTranslationRequest(BaseModel):
+    """Translate several texts into ONE target language in a single provider
+    call. One language per request keeps the instruction unambiguous for
+    small local models, which measurably degrade when asked to produce two
+    target languages at once."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    items: list[BatchTranslationItem]
+    source_language: str = Field(alias="sourceLanguage")
+    target_language: str = Field(alias="targetLanguage")
+
+
+class BatchTranslationResult(BaseModel):
+    """Translations keyed by the request's item ids.
+
+    Deliberately a mapping rather than a list: a provider that returns items
+    out of order, drops one, or repeats one cannot silently shift every
+    later translation onto the wrong field. Missing ids are the caller's
+    signal to fall back for exactly those items (see
+    `app/ai/batch_translation.py`).
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    translations_by_id: dict[int, str] = Field(alias="translationsById")
+
+
 class QuestionTranslationRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

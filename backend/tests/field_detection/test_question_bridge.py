@@ -7,6 +7,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlalchemy import text
 
+from app.ai.batch_translation import clear_translation_cache
 from app.core.config import settings
 from app.database.session import SessionLocal
 from app.documents.service import SourceDocumentService
@@ -29,6 +30,15 @@ def use_manual_review_mode() -> Generator[None, None, None]:
     settings.FIELD_DETECTION_REVIEW_MODE = "manual"
     yield
     settings.FIELD_DETECTION_REVIEW_MODE = original
+
+
+@pytest.fixture(autouse=True)
+def clear_translations() -> Generator[None, None, None]:
+    """The batched translator's cache is process-global by design, so tests
+    that assert on provider calls must start from an empty cache."""
+    clear_translation_cache()
+    yield
+    clear_translation_cache()
 
 
 @pytest.fixture(autouse=True)
@@ -374,11 +384,33 @@ class _FakeTranslatingProvider:
             translatedText=f"[{request.target_language}] {request.text}"
         )
 
+    async def translate_output_batch(self, request: Any) -> Any:
+        """Mirrors the real provider's batched contract, including returning a
+        mapping keyed by the caller's ids rather than an ordered list."""
+        from app.ai.schemas import BatchTranslationResult
+
+        for item in request.items:
+            self.calls.append(
+                (item.text, request.source_language, request.target_language)
+            )
+        return BatchTranslationResult(
+            translationsById={
+                item.id: f"[{request.target_language}] {item.text}"
+                for item in request.items
+            }
+        )
+
 
 class _FailingTranslationProvider:
-    """Simulates an AI outage during label/option translation."""
+    """Simulates an AI outage during label/option translation — both the
+    batched call and the per-item fallback it degrades to."""
 
     async def translate_output(self, request: Any) -> Any:
+        from app.ai.errors import AIProviderUnavailableError
+
+        raise AIProviderUnavailableError("Ollama is unreachable")
+
+    async def translate_output_batch(self, request: Any) -> Any:
         from app.ai.errors import AIProviderUnavailableError
 
         raise AIProviderUnavailableError("Ollama is unreachable")

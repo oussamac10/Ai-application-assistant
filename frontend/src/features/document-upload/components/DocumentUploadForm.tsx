@@ -27,7 +27,9 @@ type Stage =
   | "review_required"
   | "error";
 
-export default function DocumentUploadForm({ currentLocale }: DocumentUploadFormProps) {
+export default function DocumentUploadForm({
+  currentLocale,
+}: DocumentUploadFormProps) {
   const router = useRouter();
   const t = useTranslations("documentUpload");
 
@@ -38,13 +40,23 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
   const [stage, setStage] = useState<Stage>("idle");
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [pendingDocumentId, setPendingDocumentId] = useState<string | null>(null);
+  const [pendingDocumentId, setPendingDocumentId] = useState<string | null>(
+    null,
+  );
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   const [uncertainFieldCount, setUncertainFieldCount] = useState<number>(0);
-  const [processingNextStep, setProcessingNextStep] = useState<string | null>(null);
+  const [processingNextStep, setProcessingNextStep] = useState<string | null>(
+    null,
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debugUiEnabled = isDetectionDebugUiEnabled();
+
+  /** Identifies the newest processing run. A slow first attempt that is
+   * superseded (retry, another file) must not be allowed to write state on
+   * arrival — otherwise its stale error or "processing" overwrites the newer
+   * run's success. Every state write below is gated on still being current. */
+  const runIdRef = useRef(0);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -74,18 +86,25 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
   const handleFile = (selectedFile: File) => {
     setErrorMsg(null);
     if (!selectedFile.name.toLowerCase().endsWith(".pdf")) {
-      setErrorMsg(t("error_invalid_file_type") || "Only PDF files are supported.");
+      setErrorMsg(
+        t("error_invalid_file_type") || "Only PDF files are supported.",
+      );
       return;
     }
     // Max size: 10MB
     if (selectedFile.size > 10485760) {
-      setErrorMsg(t("error_file_too_large") || "File exceeds maximum size of 10MB.");
+      setErrorMsg(
+        t("error_file_too_large") || "File exceeds maximum size of 10MB.",
+      );
       return;
     }
     setFile(selectedFile);
   };
 
   const handleRemoveFile = () => {
+    // Invalidate any run still in flight so its late result cannot repopulate
+    // a form the user has just cleared.
+    runIdRef.current += 1;
     setFile(null);
     setStage("idle");
     setUploadProgress(0);
@@ -102,8 +121,47 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
     router.push(`/application/session/${sessionId}`);
   };
 
+  /** Runs preparation, treating a gateway/transport failure as "still
+   * working" rather than as a failed document.
+   *
+   * Preparation is synchronous and slow, so an intermediary (or a flaky
+   * connection) can drop the response while the backend goes on to finish
+   * successfully — the user then sees a processing error for a document that
+   * actually worked. The endpoint is idempotent: a repeat call reuses the
+   * session it already created and never re-runs detection or regenerates
+   * questions, so re-asking is safe and usually returns the finished result
+   * immediately. Bounded to two extra attempts; a real application error
+   * (any 4xx, or a structured error code) is not retried at all. */
+  const prepareWithRetry = async (documentId: string) => {
+    const maxAttempts = 3;
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await prepareQuestions(
+          documentId,
+          currentLocale,
+          outputLanguage,
+        );
+      } catch (err: any) {
+        const status = typeof err?.status === "number" ? err.status : 0;
+        const isTransport = status === 0 || status === 502 || status === 504;
+        // A bare proxy 500 carries no application error code; a real backend
+        // failure always does (see the {code, message, stage} error shape).
+        const isBareGatewayError =
+          status === 500 && !err?.detail && !err?.errorCode;
+        const retryable = isTransport || isBareGatewayError;
+        if (!retryable || attempt >= maxAttempts) {
+          throw err;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+      }
+    }
+  };
+
   const runAutomaticProcessing = async (result: DocumentUploadResponse) => {
     const documentId = result.documentId;
+    const runId = ++runIdRef.current;
+    const isCurrent = () => runIdRef.current === runId;
+
     setPendingDocumentId(documentId);
 
     if (result.analysis?.nextStep === "review_required") {
@@ -113,8 +171,13 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
 
     setProcessingNextStep(result.analysis?.nextStep || null);
     setStage("processing");
+    // A previous attempt's error must not stay on screen while this run is
+    // working, and must not survive its success.
+    setErrorMsg(null);
+
     try {
-      const prepared = await prepareQuestions(documentId, currentLocale, outputLanguage);
+      const prepared = await prepareWithRetry(documentId);
+      if (!isCurrent()) return;
 
       if (prepared.sessionId && prepared.ownershipToken) {
         setSessionToken(prepared.sessionId, prepared.ownershipToken);
@@ -125,6 +188,11 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
         setErrorMsg(resolveUploadErrorMessage(t, prepared.errorCode));
         return;
       }
+
+      // A successful result always clears whatever the screen was showing
+      // before — stale processing text or a stale error from an earlier,
+      // abandoned attempt.
+      setErrorMsg(null);
 
       if (prepared.status === "needs_clarification" || !prepared.sessionId) {
         setUncertainFieldCount(prepared.uncertainty?.uncertainFieldCount || 0);
@@ -141,6 +209,7 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
 
       goToSession(prepared.sessionId);
     } catch (err: any) {
+      if (!isCurrent()) return;
       setStage("error");
       setErrorMsg(resolveUploadErrorMessage(t, err));
     }
@@ -148,7 +217,13 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !privacyAccepted || stage === "uploading" || stage === "analyzing") return;
+    if (
+      !file ||
+      !privacyAccepted ||
+      stage === "uploading" ||
+      stage === "analyzing"
+    )
+      return;
 
     try {
       setStage("uploading");
@@ -165,7 +240,7 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
           if (percent === 100) {
             setStage("analyzing");
           }
-        }
+        },
       );
 
       if (result.ownershipToken) {
@@ -189,7 +264,9 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
       return t("processing_reading") || "Reading the document…";
     }
     if (processingNextStep === "dynamic_field_detection") {
-      return t("processing_detecting") || "Detecting the information requested…";
+      return (
+        t("processing_detecting") || "Detecting the information requested…"
+      );
     }
     return t("processing_preparing") || "Preparing your questions…";
   };
@@ -218,7 +295,9 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
             onClick={triggerFileInput}
             role="button"
             tabIndex={0}
-            aria-label={t("drag_and_drop_instructions") || "Drag and drop PDF file here"}
+            aria-label={
+              t("drag_and_drop_instructions") || "Drag and drop PDF file here"
+            }
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
@@ -251,7 +330,8 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
             {!file ? (
               <>
                 <p className="mt-4 text-sm font-semibold text-slate-300">
-                  {t("drag_and_drop_instructions") || "Drag and drop your PDF here, or click to browse"}
+                  {t("drag_and_drop_instructions") ||
+                    "Drag and drop your PDF here, or click to browse"}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
                   {t("maximum_size") || "PDF up to 10MB (max 20 pages)"}
@@ -262,7 +342,9 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
                 <p className="text-sm font-bold text-indigo-400">
                   {t("selected_file") || "Selected File:"}
                 </p>
-                <p className="text-sm font-medium text-slate-200">{file.name}</p>
+                <p className="text-sm font-medium text-slate-200">
+                  {file.name}
+                </p>
                 <p className="text-xs text-slate-500">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>
@@ -285,8 +367,12 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
             <>
               {/* Output Language Select */}
               <div className="space-y-2">
-                <label htmlFor="upload-output-select" className="block text-sm font-semibold tracking-wide text-slate-300">
-                  {t("selectOutputLanguage") || "Select completed form language"}
+                <label
+                  htmlFor="upload-output-select"
+                  className="block text-sm font-semibold tracking-wide text-slate-300"
+                >
+                  {t("selectOutputLanguage") ||
+                    "Select completed form language"}
                 </label>
                 <select
                   id="upload-output-select"
@@ -303,8 +389,13 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
 
               {/* Privacy notice box */}
               <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-                <h3 className="text-sm font-bold text-slate-200">{t("privacyNoticeTitle") || "Privacy Notice"}</h3>
-                <p className="text-xs leading-relaxed text-slate-400">{t("privacyNoticeBody") || "Your uploaded document remains private and temporary. It will be deleted automatically after 24 hours."}</p>
+                <h3 className="text-sm font-bold text-slate-200">
+                  {t("privacyNoticeTitle") || "Privacy Notice"}
+                </h3>
+                <p className="text-xs leading-relaxed text-slate-400">
+                  {t("privacyNoticeBody") ||
+                    "Your uploaded document remains private and temporary. It will be deleted automatically after 24 hours."}
+                </p>
                 <label className="flex items-center gap-3 cursor-pointer select-none text-slate-300">
                   <input
                     type="checkbox"
@@ -312,7 +403,10 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
                     checked={privacyAccepted}
                     onChange={(e) => setPrivacyAccepted(e.target.checked)}
                   />
-                  <span className="text-xs font-semibold">{t("acceptPrivacy") || "I consent to the temporary upload of my document."}</span>
+                  <span className="text-xs font-semibold">
+                    {t("acceptPrivacy") ||
+                      "I consent to the temporary upload of my document."}
+                  </span>
                 </label>
               </div>
 
@@ -410,7 +504,8 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 text-center space-y-3">
             <h3 className="text-lg font-bold text-slate-200">
-              {t("could_not_process_title") || "We could not confidently process this form"}
+              {t("could_not_process_title") ||
+                "We could not confidently process this form"}
             </h3>
             <p className="text-sm text-slate-400 leading-relaxed">
               {uncertainFieldCount > 0
@@ -445,8 +540,18 @@ export default function DocumentUploadForm({ currentLocale }: DocumentUploadForm
         <div className="space-y-6">
           <div className="rounded-2xl border border-rose-800 bg-rose-950/20 p-6 text-center space-y-4">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-950 text-rose-400">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
               </svg>
             </div>
             <h3 className="text-lg font-bold text-rose-200">

@@ -16,6 +16,7 @@ message on the frontend), matching the rest of the codebase's convention.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -107,12 +108,24 @@ class PrepareQuestionsService:
         user_language: str,
         output_language: str,
     ) -> PrepareQuestionsResult:
+        started = time.perf_counter()
         doc = self.document_service.get_document(
             document_public_id, ownership_token, self.current_user_id
         )
 
         existing = self.session_repo.get_latest_session_by_source_document_id(doc.id)
         if existing is not None and existing.status not in _RETRYABLE_SESSION_STATUSES:
+            # The idempotent path: a retry (frontend re-render, user refresh,
+            # a client that gave up on a slow first attempt) reuses the
+            # session instead of re-running detection or regenerating any
+            # question.
+            logger.info(
+                "prepare-questions reused existing session: document=%s session=%s "
+                "total_duration=%.2fs (no provider or AI calls)",
+                document_public_id,
+                existing.public_id,
+                time.perf_counter() - started,
+            )
             return PrepareQuestionsResult(
                 status="ready",
                 document_public_id=document_public_id,
@@ -143,11 +156,13 @@ class PrepareQuestionsService:
                 "cannot_process_automatically",
             )
 
+        ocr_started = time.perf_counter()
         if next_step == "ocr_required":
             try:
                 self._run_ocr(doc, ownership_token, user_language)
             except OCRError as e:
                 return self._failed_result(document_public_id, stage=STAGE_OCR, exc=e)
+        ocr_duration = time.perf_counter() - ocr_started
 
         field_detection_service = FieldDetectionService(
             self.db,
@@ -155,6 +170,7 @@ class PrepareQuestionsService:
             ai_provider=self.ai_provider,
             current_user_id=self.current_user_id,
         )
+        detection_started = time.perf_counter()
         try:
             field_detection_service.request_detection(
                 document_public_id, ownership_token
@@ -164,6 +180,9 @@ class PrepareQuestionsService:
                 document_public_id, stage=STAGE_FIELD_DETECTION, exc=e
             )
 
+        detection_duration = time.perf_counter() - detection_started
+
+        question_started = time.perf_counter()
         try:
             (
                 session,
@@ -197,6 +216,8 @@ class PrepareQuestionsService:
                 document_public_id, stage=STAGE_QUESTION_GENERATION, exc=e
             )
 
+        question_duration = time.perf_counter() - question_started
+
         result = field_detection_service.get_detection_result(
             document_public_id, ownership_token
         )
@@ -209,6 +230,25 @@ class PrepareQuestionsService:
             )
             if clarification_count > 0
             else None
+        )
+
+        # One line per request with the whole cost breakdown, so a slow
+        # request can be attributed to a stage without a profiler. Counts and
+        # durations only — no document text, labels, or answers.
+        # `detection_duration` covers the provider call (Azure or local) plus
+        # candidate normalization; `question_resolution_duration` covers
+        # translation, field creation, publish and session creation, and the
+        # translation share of it is logged by question_bridge.
+        logger.info(
+            "prepare-questions timing: document=%s ocr_duration=%.2fs "
+            "detection_duration=%.2fs question_resolution_duration=%.2fs "
+            "total_duration=%.2fs status=ready questions=%d",
+            document_public_id,
+            ocr_duration,
+            detection_duration,
+            question_duration,
+            time.perf_counter() - started,
+            len(session.version.fields) if session.version else 0,
         )
 
         return PrepareQuestionsResult(

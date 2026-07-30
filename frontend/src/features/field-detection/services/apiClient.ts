@@ -12,7 +12,9 @@ import {
 
 function authHeaders(documentId: string): Record<string, string> {
   const token = getDocumentToken(documentId);
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (token) {
     headers["X-Document-Token"] = token;
   }
@@ -29,16 +31,23 @@ async function parseErrorResponse(response: Response): Promise<ApiError> {
   } catch {
     // ignore
   }
-  return new ApiError(response.status, detail || "Field detection request failed.", errorCode);
+  return new ApiError(
+    response.status,
+    detail || "Field detection request failed.",
+    errorCode,
+  );
 }
 
 export async function requestFieldDetection(
-  documentId: string
+  documentId: string,
 ): Promise<FieldDetectionResultResponse> {
-  const response = await fetch(`/api/source-documents/${documentId}/field-detection`, {
-    method: "POST",
-    headers: authHeaders(documentId),
-  });
+  const response = await fetch(
+    `/api/source-documents/${documentId}/field-detection`,
+    {
+      method: "POST",
+      headers: authHeaders(documentId),
+    },
+  );
 
   if (!response.ok) {
     throw await parseErrorResponse(response);
@@ -49,12 +58,15 @@ export async function requestFieldDetection(
 }
 
 export async function getFieldDetectionResult(
-  documentId: string
+  documentId: string,
 ): Promise<FieldDetectionResultResponse> {
-  const response = await fetch(`/api/source-documents/${documentId}/field-detection`, {
-    method: "GET",
-    headers: authHeaders(documentId),
-  });
+  const response = await fetch(
+    `/api/source-documents/${documentId}/field-detection`,
+    {
+      method: "GET",
+      headers: authHeaders(documentId),
+    },
+  );
 
   if (!response.ok) {
     throw await parseErrorResponse(response);
@@ -75,7 +87,7 @@ export interface DetectedFieldUpdate {
 export async function updateDetectedField(
   documentId: string,
   fieldId: string,
-  updates: DetectedFieldUpdate
+  updates: DetectedFieldUpdate,
 ): Promise<DetectedField> {
   const response = await fetch(
     `/api/source-documents/${documentId}/field-detection/fields/${fieldId}`,
@@ -83,7 +95,7 @@ export async function updateDetectedField(
       method: "PATCH",
       headers: authHeaders(documentId),
       body: JSON.stringify(updates),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -96,14 +108,14 @@ export async function updateDetectedField(
 
 export async function rejectDetectedField(
   documentId: string,
-  fieldId: string
+  fieldId: string,
 ): Promise<DetectedField> {
   const response = await fetch(
     `/api/source-documents/${documentId}/field-detection/fields/${fieldId}`,
     {
       method: "DELETE",
       headers: authHeaders(documentId),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -118,35 +130,70 @@ export async function rejectDetectedField(
  * OCR (if needed) -> detect fields -> auto-confirm what's safe -> generate
  * questions -> create/reuse the guided session. Idempotent: safe to call
  * again (e.g. on resume) without reprocessing or duplicating the session. */
+/** In-flight prepare-questions requests, keyed by document + languages.
+ *
+ * Preparation is slow (Azure/OCR plus AI translation, tens of seconds), and
+ * the backend is idempotent, so a duplicate request is never *wrong* — but it
+ * is wasteful and it lets two responses race to set component state. React
+ * Strict Mode's double-invoked effects and an impatient second click both
+ * produce that duplicate, so concurrent callers share one request and one
+ * result instead. Cleared when the request settles, which means a genuine
+ * retry after a failure still reaches the backend. */
+const inFlightPreparations = new Map<
+  string,
+  Promise<PrepareQuestionsResponse>
+>();
+
 export async function prepareQuestions(
   documentId: string,
   language: string,
-  outputLanguage: string
+  outputLanguage: string,
 ): Promise<PrepareQuestionsResponse> {
-  const response = await fetch(`/api/source-documents/${documentId}/prepare-questions`, {
-    method: "POST",
-    headers: authHeaders(documentId),
-    body: JSON.stringify({ language, outputLanguage }),
-  });
-
-  if (!response.ok) {
-    throw await parseErrorResponse(response);
+  const key = `${documentId}:${language}:${outputLanguage}`;
+  const existing = inFlightPreparations.get(key);
+  if (existing) {
+    return existing;
   }
 
-  const data = await response.json();
-  return PrepareQuestionsResponseSchema.parse(data);
+  const request = (async () => {
+    const response = await fetch(
+      `/api/source-documents/${documentId}/prepare-questions`,
+      {
+        method: "POST",
+        headers: authHeaders(documentId),
+        body: JSON.stringify({ language, outputLanguage }),
+      },
+    );
+
+    if (!response.ok) {
+      throw await parseErrorResponse(response);
+    }
+
+    const data = await response.json();
+    return PrepareQuestionsResponseSchema.parse(data);
+  })();
+
+  inFlightPreparations.set(key, request);
+  try {
+    return await request;
+  } finally {
+    inFlightPreparations.delete(key);
+  }
 }
 
 export async function createSessionFromFieldDetection(
   documentId: string,
   language: string,
-  outputLanguage: string
+  outputLanguage: string,
 ): Promise<SessionCreateResponse> {
-  const response = await fetch(`/api/source-documents/${documentId}/field-detection/session`, {
-    method: "POST",
-    headers: authHeaders(documentId),
-    body: JSON.stringify({ language, outputLanguage }),
-  });
+  const response = await fetch(
+    `/api/source-documents/${documentId}/field-detection/session`,
+    {
+      method: "POST",
+      headers: authHeaders(documentId),
+      body: JSON.stringify({ language, outputLanguage }),
+    },
+  );
 
   if (!response.ok) {
     throw await parseErrorResponse(response);

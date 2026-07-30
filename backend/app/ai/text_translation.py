@@ -30,6 +30,12 @@ class TextTranslation:
     translated_text: str
     source_language: str
     target_language: str
+    # Whether the translation actually came back from the provider. Callers
+    # cannot infer this by comparing the two texts: a legitimate translation
+    # is often identical to its source (a German option label translated into
+    # German, a proper noun, "IBAN"), and treating that as a failure both
+    # mis-reports the outcome and needlessly skips caching it.
+    succeeded: bool = True
 
 
 async def translate_text(
@@ -76,4 +82,6 @@ async def translate_text(
             target_language,
             type(exc).__name__,
         )
-        return TextTranslation(text, text, source_language, target_language)
+        return TextTranslation(
+            text, text, source_language, target_language, succeeded=False
+        )

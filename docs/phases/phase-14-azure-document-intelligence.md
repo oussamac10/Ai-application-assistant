@@ -185,6 +185,37 @@ overlap. Without that filter the real rental contract produced 37 questions inst
 deduplication cannot equate the two), plus checkbox *option* labels ("Küche",
 "Hausschlüssel") promoted to standalone questions.
 
+## Request duration and frontend state
+
+Azure detection was correct, but the whole `prepare-questions` request was slower than the
+frontend proxy's default 30 s ceiling, so the browser received a bare `500` with the plain-text
+body `Internal Server Error` while the backend went on to finish. See
+[ADR 0014](../decisions/0014-batched-translation-and-request-duration.md) for the full analysis.
+
+What changed:
+
+- Field-label and choice-option translation is **batched, deduplicated and cached**
+  (`app/ai/batch_translation.py`, `AIProvider.translate_output_batch`) instead of one AI call per
+  text — 28 calls to 4 on the reference document. Results are keyed by request id, never by
+  response position, so a reordered or partial provider response can never move one field's
+  translation onto another field.
+- Batch entries are validated **individually**. A real local-model reply contained `"id": ": 1"`
+  among three valid entries; validating the whole response at once discarded all four.
+- Independent chunks run with **bounded** concurrency (`AI_TRANSLATION_CONCURRENCY`, default 3).
+- `next.config.js` sets `experimental.proxyTimeout = 180_000`, and the upload flow retries a bare
+  gateway failure instead of showing an error for a document that is still being processed —
+  safe because `prepare-questions` is idempotent (repeat request: 0.09 s, zero AI calls).
+- Approved catalog translations are reused before the AI is called, per `domain-rules.md`.
+
+Measured on the reference PDF, fresh upload, through the proxy:
+
+| | before | after |
+|---|---|---|
+| HTTP status | 500 | 200 |
+| total duration | 30.1 s (abandoned) | 43.8 s (completed) |
+| Ollama calls | 28 | 4 |
+| generated questions | 24 (never delivered) | 24 |
+
 ## Known limitations
 
 - **F0 free tier truncates to the first 2 pages.** Confirmed live: a `provider_usage_records`
@@ -194,9 +225,17 @@ deduplication cannot equate the two), plus checkbox *option* labels ("Küche",
   `address` / `string`: Azure's word bounding boxes differ slightly from PyMuPDF's, so the
   "large blank gap below a lone label" heuristic fires. Cosmetic only (a textarea instead of a
   single-line input). Worth revisiting in Phase 15 when both providers can be compared directly.
-- The application's `logger.info` diagnostics (including the Azure request id) are not emitted
-  to stdout under uvicorn's default logging configuration — a pre-existing gap. The request id
-  is always available in `provider_usage_records`.
+- **Most translation work on this document is unnecessary.** The contract is German, but
+  detected text is *assumed* to be the default source language (`en`) because field detection
+  performs no document-language detection, so German labels take an `en -> de` round trip that
+  mostly returns them unchanged. Detecting the document language would remove most of the 34 s
+  translation cost. Out of scope here: it changes detection behaviour.
+- **Preparation is still synchronous and slow** (43.8 s on the reference PDF). It now completes
+  rather than failing, but background processing with progress polling is Phase 17.
+- The translation cache is process-local and not persisted: each worker keeps its own and a
+  restart drops it. No user data is stored in it.
+- `experimental.proxyTimeout` is the documented Next 14 knob for the proxy ceiling, but it is an
+  experimental option and not a stability guarantee.
 - `prebuilt-layout` does not return `keyValuePairs` for every document; when it does not,
   detection falls back entirely to the shared text passes, i.e. local-provider parity plus
   selection marks.

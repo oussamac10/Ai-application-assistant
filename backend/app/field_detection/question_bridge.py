@@ -33,11 +33,13 @@ to the user.
 from __future__ import annotations
 
 import logging
+import time
 
 from sqlalchemy.orm import Session
 
+from app.ai.batch_translation import TranslationStats, translate_texts
 from app.ai.mock_provider import AIProvider
-from app.ai.text_translation import translate_text
+from app.core.config import settings
 from app.documents.models import SourceDocument
 from app.field_detection.confidence import AUTO_USABLE_REVIEW_STATUSES
 from app.field_detection.errors import FieldDetectionValidationError
@@ -50,6 +52,7 @@ from app.forms.schemas import (
 )
 from app.forms.services import FormService
 from app.forms.services import ValidationError as FormValidationError
+from app.questions.repositories import QuestionRepository
 from app.sessions.models import FormSession
 from app.sessions.services import SessionService
 
@@ -120,17 +123,78 @@ def _target_languages(user_language: str, output_language: str) -> list[str]:
     return sorted({user_language, output_language} - {_DEFAULT_SOURCE_LANGUAGE})
 
 
-async def _translate_into(
-    ai_provider: AIProvider, text: str, target_languages: list[str]
+def _approved_catalog_labels(
+    db: Session, fields: list[DetectedField], language: str
 ) -> dict[str, str]:
-    """Translates one piece of source text into each target language.
-    Languages are deduplicated by the caller, so a user/output language
-    pair that happens to match costs a single AI call rather than two."""
+    """`{detected label: approved catalog label}` for every detected field
+    whose normalized name matches an approved reusable question in `language`.
+
+    Per `docs/claude/domain-rules.md`, approved human text wins over anything
+    the AI would produce, and the AI must not be called when it exists. This
+    is a lookup by semantic key (the detected field's normalized name), not by
+    displayed text, which is exactly how the catalog is meant to be addressed.
+    """
+    repo = QuestionRepository(db)
+    approved: dict[str, str] = {}
+    for detected in fields:
+        if not detected.label or detected.label in approved:
+            continue
+        translation = repo.get_approved_translation(detected.normalized_name, language)
+        if translation is not None and translation.text:
+            approved[detected.label] = translation.text
+    return approved
+
+
+async def _translations_by_language(
+    db: Session,
+    ai_provider: AIProvider,
+    fields: list[DetectedField],
+    target_languages: list[str],
+    stats: TranslationStats,
+) -> dict[str, dict[str, str]]:
+    """Every translation the whole document needs, as
+    `{language: {source_text: translated_text}}`.
+
+    Collected in one pass before any field is built, which is what makes
+    batching possible: previously each field (and each of its options) issued
+    its own sequential AI call, so a 24-field document made 28 of them and
+    took long enough that the frontend gave up on a request the backend was
+    still working on.
+
+    Choice-option *values* are translated for display only; the stable value
+    written to the form stays the original text.
+    """
+    texts: list[str] = []
+    for detected in fields:
+        if detected.label:
+            texts.append(detected.label)
+        for option in detected.options:
+            if option.value:
+                texts.append(option.value)
+
+    by_language: dict[str, dict[str, str]] = {}
+    for language in target_languages:
+        by_language[language] = await translate_texts(
+            ai_provider,
+            texts,
+            _DEFAULT_SOURCE_LANGUAGE,
+            language,
+            batch_size=settings.AI_TRANSLATION_BATCH_SIZE,
+            concurrency=settings.AI_TRANSLATION_CONCURRENCY,
+            stats=stats,
+            approved_lookup=_approved_catalog_labels(db, fields, language),
+        )
+    return by_language
+
+
+def _translations_for(
+    text: str, by_language: dict[str, dict[str, str]]
+) -> dict[str, str]:
+    """Narrows the document-wide map to one text. A text missing for a
+    language falls back to itself, never to another field's translation."""
     return {
-        language: (
-            await translate_text(ai_provider, text, _DEFAULT_SOURCE_LANGUAGE, language)
-        ).translated_text
-        for language in target_languages
+        language: translations.get(text, text)
+        for language, translations in by_language.items()
     }
 
 
@@ -284,6 +348,16 @@ async def create_session_from_confirmed_fields(
     # (see _target_languages for why both user and output language count).
     target_languages = _target_languages(user_language, output_language)
 
+    # Every translation the document needs, resolved up front in bounded
+    # batches (see app/ai/batch_translation.py) instead of one AI call per
+    # field per language.
+    translation_stats = TranslationStats()
+    translation_started = time.perf_counter()
+    translations_by_language = await _translations_by_language(
+        db, ai_provider, confirmed_fields, target_languages, translation_stats
+    )
+    translation_duration = time.perf_counter() - translation_started
+
     used_keys: set[str] = set()
     added_field_count = 0
     skipped_field_count = 0
@@ -293,8 +367,8 @@ async def create_session_from_confirmed_fields(
         try:
             field_type = _map_field_type(detected_field)
 
-            label_translations = await _translate_into(
-                ai_provider, detected_field.label, target_languages
+            label_translations = _translations_for(
+                detected_field.label, translations_by_language
             )
 
             # Options live exclusively in the FormFieldOption rows created
@@ -307,8 +381,8 @@ async def create_session_from_confirmed_fields(
             options: list[OptionSchema] = []
             if field_type in _CHOICE_TYPES:
                 for option in detected_field.options:
-                    option_translations = await _translate_into(
-                        ai_provider, option.value, target_languages
+                    option_translations = _translations_for(
+                        option.value, translations_by_language
                     )
                     options.append(
                         OptionSchema(
@@ -370,12 +444,22 @@ async def create_session_from_confirmed_fields(
 
     logger.info(
         "Question generation result: document=%s questions=%d skipped=%d "
-        "version=%s supported_output_languages=%s",
+        "version=%s supported_output_languages=%s translation_duration=%.2fs "
+        "unique_texts=%d cache_hits=%d catalog_hits=%d batch_calls=%d "
+        "fallback_calls=%d ollama_call_count=%d untranslated=%d",
         doc.public_id,
         added_field_count,
         skipped_field_count,
         version.status,
         ",".join(version.supported_output_languages or []),
+        translation_duration,
+        translation_stats.unique_texts,
+        translation_stats.cache_hits,
+        translation_stats.catalog_hits,
+        translation_stats.provider_calls,
+        translation_stats.fallback_single_calls,
+        translation_stats.ollama_call_count,
+        translation_stats.unresolved,
     )
 
     session_service = SessionService(db)

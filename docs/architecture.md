@@ -92,6 +92,14 @@ recomputes rather than serving stale cross-provider fields, and an unchanged con
 never re-calls a paid service. See
 [ADR 0013](decisions/0013-azure-document-intelligence-provider.md).
 
+Question generation translates every detected label and choice option in **batched**,
+deduplicated, cached requests (`app/ai/batch_translation.py`,
+`AIProvider.translate_output_batch`) rather than one AI call per text, with bounded concurrency
+across chunks. Translations map back by request id, never by response position. `prepare-questions`
+is synchronous and can take tens of seconds; `next.config.js` raises the rewrite proxy's ceiling
+accordingly and the upload flow retries a bare gateway failure, which is safe because the endpoint
+is idempotent. See [ADR 0014](decisions/0014-batched-translation-and-request-duration.md).
+
 ---
 
 ## Frontend Architecture

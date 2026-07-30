@@ -40,6 +40,9 @@ services:
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: qwen3:4b
+      AI_TRANSLATION_BATCH_SIZE: ${AI_TRANSLATION_BATCH_SIZE:-12}
+      AI_TRANSLATION_CONCURRENCY: ${AI_TRANSLATION_CONCURRENCY:-3}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # Azure Document Intelligence (Phase 14) — backend-only, and only
       # needed when FIELD_DETECTION_PROVIDER=azure. Values come from the
       # host environment / .env so no credential is ever written into this

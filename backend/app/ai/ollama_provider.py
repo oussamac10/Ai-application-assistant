@@ -40,6 +40,8 @@ from app.ai.errors import (
     AIProviderValidationError,
 )
 from app.ai.schemas import (
+    BatchTranslationRequest,
+    BatchTranslationResult,
     ClarificationRequest,
     ClarificationResult,
     ExplanationRequest,
@@ -68,6 +70,7 @@ _EXTRACT_PROMPT = _load_prompt("extract_value_v1.txt")
 _EXPLAIN_PROMPT = _load_prompt("explain_field_v1.txt")
 _CLARIFY_PROMPT = _load_prompt("clarify_answer_v1.txt")
 _TRANSLATE_PROMPT = _load_prompt("translate_output_v1.txt")
+_TRANSLATE_BATCH_PROMPT = _load_prompt("translate_batch_v1.txt")
 _TRANSLATE_QUESTION_PROMPT = _load_prompt("translate_question_v1.txt")
 _GENERATE_QUESTION_PROMPT = _load_prompt("generate_question_v1.txt")
 
@@ -85,6 +88,36 @@ _JSON_REPAIR_SUFFIX = (
     "Respond again with ONLY valid JSON matching the schema above — "
     "no markdown, no commentary, no additional text."
 )
+
+
+class _BatchTranslationEntrySchema(BaseModel):
+    """One returned translation, validated on its own.
+
+    `extra="forbid"` so a model that decorates an entry with commentary keys
+    is not partially trusted, and `id: int` so a malformed id is rejected
+    rather than coerced — observed from a local model: `"id": ": 1"`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    translatedText: str
+
+
+class _BatchTranslationSchema(BaseModel):
+    """The response envelope only.
+
+    `translations` is deliberately a list of raw objects rather than of
+    validated entries: entries are validated one at a time by the caller so a
+    single malformed entry costs *that* item a fallback call instead of
+    discarding the whole batch. Validating the list strictly here meant one
+    bad id ("id": ": 1") threw away three perfectly good translations and sent
+    all four items back to the provider individually.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    translations: list[dict[str, Any]]
 
 
 class _ExtractValueSchema(BaseModel):
@@ -443,6 +476,68 @@ class OllamaAIProvider:
                 "Ollama response missing 'translatedText' key"
             )
         return TranslationResult(translatedText=str(raw["translatedText"]))
+
+    async def translate_output_batch(
+        self, request: BatchTranslationRequest
+    ) -> BatchTranslationResult:
+        """Translates every item into one target language in a single call.
+
+        Ids are validated against exactly what was asked for: an unknown id
+        is dropped and a duplicated id keeps its first value, so a confused
+        model can never move one field's translation onto another field. Ids
+        the model failed to return are simply absent from the result — the
+        caller decides how to recover them (see
+        `app/ai/batch_translation.py`), because silently substituting the
+        source text here would hide the failure from that decision.
+        """
+        if not request.items:
+            return BatchTranslationResult(translationsById={})
+
+        items_json = json.dumps(
+            [{"id": item.id, "text": item.text} for item in request.items],
+            ensure_ascii=False,
+        )
+        prompt = _fill_template(
+            _TRANSLATE_BATCH_PROMPT,
+            {
+                "source_language": request.source_language,
+                "target_language": request.target_language,
+                "items_json": items_json,
+            },
+        )
+        validated: _BatchTranslationSchema = await self._call_ollama_structured(
+            prompt, _BatchTranslationSchema.model_validate
+        )
+
+        requested_ids = {item.id for item in request.items}
+        translations: dict[int, str] = {}
+        malformed = 0
+        for raw_entry in validated.translations:
+            entry = self._safe_validate(
+                raw_entry, _BatchTranslationEntrySchema.model_validate
+            )
+            if entry is None:
+                malformed += 1
+                continue
+            if entry.id not in requested_ids or entry.id in translations:
+                # An id we never asked for, or a repeat: dropping it is what
+                # prevents one field's text landing on another field.
+                malformed += 1
+                continue
+            text = entry.translatedText.strip()
+            if text:
+                translations[entry.id] = text
+
+        logger.info(
+            "Batch translation: provider=Ollama target_language=%s requested=%d "
+            "returned=%d malformed_entries=%d missing=%d",
+            request.target_language,
+            len(requested_ids),
+            len(translations),
+            malformed,
+            len(requested_ids) - len(translations),
+        )
+        return BatchTranslationResult(translationsById=translations)
 
     async def translate_question(
         self, request: QuestionTranslationRequest

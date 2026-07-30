@@ -4,92 +4,93 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Phase 13 — Automatic Upload-to-Questions User Flow is complete. Starting point was the completed
-Phase 12 branch (`feature/user-accounts-persistent-sessions`). This session:
+Phase 14 (Azure Document Intelligence) detection was already correct — 24 usable fields, 24
+generated questions — but users still saw a processing error. This session found and fixed why,
+in two parts.
 
-1. Archived Phase 12's TODO to `docs/progress/`, updated the roadmap
-   (`docs/claude/project-overview.md`) and `docs/claude/current-phase.md`, reset `TODO.md`, and
-   created `feature/automatic-upload-to-questions`.
-2. Added deterministic confidence-routing config (`FIELD_AUTO_CONFIRM_THRESHOLD`,
-   `FIELD_CLARIFICATION_THRESHOLD`, `FIELD_DETECTION_REVIEW_MODE`) and
-   `app/field_detection/confidence.py` — no AI involvement in the routing decision.
-3. Wired confidence routing into `FieldDetectionService._candidate_to_model` (in `auto` mode
-   only; `manual` mode preserves the exact Phase 11 contract). The existing Phase 11 test suites
-   (`test_field_detection_api.py`, `test_question_bridge.py`) now explicitly pin
-   `FIELD_DETECTION_REVIEW_MODE="manual"` since they document that specific contract.
-4. Extended `question_bridge.create_session_from_confirmed_fields` with
-   `include_auto_usable: bool = False` and added `build_review_metadata()`; added
-   `FieldDetectionResult.review_metadata` (migration `897a1e1874ae`).
-5. Built `app/field_detection/orchestration.py::PrepareQuestionsService` — the single idempotent
-   entrypoint (`POST /api/source-documents/{id}/prepare-questions`) composing analyze → OCR (if
-   needed) → detect → confidence routing → question generation → session create/reuse.
-6. Rebuilt `DocumentUploadForm.tsx`'s post-analysis flow: automatic processing with plain-language
-   progress messages, a plain uncertainty screen, and a safe failure screen — no manual
-   Detect-Fields/Start-OCR/Start-Guided-Form buttons in the default path. Added
-   `features/field-detection/debugMode.ts` to gate a link to the unchanged Phase 11 review screen.
-7. Retrofitted 5 existing Phase 9/10/11 Playwright specs whose assertions depended on the removed
-   manual UI, and added 2 new spec files.
-8. Wrote ADR 0012, `docs/phases/phase-13-automatic-upload-to-questions.md`, and updated
-   `docs/architecture.md`, `docs/security.md`, `docs/privacy.md`, `docs/field-detection.md`,
-   `docs/user-accounts.md`, `docs/claude/architecture-map.md`, `.env.example`,
-   `docker-compose.yml`, `README.md`.
-9. Ran full verification — see `TODO.md` "Verification" for exact results, including two real
-   bugs found and fixed during this session's own testing (an OCR-ownership-token bug in the new
-   orchestration service, and an error-banner visibility regression in the frontend refactor).
+**1. Nobody owned the request-duration budget.** Reproduced through the Next proxy exactly as the
+browser calls it: `POST /prepare-questions` returned **HTTP 500 at 30.08 s** with the plain-text
+body `Internal Server Error` (not the API's `{code, message, stage}` JSON), and the frontend
+container logged `Failed to proxy … socket hang up`. That is Next.js's rewrite proxy abandoning
+the upstream request after its default 30 s. The backend was unaffected and finished successfully
+*after* the proxy had already answered the browser — so a document that worked was reported as
+failed, and the session it created was never reached.
+
+**2. Question generation cost one AI call per text.** `question_bridge` translated each field
+label and each choice option in its own sequential call: **28 Ollama calls, 41.4 s** with
+detection cached. A negative margin against a 30 s ceiling, so the failure was deterministic.
+
+Fixes:
+
+1. `app/ai/batch_translation.py` (new) — batched, deduplicated, cached translation resolved
+   cheapest-first: dedup, process-local LRU, approved catalog translations
+   (`QuestionRepository.get_approved_translation`, per `domain-rules.md`), then the provider in
+   bounded chunks. `AIProvider` gained `translate_output_batch` (Ollama + mock).
+2. Results map back **by request id, never by response position**, so a reordered/partial/repeated
+   provider response can never move one field's translation onto another field.
+3. Batch entries are validated **individually**. Whole-response validation was tried first and was
+   wrong: a real local-model reply contained `"id": ": 1"` among three valid entries and all four
+   were discarded. Now only the malformed entry is dropped and falls back on its own.
+4. `TextTranslation.succeeded` — failure can no longer be inferred by comparing input to output. A
+   legitimate translation is often identical to its source (German label into German, `IBAN`), and
+   that was being counted and logged as a failure (`untranslated=4`).
+5. Bounded concurrency across chunks (`AI_TRANSLATION_CONCURRENCY`, default 3). Batching alone cut
+   calls 28 -> 4 but barely moved wall time, since three sequential ~15 s generations dominate.
+6. `next.config.js`: `experimental.proxyTimeout = 180_000`.
+7. Frontend: `prepareQuestions` shares one in-flight promise per document+languages; each
+   processing run carries a generation id and may only write state while current, so a superseded
+   attempt cannot overwrite a newer success; a success always clears a stale error; a *bare*
+   gateway failure (transport, 502/504, or 500 with no error code) is retried up to twice instead
+   of showing an error, which is safe because the endpoint is idempotent.
+8. Structured timing logs at every stage (`azure_duration`, `normalization_duration`,
+   `detection_duration`, `translation_duration`, `question_resolution_duration`,
+   `ollama_call_count`, `total_duration`) — counts and durations only, never document text.
 
 ## Repository state
 
-- Branch: `feature/automatic-upload-to-questions` (base: `feature/user-accounts-persistent-sessions`)
-- Docker Compose `backend`/`frontend` images were rebuilt this session to pick up Phase 13 code;
-  both healthy. `docker-compose.yml` gained a passthrough for
-  `NEXT_PUBLIC_ENABLE_DETECTION_DEBUG_UI` (default `false`).
-- The local Postgres dev database's `basic-registration` fixture was re-seeded
-  (`python -m app.commands.load_fixture`) after the backend pytest suite's `TRUNCATE` cleanup
-  wiped it — needed for Playwright, same as every prior phase's verification pass.
+- Branch: `feature/azure-document-intelligence`
+- Docker Compose `backend` and `frontend` rebuilt this session; `proxyTimeout = 180000` and
+  `AI_TRANSLATION_BATCH_SIZE=12` / `AI_TRANSLATION_CONCURRENCY=3` verified live inside the
+  containers.
+- The dev database's `basic-registration` fixture was re-seeded after the pytest `TRUNCATE`
+  cleanup, as in every prior phase verification.
 
-## Files changed (Phase 13)
+## Measured result (reference PDF, fresh upload, through the proxy)
 
-Backend: `app/core/config.py`, `app/field_detection/{confidence.py (new), constants.py, service.py,
-question_bridge.py, models.py, schemas.py, orchestration.py (new), api/routes.py}`,
-`app/sessions/repositories.py`, `backend/migrations/versions/897a1e1874ae_*.py`,
-`backend/tests/field_detection/{test_confidence.py (new), test_orchestration.py (new),
-test_prepare_questions_api.py (new), test_field_detection_api.py, test_question_bridge.py}`.
+| | before | after |
+|---|---|---|
+| HTTP status | 500 | 200 |
+| total duration | 30.08 s (abandoned) | 43.84 s (completed) |
+| Ollama calls | 28 | 4 |
+| generated questions | 24 (never delivered) | 24 |
+| frontend result | processing error | first question `vermieter_name` |
+| repeat request | — | 0.09 s, 0 AI calls, `reusedExistingSession: true` |
 
-Frontend: `src/features/document-upload/components/DocumentUploadForm.tsx`,
-`src/features/document-upload/tests/document-upload-automatic-flow.test.tsx` (new),
-`src/features/field-detection/{services/apiClient.ts, types/index.ts, debugMode.ts (new)}`,
-`messages/{en,de,fr,ar}.json`, `e2e/{dynamic-field-detection-flow.spec.ts, ocr-flow.spec.ts,
-upload-analysis-flow.spec.ts, select-manually-translation-flow.spec.ts}` (retrofitted),
-`e2e/automatic-upload-to-questions-flow.spec.ts` (new).
-
-Docs: `docs/decisions/0012-automatic-confidence-routing.md` (new),
-`docs/phases/phase-13-automatic-upload-to-questions.md` (new), `docs/architecture.md`,
-`docs/security.md`, `docs/privacy.md`, `docs/field-detection.md`, `docs/user-accounts.md`,
-`docs/claude/{project-overview.md, current-phase.md, architecture-map.md}`, `TODO.md`, `README.md`,
-`.env.example`, `docker-compose.yml`, `docs/progress/phase-12-user-accounts-persistent-sessions.md`
-(new archive), this file.
+Stage split of the "after" run: `azure_duration=8.77s`, `normalization_duration=0.01s`,
+`detection_duration=8.90s`, `translation_duration=34.27s`,
+`question_resolution_duration=34.88s`, `total_duration=43.80s`.
 
 ## Verification results
 
-See `TODO.md`'s "Verification" section for exact counts: backend 334 passed (312 baseline + 22
-new), ruff/mypy clean, migration round-trips cleanly; frontend 81 passed (77 baseline + 4 new),
-lint/typecheck clean; Playwright (CI mode, rebuilt Docker, `local`/`ollama` providers) 27 passed,
-1 pre-existing failure (`guided-flow.spec.ts`, unrelated to this phase, documented since Phase
-9/10).
+Backend **474 passed**, ruff clean, `ruff format --check` clean on changed files, mypy clean
+(136 files). Frontend **129 passed**, ESLint and `tsc --noEmit` clean. See `TODO.md` for the exact
+per-suite breakdown and the Playwright result.
 
 ## Known limitation carried forward
 
-- `guided-flow.spec.ts`'s default-tab mismatch (pre-existing since Phase 9, unrelated to Phase 13).
-- One pre-existing Ruff formatting exception under `tests/documents/test_documents.py`.
-- Phase 13's own known limitations are listed in `TODO.md` → "Phase 13 Known Limitations" and the
-  phase doc's "Known limitations" section (OCR-language default, synchronous orchestration, debug
-  route not additionally authenticated, no per-field AI-fallback tracking in review metadata).
+- **Most of the remaining 34 s of translation is avoidable.** The contract is German, but detected
+  text is *assumed* to be the default source language (`en`) because field detection performs no
+  document-language detection, so German labels take an `en -> de` round trip that mostly returns
+  them unchanged. Fixing it changes detection behaviour, so it was left out of scope here.
+- Preparation is still synchronous (43.8 s). Background jobs + progress polling is Phase 17.
+- The translation cache is process-local and dropped on restart.
+- `experimental.proxyTimeout` is an experimental Next 14 option.
+- `guided-flow.spec.ts` default-tab gap (pre-existing since Phase 9).
 
 ## Next action
 
-Phase 13 is done. Recommended next phase: **Phase 14 — Administration and Content Review** (it can
-now build directly on `FieldDetectionResult.review_metadata`). Do not start it until explicitly
-requested.
+Phase 14 is complete. Do not start Phase 15 (hybrid/fallback between detection providers) until
+explicitly requested.
 
 ## Blockers
 
@@ -97,7 +98,6 @@ None.
 
 ## Decisions
 
-See [ADR 0012](../decisions/0012-automatic-confidence-routing.md) for the full architectural
-rationale (confidence-routing design, review-mode toggle, orchestration composition, review-
-metadata scope, debug-mode gating). Additional decisions are recorded in `TODO.md`'s "Decisions
-and Assumptions" section.
+[ADR 0013](../decisions/0013-azure-document-intelligence-provider.md) — Azure as a second
+provider. [ADR 0014](../decisions/0014-batched-translation-and-request-duration.md) — batched
+translation and the request-duration ceiling.
