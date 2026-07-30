@@ -2,7 +2,7 @@
 
 **Branch:** `feature/azure-document-intelligence`
 **Base:** `feature/automatic-upload-to-questions`
-**Status:** Implemented; live-service verification outstanding (see "Known limitations")
+**Status:** Complete — verified against the live Azure service
 
 ## Objective
 
@@ -125,6 +125,15 @@ Automated tests never call Azure. To verify against the live service:
      -d '{"language":"de","outputLanguage":"de"}'
    ```
 
+**Measured on the live service** (resource `…-document-intelligence-dev`, `prebuilt-layout`,
+api-version `2024-11-30`): `status: "ready"` in ~40 s, **19** guided questions, first question
+`vermieter_name`, `vermieter_name` and `mieter_name` distinct, the full `kontoinhaber` / `bank` /
+`iban` / `bic` block present, 3 date fields and 4 money fields recovered from sentence-embedded
+blanks. The repeat request returned the same `sessionId` with `reusedExistingSession: true` in
+0.1 s, and `provider_usage_records` held exactly one `served_from_cache=false` row
+(`pages=2 duration=4.0s succeeded=true`). Neither the API key nor the endpoint appeared in the
+backend logs.
+
 **Expected:** `status: "ready"` with a `sessionId`; at least five usable questions;
 landlord and tenant fields distinct (`vermieter_name` / `mieter_name`); no technical review
 screen for a normal user; guided questions begin.
@@ -136,13 +145,16 @@ must show exactly **one** `served_from_cache = false` row for the document.
 
 ## Known limitations
 
-- **Live-service verification is outstanding.** No Azure credentials were available in the
-  development environment, so the real endpoint has never been called. Everything is
-  verified against a `prebuilt-layout`-shaped fixture whose words and polygons were
-  generated from the real rental-contract PDF's own text layer, driven through the real
-  orchestration end-to-end. The steps above must be run once credentials exist before this
-  phase is considered fully proven.
-- The F0 free tier only analyzes the first 2 pages of a document (see above).
+- **F0 free tier truncates to the first 2 pages.** Confirmed live: a `provider_usage_records`
+  row for the 3-page rental contract reports `page_count=2`. This contract's fields all sit on
+  pages 1–2 so nothing was lost, but any document with content on page 3+ needs a paid tier.
+- Azure typed `PLZ, Ort` and `BIC` as `multiline_text` where the local provider yields
+  `address` / `string`: Azure's word bounding boxes differ slightly from PyMuPDF's, so the
+  "large blank gap below a lone label" heuristic fires. Cosmetic only (a textarea instead of a
+  single-line input). Worth revisiting in Phase 15 when both providers can be compared directly.
+- The application's `logger.info` diagnostics (including the Azure request id) are not emitted
+  to stdout under uvicorn's default logging configuration — a pre-existing gap. The request id
+  is always available in `provider_usage_records`.
 - `prebuilt-layout` does not return `keyValuePairs` for every document; when it does not,
   detection falls back entirely to the shared text passes, i.e. local-provider parity plus
   selection marks.

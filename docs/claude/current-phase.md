@@ -52,15 +52,9 @@ Hybrid/fallback behavior between providers is explicitly **Phase 15**, not this 
 - Any frontend flow change — the normal user UI stays provider-agnostic
 - Lowering any existing confidence threshold
 
-## Known blocker
-
-No Azure credentials are available in this environment, so the **live-service** manual verification
-(requirement 12/16: the exact German rental-contract PDF processed by the real Azure endpoint)
-cannot be executed here. Everything else is implemented and verified against a recorded-shape
-Azure `prebuilt-layout` response derived from that same PDF, driven through the real orchestration
-pipeline end-to-end. See `docs/phases/phase-14-azure-document-intelligence.md` for the exact
-manual steps to run once credentials exist.
-
 ## Status
 
-In progress.
+Complete. Verified against the live Azure endpoint with the exact German rental-contract PDF:
+`prepare-questions` returned `ready` with 19 guided questions, the first question was served,
+landlord and tenant stayed distinct, and a repeat request was served from cache with exactly one
+live Azure call. See `TODO.md` -> "Live verification" for the measured results.
