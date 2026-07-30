@@ -2,59 +2,65 @@
 
 ## Phase
 
-Phase 14 - Azure Document Intelligence Provider
+Phase 15 - Azure Translator Integration
 
 ## Branch
 
-`feature/azure-document-intelligence`
+`feature/azure-translator`
 
 ## Base
 
-`feature/automatic-upload-to-questions`
+`feature/azure-document-intelligence`
 
 ## Objective
 
-Add Azure Document Intelligence as a **second, opt-in** field-detection provider alongside the
-existing local rules-based detector, and prove that Azure's output can be converted into the app's
-existing internal detected-field format. The local provider stays the default and is not replaced.
+Introduce the `TranslationProvider` abstraction that `docs/claude/domain-rules.md` already names
+but the codebase never had, and implement **Azure Translator** behind it as the provider used for
+translating question labels, choice options and other display text.
 
-Hybrid/fallback behavior between providers is explicitly **Phase 15**, not this phase.
+Translation currently rides on `AIProvider.translate_output` / `translate_output_batch`, which
+conflates two unrelated capabilities: language understanding (extraction, clarification, question
+generation — genuinely a language-model job) and plain text translation (a dedicated service does
+this better, faster and more predictably). This phase separates them.
+
+Azure Translator also fits the batching contract built in Phase 14: its API takes an **array** of
+texts per request and returns results in order, so one request replaces a chunked sequence of
+local-model generations.
 
 ## Reuse
 
-- `FieldDetectionProvider` protocol (Phase 11) — Azure implements the same contract, unmodified
-- Phase 13 deterministic confidence routing (`app/field_detection/confidence.py`) — Azure's own
-  confidence is only one *input*; it never decides usability, thresholds, or auth
-- Phase 13 shared text-line detection passes (`providers/local.py`) — Azure words are converted to
-  `DetectionToken`s and run through the same German blank-run / section-context / inline-blank
-  logic, so all of Phase 13's quality work applies to Azure output too
-- `PrepareQuestionsService` orchestration, ownership checks, question bridge — all unchanged
+- Phase 14 `app/ai/batch_translation.py` — the dedup / cache / approved-catalog /
+  per-item-fallback pipeline is provider-agnostic and stays. Only the call at the bottom changes.
+- Phase 14 id-keyed result mapping — Azure returns results positionally, so the adapter must
+  convert position to the caller's ids explicitly rather than trusting order end to end.
+- Phase 14 Azure provider patterns (`AZURE_*` config validated only when selected, bounded
+  timeout/retries, safe error mapping, request-id capture, usage metadata, counts-only
+  diagnostics) — same shape here.
+- The hybrid question-resolution order in `domain-rules.md` is unchanged: an approved reusable
+  question or static translation still wins, and translation is only reached when neither exists.
 
-## In scope
+## Proposed scope
 
-- `AZURE_DOCUMENT_INTELLIGENCE_*` backend-only configuration + validation (fail fast only when
-  Azure is the selected provider)
-- `FIELD_DETECTION_PROVIDER=azure` in the provider factory (mock | local | azure — no hybrid)
-- `AzureDocumentIntelligenceProvider`: submit PDF, poll the async operation, bounded
-  timeout/retries, safe error mapping, provider request-id capture
-- Deterministic Azure→internal normalization: polygon→bounding-box (inch/pixel/normalized units,
-  page rotation, multiple/missing polygons), key-value pairs, selection marks, words→tokens
-- Safe Azure error codes mapped to generic user-facing messages
-- Provider usage/cost metadata persistence (+ migration)
-- Detection-result caching keyed on document checksum + provider + model + analysis version, so a
-  repeated request never re-calls Azure and never duplicates fields or questions
-- Mocked backend tests (no real Azure calls), ADR 0013, phase + setup documentation
+- `TranslationProvider` protocol + factory (`mock | ollama | azure`), with Ollama kept as an
+  implementation so nothing regresses when Azure is not configured
+- `AZURE_TRANSLATOR_*` backend-only configuration, failing fast only when Azure is selected
+- `AzureTranslatorProvider`: array request, bounded timeout/retries, safe error mapping, per-item
+  validation, usage/character-count metadata
+- Deterministic mock provider; no automated test may call the live service
+- ADR, phase doc, `.env.example` / `docker-compose.yml` passthrough
+- Manual verification against the German rental contract, reporting before/after duration and
+  call counts
 
-## Out of scope
+## Proposed out of scope
 
-- Phase 15 hybrid/fallback between providers
-- Subscription billing / quota enforcement (only usage metadata is recorded)
-- Any frontend flow change — the normal user UI stays provider-agnostic
-- Lowering any existing confidence threshold
+- Replacing `AIProvider` for anything other than translation
+- Answer-value translation and output-language rendering changes
+- Document-language detection (still assumed — see Phase 14's carried limitation, which is the
+  largest remaining source of unnecessary translation work)
+- Background jobs / progress polling (Phase 20)
+- Billing or quota enforcement — usage metadata only
 
 ## Status
 
-Complete. Verified against the live Azure endpoint with the exact German rental-contract PDF:
-`prepare-questions` returned `ready` with 19 guided questions, the first question was served,
-landlord and tenant stayed distinct, and a repeat request was served from cache with exactly one
-live Azure call. See `TODO.md` -> "Live verification" for the measured results.
+Not started — scaffolding only. The scope above is a proposal drawn from the Phase 14 patterns and
+has not been confirmed with the user.
