@@ -112,3 +112,33 @@ same way it always was; it is simply not linked to from the normal upload flow u
 `NEXT_PUBLIC_ENABLE_DETECTION_DEBUG_UI=true` (never set in production). See
 [ADR 0012](decisions/0012-automatic-confidence-routing.md).
 
+
+---
+
+## 7. Azure Document Intelligence Credentials (Phase 14)
+
+The optional Azure field-detection provider is the first integration in this project that
+holds a third-party API key. The controls around it:
+
+- **Backend-only.** `AZURE_DOCUMENT_INTELLIGENCE_API_KEY` is read by
+  `app/core/config.py` and used solely in the `Ocp-Apim-Subscription-Key` request header.
+  It is never sent to the frontend, never placed in a URL, and never returned in an API
+  response. There is no `NEXT_PUBLIC_` Azure variable.
+- **Never logged.** Log lines record only the model id, api version, page count, duration
+  and Azure's request id. `tests/field_detection/test_azure_client.py` asserts that no
+  raised error's message contains the key or the endpoint host.
+- **Off by default, double-gated.** Both `AZURE_DOCUMENT_INTELLIGENCE_ENABLED=true` and
+  `FIELD_DETECTION_PROVIDER=azure` are required; enabling one alone is rejected at startup,
+  so a document cannot be sent to a third party by a single-variable mistake.
+- **Fail fast, but only when selected.** Missing/invalid Azure settings raise at startup
+  when Azure is the chosen provider; the local and mock providers keep working with every
+  `AZURE_*` variable unset.
+- **Safe error surface.** Azure failures carry one of six fixed internal codes
+  (`azure_not_configured`, `azure_authentication_failed`, `azure_rate_limited`,
+  `azure_timeout`, `azure_invalid_response`, `azure_processing_failed`) plus Azure's request
+  id for internal diagnostics. The service re-raises the ordinary
+  `field_detection_failed`, so the user sees the same generic
+  "document could not be processed" message as for any other failure — never the word
+  Azure, an endpoint, a response body, or a stack trace.
+- **No credential in the repository.** `.env.example` and `docker-compose.yml` contain only
+  empty placeholders / host-environment interpolation.

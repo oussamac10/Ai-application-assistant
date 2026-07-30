@@ -39,6 +39,24 @@ confidence / needs-clarification / rejected / total field counts) for later Phas
 `POST /api/source-documents/{id}/prepare-questions` carries only a session id, an ownership token,
 and a count of uncertain fields — no document content.
 
+## 5b. Third-Party Document Processing (Phase 14, opt-in)
+
+By default every stage of processing runs on this system: the local field detector and the
+local OCR provider never send a document anywhere.
+
+Selecting the optional Azure provider (`FIELD_DETECTION_PROVIDER=azure`) changes that
+materially: **the uploaded PDF is transmitted to Microsoft Azure Document Intelligence for
+analysis.** Because that is a genuine change in who can see a user's document, it is
+disabled by default and requires two explicit settings
+(`AZURE_DOCUMENT_INTELLIGENCE_ENABLED=true` *and* `FIELD_DETECTION_PROVIDER=azure`).
+Operators enabling it are responsible for reflecting that transfer in their own privacy
+notice and for choosing an appropriate Azure region.
+
+`provider_usage_records` stores metadata *about* each provider request — provider, model
+id, page count, duration, success/failure, error code, Azure's request id, and whether the
+result was served from cache. It never stores document text, extracted field labels or
+values, answers, or credentials.
+
 ## 6. Ephemeral Answers Storage
 - Form answers are stored in the database only for the duration of the active session.
 - When a session is deleted, all corresponding `form_answers` rows are deleted automatically via database cascade deletes.

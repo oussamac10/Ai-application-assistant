@@ -71,6 +71,29 @@ To keep route handlers thin and business logic separate from HTTP concerns, exce
 
 ---
 
+## Field-Detection Providers (Phase 11 / 14)
+
+Field detection is behind a provider interface (`app/field_detection/providers/base.py`),
+selected by `FIELD_DETECTION_PROVIDER`:
+
+```
+FieldDetectionProvider (Protocol)
+├── MockFieldDetectionProvider          deterministic, for tests/dev
+├── LocalFieldDetectionProvider         rules-based, no network, the default
+└── AzureDocumentIntelligenceProvider   hosted Azure Document Intelligence (opt-in)
+```
+
+The Azure provider converts Azure `words`/`selectionMarks` into the same `DetectionToken`
+shape the local provider consumes and reuses its text passes, then adds Azure's own
+`keyValuePairs`. Deterministic confidence routing, ownership, and orchestration are
+identical for every provider. Results are cached on a fingerprint of
+(document checksum, provider, model id, analysis version), so switching providers
+recomputes rather than serving stale cross-provider fields, and an unchanged configuration
+never re-calls a paid service. See
+[ADR 0013](decisions/0013-azure-document-intelligence-provider.md).
+
+---
+
 ## Frontend Architecture
 
 The Next.js frontend is structured for localization, secure step-based workflow management, and responsive dynamic form presentation:

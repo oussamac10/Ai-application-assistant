@@ -11,12 +11,17 @@ The AI Form Assistant bridges the language gap by allowing users to complete for
 
 It guides the user through the form one field at a time, normalizing, validating, and confirming answers.
 
-## Current Phase: Phase 13 — Automatic Upload-to-Questions User Flow
+## Current Phase: Phase 14 — Azure Document Intelligence Provider
 
-See [`docs/claude/current-phase.md`](docs/claude/current-phase.md) and
-[`docs/phases/phase-13-automatic-upload-to-questions.md`](docs/phases/phase-13-automatic-upload-to-questions.md)
-for the current phase. Uploading a PDF now analyzes, detects fields, and starts guided questions
-automatically — no manual field-review step for normal users; see
+See [`docs/claude/current-phase.md`](docs/claude/current-phase.md),
+[`docs/roadmap.md`](docs/roadmap.md) and
+[`docs/phases/phase-14-azure-document-intelligence.md`](docs/phases/phase-14-azure-document-intelligence.md).
+Azure Document Intelligence is available as an **opt-in** second field-detection provider
+alongside the local detector — see "Optional: Azure Document Intelligence field detection"
+below and [ADR 0013](docs/decisions/0013-azure-document-intelligence-provider.md).
+
+Phase 13 (completed) made uploading a PDF analyze, detect fields and start guided questions
+automatically, with no manual field-review step for normal users — see
 [`docs/field-detection.md`](docs/field-detection.md) and
 [ADR 0012](docs/decisions/0012-automatic-confidence-routing.md).
 
@@ -130,6 +135,35 @@ npm install
 2. **API Proxying**: Next.js uses client-side proxy rewrites in `next.config.js` to route all `/api/*` calls from the browser to the backend (`http://backend:8000`). This completely eliminates CORS issues.
 3. **Database Health Failures**: In `/api/health/database`, we return a `503 Service Unavailable` status code with `{"status":"error", "database":"unavailable"}` if database connections fail, which is handled gracefully by the frontend.
 4. **Python Version**: Development virtual environment was set up with Python 3.12 on the host to avoid source compilations of pre-wheels packages on Python 3.14.
+
+---
+
+## Optional: Azure Document Intelligence field detection
+
+Field detection defaults to a fully local, rules-based provider that sends nothing off the
+machine. Azure Document Intelligence can be selected instead (Phase 14):
+
+```bash
+FIELD_DETECTION_PROVIDER=azure
+AZURE_DOCUMENT_INTELLIGENCE_ENABLED=true
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://<resource>.cognitiveservices.azure.com
+AZURE_DOCUMENT_INTELLIGENCE_API_KEY=<key from "Keys and Endpoint">
+AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID=prebuilt-layout
+```
+
+Create the resource in the Azure Portal (**Create a resource → Document Intelligence**),
+then copy **Endpoint** and **KEY 1** from its *Keys and Endpoint* blade into your `.env`.
+To sanity-check the model against a document first, upload it to
+[Document Intelligence Studio](https://documentintelligence.ai.azure.com/studio) and run
+**Layout**.
+
+> **This uploads your PDF to Microsoft.** It is therefore disabled by default and requires
+> *both* `AZURE_DOCUMENT_INTELLIGENCE_ENABLED=true` and `FIELD_DETECTION_PROVIDER=azure`.
+> The API key is backend-only and is never exposed to the frontend or logged. The free F0
+> tier analyzes only the first 2 pages per document.
+
+Full setup, verification steps and known limitations:
+[`docs/phases/phase-14-azure-document-intelligence.md`](docs/phases/phase-14-azure-document-intelligence.md).
 
 ---
 

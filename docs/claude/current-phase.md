@@ -2,60 +2,65 @@
 
 ## Phase
 
-Phase 13 - Automatic Upload-to-Questions User Flow
+Phase 14 - Azure Document Intelligence Provider
 
 ## Branch
 
-`feature/automatic-upload-to-questions`
+`feature/azure-document-intelligence`
 
 ## Base
 
-`feature/user-accounts-persistent-sessions`
+`feature/automatic-upload-to-questions`
 
 ## Objective
 
-Replace the normal-user unknown-form workflow (upload → detect fields → manually review every
-detected field → confirm fields → generate questions → answer) with an automatic flow: upload →
-analyze → detect fields → automatically decide what is usable → generate questions → begin guided
-answering. Normal users must not be required to review technical field definitions. The Phase 11
-field-review UI remains available only for admin/development/debug use and genuine low-confidence
-fallback cases.
+Add Azure Document Intelligence as a **second, opt-in** field-detection provider alongside the
+existing local rules-based detector, and prove that Azure's output can be converted into the app's
+existing internal detected-field format. The local provider stays the default and is not replaced.
+
+Hybrid/fallback behavior between providers is explicitly **Phase 15**, not this phase.
 
 ## Reuse
 
-- `FieldDetectionResult`/`DetectedField` (Phase 11) — confidence routing is layered on top, not a
-  replacement
-- `create_session_from_confirmed_fields` (Phase 11 question bridge) — extended to optionally
-  include auto-usable (not just manually confirmed) fields
-- dual-ownership authorization (Phase 12) — reused unmodified for the new orchestration endpoint
-- existing OCR/field-detection idempotent request/reuse pattern — orchestration composes these
-  services rather than re-implementing detection or OCR
+- `FieldDetectionProvider` protocol (Phase 11) — Azure implements the same contract, unmodified
+- Phase 13 deterministic confidence routing (`app/field_detection/confidence.py`) — Azure's own
+  confidence is only one *input*; it never decides usability, thresholds, or auth
+- Phase 13 shared text-line detection passes (`providers/local.py`) — Azure words are converted to
+  `DetectionToken`s and run through the same German blank-run / section-context / inline-blank
+  logic, so all of Phase 13's quality work applies to Azure output too
+- `PrepareQuestionsService` orchestration, ownership checks, question bridge — all unchanged
 
 ## In scope
 
-- deterministic confidence routing (`FIELD_AUTO_CONFIRM_THRESHOLD`,
-  `FIELD_CLARIFICATION_THRESHOLD`, `FIELD_DETECTION_REVIEW_MODE`)
-- single idempotent orchestration endpoint:
-  `POST /api/source-documents/{id}/prepare-questions`
-- automatic question generation from high/medium-confidence fields; low-confidence fields excluded
-  and surfaced only as a plain-language uncertainty flag
-- review metadata persisted on `FieldDetectionResult` for later Phase 14 consumption
-- frontend: upload goes straight to guided questions with simple progress messages; no mandatory
-  field-review step; existing Phase 11 review UI preserved behind a development-only debug flag
-- known predefined forms keep their existing fast path (no OCR/detection/AI)
-- backend/frontend tests for the new orchestration and confidence-routing behavior
+- `AZURE_DOCUMENT_INTELLIGENCE_*` backend-only configuration + validation (fail fast only when
+  Azure is the selected provider)
+- `FIELD_DETECTION_PROVIDER=azure` in the provider factory (mock | local | azure — no hybrid)
+- `AzureDocumentIntelligenceProvider`: submit PDF, poll the async operation, bounded
+  timeout/retries, safe error mapping, provider request-id capture
+- Deterministic Azure→internal normalization: polygon→bounding-box (inch/pixel/normalized units,
+  page rotation, multiple/missing polygons), key-value pairs, selection marks, words→tokens
+- Safe Azure error codes mapped to generic user-facing messages
+- Provider usage/cost metadata persistence (+ migration)
+- Detection-result caching keyed on document checksum + provider + model + analysis version, so a
+  repeated request never re-calls Azure and never duplicates fields or questions
+- Mocked backend tests (no real Azure calls), ADR 0013, phase + setup documentation
 
 ## Out of scope
 
-- Phase 14 (administration and content review) — only review metadata is persisted, no admin UI/role
-- Phase 15 (dynamic PDF mapping, filling, preview, export of arbitrary unknown PDFs)
-- background job queues — orchestration remains synchronous, matching the existing OCR/detection
-  request pattern
-- changes to the PDF structural analyzer's `next_step` classification itself (Phase 9)
+- Phase 15 hybrid/fallback between providers
+- Subscription billing / quota enforcement (only usage metadata is recorded)
+- Any frontend flow change — the normal user UI stays provider-agnostic
+- Lowering any existing confidence threshold
+
+## Known blocker
+
+No Azure credentials are available in this environment, so the **live-service** manual verification
+(requirement 12/16: the exact German rental-contract PDF processed by the real Azure endpoint)
+cannot be executed here. Everything else is implemented and verified against a recorded-shape
+Azure `prebuilt-layout` response derived from that same PDF, driven through the real orchestration
+pipeline end-to-end. See `docs/phases/phase-14-azure-document-intelligence.md` for the exact
+manual steps to run once credentials exist.
 
 ## Status
 
 In progress.
-
-See `docs/phases/phase-13-automatic-upload-to-questions.md` for the full specification (once
-written) and `docs/decisions/0012-automatic-confidence-routing.md` for the architecture decision.

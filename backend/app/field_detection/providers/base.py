@@ -13,6 +13,7 @@ authoritative field.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from app.field_detection.constants import FIELD_TYPES, SOURCE_TYPES
@@ -69,12 +70,20 @@ class DetectionPageInput:
 @dataclass(frozen=True)
 class DetectionDocumentInput:
     """Provider-independent input: everything a detection provider needs,
-    with no knowledge of SourceDocument, ownership, or storage paths."""
+    with no knowledge of SourceDocument or ownership.
+
+    `source_pdf_path` is the one exception to "no storage paths": a remote
+    provider (Azure, Phase 14) must upload the original file itself, since
+    already-extracted tokens cannot be re-submitted for layout analysis.
+    It is server-side only — never serialized into an API response, never
+    logged, and left None for providers that work purely from `pages`.
+    """
 
     page_count: int
     pages: tuple[DetectionPageInput, ...] = field(default_factory=tuple)
     acroform_widgets: tuple[AcroFormWidgetInput, ...] = field(default_factory=tuple)
     language: str | None = None
+    source_pdf_path: Path | None = None
 
 
 @dataclass(frozen=True)

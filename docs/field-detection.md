@@ -54,7 +54,10 @@ Any value found near a detected field is shown for your information only — it 
 
 ## Security and privacy
 
-- Detection runs entirely on the server; no document content is sent to a third party.
+- With the default `local` (or `mock`) provider, detection runs entirely on this server and
+  no document content is sent to a third party. The optional `azure` provider is the one
+  exception — it uploads the PDF to Microsoft; it is off by default and double-gated. See
+  "Detection providers" below and `docs/privacy.md`.
 - Detection results inherit the same private storage, ownership-token, and expiration model as the source document.
 - Only the holder of the document's ownership token can request, view, or edit a detection result.
 - No internal storage paths are ever exposed in API responses.
@@ -143,6 +146,23 @@ tells the user nothing that "IBAN" doesn't.
 - A choice group named only by a bare connective ("oder"), or whose "options" are complete
   sentences — those are independent alternative statements, and swallowing them as options would
   hide the real fillable fields inside them.
+
+## Detection providers
+
+`FIELD_DETECTION_PROVIDER` selects the engine; the rest of the pipeline is identical for
+all of them.
+
+| Value | Engine | Network | Notes |
+|---|---|---|---|
+| `local` | rules-based (default) | none | Everything on this page |
+| `mock` | deterministic fixture | none | Tests and local development |
+| `azure` | Azure Document Intelligence | **uploads the PDF to Microsoft** | Opt-in; see [Phase 14](phases/phase-14-azure-document-intelligence.md) |
+
+The Azure provider does not reimplement field-finding: it converts Azure `words` and
+`selectionMarks` into the same internal tokens and reuses the passes described above, then
+adds Azure's own `keyValuePairs` (emitted first, so they win deduplication). Azure's
+confidence is only an input — the deterministic routing, thresholds and ownership checks
+are unchanged. See [ADR 0013](decisions/0013-azure-document-intelligence-provider.md).
 
 ## Related
 

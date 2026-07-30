@@ -208,6 +208,21 @@ class LocalFieldDetectionProvider:
             fields=tuple(candidates),
         )
 
+    def detect_from_tokens(
+        self, document: DetectionDocumentInput
+    ) -> list[DetectedFieldCandidate]:
+        """Runs only the text-line passes (no AcroForm handling, no
+        dedup/sort) over an already-tokenized document.
+
+        Public because another provider may supply the tokens: the Azure
+        provider converts Azure `words`/`selectionMarks` into
+        `DetectionToken`s and reuses these passes wholesale, so all of the
+        blank-run / section-context / inline-blank behaviour is shared
+        rather than reimplemented per provider. Callers are responsible for
+        deduplicating and sorting the merged result.
+        """
+        return self._detect_from_text_lines(document)
+
     def _phrases_by_page(
         self, document: DetectionDocumentInput
     ) -> dict[int, list[LinePhrase]]:

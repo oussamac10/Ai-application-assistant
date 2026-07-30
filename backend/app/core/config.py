@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _SUPPORTED_PROVIDERS = frozenset({"mock", "ollama"})
 _SUPPORTED_OCR_PROVIDERS = frozenset({"mock", "local"})
-_SUPPORTED_FIELD_DETECTION_PROVIDERS = frozenset({"mock", "local"})
+_SUPPORTED_FIELD_DETECTION_PROVIDERS = frozenset({"mock", "local", "azure"})
 
 
 class Settings(BaseSettings):
@@ -58,6 +58,20 @@ class Settings(BaseSettings):
     # generate a question automatically.
     FIELD_AUTO_CONFIRM_THRESHOLD: float = 0.75
     FIELD_CLARIFICATION_THRESHOLD: float = 0.4
+    # Azure Document Intelligence (Phase 14) — a second, opt-in
+    # field-detection provider. Backend-only: the API key must never be
+    # exposed to the frontend, never logged, and never returned in an API
+    # response. Credentials are only required when
+    # FIELD_DETECTION_PROVIDER=azure; the local/mock providers must keep
+    # working with all of these unset.
+    AZURE_DOCUMENT_INTELLIGENCE_ENABLED: bool = False
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: str | None = None
+    AZURE_DOCUMENT_INTELLIGENCE_API_KEY: str | None = None
+    AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID: str = "prebuilt-layout"
+    AZURE_DOCUMENT_INTELLIGENCE_API_VERSION: str = "2024-11-30"
+    AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT_SECONDS: int = 120
+    AZURE_DOCUMENT_INTELLIGENCE_MAX_RETRIES: int = 1
+
     # "auto": review_status is assigned automatically per the thresholds above
     # and the normal-user upload flow generates questions without a manual
     # review step. "manual": preserves the exact Phase 11 behavior — every
@@ -216,6 +230,48 @@ class Settings(BaseSettings):
         if self.FIELD_DETECTION_REVIEW_MODE not in ("auto", "manual"):
             raise ValueError(
                 "FIELD_DETECTION_REVIEW_MODE must be one of: auto, manual."
+            )
+        # Azure credentials are validated only when Azure is actually the
+        # selected provider — the local/mock providers must keep working
+        # with every AZURE_* setting unset. Error messages never echo the
+        # key back, only the name of the missing/invalid setting.
+        if self.FIELD_DETECTION_PROVIDER == "azure":
+            if not self.AZURE_DOCUMENT_INTELLIGENCE_ENABLED:
+                raise ValueError(
+                    "FIELD_DETECTION_PROVIDER=azure requires "
+                    "AZURE_DOCUMENT_INTELLIGENCE_ENABLED=true."
+                )
+            if not (self.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT or "").strip():
+                raise ValueError(
+                    "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT must be set when "
+                    "FIELD_DETECTION_PROVIDER=azure."
+                )
+            endpoint = self.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT or ""
+            if not endpoint.startswith("https://"):
+                raise ValueError(
+                    "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT must be an https:// URL."
+                )
+            if not (self.AZURE_DOCUMENT_INTELLIGENCE_API_KEY or "").strip():
+                raise ValueError(
+                    "AZURE_DOCUMENT_INTELLIGENCE_API_KEY must be set when "
+                    "FIELD_DETECTION_PROVIDER=azure."
+                )
+            if not self.AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID.strip():
+                raise ValueError(
+                    "AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID must not be empty."
+                )
+            if not self.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION.strip():
+                raise ValueError(
+                    "AZURE_DOCUMENT_INTELLIGENCE_API_VERSION must not be empty."
+                )
+        if self.AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT_SECONDS <= 0:
+            raise ValueError(
+                "AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT_SECONDS must be a "
+                "positive integer."
+            )
+        if self.AZURE_DOCUMENT_INTELLIGENCE_MAX_RETRIES < 0:
+            raise ValueError(
+                "AZURE_DOCUMENT_INTELLIGENCE_MAX_RETRIES must not be negative."
             )
         return self
 

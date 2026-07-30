@@ -13,6 +13,7 @@ from app.field_detection.models import (  # noqa: F401
     DetectedFieldOption,
     FieldDetectionResult,
 )
+from app.field_detection.usage import ProviderUsageRecord  # noqa: F401
 from app.forms.models import (  # noqa: F401
     FormField,
     FormFieldOption,

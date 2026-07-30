@@ -1,3 +1,5 @@
+import hashlib
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -10,6 +12,7 @@ from app.documents.service import SourceDocumentService
 from app.field_detection.confidence import decide_auto_review_status
 from app.field_detection.constants import FIELD_TYPES, REVIEW_STATUSES
 from app.field_detection.errors import (
+    AzureDocumentIntelligenceError,
     FieldDetectionAlreadyProcessingError,
     FieldDetectionNotFoundError,
     FieldDetectionValidationError,
@@ -26,6 +29,7 @@ from app.field_detection.models import (
 from app.field_detection.providers.base import (
     BoundingBox,
     DetectedFieldCandidate,
+    DetectionResult,
     FieldDetectionProvider,
 )
 from app.field_detection.providers.mock import MockFieldDetectionProvider
@@ -34,9 +38,42 @@ from app.field_detection.question_bridge import (
     create_session_from_confirmed_fields,
 )
 from app.field_detection.repository import FieldDetectionRepository
+from app.field_detection.usage import record_provider_usage
 from app.ocr.models import OCRResult
 from app.ocr.repository import OCRRepository
 from app.sessions.models import FormSession
+
+logger = logging.getLogger(__name__)
+
+# Providers that call a paid/remote service, and so are worth recording
+# usage (and cache hits) for. The local/mock providers cost nothing.
+_METERED_PROVIDERS = frozenset({"azure"})
+
+
+def _active_model_id() -> str | None:
+    """The model identifier that participates in the cache fingerprint.
+    Only remote providers have one."""
+    if settings.FIELD_DETECTION_PROVIDER == "azure":
+        return settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID
+    return None
+
+
+def build_detection_fingerprint(
+    *,
+    checksum: str,
+    provider: str,
+    model_id: str | None,
+    analysis_version: int,
+) -> str:
+    """Stable hash identifying "this document, analyzed this way".
+
+    Includes the document's own content checksum, so re-uploading an
+    identical file under a new document id still recomputes (the result
+    row is per-document) while an unchanged document never re-calls a paid
+    provider for the same configuration.
+    """
+    material = f"{checksum}|{provider}|{model_id or '-'}|{analysis_version}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def build_default_provider() -> FieldDetectionProvider:
@@ -46,6 +83,14 @@ def build_default_provider() -> FieldDetectionProvider:
         from app.field_detection.providers.local import LocalFieldDetectionProvider
 
         return LocalFieldDetectionProvider()
+    if settings.FIELD_DETECTION_PROVIDER == "azure":
+        # Imported lazily so a local/mock deployment never pays for the
+        # Azure module's imports, matching the local provider above.
+        from app.field_detection.providers.azure import (
+            AzureDocumentIntelligenceProvider,
+        )
+
+        return AzureDocumentIntelligenceProvider()
     raise FieldDetectionValidationError(
         f"Unknown field detection provider '{settings.FIELD_DETECTION_PROVIDER}'.",
         "field_detection_not_required",
@@ -120,6 +165,12 @@ class FieldDetectionService:
         source_type, ocr_result = self._determine_source(doc)
 
         analysis_version = settings.FIELD_DETECTION_ANALYSIS_VERSION
+        fingerprint = build_detection_fingerprint(
+            checksum=doc.checksum_sha256,
+            provider=settings.FIELD_DETECTION_PROVIDER,
+            model_id=_active_model_id(),
+            analysis_version=analysis_version,
+        )
         existing = self.repo.get_by_source_document_and_version(
             self.db, doc.id, analysis_version
         )
@@ -128,8 +179,20 @@ class FieldDetectionService:
                 raise FieldDetectionAlreadyProcessingError(
                     "Field detection is already in progress for this document."
                 )
+            # A completed result is only reused when it came from the same
+            # provider/model/version — otherwise a provider switch would
+            # serve the previous provider's fields. For a paid provider
+            # this reuse is also what stops a retry from being billed
+            # twice; the cache hit is recorded as usage with
+            # served_from_cache=True and no provider call.
             if existing.status == "completed":
-                return existing
+                if existing.detection_fingerprint == fingerprint:
+                    self._record_cache_hit(doc, existing)
+                    return existing
+                logger.info(
+                    "Detection configuration changed for document %s; recomputing",
+                    doc.public_id,
+                )
 
         now = datetime.now(UTC)
         if existing is None:
@@ -161,7 +224,9 @@ class FieldDetectionService:
                 document_input = extract_native_document_input(Path(doc.storage_path))
             else:
                 assert ocr_result is not None
-                document_input = extract_ocr_document_input(ocr_result)
+                document_input = extract_ocr_document_input(
+                    ocr_result, Path(doc.storage_path)
+                )
 
             detection_result = self.provider.detect(document_input)
             fields = [
@@ -180,7 +245,28 @@ class FieldDetectionService:
                 else 0.0
             )
             result.completed_at = datetime.now(UTC)
+            result.detection_fingerprint = fingerprint
             self.repo.replace_fields(self.db, result, fields)
+            self._record_provider_success(doc, detection_result)
+        except AzureDocumentIntelligenceError as e:
+            # A remote-provider failure is recorded (for cost/diagnostics)
+            # and then re-raised as the ordinary validation failure the
+            # orchestration layer already knows how to turn into a safe,
+            # generic user message — the Azure code never reaches the user.
+            result.status = "failed"
+            result.error_code = e.error_code
+            result.error_message = "Field detection processing failed."
+            self.repo.update(self.db, result)
+            self._record_provider_failure(doc, e)
+            logger.error(
+                "Azure field detection failed for document %s: code=%s request_id=%s",
+                doc.public_id,
+                e.error_code,
+                e.request_id,
+            )
+            raise FieldDetectionValidationError(
+                "Field detection processing failed.", "field_detection_failed"
+            ) from e
         except FieldDetectionValidationError:
             raise
         except Exception as e:
@@ -193,6 +279,78 @@ class FieldDetectionService:
             ) from e
 
         return result
+
+    # ------------------------------------------------------------------
+    # Usage / cost metadata (metered providers only)
+    # ------------------------------------------------------------------
+
+    def _provider_diagnostics(self) -> object | None:
+        """The last call's diagnostics, when the active provider exposes
+        them (currently only Azure). Never raises."""
+        return getattr(self._provider, "last_diagnostics", None)
+
+    def _record_cache_hit(
+        self, doc: SourceDocument, existing: FieldDetectionResult
+    ) -> None:
+        if settings.FIELD_DETECTION_PROVIDER not in _METERED_PROVIDERS:
+            return
+        try:
+            record_provider_usage(
+                self.db,
+                provider=settings.FIELD_DETECTION_PROVIDER,
+                source_document_id=doc.id,
+                model_id=_active_model_id(),
+                api_version=settings.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,
+                user_id=self.current_user_id,
+                page_count=doc.page_count,
+                succeeded=True,
+                served_from_cache=True,
+            )
+        except Exception:
+            logger.warning("Could not record provider cache-hit usage", exc_info=False)
+
+    def _record_provider_success(
+        self, doc: SourceDocument, detection_result: DetectionResult
+    ) -> None:
+        if detection_result.provider_name not in _METERED_PROVIDERS:
+            return
+        diagnostics = self._provider_diagnostics()
+        try:
+            record_provider_usage(
+                self.db,
+                provider=detection_result.provider_name,
+                source_document_id=doc.id,
+                model_id=getattr(diagnostics, "model_id", None),
+                api_version=getattr(diagnostics, "api_version", None),
+                user_id=self.current_user_id,
+                page_count=getattr(diagnostics, "page_count", doc.page_count),
+                duration_seconds=getattr(diagnostics, "duration_seconds", None),
+                succeeded=True,
+                provider_request_id=getattr(diagnostics, "request_id", None),
+                served_from_cache=False,
+            )
+        except Exception:
+            logger.warning("Could not record provider usage", exc_info=False)
+
+    def _record_provider_failure(
+        self, doc: SourceDocument, error: AzureDocumentIntelligenceError
+    ) -> None:
+        try:
+            record_provider_usage(
+                self.db,
+                provider=settings.FIELD_DETECTION_PROVIDER,
+                source_document_id=doc.id,
+                model_id=_active_model_id(),
+                api_version=settings.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,
+                user_id=self.current_user_id,
+                page_count=doc.page_count,
+                succeeded=False,
+                error_code=error.error_code,
+                provider_request_id=error.request_id,
+                served_from_cache=False,
+            )
+        except Exception:
+            logger.warning("Could not record provider failure usage", exc_info=False)
 
     def get_detection_result(
         self, document_public_id: str, ownership_token: str | None

@@ -175,6 +175,7 @@ def extract_native_document_input(pdf_path: Path) -> DetectionDocumentInput:
             page_count=doc.page_count,
             pages=tuple(pages),
             acroform_widgets=tuple(widgets),
+            source_pdf_path=pdf_path,
         )
     except Exception as e:
         raise FieldDetectionProviderUnavailableError(
@@ -184,10 +185,15 @@ def extract_native_document_input(pdf_path: Path) -> DetectionDocumentInput:
         doc.close()
 
 
-def extract_ocr_document_input(ocr_result: OCRResult) -> DetectionDocumentInput:
+def extract_ocr_document_input(
+    ocr_result: OCRResult, source_pdf_path: Path | None = None
+) -> DetectionDocumentInput:
     """Builds a DetectionDocumentInput from an already-completed Phase 10
     OCRResult. Coordinates stay in the rendered-image pixel space OCR
     produced (see ADR 0009) — no AcroForm widgets exist for a scanned page.
+
+    `source_pdf_path` is passed through unchanged for providers that must
+    upload the original file (Azure); it plays no part in OCR extraction.
     """
     pages: list[DetectionPageInput] = []
 
@@ -230,4 +236,5 @@ def extract_ocr_document_input(ocr_result: OCRResult) -> DetectionDocumentInput:
         pages=tuple(pages),
         acroform_widgets=(),
         language=ocr_result.language,
+        source_pdf_path=source_pdf_path,
     )
