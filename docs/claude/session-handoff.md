@@ -53,8 +53,12 @@ nothing to translate.
 ## Verification results
 
 Backend **574 passed**, ruff clean, `ruff format --check` clean, mypy clean (146 files).
-Frontend **129 passed**, lint and typecheck clean; no frontend source changed. See `TODO.md` for
-the per-suite breakdown and the Playwright result.
+Frontend **129 passed**, lint and typecheck clean; no frontend source changed.
+
+Playwright: **27 passed, 3 failed** at a tightened `--timeout=60000 --retries=0`. Two of the three
+pass at the project's normal 120 s timeout — `dynamic-field-detection-flow.spec.ts` alone gives
+5 passed, including the German-translation and Arabic-RTL specs. The third,
+`guided-flow.spec.ts`, is pre-existing since Phase 9.
 
 ## Blocked
 

@@ -165,6 +165,22 @@ Frontend: `npm test` → **129 passed** (17 files), `npm run lint` and `npm run 
 No frontend source changed this phase; RTL is unchanged and still covered by
 `form-session.test.tsx` and `application-select-manually.test.tsx`.
 
+Playwright (CI mode, `azure` detection + `ollama` translation): **27 passed, 3 failed** at
+`--timeout=60000 --retries=0`. Two of those three pass at the project's normal 120 s timeout —
+re-running `dynamic-field-detection-flow.spec.ts` alone gives **5 passed (35.1 s)**, including
+"German user language: question and choice labels are translated, submitted values stay stable"
+and "Arabic user language: RTL stays active and stable option values are unchanged". They time out
+at 20 s in `page.waitForURL` because the real pipeline (fresh Azure detection plus Ollama
+translation for a non-English interface) exceeds that budget; both were already recorded as flaky
+in Phase 14. The remaining failure is `guided-flow.spec.ts`, pre-existing since Phase 9.
+
+One test self-skips: `upload-analysis-flow.spec.ts:255` reports "Fixture PDF not found".
+
+**Process note:** two earlier attempts at this suite were invalidated because the backend pytest
+suite was run concurrently — it `TRUNCATE`s `form_templates` and wipes the `basic-registration`
+fixture mid-run, which surfaces as unrelated failures in the Phase 12 auth specs. Never run pytest
+and Playwright against the same dev database at once.
+
 ## Blocked
 
 **Live Azure Translator verification.** `AZURE_TRANSLATOR_API_KEY` is not provisioned, so:
