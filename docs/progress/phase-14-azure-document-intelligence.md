@@ -132,6 +132,13 @@ Run locally via `backend/venv/bin/python`:
 - Azure fixture through the full pipeline → 19 candidates, 19 usable, `vermieter_name` and
   `mieter_name` distinct, one Azure call, second request served from cache
 
+- Playwright (CI mode, rebuilt Docker, `azure`/`ollama` providers): **25 passed, 2 flaky**
+  (passed on retry), **1 pre-existing failure** (`guided-flow.spec.ts` default-tab gap, carried
+  since Phase 9). Two Phase 12 auth specs failed on the first full run because the backend pytest
+  suite — run concurrently by mistake — `TRUNCATE`s `form_templates` and wiped the
+  `basic-registration` fixture mid-suite; both pass when re-run with the fixture present
+  (`2 passed`). Do not run pytest and Playwright against the same dev database at once.
+
 ## Known Limitations
 
 - F0 free tier analyzes only the first 2 pages per document (confirmed live: `pages=2` for a 3-page file).
