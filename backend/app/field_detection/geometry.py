@@ -118,10 +118,16 @@ def union_bounding_box(boxes: list[BoundingBox]) -> BoundingBox:
 
 def group_tokens_into_lines(
     tokens: tuple[DetectionToken, ...],
+    rtl: bool = False,
 ) -> list[list[DetectionToken]]:
     """Clusters tokens into visual lines by vertical proximity, then orders
-    each line left-to-right. Order of lines follows reading order
-    (top-to-bottom, then left-to-right for ties).
+    each line in **reading** order. Lines follow reading order
+    (top-to-bottom, then by starting edge for ties).
+
+    `rtl=True` orders each line right-to-left, which is what keeps an Arabic
+    label from coming back with its words reversed. Line *clustering* itself
+    is direction-agnostic — vertical proximity does not care which way the
+    script runs.
     """
     remaining = sorted(tokens, key=lambda t: (t.bounding_box.y, t.bounding_box.x))
     lines: list[list[DetectionToken]] = []
@@ -139,14 +145,21 @@ def group_tokens_into_lines(
             lines.append([token])
 
     for line in lines:
-        line.sort(key=lambda t: t.bounding_box.x)
+        line.sort(key=lambda t: -t.bounding_box.x if rtl else t.bounding_box.x)
 
-    lines.sort(key=lambda line: (line[0].bounding_box.y, line[0].bounding_box.x))
+    lines.sort(
+        key=lambda line: (
+            line[0].bounding_box.y,
+            -line[0].bounding_box.x if rtl else line[0].bounding_box.x,
+        )
+    )
     return lines
 
 
 def split_line_into_segments(
-    tokens: list[DetectionToken], gap_height_ratio: float = SEGMENT_GAP_HEIGHT_RATIO
+    tokens: list[DetectionToken],
+    gap_height_ratio: float = SEGMENT_GAP_HEIGHT_RATIO,
+    rtl: bool = False,
 ) -> list[list[DetectionToken]]:
     """Splits tokens already on one visual line into segments wherever the
     horizontal gap between consecutive tokens is large relative to token
@@ -158,6 +171,9 @@ def split_line_into_segments(
     if not tokens:
         return []
 
+    # Gaps are measured along the page regardless of direction; only the
+    # order in which segments are produced follows reading direction, so an
+    # RTL line yields its segments right-to-left.
     ordered = sorted(tokens, key=lambda t: t.bounding_box.x)
     segments: list[list[DetectionToken]] = [[ordered[0]]]
 
@@ -171,5 +187,10 @@ def split_line_into_segments(
             segments.append([token])
         else:
             segments[-1].append(token)
+
+    if rtl:
+        segments.reverse()
+        for segment in segments:
+            segment.sort(key=lambda t: -t.bounding_box.x)
 
     return segments

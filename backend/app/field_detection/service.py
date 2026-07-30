@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from app.field_detection.confidence import (
     decide_auto_review_status,
 )
 from app.field_detection.constants import FIELD_TYPES, REVIEW_STATUSES
+from app.field_detection.direction import is_rtl_language
 from app.field_detection.errors import (
     AzureDocumentIntelligenceError,
     FieldDetectionAlreadyProcessingError,
@@ -272,6 +274,16 @@ class FieldDetectionService:
                     ocr_result, Path(doc.storage_path)
                 )
 
+            # The document's detected language drives direction-aware
+            # geometry (RTL forms put a field's value to the *left* of its
+            # label, and joining tokens by ascending x reverses Arabic word
+            # order). Detected once by app/language/ and persisted, so this
+            # is a read, not a second detection.
+            if doc.detected_source_language:
+                document_input = replace(
+                    document_input, language=doc.detected_source_language
+                )
+
             detection_result = self.provider.detect(document_input)
             fields = [
                 self._candidate_to_model(candidate, order)
@@ -351,11 +363,34 @@ class FieldDetectionService:
         excluded = sum(1 for f in fields if f.review_status == "needs_clarification")
         unknown = sum(1 for f in fields if f.field_type == "unknown")
         provider_counts = getattr(self._provider, "last_azure_counts", None) or {}
+        # Stage-by-stage, so a document that loses fields can be attributed to
+        # the exact stage that dropped them without a debugger. `normalized`
+        # counts *distinct* normalized names before deduplication: when it is
+        # far below `raw`, names are colliding — which is precisely how a
+        # 27-field Arabic form collapsed into 2 questions, every Arabic label
+        # having normalized to the literal "field".
+        distinct_names = len({f.normalized_name for f in detection_result.fields})
+        logger.info(
+            "Detection stages: document=%s provider=%s raw=%d normalized_distinct=%d "
+            "geometry_text=%s geometry_key_value=%s deduplicated=%d unknown_type=%d "
+            "confidence_accepted=%d rejected_below_threshold=%d rtl=%s",
+            doc.public_id,
+            detection_result.provider_name,
+            provider_counts.get("raw_candidates", raw),
+            distinct_names,
+            provider_counts.get("text_candidates", "-"),
+            provider_counts.get("kv_candidates", "-"),
+            raw,
+            unknown,
+            auto_confirmed + medium,
+            excluded,
+            is_rtl_language(doc.detected_source_language),
+        )
         logger.info(
             "Detection summary: document=%s provider=%s model=%s "
             "provider_raw=%s after_dedup=%d unknown=%d "
             "auto_confirmed=%d medium_usable=%d below_threshold_excluded=%d "
-            "usable_total=%d",
+            "usable_total=%d source_language=%s",
             doc.public_id,
             detection_result.provider_name,
             _active_model_id() or "-",
@@ -366,6 +401,7 @@ class FieldDetectionService:
             medium,
             excluded,
             auto_confirmed + medium,
+            doc.detected_source_language or "-",
         )
 
     def _record_cache_hit(
@@ -453,6 +489,7 @@ class FieldDetectionService:
         user_language: str,
         output_language: str,
         include_auto_usable: bool = False,
+        document_language: str | None = None,
     ) -> tuple[FormSession, str]:
         doc = self.document_service.get_document(
             document_public_id, ownership_token, self.current_user_id
@@ -475,6 +512,7 @@ class FieldDetectionService:
             include_auto_usable=include_auto_usable,
             translation_provider=self.translation_provider,
             fallback_translation_provider=self.fallback_translation_provider,
+            document_language=document_language,
         )
         result.review_metadata = build_review_metadata(result)
         self.repo.update(self.db, result)

@@ -59,7 +59,9 @@ class _Recorder:
                 translated_character_count=sum(
                     len(item.text) for item in request.items
                 ),
-                detected_source_languages=(self._detects,),
+                status_class="2xx",
+                detected_source_languages=(self._detects,) * max(len(request.items), 1),
+                source_language_is_detected=True,
             ),
         )
 
@@ -96,7 +98,7 @@ async def test_whole_document_costs_one_provider_call() -> None:
     result = await translate_texts(texts, "de", provider, stats=stats)
 
     assert provider.calls == 1
-    assert stats.total_provider_calls == 1
+    assert stats.primary_request_count == 1
     assert len(result) == 26
 
 
@@ -124,7 +126,7 @@ async def test_cache_hit_avoids_the_provider() -> None:
 
     assert provider.calls == 1, "second run must not reach the provider"
     assert stats.cache_hits == 1
-    assert stats.total_provider_calls == 0
+    assert stats.total_request_count == 0
     assert result["Name"] == "[de] Name"
 
 

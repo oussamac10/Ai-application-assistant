@@ -19,7 +19,8 @@ async function goToLanding(page: Page) {
 }
 
 function createDigitalPdf(name = "resume-digital.pdf"): string {
-  const content = "BT /F1 18 Tf 100 700 Td (Full Name:) Tj 250 0 Td (Jane Doe) Tj ET";
+  const content =
+    "BT /F1 18 Tf 100 700 Td (Full Name:) Tj 250 0 Td (Jane Doe) Tj ET";
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -49,8 +50,9 @@ function createDigitalPdf(name = "resume-digital.pdf"): string {
 
 test.describe("Automatic upload-to-questions flow — End-to-end (requires backend)", () => {
   test.skip(
-    ({ browserName }) => process.env.CI !== "true" && browserName === "chromium",
-    "Skipped in local dev unless CI=true; requires live backend with database"
+    ({ browserName }) =>
+      process.env.CI !== "true" && browserName === "chromium",
+    "Skipped in local dev unless CI=true; requires live backend with database",
   );
 
   test("resuming a processed document does not reprocess or duplicate the session", async ({
@@ -63,7 +65,9 @@ test.describe("Automatic upload-to-questions flow — End-to-end (requires backe
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Upload and Analyze/i }).click();
 
-    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 20000 });
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
+      timeout: 20000,
+    });
     const sessionUrl = page.url();
 
     // Reload the same guided session directly — must resume in place, not
@@ -87,11 +91,12 @@ test.describe("Automatic upload-to-questions flow — End-to-end (requires backe
 
     const pdf = createDigitalPdf("language-mismatch.pdf");
     await page.locator("input[type='file']").setInputFiles(pdf);
-    await page.locator("#upload-output-select").selectOption("fr");
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Upload and Analyze/i }).click();
 
-    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 20000 });
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
+      timeout: 20000,
+    });
     expect(page.url()).not.toMatch(/token/i);
 
     // No raw translation key or the literal "error_null"/"null" string
@@ -115,10 +120,9 @@ test.describe("Automatic upload-to-questions flow — End-to-end (requires backe
 
     const fixturePdf = path.resolve(
       __dirname,
-      "../../fixtures/pdf/rental-contract-de.pdf"
+      "../../fixtures/pdf/rental-contract-de.pdf",
     );
     await page.locator("input[type='file']").setInputFiles(fixturePdf);
-    await page.locator("#upload-output-select").selectOption("de");
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Upload and Analyze/i }).click();
 
@@ -129,14 +133,17 @@ test.describe("Automatic upload-to-questions flow — End-to-end (requires backe
     });
     expect(page.url()).not.toMatch(/detect-fields/);
     await expect(
-      page.getByText(/no usable questions|could not confidently process/i)
+      page.getByText(/no usable questions|could not confidently process/i),
     ).not.toBeVisible();
     await expect(page.getByText(/Detect Form Fields/i)).not.toBeVisible();
 
     // An actual answerable question is rendered, with real progress — this
     // document yields well over the "at least five questions" bar.
     await page.waitForSelector("form", { timeout: 20000 });
-    const progress = await page.getByText(/\d+\s*\/\s*\d+|%/).first().textContent();
+    const progress = await page
+      .getByText(/\d+\s*\/\s*\d+|%/)
+      .first()
+      .textContent();
     expect(progress).toBeTruthy();
 
     // No raw technical detail leaks into the normal-user UI.

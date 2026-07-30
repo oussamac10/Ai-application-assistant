@@ -38,6 +38,7 @@ from app.translation.base import (
     TranslationItem,
     TranslationProvider,
     TranslationRequest,
+    TranslationResponse,
 )
 from app.translation.errors import TranslationProviderError
 from app.translation.protected import partition_protected
@@ -49,28 +50,83 @@ logger = logging.getLogger(__name__)
 _CACHE_MAX_ENTRIES = 4096
 
 
+# Why the fallback provider was invoked. Recorded so a slow or degraded run
+# can be explained from a log line without reproducing it.
+FALLBACK_REASONS = (
+    "timeout",
+    "authentication_error",
+    "rate_limit",
+    "transport_error",
+    "invalid_response",
+    "endpoint_not_found",
+    "not_configured",
+    "partial_response",
+    "missing_item",
+    "empty_translation",
+    "unsupported_language",
+)
+
+_ERROR_CODE_TO_REASON = {
+    "translation_timeout": "timeout",
+    "translation_authentication_failed": "authentication_error",
+    "translation_rate_limited": "rate_limit",
+    "translation_failed": "transport_error",
+    "translation_invalid_response": "invalid_response",
+    "translation_endpoint_not_found": "endpoint_not_found",
+    "translation_not_configured": "not_configured",
+}
+
+
 @dataclass
 class TranslationStats:
-    """Per-run accounting. Safe to log, and precise enough to assert on — the
-    performance claims in this phase's docs are these numbers."""
+    """Per-run accounting.
+
+    Primary and fallback are measured **separately**. Reporting one
+    `provider_latency` made a 42.9 s run look like Azure being slow when Azure
+    had in fact failed in 0.2 s and the local model had done all the work; the
+    log said `provider=azure` throughout. Anything that cannot be attributed to
+    one provider does not belong in this dataclass.
+
+    Request counters count **actual outbound requests**. Selecting a provider,
+    or a provider short-circuiting a no-op, is not a request — counting it as
+    one reported `provider_calls=1, characters=0, latency=0.00s`, which is not
+    a thing that can happen.
+    """
 
     unique_texts: int = 0
     protected_skipped: int = 0
     catalog_hits: int = 0
     persisted_hits: int = 0
     cache_hits: int = 0
-    provider_calls: int = 0
-    fallback_provider_calls: int = 0
+
+    primary_provider: str = ""
+    primary_request_count: int = 0
+    primary_retry_count: int = 0
+    primary_duration_seconds: float = 0.0
+    primary_status_class: str = "none"
+
+    fallback_provider: str = ""
+    fallback_request_count: int = 0
+    fallback_duration_seconds: float = 0.0
+    fallback_reason: str = ""
+
     translated_character_count: int = 0
-    provider_latency_seconds: float = 0.0
     unresolved: int = 0
     detected_source_languages: tuple[str, ...] = ()
-    primary_provider: str = ""
-    fallback_used: bool = False
+    detection_confidence: float | None = None
 
     @property
-    def total_provider_calls(self) -> int:
-        return self.provider_calls + self.fallback_provider_calls
+    def total_request_count(self) -> int:
+        """Every outbound request, both providers, retries included."""
+        return self.primary_request_count + self.fallback_request_count
+
+    @property
+    def translation_total_duration(self) -> float:
+        return self.primary_duration_seconds + self.fallback_duration_seconds
+
+    @property
+    def fallback_used(self) -> bool:
+        return self.fallback_request_count > 0
 
 
 @dataclass
@@ -203,9 +259,12 @@ async def _translate_pending(
     cache_key_language: str,
     stats: TranslationStats,
 ) -> dict[str, str]:
-    """Primary provider, then fallback provider for what is still missing,
-    then source text. Ids are positions in `pending` and never leave this
-    function, so no application identifier reaches a provider."""
+    """Primary provider, then the fallback for **only what is still missing**,
+    then source text.
+
+    Ids are positions in `pending` and never leave this function, so no
+    application identifier reaches a provider.
+    """
     items = tuple(
         TranslationItem(id=index, text=text) for index, text in enumerate(pending)
     )
@@ -219,42 +278,59 @@ async def _translate_pending(
 
     translations: dict[int, str] = {}
     detected: list[str] = []
+    stats.primary_provider = getattr(provider, "provider_name", "unknown")
 
     try:
-        stats.provider_calls += 1
         response = await provider.translate_batch(request)
         translations.update(response.translations_by_id)
-        if response.usage:
-            stats.translated_character_count += (
-                response.usage.translated_character_count
-            )
-            stats.provider_latency_seconds += response.usage.latency_seconds
-            detected.extend(response.usage.detected_source_languages)
+        _record_primary(stats, response, detected)
     except TranslationProviderError as exc:
+        # A provider that raised may still have sent requests (a retried
+        # timeout sends two), so the counters come from the exception path's
+        # own accounting rather than being assumed zero.
+        stats.primary_request_count += getattr(exc, "request_count", 0) or 0
+        stats.primary_retry_count += getattr(exc, "retry_count", 0) or 0
+        stats.primary_duration_seconds += getattr(exc, "duration_seconds", 0.0) or 0.0
+        stats.primary_status_class = getattr(exc, "status_class", "") or "error"
+        stats.fallback_reason = _ERROR_CODE_TO_REASON.get(
+            exc.error_code, "transport_error"
+        )
         logger.warning(
             "Primary translation provider failed: provider=%s target_language=%s "
-            "items=%d error_code=%s",
-            getattr(provider, "provider_name", "unknown"),
+            "items=%d error_code=%s reason=%s",
+            stats.primary_provider,
             target_language,
             len(items),
             exc.error_code,
+            stats.fallback_reason,
         )
 
     missing = [item for item in items if item.id not in translations]
 
+    if missing:
+        # Distinguish "the call failed" from "the call worked but skipped some
+        # items" — they need different operator responses.
+        if not stats.fallback_reason:
+            stats.fallback_reason = (
+                "partial_response" if translations else "missing_item"
+            )
+
     if missing and fallback_provider is not None:
-        stats.fallback_used = True
+        stats.fallback_provider = getattr(fallback_provider, "provider_name", "unknown")
         logger.info(
-            "Falling back to the secondary translation provider: provider=%s "
-            "target_language=%s items=%d",
-            getattr(fallback_provider, "provider_name", "unknown"),
-            target_language,
+            "Falling back for %d of %d item(s): provider=%s target_language=%s "
+            "reason=%s",
             len(missing),
+            len(items),
+            stats.fallback_provider,
+            target_language,
+            stats.fallback_reason,
         )
         try:
-            stats.fallback_provider_calls += 1
             fallback_response = await fallback_provider.translate_batch(
                 TranslationRequest(
+                    # Only the items the primary did not deliver. One bad
+                    # element must never cost a whole batch a second full pass.
                     items=tuple(missing),
                     target_language=target_language,
                     source_language=source_language,
@@ -262,15 +338,12 @@ async def _translate_pending(
                 )
             )
             translations.update(fallback_response.translations_by_id)
-            if fallback_response.usage:
-                stats.translated_character_count += (
-                    fallback_response.usage.translated_character_count
-                )
-                stats.provider_latency_seconds += (
-                    fallback_response.usage.latency_seconds
-                )
-                detected.extend(fallback_response.usage.detected_source_languages)
+            _record_fallback(stats, fallback_response, detected)
         except TranslationProviderError as exc:
+            stats.fallback_request_count += getattr(exc, "request_count", 0) or 0
+            stats.fallback_duration_seconds += (
+                getattr(exc, "duration_seconds", 0.0) or 0.0
+            )
             logger.warning(
                 "Fallback translation provider also failed: target_language=%s "
                 "error_code=%s; using source text",
@@ -279,7 +352,7 @@ async def _translate_pending(
             )
 
     if detected:
-        stats.detected_source_languages = tuple(sorted(set(detected)))
+        stats.detected_source_languages = tuple(detected)
 
     resolved: dict[str, str] = {}
     for item_id, text in by_id.items():
@@ -301,6 +374,46 @@ async def _translate_pending(
             len(items),
         )
     return resolved
+
+
+def _record_primary(
+    stats: TranslationStats, response: TranslationResponse, detected: list[str]
+) -> None:
+    """Folds one primary response into the stats.
+
+    Counters come from the provider's own usage, so a provider that
+    short-circuited without contacting anything contributes zero requests —
+    which is the whole point of separating "we chose this provider" from "we
+    called it".
+    """
+    usage = response.usage
+    if usage is None:
+        return
+    stats.primary_request_count += usage.request_count
+    stats.primary_retry_count += usage.retry_count
+    stats.primary_duration_seconds += usage.latency_seconds
+    stats.translated_character_count += usage.translated_character_count
+    if usage.status_class != "none":
+        stats.primary_status_class = usage.status_class
+    if usage.detection_confidence is not None:
+        stats.detection_confidence = usage.detection_confidence
+    # Only genuine detections. A provider echoing the language it was told to
+    # assume must not be able to outvote one that actually looked.
+    if usage.source_language_is_detected:
+        detected.extend(usage.detected_source_languages)
+
+
+def _record_fallback(
+    stats: TranslationStats, response: TranslationResponse, detected: list[str]
+) -> None:
+    usage = response.usage
+    if usage is None:
+        return
+    stats.fallback_request_count += usage.request_count
+    stats.fallback_duration_seconds += usage.latency_seconds
+    stats.translated_character_count += usage.translated_character_count
+    if usage.source_language_is_detected:
+        detected.extend(usage.detected_source_languages)
 
 
 async def translate_one(

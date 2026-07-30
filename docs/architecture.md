@@ -108,6 +108,13 @@ Only the interface language is translated during preparation; other supported la
 source-text placeholders that `app/translation/backfill.py` fills on demand. See
 [ADR 0015](decisions/0015-translation-provider-and-azure-translator.md).
 
+The uploaded form's own language is detected once by `app/language/` (script-first, then
+function-word frequency; deterministic and dependency-free), persisted on `source_documents`,
+and reused on later requests. It drives RTL-aware field geometry and is the version's
+`source_language`. `und` records "could not determine" and is never silently turned into `en`.
+The three language concepts stay separate: `source_language` describes the document,
+`user_language` the interface, `output_language` the completed form.
+
 ---
 
 ## Frontend Architecture

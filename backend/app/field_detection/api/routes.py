@@ -176,7 +176,12 @@ async def create_session_from_field_detection(
         current_user_id=current_user.id if current_user else None,
     )
     session, session_token = await service.create_session_from_confirmed_fields(
-        document_id, x_document_token, body.language, body.outputLanguage
+        document_id,
+        x_document_token,
+        body.language,
+        # The debug/review route has no detection step of its own; an
+        # unspecified output language follows the interface language.
+        body.outputLanguage or body.language,
     )
     return SessionCreateResponse(
         sessionId=session.public_id,

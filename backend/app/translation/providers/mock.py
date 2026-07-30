@@ -44,11 +44,15 @@ class MockTranslationProvider:
                 ),
                 # The mock "detects" whatever it was told to assume, so the
                 # metadata path is exercised without inventing a language.
+                status_class="2xx" if request.items else "none",
                 detected_source_languages=(
                     (request.source_language or request.assumed_source_language,)
                     if request.items
                     else ()
                 ),
+                # The mock reports a detection so the propagation path is
+                # exercised; real providers set this honestly.
+                source_language_is_detected=bool(request.items),
             ),
         )
 

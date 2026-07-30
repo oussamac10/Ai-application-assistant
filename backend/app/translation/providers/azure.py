@@ -89,6 +89,7 @@ class AzureTranslatorProvider:
         # Injectable so tests drive a stubbed transport and never touch the
         # network.
         self._client = client
+        self._last_status_class = "none"
 
     # ------------------------------------------------------------------
     # Wire details
@@ -104,6 +105,23 @@ class AzureTranslatorProvider:
             headers["Ocp-Apim-Subscription-Region"] = self._region
         return headers
 
+    def _translate_path(self) -> str:
+        """The `translate` path for whichever endpoint form is configured.
+
+        Azure exposes Text Translation at two different paths and getting this
+        wrong is silent: the global endpoint serves `/translate`, while a
+        resource with a custom subdomain
+        (`https://<name>.cognitiveservices.azure.com`) serves
+        `/translator/text/v3.0/translate` and answers **404** for a bare
+        `/translate`. A 404 was previously mapped to a generic failure, so the
+        request quietly fell back to the local model and the logs still said
+        `provider=azure`.
+        """
+        host = self._endpoint.lower()
+        if "cognitiveservices.azure.com" in host and "/translator/" not in host:
+            return "/translator/text/v3.0/translate"
+        return "/translate"
+
     def _url(self, request: TranslationRequest) -> str:
         params = [
             f"api-version={self._api_version}",
@@ -113,7 +131,7 @@ class AzureTranslatorProvider:
         # detection; it then reports what it detected per element.
         if request.source_language:
             params.append(f"from={request.source_language}")
-        return f"{self._endpoint}/translate?" + "&".join(params)
+        return f"{self._endpoint}{self._translate_path()}?" + "&".join(params)
 
     @staticmethod
     def _request_id(response: httpx.Response) -> str | None:
@@ -121,6 +139,16 @@ class AzureTranslatorProvider:
             "apim-request-id"
         )
         return str(request_id) if request_id else None
+
+    @staticmethod
+    def _status_class(status: int) -> str:
+        if status < 300:
+            return "2xx"
+        if status < 400:
+            return "3xx"
+        if status < 500:
+            return "4xx"
+        return "5xx"
 
     def _raise_for_status(self, response: httpx.Response) -> None:
         """Maps an HTTP status onto a safe internal code.
@@ -133,6 +161,13 @@ class AzureTranslatorProvider:
             return
 
         request_id = self._request_id(response)
+        if status == 404:
+            raise TranslationProviderError(
+                "Azure Translator endpoint not found — check "
+                "AZURE_TRANSLATOR_ENDPOINT points at a Translator resource.",
+                "translation_endpoint_not_found",
+                request_id,
+            )
         if status in (401, 403):
             raise TranslationProviderError(
                 "Azure Translator rejected the configured credentials.",
@@ -188,7 +223,9 @@ class AzureTranslatorProvider:
         request_ids: list[str] = []
         characters = 0
         request_count = 0
+        retry_count = 0
         confidences: list[float] = []
+        self._last_status_class = "none"
         started = time.perf_counter()
 
         # Azure's documented per-request limits are 1000 elements and 50,000
@@ -204,6 +241,7 @@ class AzureTranslatorProvider:
             )
             payload, request_id, attempts = await self._translate_chunk(chunk_request)
             request_count += attempts
+            retry_count += attempts - 1
             if request_id:
                 request_ids.append(request_id)
 
@@ -234,9 +272,14 @@ class AzureTranslatorProvider:
                 provider_name=self.provider_name,
                 target_language=request.target_language,
                 request_count=request_count,
+                retry_count=retry_count,
+                status_class=self._last_status_class,
                 translated_character_count=characters,
                 latency_seconds=latency,
-                detected_source_languages=tuple(sorted(set(detected))),
+                # Per item, duplicates preserved, so a mixed-language document
+                # can be resolved by frequency rather than by set ordering.
+                detected_source_languages=tuple(detected),
+                source_language_is_detected=bool(detected),
                 detection_confidence=(min(confidences) if confidences else None),
                 request_ids=tuple(request_ids),
             ),
@@ -251,12 +294,14 @@ class AzureTranslatorProvider:
         body = [{"Text": item.text} for item in request.items]
         url = self._url(request)
         attempts = 0
+        started = time.perf_counter()
         last_error: TranslationProviderError | None = None
 
         while attempts <= self._max_retries:
             attempts += 1
             try:
                 response = await self._post(url, body)
+                self._last_status_class = self._status_class(response.status_code)
                 self._raise_for_status(response)
                 try:
                     return response.json(), self._request_id(response), attempts
@@ -269,6 +314,15 @@ class AzureTranslatorProvider:
             except TranslationProviderError as exc:
                 last_error = exc
                 if not exc.is_retryable or attempts > self._max_retries:
+                    # Attach what the failed call actually cost, so the caller
+                    # attributes the time and requests to *this* provider
+                    # rather than to whichever one later succeeded.
+                    exc.request_count = attempts
+                    exc.retry_count = attempts - 1
+                    exc.duration_seconds = time.perf_counter() - started
+                    exc.status_class = (
+                        getattr(self, "_last_status_class", "") or "error"
+                    )
                     raise
                 logger.warning(
                     "Azure Translator attempt %d/%d failed (%s); retrying",
@@ -277,9 +331,13 @@ class AzureTranslatorProvider:
                     exc.error_code,
                 )
 
-        raise last_error or TranslationProviderError(
+        error = last_error or TranslationProviderError(
             "Azure Translator could not be reached.", "translation_failed"
         )
+        error.request_count = attempts
+        error.retry_count = max(attempts - 1, 0)
+        error.duration_seconds = time.perf_counter() - started
+        raise error
 
     async def _post(self, url: str, body: list[dict[str, str]]) -> httpx.Response:
         timeout = httpx.Timeout(float(self._timeout_seconds))
@@ -291,10 +349,12 @@ class AzureTranslatorProvider:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 return await client.post(url, json=body, headers=self._headers())
         except httpx.TimeoutException as exc:
+            self._last_status_class = "timeout"
             raise TranslationProviderError(
                 "Azure Translator did not respond in time.", "translation_timeout"
             ) from exc
         except httpx.HTTPError as exc:
+            self._last_status_class = "transport"
             # Transport-level failure. The exception is not chained into the
             # message: it can contain the full request URL.
             raise TranslationProviderError(

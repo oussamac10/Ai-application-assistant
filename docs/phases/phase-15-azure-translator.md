@@ -105,15 +105,193 @@ German rental contract, fresh upload, through the Next proxy,
 
 First question still `vermieter_name` / "Vermieter – Name".
 
+## Automatic document-language detection
+
+`app/language/` detects what language the uploaded form is written in, once per
+document, right after text extraction or OCR and before anything language-sensitive.
+
+```
+DocumentLanguageDetector                app/language/detector.py
+├── LocalDocumentLanguageDetector       deterministic, dependency-free
+└── MockDocumentLanguageDetector        tests
+
+app/language/sampling.py                filtered, bounded text sample (max 5000 chars)
+app/language/service.py                 detect / persist / reuse + precedence
+```
+
+Detection is script-first (Arabic, Hebrew, Greek, Cyrillic, CJK decided by Unicode
+block), then function-word frequency for Latin scripts, with diacritics breaking ties.
+The sample excludes identifiers using the same deterministic rules as
+`app/translation/protected.py`, so IBANs and dates cannot bias the answer.
+
+Persisted on `source_documents`: `detected_source_language`,
+`language_detection_confidence`, `language_detection_provider`,
+`language_detection_version`, `language_detected_at` (migration `e1975a7403eb`).
+A repeat request reuses it and calls no detector.
+
+### Precedence
+
+1. explicit trusted form-definition language
+2. persisted document-language result
+3. the dedicated detector
+4. Azure Translator's `detectedLanguage` metadata
+5. `und`
+
+The detector outranks Azure metadata because Azure only reports a language as a
+*side effect* of translating — so it is absent exactly when a document needs no
+translation, and a provider failure would otherwise replace a real answer with an
+assumption.
+
+### `und`
+
+`und` (ISO 639-2 "undetermined") is a real answer, not a failure: a form with fewer
+than eight usable words has no determinable language. It is never converted to `en`,
+and never sent as `from=en` — the parameter is omitted so Azure detects instead. The
+only place a concrete code is substituted is `FormVersion.source_language`, which
+structurally requires one; the honest `und` stays on the source document.
+
+### Mixed languages
+
+A batch with several detected languages is resolved by a documented, deterministic
+policy: ignore `und`, most frequent wins, ties break alphabetically. The per-language
+*counts* are logged; the text never is.
+
+## Primary and fallback metrics
+
+Each provider is measured separately, and every counter reflects an **actual outbound
+request** — selecting a provider, or a provider short-circuiting a no-op, counts as
+zero:
+
+```
+primary_provider  primary_request_count  primary_retry_count
+primary_duration  primary_status_class
+fallback_provider fallback_request_count fallback_duration  fallback_reason
+translation_total_duration  translated_character_count  untranslated_item_count
+```
+
+`fallback_reason` is one of: `timeout`, `authentication_error`, `rate_limit`,
+`transport_error`, `invalid_response`, `endpoint_not_found`, `not_configured`,
+`partial_response`, `missing_item`, `empty_translation`, `unsupported_language`.
+
+A missing item falls back for **that item only** — a partial Azure response never
+resends the whole batch.
+
+## RTL field grouping
+
+Two independent causes made an Arabic form produce 2 questions from 27 candidates:
+
+1. **`normalize_field_name` erased non-Latin scripts**, so every Arabic label became
+   the literal `"field"` and deduplication collapsed the document. The ASCII slug is
+   now tried first (every German/English key stays byte-identical), with a
+   Unicode-aware fallback only when ASCII yields nothing.
+2. **Azure merged rows into one key-value pair.** A field label occupies one line, so
+   a multi-line key is split into one candidate per line.
+
+Geometry is direction-aware for `ar`/`he`/`fa`/`ur`: tokens are ordered by reading
+position rather than ascending x, and a value region is associated with the label on
+its **right**. Only ordering is direction-aware — token strings are never touched, so
+Arabic characters survive byte for byte.
+
+Stage-by-stage diagnostics make a collapse attributable without a debugger:
+
+```
+Detection stages: document=... provider=azure raw=29 normalized_distinct=29
+    geometry_text=1 geometry_key_value=34 deduplicated=29 unknown_type=0
+    confidence_accepted=29 rejected_below_threshold=0 rtl=True
+```
+
+## The completed form's language is no longer asked for
+
+The upload flow's "Select completed form language" dropdown is gone. With the document's
+language detected, the language a completed form must be written in is a *fact about the
+form*, not a choice — a German contract is completed in German. `outputLanguage` is now
+optional throughout (multipart upload, `prepare-questions`, session creation); when it is
+omitted the backend resolves it from the detected document language, falling back to the
+interface language only when the document's language is `und`.
+
+The manual template flow still offers the choice, because a predefined template can genuinely
+declare several `supportedOutputLanguages`.
+
+## Frontend direction
+
+Document direction follows the **interface** language only
+(`LanguageProvider` sets `documentElement.lang` and `.dir`). An Arabic form in an
+English interface stays LTR; a German form in an Arabic interface is RTL. The
+provider never receives the document's language, so this is structural.
+
+## Live results
+
+| | Before | After |
+|---|---|---|
+| German: `source_language` | `en` | **`de`** (0.89 confidence, 0.04 s) |
+| German: questions | 24 | 24 |
+| Arabic: `source_language` | `en` | **`ar`** (0.99 confidence) |
+| Arabic: raw → questions | 27 → **2** | 29 → **29** |
+| Arabic: merged multi-label questions | 1 | **0** |
+| Repeat request | 0.09 s, 0 calls | 0.09 s, 0 calls |
+
+### Live results with a working Azure Translator resource
+
+A real Translator resource was provisioned mid-session (region `germanywestcentral`).
+Both endpoint forms were exercised and both work, which is why the path resolution matters:
+the global endpoint (`https://api.cognitive.microsofttranslator.com`) serves `/translate`,
+while a `*.cognitiveservices.azure.com` resource serves `/translator/text/v3.0/translate` and
+answers **404** for a bare `/translate`. Numbers below are from the global endpoint.
+
+**Test 1 — German contract, UI French, output auto**
+
+| Check | Result | Target |
+|---|---|---|
+| `source_language` / `detected_source` | **`de`** (0.89, local detector, 0.06 s) | `de` |
+| `eager_language` | `fr` | `fr` |
+| Azure primary | `request_count=1 duration=0.15s status_class=2xx` | 1 call |
+| Fallback | `request_count=0 reason=-` | 0 |
+| `translation_total_duration` | **0.19 s** | < 3 s |
+| `total_duration` | **5.36 s** | < 15 s |
+| Questions | **24** | 24 |
+| `untranslated_item_count` | 0 | 0 |
+
+**Test 2 — Arabic form, UI English, output auto**
+
+| Check | Result |
+|---|---|
+| `source_language` / `output_language` | **`ar`** / `ar` (auto-derived), `user_language=en` |
+| Stages | `raw=29 normalized_distinct=29 deduplicated=29 rtl=True` |
+| Questions | **29** (was 2) |
+| Merged multi-label questions | **0** — first name, family name, date of birth, phone all separate |
+| Azure primary | `request_count=1 duration=0.21s status_class=2xx`, fallback 0 |
+| `total_duration` | **5.92 s** (translation 0.45 s) |
+| Repeat request | **0.046 s**, session reused, zero provider calls |
+| Arabic text | intact, correct order, no mojibake |
+
+**Test 3 — German document, UI Arabic, output German**
+
+| Check | Result |
+|---|---|
+| Languages | `source=de`, `user=ar`, `output=de` — all three independent |
+| Questions | 24, German labels translated into Arabic (`Vermieter – Name` → `اسم المالك`, `Mieter – Name` → `اسم المستأجر`) |
+| Stable choice values | unchanged (`Küche,`, `Badezimmer mit WC …`) |
+| Azure primary | `request_count=1 duration=0.35s`, fallback 0 |
+| Interface direction | `lang=ar`, `dir=rtl` — set from `user_language` only |
+
+Azure Translator's own detection agrees with the local detector (German 0.97, Arabic reported
+as `ar`), and is used only as the lower-precedence fallback. A deliberately mixed batch
+(one German label, one Arabic label) returned per-item detections `('de', 'ar')`, which the
+dominant-language policy then resolves deterministically.
+
 ## Known limitations
 
-- **The live Azure Translator path is unverified.** No `AZURE_TRANSLATOR_API_KEY` is provisioned,
-  so all Azure tests are mocked and the benchmark ran on Ollama. The mocked tests cover the wire
-  contract thoroughly, but a live run is required before claiming the provider works end to end.
-- With Ollama selected, a German document in an English interface is still not translated — the
-  local model cannot detect a source language. Only Azure resolves this.
-- **Arabic field detection is weak**: `arabic_test_form.pdf` produced 2 fields from 27 raw
-  candidates, with three separate labels merged into one. That is a Phase 13/14 detection concern
-  (blank-run and section heuristics are tuned for LTR layout), untouched here. Arabic text itself
-  round-trips without corruption and RTL rendering is unchanged.
+- **The endpoint must be a Translator resource, and it must use the right path.** A Document
+  Intelligence endpoint answers **404** for `/translate`; a `*.cognitiveservices.azure.com`
+  Translator resource serves `/translator/text/v3.0/translate` and answers 404 for a bare
+  `/translate`. Both are handled, and a 404 is reported as `endpoint_not_found` rather than a
+  transient failure, but the wrong resource still cannot authenticate.
+- `docker compose restart` does **not** re-read `.env`. Use `docker compose up -d
+  --force-recreate` after changing credentials, or the container keeps the old values while the
+  file on disk looks correct.
+- The local detector covers Latin-script European languages and the major non-Latin scripts.
+  It is not a general-purpose language identifier.
+- RTL geometry improves ordering and label association, but Azure's key-value grouping remains
+  the dominant signal for Arabic forms — the local text passes contribute only one candidate
+  there.
 - The translation cache is process-local and dropped on restart.

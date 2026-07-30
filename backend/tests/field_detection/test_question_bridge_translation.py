@@ -77,7 +77,9 @@ class _Translator:
                 target_language=request.target_language,
                 request_count=1,
                 translated_character_count=sum(len(i.text) for i in request.items),
-                detected_source_languages=(self._detects,),
+                status_class="2xx",
+                detected_source_languages=(self._detects,) * max(len(request.items), 1),
+                source_language_is_detected=True,
             ),
         )
 

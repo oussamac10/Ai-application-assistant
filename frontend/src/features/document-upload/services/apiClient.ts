@@ -12,9 +12,11 @@ import {
 export function uploadDocument(
   file: File,
   language: string,
-  outputLanguage: string,
+  /** Optional since Phase 15: the completed form's language is the *form's*
+   * own language, detected from the document rather than chosen at upload. */
+  outputLanguage: string | undefined,
   privacyAccepted: boolean,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
 ): Promise<DocumentUploadResponse> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -58,14 +60,18 @@ export function uploadDocument(
     const formData = new FormData();
     formData.append("file", file);
     formData.append("language", language);
-    formData.append("outputLanguage", outputLanguage);
+    if (outputLanguage) {
+      formData.append("outputLanguage", outputLanguage);
+    }
     formData.append("privacyAccepted", String(privacyAccepted));
 
     xhr.send(formData);
   });
 }
 
-export async function getDocument(documentId: string): Promise<DocumentRetrieveResponse> {
+export async function getDocument(
+  documentId: string,
+): Promise<DocumentRetrieveResponse> {
   const token = getDocumentToken(documentId);
   const headers: Record<string, string> = {};
   if (token) {
@@ -85,7 +91,11 @@ export async function getDocument(documentId: string): Promise<DocumentRetrieveR
     } catch {
       // ignore
     }
-    throw new ApiError(response.status, "Failed to retrieve document details.", detail);
+    throw new ApiError(
+      response.status,
+      "Failed to retrieve document details.",
+      detail,
+    );
   }
 
   const data = await response.json();
@@ -95,7 +105,7 @@ export async function getDocument(documentId: string): Promise<DocumentRetrieveR
 export async function createSessionFromDocument(
   documentId: string,
   language: string,
-  outputLanguage: string
+  outputLanguage: string,
 ): Promise<SessionCreateResponse> {
   const token = getDocumentToken(documentId);
   const headers: Record<string, string> = {
@@ -119,7 +129,11 @@ export async function createSessionFromDocument(
     } catch {
       // ignore
     }
-    throw new ApiError(response.status, "Failed to create session from document.", detail);
+    throw new ApiError(
+      response.status,
+      "Failed to create session from document.",
+      detail,
+    );
   }
 
   const data = await response.json();

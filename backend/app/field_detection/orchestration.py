@@ -19,6 +19,7 @@ import logging
 import time
 from dataclasses import dataclass
 
+import fitz
 from sqlalchemy.orm import Session
 
 from app.ai.mock_provider import AIProvider, MockAIProvider
@@ -30,8 +31,15 @@ from app.field_detection.errors import (
 )
 from app.field_detection.providers.base import FieldDetectionProvider
 from app.field_detection.service import FieldDetectionService
+from app.language.detector import (
+    UNDETERMINED,
+    DetectedLanguage,
+    DocumentLanguageDetector,
+)
+from app.language.service import DocumentLanguageService
 from app.ocr.constants import SUPPORTED_OCR_LANGUAGES
 from app.ocr.errors import OCRError, OCRValidationError
+from app.ocr.repository import OCRRepository
 from app.ocr.service import OCRService
 from app.sessions.models import FormSession
 from app.sessions.repositories import SessionRepository
@@ -94,6 +102,7 @@ class PrepareQuestionsService:
         field_detection_provider: FieldDetectionProvider | None = None,
         translation_provider: TranslationProvider | None = None,
         fallback_translation_provider: TranslationProvider | None = None,
+        language_detector: DocumentLanguageDetector | None = None,
     ):
         self.db = db
         self.ai_provider: AIProvider = (
@@ -102,6 +111,7 @@ class PrepareQuestionsService:
         self.current_user_id = current_user_id
         self.document_service = SourceDocumentService(db)
         self.session_repo = SessionRepository(db)
+        self.ocr_repo = OCRRepository()
         # Test-only seam: production callers always leave this None so
         # FieldDetectionService resolves the configured provider itself.
         self._field_detection_provider = field_detection_provider
@@ -109,13 +119,14 @@ class PrepareQuestionsService:
         # and FieldDetectionService resolves the configured providers.
         self._translation_provider = translation_provider
         self._fallback_translation_provider = fallback_translation_provider
+        self._language_detector = language_detector
 
     async def prepare(
         self,
         document_public_id: str,
         ownership_token: str | None,
         user_language: str,
-        output_language: str,
+        output_language: str | None = None,
     ) -> PrepareQuestionsResult:
         started = time.perf_counter()
         doc = self.document_service.get_document(
@@ -144,11 +155,14 @@ class PrepareQuestionsService:
             )
 
         if doc.matched_template_key:
+            # A recognized template declares its own language, so there is
+            # nothing to detect; an unspecified output language follows the
+            # interface language as before.
             session, token = self.document_service.create_session_from_document(
                 document_public_id,
                 ownership_token,
                 user_language,
-                output_language,
+                output_language or user_language,
                 current_user_id=self.current_user_id,
             )
             return PrepareQuestionsResult(
@@ -172,6 +186,26 @@ class PrepareQuestionsService:
             except OCRError as e:
                 return self._failed_result(document_public_id, stage=STAGE_OCR, exc=e)
         ocr_duration = time.perf_counter() - ocr_started
+
+        # What language is this document actually in? Answered once, here —
+        # after text extraction/OCR and before anything language-sensitive
+        # (RTL-aware geometry grouping, question generation, translation).
+        # Persisted, so a repeat request reuses it and calls no detector.
+        language_started = time.perf_counter()
+        detected_language = await self._detect_document_language(doc)
+        language_duration = time.perf_counter() - language_started
+
+        # The completed form is written in the *form's* language. With
+        # detection in place that is a fact about the document, not a choice
+        # the user should have to make, so an unspecified output language
+        # resolves to the detected one — falling back to the interface
+        # language only when the document's language is undetermined.
+        if not output_language:
+            output_language = (
+                detected_language.language
+                if detected_language.is_determined
+                else user_language
+            )
 
         field_detection_service = FieldDetectionService(
             self.db,
@@ -204,6 +238,7 @@ class PrepareQuestionsService:
                 user_language,
                 output_language,
                 include_auto_usable=True,
+                document_language=detected_language.language,
             )
         except FieldDetectionValidationError as e:
             if e.error_code == "field_detection_invalid_result":
@@ -252,10 +287,13 @@ class PrepareQuestionsService:
         # translation share of it is logged by question_bridge.
         logger.info(
             "prepare-questions timing: document=%s ocr_duration=%.2fs "
+            "language_duration=%.2fs source_language=%s "
             "detection_duration=%.2fs question_resolution_duration=%.2fs "
             "total_duration=%.2fs status=ready questions=%d",
             document_public_id,
             ocr_duration,
+            language_duration,
+            detected_language.language,
             detection_duration,
             question_duration,
             time.perf_counter() - started,
@@ -269,6 +307,50 @@ class PrepareQuestionsService:
             ownership_token=token,
             uncertainty=uncertainty,
         )
+
+    async def _detect_document_language(self, doc: SourceDocument) -> DetectedLanguage:
+        """Detects (or reuses) the document's language.
+
+        Failure is non-fatal: a document whose language cannot be determined
+        still produces questions, it just carries `und` and lets the
+        translation provider detect per batch. Blocking a whole upload because
+        a language guess failed would be the wrong trade.
+        """
+        service = DocumentLanguageService(self.db, self._language_detector)
+        try:
+            return await service.ensure_detected(doc, *self._language_sources(doc))
+        except Exception:
+            logger.warning(
+                "Document language detection failed for document=%s; continuing "
+                "with an undetermined language",
+                doc.public_id,
+            )
+            return DetectedLanguage(UNDETERMINED, 0.0, "unavailable")
+
+    def _language_sources(self, doc: SourceDocument) -> tuple[str, ...]:
+        """Text to detect from, most language-bearing first: the document's own
+        native text, then OCR output for a scanned document."""
+        sources: list[str] = []
+        try:
+            with fitz.open(doc.storage_path) as pdf:
+                sources.append(
+                    "\n".join(
+                        pdf.load_page(index).get_text()
+                        for index in range(pdf.page_count)
+                    )
+                )
+        except Exception:
+            logger.info(
+                "Could not read native text for language detection (document=%s)",
+                doc.public_id,
+            )
+
+        ocr_result = self.ocr_repo.get_by_source_document_id(self.db, doc.id)
+        if ocr_result is not None and ocr_result.pages:
+            sources.append(
+                "\n".join(page.text for page in ocr_result.pages if page.text)
+            )
+        return tuple(sources)
 
     def _no_usable_questions_result(
         self,

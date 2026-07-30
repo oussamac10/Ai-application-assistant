@@ -127,13 +127,13 @@ async def backfill_language(
 
     logger.info(
         "Translation backfill: version=%s language=%s rows=%d updated=%d "
-        "provider=%s provider_calls=%d characters=%d duration=%.2fs",
+        "provider=%s requests=%d characters=%d duration=%.2fs",
         version.id,
         language,
         len(rows),
         updated,
         stats.primary_provider or "-",
-        stats.total_provider_calls,
+        stats.total_request_count,
         stats.translated_character_count,
         time.perf_counter() - started,
     )

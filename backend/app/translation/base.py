@@ -63,14 +63,35 @@ class TranslationRequest:
 @dataclass(frozen=True)
 class TranslationUsage:
     """What the call cost and how it behaved. Counts, timings and language
-    codes only — never text, never credentials."""
+    codes only — never text, never credentials.
+
+    `request_count` counts **actual outbound HTTP requests**, retries included.
+    A provider that short-circuits without contacting anything reports 0, which
+    is what makes "did we really call out?" answerable from a log line. Callers
+    must derive their own counters from this rather than from "we selected a
+    provider" — conflating the two reported `provider_calls=1` for a request
+    that never left the process.
+    """
 
     provider_name: str
     target_language: str
     request_count: int = 0
+    retry_count: int = 0
+    # Coarse outcome of the last HTTP exchange: "2xx", "4xx", "5xx",
+    # "timeout", "transport", or "none" when nothing was sent. Coarse on
+    # purpose — a precise status can carry information about the request.
+    status_class: str = "none"
     translated_character_count: int = 0
     latency_seconds: float = 0.0
+    # Languages the provider genuinely *detected*, one entry per item, with
+    # duplicates preserved so the caller can apply a frequency policy to a
+    # mixed-language document.
     detected_source_languages: tuple[str, ...] = ()
+    # False when the provider cannot detect and is merely echoing the language
+    # it was told to assume. Without this flag an assumption is
+    # indistinguishable from a detection, and the Ollama fallback's assumed
+    # "en" silently overrode Azure's real answer.
+    source_language_is_detected: bool = False
     # Confidence the provider reported for its language detection, when it
     # reports one. Never invented: absent unless the provider documents it.
     detection_confidence: float | None = None

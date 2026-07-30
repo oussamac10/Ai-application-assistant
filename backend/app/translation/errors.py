@@ -24,6 +24,12 @@ class TranslationConfigurationError(TranslationError):
 # retry or a fallback, the rest are not.
 TRANSLATION_ERROR_CODES = (
     "translation_not_configured",
+    # The endpoint answered, but not as a translation service — e.g. a
+    # Document Intelligence resource URL used for Translator, which returns
+    # 404 for /translate. Distinct from a transient failure because retrying
+    # it is pointless and the operator needs to know it is a *configuration*
+    # problem, not an outage.
+    "translation_endpoint_not_found",
     "translation_authentication_failed",
     "translation_rate_limited",
     "translation_timeout",
@@ -52,12 +58,24 @@ class TranslationProviderError(TranslationError):
         message: str,
         error_code: str,
         request_id: str | None = None,
+        request_count: int = 0,
+        retry_count: int = 0,
+        duration_seconds: float = 0.0,
+        status_class: str = "",
     ) -> None:
         super().__init__(message)
         if error_code not in TRANSLATION_ERROR_CODES:
             raise ValueError(f"Unknown translation error code '{error_code}'.")
         self.error_code = error_code
         self.request_id = request_id
+        # A failed call still costs requests and time — a retried timeout
+        # sends two and burns the whole budget. Carrying that here is what
+        # lets the caller report the primary provider's real cost instead of
+        # attributing it to whichever provider happened to succeed.
+        self.request_count = request_count
+        self.retry_count = retry_count
+        self.duration_seconds = duration_seconds
+        self.status_class = status_class
 
     @property
     def is_retryable(self) -> bool:

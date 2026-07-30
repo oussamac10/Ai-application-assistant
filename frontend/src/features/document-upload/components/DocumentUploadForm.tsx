@@ -36,7 +36,6 @@ export default function DocumentUploadForm({
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [privacyAccepted, setPrivacyAccepted] = useState<boolean>(false);
-  const [outputLanguage, setOutputLanguage] = useState<string>("en");
   const [stage, setStage] = useState<Stage>("idle");
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -136,11 +135,7 @@ export default function DocumentUploadForm({
     const maxAttempts = 3;
     for (let attempt = 1; ; attempt += 1) {
       try {
-        return await prepareQuestions(
-          documentId,
-          currentLocale,
-          outputLanguage,
-        );
+        return await prepareQuestions(documentId, currentLocale);
       } catch (err: any) {
         const status = typeof err?.status === "number" ? err.status : 0;
         const isTransport = status === 0 || status === 502 || status === 504;
@@ -233,7 +228,10 @@ export default function DocumentUploadForm({
       const result = await uploadDocument(
         file,
         currentLocale,
-        outputLanguage,
+        // No output language is chosen at upload time: the completed form is
+        // written in the language the form itself is in, which is detected
+        // from the document after upload.
+        undefined,
         privacyAccepted,
         (percent) => {
           setUploadProgress(percent);
@@ -273,11 +271,15 @@ export default function DocumentUploadForm({
 
   return (
     <div className="space-y-6">
-      {errorMsg && stage !== "review_required" && stage !== "uncertain" && (
-        <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
-          {errorMsg}
-        </div>
-      )}
+      {/* The dedicated failure screen renders the same message, so the inline
+          banner is only for errors that leave the form on screen — client-side
+          file validation, mainly. Showing both printed the error twice. */}
+      {errorMsg &&
+        !["review_required", "uncertain", "error"].includes(stage) && (
+          <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
+            {errorMsg}
+          </div>
+        )}
 
       {stage === "idle" && (
         <form onSubmit={handleUploadSubmit} className="space-y-6">
@@ -365,28 +367,6 @@ export default function DocumentUploadForm({
           {/* Form Language and Options */}
           {file && (
             <>
-              {/* Output Language Select */}
-              <div className="space-y-2">
-                <label
-                  htmlFor="upload-output-select"
-                  className="block text-sm font-semibold tracking-wide text-slate-300"
-                >
-                  {t("selectOutputLanguage") ||
-                    "Select completed form language"}
-                </label>
-                <select
-                  id="upload-output-select"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3.5 text-base text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
-                  value={outputLanguage}
-                  onChange={(e) => setOutputLanguage(e.target.value)}
-                >
-                  <option value="en">English</option>
-                  <option value="de">Deutsch</option>
-                  <option value="fr">Français</option>
-                  <option value="ar">العربية</option>
-                </select>
-              </div>
-
               {/* Privacy notice box */}
               <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
                 <h3 className="text-sm font-bold text-slate-200">

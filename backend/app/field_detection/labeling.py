@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 
 from app.field_detection.classification import is_blank_run
+from app.field_detection.direction import join_tokens
 from app.field_detection.geometry import (
     DEFAULT_PROXIMITY_GAP,
     group_tokens_into_lines,
@@ -47,6 +48,7 @@ class LinePhrase:
 
 def _split_on_blank_marker(
     tokens: list[DetectionToken],
+    rtl: bool = False,
 ) -> tuple[str, str, bool] | None:
     """For a colon-less segment, finds the first blank-run token and splits
     the label from it. Returns None if no blank-run token is present or the
@@ -56,8 +58,8 @@ def _split_on_blank_marker(
         if is_blank_run(token.text):
             label_tokens = tokens[:index]
             trailing_tokens = tokens[index:]
-            label_text = " ".join(t.text for t in label_tokens).strip()
-            trailing_text = " ".join(t.text for t in trailing_tokens).strip()
+            label_text = join_tokens(label_tokens, rtl)
+            trailing_text = join_tokens(trailing_tokens, rtl)
             if not label_text:
                 return None
             return label_text, trailing_text, True
@@ -65,9 +67,12 @@ def _split_on_blank_marker(
 
 
 def _phrase_from_segment(
-    page_number: int, segment_tokens: list[DetectionToken]
+    page_number: int, segment_tokens: list[DetectionToken], rtl: bool = False
 ) -> LinePhrase:
-    full_text = " ".join(t.text for t in segment_tokens)
+    # Reading order, not x order: joining an Arabic segment left-to-right
+    # reverses its words, which corrupts every label and every keyword match
+    # downstream. The token strings are never altered, only their order.
+    full_text = join_tokens(segment_tokens, rtl)
     box = union_bounding_box([t.bounding_box for t in segment_tokens])
     source = segment_tokens[0].source
 
@@ -80,7 +85,7 @@ def _phrase_from_segment(
             is_blank_run(part) for part in trailing.split()
         )
     else:
-        split = _split_on_blank_marker(segment_tokens)
+        split = _split_on_blank_marker(segment_tokens, rtl)
         if split is not None:
             label_text, trailing, has_blank_marker = split
         else:
@@ -99,7 +104,7 @@ def _phrase_from_segment(
 
 
 def build_line_groups(
-    page_number: int, tokens: tuple[DetectionToken, ...]
+    page_number: int, tokens: tuple[DetectionToken, ...], rtl: bool = False
 ) -> list[list[LinePhrase]]:
     """Groups a page's tokens into visual lines, then splits each line into
     segments (see split_line_into_segments). Each physical line becomes one
@@ -108,9 +113,11 @@ def build_line_groups(
     a flat list use build_line_phrases below.
     """
     groups: list[list[LinePhrase]] = []
-    for line_tokens in group_tokens_into_lines(tokens):
-        segments = split_line_into_segments(line_tokens)
-        phrases = [_phrase_from_segment(page_number, segment) for segment in segments]
+    for line_tokens in group_tokens_into_lines(tokens, rtl=rtl):
+        segments = split_line_into_segments(line_tokens, rtl=rtl)
+        phrases = [
+            _phrase_from_segment(page_number, segment, rtl) for segment in segments
+        ]
         # A blank-run segment anywhere on the line makes every other
         # segment on that line a blank-adjacent label candidate.
         if any(is_blank_run(p.text) for p in phrases if not p.has_blank_marker):
@@ -123,12 +130,14 @@ def build_line_groups(
 
 
 def build_line_phrases(
-    page_number: int, tokens: tuple[DetectionToken, ...]
+    page_number: int, tokens: tuple[DetectionToken, ...], rtl: bool = False
 ) -> list[LinePhrase]:
     """Flat variant of build_line_groups, for callers (e.g. AcroForm label
     lookup) that don't need physical-line grouping."""
     return [
-        phrase for group in build_line_groups(page_number, tokens) for phrase in group
+        phrase
+        for group in build_line_groups(page_number, tokens, rtl)
+        for phrase in group
     ]
 
 
@@ -136,17 +145,33 @@ def find_nearest_label_for_box(
     target: BoundingBox,
     phrases: list[LinePhrase],
     max_gap: float = DEFAULT_PROXIMITY_GAP,
+    rtl: bool = False,
 ) -> LinePhrase | None:
-    """Finds the best label phrase for a given input area: prefers a label
-    immediately to the left, falls back to one directly above."""
-    left_candidates = [
-        p for p in phrases if is_left_of(p.bounding_box, target, max_gap)
-    ]
-    if left_candidates:
-        return min(
-            left_candidates,
-            key=lambda p: target.x - (p.bounding_box.x + p.bounding_box.width),
-        )
+    """Finds the best label phrase for a given input area.
+
+    Prefers the label on the side the text comes *from* — left for LTR, right
+    for RTL — and falls back to one directly above. Searching left in an
+    Arabic form finds the previous field's value area instead of this field's
+    label, which is how unrelated labels ended up attached to one another.
+    """
+    if rtl:
+        right_candidates = [
+            p for p in phrases if is_left_of(target, p.bounding_box, max_gap)
+        ]
+        if right_candidates:
+            return min(
+                right_candidates,
+                key=lambda p: p.bounding_box.x - (target.x + target.width),
+            )
+    else:
+        left_candidates = [
+            p for p in phrases if is_left_of(p.bounding_box, target, max_gap)
+        ]
+        if left_candidates:
+            return min(
+                left_candidates,
+                key=lambda p: target.x - (p.bounding_box.x + p.bounding_box.width),
+            )
 
     above_candidates = [p for p in phrases if is_above(p.bounding_box, target, max_gap)]
     if above_candidates:

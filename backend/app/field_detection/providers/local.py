@@ -52,6 +52,7 @@ from app.field_detection.classification import (
     marker_type,
     starts_with_blank_run,
 )
+from app.field_detection.direction import is_rtl_language
 from app.field_detection.geometry import (
     CLOSE_BELOW_RATIO,
     INLINE_BLANK_GAP_RATIO,
@@ -226,8 +227,9 @@ class LocalFieldDetectionProvider:
     def _phrases_by_page(
         self, document: DetectionDocumentInput
     ) -> dict[int, list[LinePhrase]]:
+        rtl = is_rtl_language(document.language)
         return {
-            page.page_number: build_line_phrases(page.page_number, page.tokens)
+            page.page_number: build_line_phrases(page.page_number, page.tokens, rtl)
             for page in document.pages
         }
 
@@ -296,7 +298,9 @@ class LocalFieldDetectionProvider:
         candidates: list[DetectedFieldCandidate] = []
 
         for page in document.pages:
-            line_groups = build_line_groups(page.page_number, page.tokens)
+            line_groups = build_line_groups(
+                page.page_number, page.tokens, is_rtl_language(document.language)
+            )
             context_map = self._build_context_map(line_groups)
 
             choice_candidates, consumed = self._detect_choice_groups(

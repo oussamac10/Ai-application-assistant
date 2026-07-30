@@ -67,7 +67,13 @@ class OllamaTranslationProvider:
                 usage=TranslationUsage(
                     provider_name=self.provider_name,
                     target_language=request.target_language,
+                    # No outbound request was made, so no request is counted.
+                    request_count=0,
+                    status_class="none",
                     detected_source_languages=(source,),
+                    # Asserted from configuration, not detected. Flagging it
+                    # is what stops this assumption overriding a real answer.
+                    source_language_is_detected=False,
                 ),
             )
 
@@ -132,6 +138,10 @@ class OllamaTranslationProvider:
                 latency_seconds=latency,
                 # Asserted, not detected — see the module docstring.
                 detected_source_languages=(source,),
+                # This provider cannot detect a language; it reports the one
+                # it was told to assume. See the module docstring.
+                source_language_is_detected=False,
+                status_class="2xx",
             ),
         )
 

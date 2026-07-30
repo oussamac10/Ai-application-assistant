@@ -7,19 +7,54 @@ Kept separate from any single provider so both the mock and local providers
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 from app.field_detection.constants import LOW_CONFIDENCE_THRESHOLD
 from app.field_detection.providers.base import DetectedFieldCandidate
 
-_UNSAFE_NAME_CHARS = re.compile(r"[^a-z0-9]+")
+# Latin-script slug, unchanged from the original implementation. Tried first
+# so every existing German/English key stays byte-identical — including the
+# ones that fold awkwardly ("Straße" -> "stra_e").
+_ASCII_NAME_CHARS = re.compile(r"[^a-z0-9]+")
+
+# Unicode-aware fallback for scripts the ASCII pass erases completely. This is
+# the fix for a real collapse: `[^a-z0-9]+` reduced *every* Arabic label to the
+# literal "field", so `deduplicate_candidates` merged a 27-field Arabic form
+# into a single question whose label was three unrelated fields joined
+# together.
+_UNICODE_NAME_CHARS = re.compile(r"[^\w]+|_+", re.UNICODE)
+
+# Length bound so a sentence-like label cannot produce an unbounded key.
+_MAX_NAME_LENGTH = 60
 
 
 def normalize_field_name(label: str) -> str:
-    """Builds a safe, deterministic normalized_name from a label string."""
+    """Builds a safe, deterministic normalized_name from a label string.
+
+    The name is an internal identifier and is never displayed. It only has to
+    be stable and **distinct** — distinctness is what deduplication relies on,
+    and losing it silently merges unrelated fields into one question.
+    """
     lowered = label.strip().lower()
-    slug = _UNSAFE_NAME_CHARS.sub("_", lowered).strip("_")
-    return slug or "field"
+    if not lowered:
+        return "field"
+
+    ascii_slug = _ASCII_NAME_CHARS.sub("_", lowered).strip("_")
+    if ascii_slug:
+        return ascii_slug[:_MAX_NAME_LENGTH].strip("_")
+
+    # Nothing survived the Latin-script pass: a non-Latin script (Arabic,
+    # Hebrew, Greek, Cyrillic, CJK). Keep the letters rather than discarding
+    # the label's entire identity.
+    unicode_slug = _UNICODE_NAME_CHARS.sub("_", lowered).strip("_")
+    if unicode_slug:
+        return unicode_slug[:_MAX_NAME_LENGTH].strip("_")
+
+    # Punctuation only. A shared constant would merge every such field, so
+    # derive a deterministic per-label suffix instead.
+    digest = hashlib.sha256(lowered.encode("utf-8")).hexdigest()[:8]
+    return f"field_{digest}"
 
 
 def downgrade_low_confidence(

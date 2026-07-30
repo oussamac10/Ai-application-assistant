@@ -39,7 +39,11 @@ def chunk_generator(
 def upload_document(
     file: UploadFile = File(...),
     language: str = Form(...),
-    outputLanguage: str = Form(...),
+    # Optional since Phase 15: the upload form no longer asks which language
+    # the completed form should be in — it is the language the document itself
+    # is in, detected after upload. Falls back to the interface language until
+    # detection has run.
+    outputLanguage: str | None = Form(default=None),
     privacyAccepted: bool = Form(...),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
@@ -55,7 +59,7 @@ def upload_document(
         file_chunks=file_chunks,
         privacy_accepted=privacyAccepted,
         user_language=language,
-        output_language=outputLanguage,
+        output_language=outputLanguage or language,
         current_user_id=current_user.id if current_user else None,
     )
 
@@ -134,7 +138,7 @@ def create_session(
         document_id,
         x_document_token,
         body.language,
-        body.outputLanguage,
+        body.outputLanguage or body.language,
         current_user_id=current_user.id if current_user else None,
     )
 

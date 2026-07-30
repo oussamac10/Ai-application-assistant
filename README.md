@@ -202,6 +202,22 @@ regional resource — Azure rejects the request without it.
 > `TRANSLATION_PROVIDER=azure`. The API key is backend-only and is never exposed to the frontend or
 > logged.
 
+> **The endpoint must be a Translator resource.** A Document Intelligence endpoint answers
+> `404` for `/translate` and `401` for `/translator/text/v3.0/translate` — its key is not valid
+> for Translator. Create a separate **Translator** resource.
+
+## Automatic document-language detection
+
+The uploaded form's own language is detected locally (no third party, no extra dependency) once
+per document, persisted, and reused. It sets the generated form version's `source_language`,
+drives RTL-aware field grouping for Arabic/Hebrew/Persian/Urdu, and lets Azure Translator be
+asked to detect rather than being told a wrong `from=`.
+
+When a document has too little text the result is `und` ("undetermined"), which is never silently
+turned into English. The three language concepts stay separate: `source_language` describes the
+document, `user_language` the interface, `output_language` the completed form. Interface direction
+(`lang`/`dir`) follows `user_language` only — an Arabic form in an English interface stays LTR.
+
 Full setup, benchmark and known limitations:
 [`docs/phases/phase-15-azure-translator.md`](docs/phases/phase-15-azure-translator.md).
 

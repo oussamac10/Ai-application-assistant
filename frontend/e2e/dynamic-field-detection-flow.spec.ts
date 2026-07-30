@@ -63,7 +63,9 @@ function createDigitalPdf(name = "unmatched-digital.pdf"): string {
  * Exercises the real LocalFieldDetectionProvider end-to-end, matching the
  * marker-geometry synthesis in backend/app/field_detection/extraction.py.
  */
-function createMultipleChoicePdf(name = "unmatched-multiple-choice.pdf"): string {
+function createMultipleChoicePdf(
+  name = "unmatched-multiple-choice.pdf",
+): string {
   const content = [
     "BT /F1 18 Tf 100 750 Td (Full Name:) Tj 250 0 Td (Jane Doe) Tj ET",
     "BT /F1 12 Tf 100 700 Td (Request category) Tj ET",
@@ -104,8 +106,9 @@ function createMultipleChoicePdf(name = "unmatched-multiple-choice.pdf"): string
 
 test.describe("Dynamic field detection flow — End-to-end (requires backend)", () => {
   test.skip(
-    ({ browserName }) => process.env.CI !== "true" && browserName === "chromium",
-    "Skipped in local dev unless CI=true; requires live backend with database"
+    ({ browserName }) =>
+      process.env.CI !== "true" && browserName === "chromium",
+    "Skipped in local dev unless CI=true; requires live backend with database",
   );
 
   test("upload unmatched digital PDF: automatic processing starts guided questions with no manual field review (Phase 13)", async ({
@@ -127,7 +130,9 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
       timeout: 20000,
     });
     expect(page.url()).not.toMatch(/token/i);
-    await expect(page.getByText(/Detect Form Fields|field\(s\) detected/i)).not.toBeVisible();
+    await expect(
+      page.getByText(/Detect Form Fields|field\(s\) detected/i),
+    ).not.toBeVisible();
 
     // The high-confidence "Full Name:" text field must have produced a
     // guided question (not an unrelated catalog question).
@@ -144,16 +149,26 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await page.getByRole("button", { name: "Confirm" }).click();
 
     // Should land on the summary screen; confirm and finalize.
-    await page.waitForURL(/\/application\/session\/.+\/summary/, { timeout: 15000 });
-    await page.getByRole("button", { name: "Confirm and Finalize Summary" }).click();
+    await page.waitForURL(/\/application\/session\/.+\/summary/, {
+      timeout: 15000,
+    });
+    await page
+      .getByRole("button", { name: "Confirm and Finalize Summary" })
+      .click();
 
-    await page.waitForURL(/\/application\/session\/.+\/complete/, { timeout: 15000 });
+    await page.waitForURL(/\/application\/session\/.+\/complete/, {
+      timeout: 15000,
+    });
     expect(page.url()).not.toMatch(/token/i);
 
     // Dynamic sessions must never offer PDF export, and must show the safe
     // unsupported-export message instead.
-    await expect(page.getByText(/not supported yet/i)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole("button", { name: "Generate PDF" })).not.toBeVisible();
+    await expect(page.getByText(/not supported yet/i)).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      page.getByRole("button", { name: "Generate PDF" }),
+    ).not.toBeVisible();
 
     // No Basic Registration PDF (or any PDF) should ever be downloaded.
     const download = await page
@@ -164,15 +179,19 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     fs.unlinkSync(unmatchedPdf);
   });
 
-  test("known supported template bypasses dynamic detection", async ({ page }) => {
+  test("known supported template bypasses dynamic detection", async ({
+    page,
+  }) => {
     await goToLanding(page);
 
     const fixturePdf = path.resolve(
       __dirname,
-      "../../fixtures/pdf/basic-registration-v1.pdf"
+      "../../fixtures/pdf/basic-registration-v1.pdf",
     );
     if (!fs.existsSync(fixturePdf)) {
-      console.warn("basic-registration-v1.pdf fixture not found — skipping bypass test");
+      console.warn(
+        "basic-registration-v1.pdf fixture not found — skipping bypass test",
+      );
       return;
     }
 
@@ -185,7 +204,9 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
       timeout: 15000,
     });
-    await expect(page.getByRole("button", { name: /Detect Fields/i })).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Detect Fields/i }),
+    ).not.toBeVisible();
   });
 
   test("dynamically detected multiple_choice question: select options, submit, and advance to the next question", async ({
@@ -210,7 +231,10 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     // First guided question — the text field.
     await page.waitForSelector("form");
     await page.locator("input[type='text']").fill("Jane Doe");
-    await page.getByRole("button", { name: "continue" }).or(page.getByText("continue")).click();
+    await page
+      .getByRole("button", { name: "continue" })
+      .or(page.getByText("continue"))
+      .click();
     await expect(page.getByText("Confirm Extracted Information")).toBeVisible({
       timeout: 10000,
     });
@@ -218,7 +242,9 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
 
     // Second guided question — the dynamically detected multiple_choice
     // "Request category" field. All detected options must be offered.
-    await expect(page.getByText("Request category")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Request category")).toBeVisible({
+      timeout: 10000,
+    });
     await expect(page.getByLabel("Housing")).toBeVisible();
     await expect(page.getByLabel("Education")).toBeVisible();
     await expect(page.getByLabel("Medical")).toBeVisible();
@@ -240,7 +266,9 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     // Both required fields are now confirmed — the session must actually
     // advance (to the summary screen), not get stuck re-serving the same
     // multiple_choice question.
-    await page.waitForURL(/\/application\/session\/.+\/summary/, { timeout: 15000 });
+    await page.waitForURL(/\/application\/session\/.+\/summary/, {
+      timeout: 15000,
+    });
 
     fs.unlinkSync(multiChoicePdf);
   });
@@ -260,35 +288,48 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
 
     await page.getByRole("button", { name: "Deutsch" }).click();
 
-    const multiChoicePdf = createMultipleChoicePdf("unmatched-multiple-choice-de.pdf");
+    const multiChoicePdf = createMultipleChoicePdf(
+      "unmatched-multiple-choice-de.pdf",
+    );
     await page.locator("input[type='file']").setInputFiles(multiChoicePdf);
-    await expect(page.getByText("unmatched-multiple-choice-de.pdf")).toBeVisible();
+    await expect(
+      page.getByText("unmatched-multiple-choice-de.pdf"),
+    ).toBeVisible();
 
     // Output language chosen independently of user language (English here).
-    await page.locator("#upload-output-select").selectOption("en");
 
     await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: /Analysieren|Upload and Analyze/i }).click();
+    await page
+      .getByRole("button", { name: /Analysieren|Upload and Analyze/i })
+      .click();
 
     // Phase 13: automatic processing — no manual detect/confirm steps.
-    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 20000 });
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
+      timeout: 20000,
+    });
 
     // First question — the text field. Its label must be translated (not
     // the literal English source text).
     await page.waitForSelector("form");
-    const firstHeading = await page.getByRole("heading", { level: 2 }).textContent();
+    const firstHeading = await page
+      .getByRole("heading", { level: 2 })
+      .textContent();
     expect(firstHeading?.trim()).not.toEqual("Full Name");
     expect(firstHeading?.trim().length).toBeGreaterThan(0);
 
     await page.locator("input[type='text']").fill("Jane Doe");
     await page.locator("button[type='submit']").click();
-    await page.getByRole("button", { name: /Bestätigen|Confirm/i }).waitFor({ timeout: 10000 });
+    await page
+      .getByRole("button", { name: /Bestätigen|Confirm/i })
+      .waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: /Bestätigen|Confirm/i }).click();
 
     // Second question — the multiple_choice "Request category" field.
     // Its heading and the three choice labels must all be translated too.
     await page.waitForSelector("input[type='checkbox']", { timeout: 10000 });
-    const categoryHeading = await page.getByRole("heading", { level: 2 }).textContent();
+    const categoryHeading = await page
+      .getByRole("heading", { level: 2 })
+      .textContent();
     expect(categoryHeading?.trim()).not.toEqual("Request category");
 
     const checkboxes = page.locator("input[type='checkbox']");
@@ -302,7 +343,7 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     // Select the first two (displayed, translated) options and submit —
     // the backend must receive the original stable English values.
     const submitRequestPromise = page.waitForRequest(
-      (req) => req.url().includes("/answers") && req.method() === "POST"
+      (req) => req.url().includes("/answers") && req.method() === "POST",
     );
     await checkboxes.nth(0).check();
     await checkboxes.nth(1).check();
@@ -313,7 +354,8 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     expect(JSON.parse(body.originalAnswer)).toEqual(["Housing", "Education"]);
 
     const answerResponse = await page.waitForResponse(
-      (res) => res.url().includes("/answers") && res.request().method() === "POST"
+      (res) =>
+        res.url().includes("/answers") && res.request().method() === "POST",
     );
     const answerBody = await answerResponse.json();
     expect(answerBody.status).toBe("awaiting_confirmation");
@@ -330,24 +372,33 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await page.getByRole("button", { name: "العربية" }).click();
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 
-    const multiChoicePdf = createMultipleChoicePdf("unmatched-multiple-choice-ar.pdf");
+    const multiChoicePdf = createMultipleChoicePdf(
+      "unmatched-multiple-choice-ar.pdf",
+    );
     await page.locator("input[type='file']").setInputFiles(multiChoicePdf);
-    await expect(page.getByText("unmatched-multiple-choice-ar.pdf")).toBeVisible();
-    await page.locator("#upload-output-select").selectOption("ar");
+    await expect(
+      page.getByText("unmatched-multiple-choice-ar.pdf"),
+    ).toBeVisible();
 
     await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: /تحليل|Upload and Analyze/i }).click();
+    await page
+      .getByRole("button", { name: /تحليل|Upload and Analyze/i })
+      .click();
 
     // Phase 13: automatic processing — no manual detect/confirm steps. RTL
     // must remain active throughout, including the processing screen.
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 20000 });
+    await page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
+      timeout: 20000,
+    });
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 
     await page.waitForSelector("form");
     await page.locator("input[type='text']").fill("Jane Doe");
     await page.locator("button[type='submit']").click();
-    await page.getByRole("button", { name: /تأكيد|Confirm/i }).waitFor({ timeout: 10000 });
+    await page
+      .getByRole("button", { name: /تأكيد|Confirm/i })
+      .waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: /تأكيد|Confirm/i }).click();
 
     await page.waitForSelector("input[type='checkbox']", { timeout: 10000 });
@@ -355,7 +406,7 @@ test.describe("Dynamic field detection flow — End-to-end (requires backend)", 
     await expect(checkboxes).toHaveCount(3);
 
     const submitRequestPromise = page.waitForRequest(
-      (req) => req.url().includes("/answers") && req.method() === "POST"
+      (req) => req.url().includes("/answers") && req.method() === "POST",
     );
     await checkboxes.nth(0).check();
     await checkboxes.nth(1).check();

@@ -4,90 +4,92 @@ Replace this content at the end of each substantial session.
 
 ## Last completed action
 
-Phase 15 — Azure Translator Integration. Translation was extracted from `AIProvider` into its own
-`TranslationProvider` family, Azure Translator was implemented behind it, and the document's source
-language is now detected rather than assumed.
+Phase 15 follow-up: automatic document-language detection, honest provider metrics, RTL field
+grouping, and removal of the output-language selector. Azure Translator is now live and verified.
 
-Built this session:
+### What was actually wrong
 
-1. `app/translation/` (new package): `base.py` (batch-first protocol, id-keyed results),
-   `factory.py` (mock | ollama | azure, plus an optional fallback), `service.py` (the Phase 14
-   pipeline re-pointed at the abstraction), `protected.py` (deterministic identifier detection),
-   `backfill.py` (deferred-language fill), `errors.py`, and three providers.
-2. `AZURE_TRANSLATOR_*` configuration, validated fail-fast only when Azure is the selected *or*
-   fallback provider, with Docker passthrough and `.env.example` placeholders.
-3. Positional→id mapping in the Azure adapter, verified by element count. A short, long or
-   non-list response is rejected outright rather than partially trusted — accepting it would move
-   one field's label onto another field.
-4. Source-language detection wired through `question_bridge._prepare_translations`, which now runs
-   *before* the version is created so the detected language becomes the version's
-   `source_language`.
-5. Eager interface language only; other supported languages get source-text placeholders that
-   `backfill.py` replaces when the summary (review) is first requested.
-6. `app/ai/batch_translation.py` removed — superseded by `app/translation/service.py`.
+Live testing produced this log line:
 
-## Repository state
+```
+provider=azure  provider_latency=42.62s  detected_source=en  fallback_calls=1
+```
 
-- Branch: `feature/azure-translator` (base: `feature/azure-document-intelligence`)
-- Docker Compose `backend` rebuilt this session. `TRANSLATION_PROVIDER` defaults to `ollama`;
-  `AZURE_TRANSLATOR_ENABLED` is false because no key is provisioned.
-- No migration: Phase 15 adds no schema.
+Every part of it was misleading, and it took four separate fixes:
 
-## Measured result
+1. **No document-language detection existed.** `detected_source=en` was Ollama's *assumed*
+   language recorded as if it were a detection. Azure's `detectedLanguage` could never have
+   filled the gap on its own — it only arrives *with* a translation, so a document needing none
+   has no answer.
+2. **One combined latency field.** Azure was failing in ~0.15 s; Ollama was spending the 42.6 s.
+3. **Counters incremented on provider *selection*.** That produced the impossible
+   `provider_calls=1 characters=0 latency=0.00s`.
+4. **`normalize_field_name` stripped non-ASCII**, so every Arabic label became the literal
+   `"field"` and deduplication collapsed a 27-field form into 2 questions. Separately, Azure
+   merged three rows into one key-value pair.
 
-German rental contract, fresh upload, through the proxy, `FIELD_DETECTION_PROVIDER=azure` +
-`TRANSLATION_PROVIDER=ollama`:
+### What was built
 
-| | Phase 14 | Phase 15 |
-|---|---|---|
-| `total_duration` | 43.80 s | **5.20 s** |
-| `translation_duration` | 34.27 s | **0.04 s** |
-| provider calls | 4 | **0** |
-| questions | 24 | 24 |
-| repeat request | 0.09 s, 0 calls | **0.05 s, 0 calls** |
+- `app/language/` — `DocumentLanguageDetector` (local, deterministic, dependency-free; script
+  first, then function-word frequency), filtered sampling, persistence on `source_documents`
+  (migration `e1975a7403eb`), reuse, documented precedence, and `und` as a real answer.
+- `TranslationUsage.source_language_is_detected` — an assumption can no longer outvote a real
+  detection.
+- Separate `primary_*` / `fallback_*` metrics plus `fallback_reason`; counters come from real
+  outbound requests; a failed call carries its own cost on the exception.
+- Azure custom-subdomain path (`/translator/text/v3.0/translate`) *and* the global `/translate`,
+  with 404 mapped to `endpoint_not_found` and never retried.
+- `normalize_field_name`: ASCII slug first (German/English byte-identical), Unicode fallback,
+  deterministic hash for punctuation-only labels.
+- Multi-line Azure key-value keys split into one candidate per line.
+- Direction-aware geometry for `ar`/`he`/`fa`/`ur`.
+- `tests/conftest.py` pins providers so the suite never calls a live service.
+- The upload flow's "Select completed form language" dropdown is gone; `outputLanguage` is
+  optional and resolved from the detected document language.
 
-Both targets met. **Read it honestly:** the gain comes from deferring the output language, not from
-Azure Translator — with Ollama and an English interface the pipeline correctly concludes there is
-nothing to translate.
+## Live results (Azure Translator working, global endpoint)
 
-## Verification results
+| | German (UI fr) | Arabic (UI en) | German (UI ar) |
+|---|---|---|---|
+| `source_language` | **de** (0.89) | **ar** (0.99) | de |
+| Azure primary | 1 req, 0.15 s, `2xx` | 1 req, 0.21 s, `2xx` | 1 req, 0.35 s, `2xx` |
+| Fallback | 0 | 0 | 0 |
+| Translation total | **0.19 s** | **0.45 s** | 0.40 s |
+| Total | **5.36 s** | **5.92 s** | 5.35 s |
+| Questions | 24 | **29** (was 2) | 24 |
 
-Backend **574 passed**, ruff clean, `ruff format --check` clean, mypy clean (146 files).
-Frontend **129 passed**, lint and typecheck clean; no frontend source changed.
+Repeat request: 0.046 s, zero provider calls. Merged multi-label questions: 0. Stable choice
+values unchanged. Arabic byte-intact.
 
-Playwright: **27 passed, 3 failed** at a tightened `--timeout=60000 --retries=0`. Two of the three
-pass at the project's normal 120 s timeout — `dynamic-field-detection-flow.spec.ts` alone gives
-5 passed, including the German-translation and Arabic-RTL specs. The third,
-`guided-flow.spec.ts`, is pre-existing since Phase 9.
+## Verification
 
-## Blocked
+Backend **666 passed**, ruff clean, `ruff format --check` clean, mypy clean (151 files),
+migration `e1975a7403eb` round-trips. Frontend **133 passed**, lint and typecheck clean.
+Playwright: see `TODO.md` — several specs were retrofitted because they drove the removed
+`#upload-output-select`.
 
-**Live Azure Translator verification.** No `AZURE_TRANSLATOR_API_KEY` is provisioned, so all 26
-Azure tests are mocked and the benchmark ran on Ollama. To close: create a Translator resource,
-put the key and region in the git-ignored root `.env`, set `TRANSLATION_PROVIDER=azure` and
-`TRANSLATION_FALLBACK_PROVIDER=ollama`, restart the backend, re-run both benchmarks. Expect one
-provider call per document and `detected_source=de` on the rental contract.
+## Operational gotchas worth remembering
+
+- `docker compose restart` does **not** re-read `.env`; use `up -d --force-recreate`. A stale
+  container showed the old endpoint and key while the file on disk was already correct.
+- Never run backend pytest and Playwright against the same dev database at once — pytest
+  `TRUNCATE`s `form_templates` and wipes the fixture mid-run.
 
 ## Known limitations carried forward
 
-- With Ollama selected, a German document in an English interface is still not translated: the
-  local model cannot detect a source language. Only Azure resolves this.
-- **Arabic field detection is weak** — `arabic_test_form.pdf` produced 2 fields from 27 raw
-  candidates, with three separate labels merged into one. A Phase 13/14 heuristics limitation with
-  RTL layout, untouched here. Arabic text round-trips without corruption; RTL is unchanged.
-- Preparation is still synchronous. Background jobs + progress polling is Phase 20.
+- The local detector covers Latin-script European languages and the major non-Latin scripts; it
+  is not a general-purpose language identifier.
+- Azure's key-value grouping remains the dominant signal for Arabic forms — the local text
+  passes contribute only one candidate there.
 - The translation cache is process-local and dropped on restart.
+- Preparation is still synchronous; background jobs remain Phase 20.
 - `guided-flow.spec.ts` default-tab gap (pre-existing since Phase 9).
-- Do not run pytest and Playwright against the same dev database at once — pytest `TRUNCATE`s
-  `form_templates` and wipes the fixture mid-suite.
 
 ## Next action
 
-Provision the Azure Translator credential and run the live verification. Do not start Phase 16
-(Administration and Content Review) until explicitly requested.
+Phase 15 is complete and verified end to end. Do not start Phase 16 until explicitly requested.
 
 ## Decisions
 
-[ADR 0015](../decisions/0015-translation-provider-and-azure-translator.md) — the
-`TranslationProvider` abstraction, positional→id mapping, source-language detection, eager/deferred
-language split, and deterministic identifier protection.
+[ADR 0015](../decisions/0015-translation-provider-and-azure-translator.md), including the
+addendum covering detection, metrics and RTL grouping.

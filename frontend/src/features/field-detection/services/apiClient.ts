@@ -147,9 +147,13 @@ const inFlightPreparations = new Map<
 export async function prepareQuestions(
   documentId: string,
   language: string,
-  outputLanguage: string,
+  /** Omitted by the upload flow: the completed form is written in the
+   * language the *form* is in, which the backend detects from the document.
+   * Only callers that genuinely offer a choice (the manual template flow)
+   * pass one. */
+  outputLanguage?: string,
 ): Promise<PrepareQuestionsResponse> {
-  const key = `${documentId}:${language}:${outputLanguage}`;
+  const key = `${documentId}:${language}:${outputLanguage ?? "auto"}`;
   const existing = inFlightPreparations.get(key);
   if (existing) {
     return existing;

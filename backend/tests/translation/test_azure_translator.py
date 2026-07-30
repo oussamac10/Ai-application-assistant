@@ -443,3 +443,160 @@ async def test_nothing_sensitive_is_logged(
     assert "Vorname" not in logged, "translated text must never be logged"
     # Counts and languages are fine, and are what makes the logs useful.
     assert "target_language=de" in logged
+
+
+# ---------------------------------------------------------------------------
+# Source-language detection and `from` omission
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_german_result_reports_de() -> None:
+    provider, _ = _provider([_response(_payload("Bailleur", detected="de"))])
+
+    result = await provider.translate_batch(_request("Vermieter", target="fr"))
+
+    assert result.usage is not None
+    assert result.usage.detected_source_languages == ("de",)
+    assert result.usage.source_language_is_detected is True
+
+
+@pytest.mark.asyncio
+async def test_arabic_result_reports_ar() -> None:
+    provider, _ = _provider([_response(_payload("Family name", detected="ar"))])
+
+    result = await provider.translate_batch(_request("اسم العائلة", target="en"))
+
+    assert result.usage is not None
+    assert result.usage.detected_source_languages == ("ar",)
+
+
+@pytest.mark.asyncio
+async def test_detection_is_reported_per_item_not_deduplicated() -> None:
+    """A mixed batch must keep its per-item answers so the caller can apply a
+    frequency policy; collapsing to a set would lose the majority."""
+    payload = (
+        _payload("a", detected="de")
+        + _payload("b", detected="en")
+        + _payload("c", detected="de")
+    )
+    provider, _ = _provider([_response(payload)])
+
+    result = await provider.translate_batch(_request("x", "y", "z"))
+
+    assert result.usage is not None
+    assert result.usage.detected_source_languages == ("de", "en", "de")
+
+
+@pytest.mark.asyncio
+async def test_from_is_omitted_when_no_source_language_is_known() -> None:
+    """`und` must never be sent as `from=en`."""
+    provider, client = _provider([_response(_payload("x"))])
+
+    await provider.translate_batch(_request("Vermieter", source=None))
+
+    assert "from=" not in client.requests[0]["url"]
+
+
+@pytest.mark.asyncio
+async def test_from_is_sent_only_for_a_trusted_source_language() -> None:
+    provider, client = _provider([_response(_payload("x"))])
+
+    await provider.translate_batch(_request("Vermieter", source="de"))
+
+    assert "from=de" in client.requests[0]["url"]
+
+
+@pytest.mark.asyncio
+async def test_malformed_detection_metadata_does_not_break_the_batch() -> None:
+    payload = [
+        {"detectedLanguage": "not-a-dict", "translations": [{"text": "x", "to": "de"}]},
+        {
+            "detectedLanguage": {"score": "high"},
+            "translations": [{"text": "y", "to": "de"}],
+        },
+    ]
+    provider, _ = _provider([_response(payload)])
+
+    result = await provider.translate_batch(_request("a", "b"))
+
+    # Translations still land; only the unusable metadata is ignored.
+    assert result.translations_by_id == {0: "x", 1: "y"}
+    assert result.usage is not None
+    assert result.usage.detected_source_languages == ()
+
+
+@pytest.mark.asyncio
+async def test_an_unsupported_detected_language_is_carried_not_rejected() -> None:
+    """An unfamiliar code must not crash a document."""
+    provider, _ = _provider([_response(_payload("x", detected="tlh"))])
+
+    result = await provider.translate_batch(_request("a"))
+
+    assert result.usage is not None
+    assert result.usage.detected_source_languages == ("tlh",)
+
+
+# ---------------------------------------------------------------------------
+# Endpoint form
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_custom_subdomain_endpoint_uses_the_translator_path() -> None:
+    """A `*.cognitiveservices.azure.com` resource serves Text Translation at
+    /translator/text/v3.0/translate and answers 404 for a bare /translate —
+    which is exactly how a misconfigured endpoint silently fell back to the
+    local model while the logs still said `provider=azure`."""
+    client = _StubClient([_response(_payload("x"))])
+    provider = AzureTranslatorProvider(
+        endpoint="https://my-resource.cognitiveservices.azure.com",
+        api_key=_KEY,
+        region="germanywestcentral",
+        client=client,  # type: ignore[arg-type]
+    )
+
+    await provider.translate_batch(_request("a"))
+
+    assert "/translator/text/v3.0/translate" in client.requests[0]["url"]
+
+
+@pytest.mark.asyncio
+async def test_global_endpoint_uses_the_plain_path() -> None:
+    client = _StubClient([_response(_payload("x"))])
+    provider = AzureTranslatorProvider(
+        endpoint="https://api.cognitive.microsofttranslator.com",
+        api_key=_KEY,
+        client=client,  # type: ignore[arg-type]
+    )
+
+    await provider.translate_batch(_request("a"))
+
+    url = client.requests[0]["url"]
+    assert "/translate?" in url
+    assert "/translator/text" not in url
+
+
+@pytest.mark.asyncio
+async def test_404_is_reported_as_a_configuration_problem_and_not_retried() -> None:
+    provider, client = _provider(
+        [_response({"error": {"code": "404"}}, status=404)] * 3
+    )
+
+    with pytest.raises(TranslationProviderError) as excinfo:
+        await provider.translate_batch(_request("a"))
+
+    assert excinfo.value.error_code == "translation_endpoint_not_found"
+    assert len(client.requests) == 1, "a wrong endpoint will not fix itself on retry"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_call_reports_what_it_cost() -> None:
+    provider, _ = _provider([_response({}, status=503), _response({}, status=503)])
+
+    with pytest.raises(TranslationProviderError) as excinfo:
+        await provider.translate_batch(_request("a"))
+
+    assert excinfo.value.request_count == 2
+    assert excinfo.value.retry_count == 1
+    assert excinfo.value.duration_seconds >= 0.0

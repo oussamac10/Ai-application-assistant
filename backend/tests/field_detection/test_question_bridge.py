@@ -401,9 +401,56 @@ class _FakeTranslatingProvider:
         )
 
 
+class _RecordingTranslationProvider:
+    """Phase 15 moved translation off `AIProvider` onto `TranslationProvider`.
+    These tests still assert *that a translation was requested*, so they record
+    on the new seam instead of the old one."""
+
+    provider_name = "recording"
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, str]] = []
+
+    async def translate_batch(self, request: Any) -> Any:
+        from app.translation.base import TranslationResponse, TranslationUsage
+
+        source = request.source_language or request.assumed_source_language
+        for item in request.items:
+            self.calls.append((item.text, source, request.target_language))
+        return TranslationResponse(
+            translations_by_id={
+                item.id: f"[{request.target_language}] {item.text}"
+                for item in request.items
+            },
+            usage=TranslationUsage(
+                provider_name=self.provider_name,
+                target_language=request.target_language,
+                request_count=1,
+                status_class="2xx",
+                translated_character_count=sum(len(i.text) for i in request.items),
+                detected_source_languages=(source,) * max(len(request.items), 1),
+                source_language_is_detected=True,
+            ),
+        )
+
+    async def health_check(self) -> bool:
+        return True
+
+
 class _FailingTranslationProvider:
-    """Simulates an AI outage during label/option translation — both the
-    batched call and the per-item fallback it degrades to."""
+    """Simulates a translation outage. Implements both the Phase 15
+    `TranslationProvider` seam and the older `AIProvider` batch contract, so
+    either injection point exercises the same failure."""
+
+    provider_name = "failing"
+
+    async def translate_batch(self, request: Any) -> Any:
+        from app.translation.errors import TranslationProviderError
+
+        raise TranslationProviderError("provider is down", "translation_failed")
+
+    async def health_check(self) -> bool:
+        return False
 
     async def translate_output(self, request: Any) -> Any:
         from app.ai.errors import AIProviderUnavailableError
@@ -424,11 +471,11 @@ async def test_dynamic_field_label_translated_to_german(tmp_path: Path) -> None:
     candidate = _candidate("full-name", "What is your full name?", "text")
     db, doc, token = _upload_digital_document(tmp_path)
     try:
-        provider = _FakeTranslatingProvider()
+        provider = _RecordingTranslationProvider()
         service = FieldDetectionService(
             db,
             provider=MockFieldDetectionProvider(candidates=[candidate]),
-            ai_provider=provider,
+            translation_provider=provider,
         )
         result = service.request_detection(doc.public_id, token)
         service.update_field(
@@ -458,11 +505,11 @@ async def test_dynamic_field_label_translated_to_arabic(tmp_path: Path) -> None:
     candidate = _candidate("full-name", "What is your full name?", "text")
     db, doc, token = _upload_digital_document(tmp_path)
     try:
-        provider = _FakeTranslatingProvider()
+        provider = _RecordingTranslationProvider()
         service = FieldDetectionService(
             db,
             provider=MockFieldDetectionProvider(candidates=[candidate]),
-            ai_provider=provider,
+            translation_provider=provider,
         )
         result = service.request_detection(doc.public_id, token)
         service.update_field(
@@ -507,11 +554,11 @@ async def test_dynamic_choice_labels_translated_preserve_stable_values(
     )
     db, doc, token = _upload_digital_document(tmp_path)
     try:
-        provider = _FakeTranslatingProvider()
+        provider = _RecordingTranslationProvider()
         service = FieldDetectionService(
             db,
             provider=MockFieldDetectionProvider(candidates=[candidate]),
-            ai_provider=provider,
+            translation_provider=provider,
         )
         result = service.request_detection(doc.public_id, token)
         service.update_field(
@@ -543,17 +590,24 @@ async def test_dynamic_choice_labels_translated_preserve_stable_values(
 async def test_dynamic_field_no_translation_call_when_languages_match(
     tmp_path: Path,
 ) -> None:
-    """Output-language translation is performed only when needed: no AI
-    call at all when user_language already matches the assumed source
-    language."""
+    """No provider call when the document's language is *known* to match the
+    interface language.
+
+    Phase 15 tightened this: it used to skip on an assumed source language,
+    which is why a German document in an English interface was never
+    translated. The skip now requires a real detected language — so the
+    document carries one here.
+    """
     candidate = _candidate("full-name", "Full Name", "text")
     db, doc, token = _upload_digital_document(tmp_path)
+    doc.detected_source_language = "en"
+    db.commit()
     try:
-        provider = _FakeTranslatingProvider()
+        provider = _RecordingTranslationProvider()
         service = FieldDetectionService(
             db,
             provider=MockFieldDetectionProvider(candidates=[candidate]),
-            ai_provider=provider,
+            translation_provider=provider,
         )
         result = service.request_detection(doc.public_id, token)
         service.update_field(
@@ -579,16 +633,21 @@ async def test_dynamic_field_no_translation_call_when_languages_match(
 async def test_dynamic_field_translation_failure_falls_back_to_source_text(
     tmp_path: Path,
 ) -> None:
-    """AI failures preserve the original text and produce a safe fallback:
-    if translation fails, the user_language label falls back to the
-    original source text rather than blocking question creation."""
+    """A provider outage preserves the original text and produces a safe
+    fallback: the user_language label falls back to the source text rather
+    than blocking question creation.
+
+    The failing provider is injected on the translation seam (Phase 15) and
+    the fallback provider is disabled, so nothing can quietly succeed behind
+    it."""
     candidate = _candidate("full-name", "Full Name", "text")
     db, doc, token = _upload_digital_document(tmp_path)
     try:
         service = FieldDetectionService(
             db,
             provider=MockFieldDetectionProvider(candidates=[candidate]),
-            ai_provider=_FailingTranslationProvider(),
+            translation_provider=_FailingTranslationProvider(),
+            fallback_translation_provider=None,
         )
         result = service.request_detection(doc.public_id, token)
         service.update_field(
@@ -621,11 +680,11 @@ async def test_dynamic_field_user_language_and_output_language_independent(
     candidate = _candidate("full-name", "Full Name", "text")
     db, doc, token = _upload_digital_document(tmp_path)
     try:
-        provider = _FakeTranslatingProvider()
+        provider = _RecordingTranslationProvider()
         service = FieldDetectionService(
             db,
             provider=MockFieldDetectionProvider(candidates=[candidate]),
-            ai_provider=provider,
+            translation_provider=provider,
         )
         result = service.request_detection(doc.public_id, token)
         service.update_field(
@@ -656,11 +715,11 @@ async def test_dynamic_field_translations_not_reused_across_languages(
     candidate = _candidate("full-name", "Full Name", "text")
     db, doc, token = _upload_digital_document(tmp_path)
     try:
-        provider = _FakeTranslatingProvider()
+        provider = _RecordingTranslationProvider()
         service = FieldDetectionService(
             db,
             provider=MockFieldDetectionProvider(candidates=[candidate]),
-            ai_provider=provider,
+            translation_provider=provider,
         )
         result = service.request_detection(doc.public_id, token)
         service.update_field(

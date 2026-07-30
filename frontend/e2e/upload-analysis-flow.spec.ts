@@ -26,7 +26,9 @@ function createTmpPdf(name = "test.pdf", sizeBytes = 1024): string {
   const tmpDir = os.tmpdir();
   const filePath = path.join(tmpDir, name);
   // Minimal valid PDF header so the backend accepts it as PDF
-  const header = Buffer.from("%PDF-1.4\n%ÿÿÿÿ\n1 0 obj\n<< /Type /Catalog >>\nendobj\nxref\n0 0\n%%EOF");
+  const header = Buffer.from(
+    "%PDF-1.4\n%ÿÿÿÿ\n1 0 obj\n<< /Type /Catalog >>\nendobj\nxref\n0 0\n%%EOF",
+  );
   const padding = Buffer.alloc(Math.max(0, sizeBytes - header.length), " ");
   fs.writeFileSync(filePath, Buffer.concat([header, padding]));
   return filePath;
@@ -77,7 +79,9 @@ test.describe("Landing page — Tab selection", () => {
     await expect(page.locator("#form-select")).toBeVisible({ timeout: 10000 });
   });
 
-  test("switches back to Upload tab after visiting Manual", async ({ page }) => {
+  test("switches back to Upload tab after visiting Manual", async ({
+    page,
+  }) => {
     await goToLanding(page);
 
     await page.getByRole("button", { name: /Select Manually/i }).click();
@@ -98,7 +102,9 @@ test.describe("Landing page — Tab selection", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Upload mode — Language selection", () => {
-  test("language switcher updates html lang attribute in upload mode", async ({ page }) => {
+  test("language switcher updates html lang attribute in upload mode", async ({
+    page,
+  }) => {
     await goToLanding(page);
 
     // Switch to Arabic in upload tab (both tabs show the language switcher)
@@ -112,25 +118,29 @@ test.describe("Upload mode — Language selection", () => {
     await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
   });
 
-  test("French language switcher renders translated UI labels", async ({ page }) => {
+  test("French language switcher renders translated UI labels", async ({
+    page,
+  }) => {
     await goToLanding(page);
 
     await page.getByRole("button", { name: "Français" }).first().click();
 
     // The upload tab should now show French text
     await expect(
-      page.getByRole("button", { name: /Télécharger le formulaire/i })
+      page.getByRole("button", { name: /Télécharger le formulaire/i }),
     ).toBeVisible();
   });
 
-  test("German language switcher renders translated UI labels", async ({ page }) => {
+  test("German language switcher renders translated UI labels", async ({
+    page,
+  }) => {
     await goToLanding(page);
 
     await page.getByRole("button", { name: "Deutsch" }).first().click();
 
     // The upload tab should now show German text
     await expect(
-      page.getByRole("button", { name: /Formular hochladen/i })
+      page.getByRole("button", { name: /Formular hochladen/i }),
     ).toBeVisible();
   });
 });
@@ -140,11 +150,15 @@ test.describe("Upload mode — Language selection", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Upload form — File picking and client-side validation", () => {
-  test("privacy checkbox is unchecked by default and gates upload button", async ({ page }) => {
+  test("privacy checkbox is unchecked by default and gates upload button", async ({
+    page,
+  }) => {
     await goToLanding(page);
 
     // The upload button should not exist until a file is selected
-    await expect(page.getByRole("button", { name: /Upload and Analyze/i })).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Upload and Analyze/i }),
+    ).not.toBeVisible();
   });
 
   test("selecting a valid PDF reveals output language selector and privacy checkbox", async ({
@@ -159,8 +173,9 @@ test.describe("Upload form — File picking and client-side validation", () => {
     // File name should be shown
     await expect(page.getByText("valid.pdf")).toBeVisible();
 
-    // Output language selector appears
-    await expect(page.locator("#upload-output-select")).toBeVisible();
+    // Phase 15: no output-language selector. The completed form's language is
+    // the language the form itself is in, detected from the document.
+    await expect(page.locator("#upload-output-select")).toHaveCount(0);
 
     // Privacy checkbox appears
     const checkbox = page.getByRole("checkbox");
@@ -169,7 +184,7 @@ test.describe("Upload form — File picking and client-side validation", () => {
 
     // Upload button is disabled (privacy not accepted)
     await expect(
-      page.getByRole("button", { name: /Upload and Analyze/i })
+      page.getByRole("button", { name: /Upload and Analyze/i }),
     ).toBeDisabled();
 
     fs.unlinkSync(pdfPath);
@@ -186,7 +201,7 @@ test.describe("Upload form — File picking and client-side validation", () => {
     await expect(checkbox).toBeChecked();
 
     await expect(
-      page.getByRole("button", { name: /Upload and Analyze/i })
+      page.getByRole("button", { name: /Upload and Analyze/i }),
     ).toBeEnabled();
 
     fs.unlinkSync(pdfPath);
@@ -223,20 +238,16 @@ test.describe("Upload form — File picking and client-side validation", () => {
     fs.unlinkSync(pdfPath);
   });
 
-  test("output language selector shows correct options", async ({ page }) => {
+  test("no output language selector is shown", async ({ page }) => {
     await goToLanding(page);
 
     const pdfPath = createTmpPdf("lang-options.pdf", 1024);
     await page.locator("input[type='file']").setInputFiles(pdfPath);
 
-    const select = page.locator("#upload-output-select");
-    await expect(select).toBeVisible();
-
-    // All expected options should be present
-    await expect(select.locator("option[value='en']")).toHaveText("English");
-    await expect(select.locator("option[value='de']")).toHaveText("Deutsch");
-    await expect(select.locator("option[value='fr']")).toHaveText("Français");
-    await expect(select.locator("option[value='ar']")).toHaveText("العربية");
+    // Phase 15 removed this selector: the user is no longer asked which
+    // language the completed form should be in, because it is the form's own
+    // language and is detected after upload.
+    await expect(page.locator("#upload-output-select")).toHaveCount(0);
 
     fs.unlinkSync(pdfPath);
   });
@@ -248,15 +259,16 @@ test.describe("Upload form — File picking and client-side validation", () => {
 
 test.describe("Upload flow — End-to-end (requires backend)", () => {
   test.skip(
-    ({ browserName }) => process.env.CI !== "true" && browserName === "chromium",
-    "Skipped in local dev unless CI=true; requires live backend with database"
+    ({ browserName }) =>
+      process.env.CI !== "true" && browserName === "chromium",
+    "Skipped in local dev unless CI=true; requires live backend with database",
   );
 
   test("upload predefined registration PDF goes straight to guided questions (Phase 13 automatic flow)", async ({
     page,
   }) => {
     page.on("console", (msg) =>
-      console.log(`[CONSOLE] ${msg.type()}: ${msg.text()}`)
+      console.log(`[CONSOLE] ${msg.type()}: ${msg.text()}`),
     );
 
     await goToLanding(page);
@@ -264,7 +276,7 @@ test.describe("Upload flow — End-to-end (requires backend)", () => {
     // Use the pre-generated fixture PDF from Phase 8 if available
     const fixturePdf = path.resolve(
       __dirname,
-      "../../../../fixtures/pdf/basic-registration-v1.pdf"
+      "../../../../fixtures/pdf/basic-registration-v1.pdf",
     );
 
     if (!fs.existsSync(fixturePdf)) {
@@ -275,7 +287,6 @@ test.describe("Upload flow — End-to-end (requires backend)", () => {
     await page.locator("input[type='file']").setInputFiles(fixturePdf);
     await expect(page.getByText("basic-registration-v1.pdf")).toBeVisible();
 
-    await page.locator("#upload-output-select").selectOption("de");
     await page.getByRole("checkbox").check();
 
     // Start upload
@@ -289,7 +300,9 @@ test.describe("Upload flow — End-to-end (requires backend)", () => {
     });
     expect(page.url()).not.toMatch(/token/i);
     await expect(
-      page.getByText(/Document Analysis Complete|Supported Template Recognized/i)
+      page.getByText(
+        /Document Analysis Complete|Supported Template Recognized/i,
+      ),
     ).not.toBeVisible();
   });
 });

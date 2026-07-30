@@ -128,6 +128,12 @@ holds a third-party API key. The controls around it:
   error bodies are never included in a raised message or a log — they can echo the submitted text
   back. Translation diagnostics record counts, durations and language codes only; no label, option
   value, translated string or credential is ever logged.
+- Translation diagnostics separate the primary and fallback providers and report only counts,
+  durations, status *classes* (`2xx`/`4xx`/`5xx`/`timeout`/`transport`) and language codes — never
+  a precise provider status, response body, label, translated value or credential. A misconfigured
+  endpoint is reported as `endpoint_not_found` rather than by echoing the URL.
+- Document-language detection runs locally and logs the language, confidence, provider and the
+  sample's *length* only — never the sampled text.
 - Translation failures are never surfaced to the client. A provider outage degrades to the fallback
   provider and then to untranslated source text, so no provider error code, status or exception
   reaches the frontend.

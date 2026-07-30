@@ -52,6 +52,8 @@ from app.forms.schemas import (
 )
 from app.forms.services import FormService
 from app.forms.services import ValidationError as FormValidationError
+from app.language.detector import UNDETERMINED
+from app.language.service import dominant_language
 from app.questions.repositories import QuestionRepository
 from app.sessions.models import FormSession
 from app.sessions.services import SessionService
@@ -206,25 +208,37 @@ class _PreparedTranslations:
     detection_confidence: float | None = None
 
 
-def _resolve_source_language(stats: TranslationStats) -> str:
-    """The document's real source language, or the assumed one if no provider
-    reported a detection.
+def _resolve_source_language(
+    document_language: str | None, stats: TranslationStats
+) -> str:
+    """The language the document is actually written in.
 
-    Exactly one language is chosen even when a mixed document yields several:
-    a form version has a single source language, and the most frequently
-    detected one is the only defensible choice. Ambiguity is logged, never
-    guessed at silently.
+    Precedence (see `app/language/service.py`): the dedicated document-language
+    detector's persisted answer first, then a translation provider's
+    `detectedLanguage` as a fallback, then `und`. The detector outranks the
+    provider because it runs on the whole document and exists even when no
+    translation is needed, whereas provider metadata only appears as a side
+    effect of translating.
+
+    `_DEFAULT_SOURCE_LANGUAGE` is *not* in this chain. Falling back to "en"
+    is exactly what mislabelled every German and Arabic document.
     """
-    detected = stats.detected_source_languages
-    if not detected:
-        return _DEFAULT_SOURCE_LANGUAGE
-    if len(detected) > 1:
+    if document_language and document_language != UNDETERMINED:
+        return document_language
+
+    provider_detected = dominant_language(stats.detected_source_languages)
+    if len(set(stats.detected_source_languages)) > 1:
+        counts: dict[str, int] = {}
+        for language in stats.detected_source_languages:
+            counts[language] = counts.get(language, 0) + 1
+        # Counts only — never the text that produced them.
         logger.info(
-            "Multiple source languages detected (%s); using %s for the version",
-            ",".join(detected),
-            detected[0],
+            "Mixed source languages in one batch (%s); dominant-language policy "
+            "chose %s",
+            ",".join(f"{k}={v}" for k, v in sorted(counts.items())),
+            provider_detected,
         )
-    return detected[0]
+    return provider_detected
 
 
 async def _prepare_translations(
@@ -235,6 +249,7 @@ async def _prepare_translations(
     stats: TranslationStats,
     provider: TranslationProvider,
     fallback_provider: TranslationProvider | None,
+    document_language: str | None = None,
 ) -> _PreparedTranslations:
     """Resolves the document's source language and translates it into the
     interface language, in a single batched provider call.
@@ -252,20 +267,42 @@ async def _prepare_translations(
     """
     texts = _translatable_texts(fields)
 
+    # A determined document language is trusted and passed through, so the
+    # provider does not re-detect what we already know. When it is unknown
+    # (`und` or missing) the source language is left as None so the provider
+    # detects it — never coerced to "en", which would send `from=en` for a
+    # German document.
+    trusted_source = (
+        document_language
+        if document_language and document_language != UNDETERMINED
+        else None
+    )
+
     translated = await translate_texts(
         texts,
         user_language,
         provider,
         fallback_provider,
-        # None means "detect it" — the whole point of this phase.
-        source_language=None,
-        assumed_source_language=_DEFAULT_SOURCE_LANGUAGE,
+        source_language=trusted_source,
+        assumed_source_language=trusted_source or _DEFAULT_SOURCE_LANGUAGE,
         stats=stats,
         approved_lookup=_approved_catalog_labels(db, fields, user_language),
         persisted_lookup=_persisted_catalog_labels(db, fields, user_language),
     )
 
-    source_language = _resolve_source_language(stats)
+    source_language = _resolve_source_language(document_language, stats)
+    if source_language == UNDETERMINED:
+        # A form version's source_language is a real language code by
+        # construction (translations, PDF mapping and export all key off it),
+        # so an undetermined document falls back here — and *only* here, at
+        # the point where the data model genuinely requires a code. The
+        # honest `und` stays recorded on the source document.
+        logger.info(
+            "Document language undetermined; generated version falls back to %s",
+            _DEFAULT_SOURCE_LANGUAGE,
+        )
+        source_language = _DEFAULT_SOURCE_LANGUAGE
+
     by_language: dict[str, dict[str, str]] = {}
 
     # When the document is already in the interface language, the source rows
@@ -386,6 +423,7 @@ async def create_session_from_confirmed_fields(
     include_auto_usable: bool = False,
     translation_provider: TranslationProvider | None = None,
     fallback_translation_provider: TranslationProvider | None = None,
+    document_language: str | None = None,
 ) -> tuple[FormSession, str]:
     """Builds guided-session questions from the fields on `detection_result`
     that are safe to use.
@@ -464,6 +502,12 @@ async def create_session_from_confirmed_fields(
         translation_stats,
         provider=translation_provider,
         fallback_provider=fallback_translation_provider,
+        # Detected once per document and persisted; see app/language/.
+        document_language=(
+            document_language
+            if document_language is not None
+            else doc.detected_source_language
+        ),
     )
     translation_duration = time.perf_counter() - translation_started
     source_language = prepared.source_language
@@ -574,31 +618,44 @@ async def create_session_from_confirmed_fields(
     logger.info(
         "Question generation result: document=%s questions=%d skipped=%d "
         "version=%s supported_output_languages=%s source_language=%s "
-        "eager_language=%s "
-        "deferred_languages=%s translation_duration=%.2fs provider=%s "
-        "unique_texts=%d protected_skipped=%d catalog_hits=%d persisted_hits=%d "
-        "cache_hits=%d provider_calls=%d fallback_calls=%d characters=%d "
-        "provider_latency=%.2fs detected_source=%s untranslated=%d",
+        "detected_source=%s detection_confidence=%s eager_language=%s "
+        "deferred_languages=%s unique_texts=%d protected_skipped=%d "
+        "catalog_hits=%d persisted_hits=%d cache_hits=%d "
+        "primary_provider=%s primary_request_count=%d primary_retry_count=%d "
+        "primary_duration=%.2fs primary_status_class=%s "
+        "fallback_provider=%s fallback_request_count=%d fallback_duration=%.2fs "
+        "fallback_reason=%s translation_total_duration=%.2fs "
+        "translated_character_count=%d untranslated_item_count=%d",
         doc.public_id,
         added_field_count,
         skipped_field_count,
         version.status,
         ",".join(version.supported_output_languages or []),
         source_language,
+        ",".join(translation_stats.detected_source_languages) or "-",
+        (
+            f"{translation_stats.detection_confidence:.2f}"
+            if translation_stats.detection_confidence is not None
+            else "-"
+        ),
         user_language,
         ",".join(prepared.deferred_languages) or "-",
-        translation_duration,
-        translation_stats.primary_provider or "-",
         translation_stats.unique_texts,
         translation_stats.protected_skipped,
         translation_stats.catalog_hits,
         translation_stats.persisted_hits,
         translation_stats.cache_hits,
-        translation_stats.provider_calls,
-        translation_stats.fallback_provider_calls,
+        translation_stats.primary_provider or "-",
+        translation_stats.primary_request_count,
+        translation_stats.primary_retry_count,
+        translation_stats.primary_duration_seconds,
+        translation_stats.primary_status_class,
+        translation_stats.fallback_provider or "-",
+        translation_stats.fallback_request_count,
+        translation_stats.fallback_duration_seconds,
+        translation_stats.fallback_reason or "-",
+        translation_duration,
         translation_stats.translated_character_count,
-        translation_stats.provider_latency_seconds,
-        ",".join(translation_stats.detected_source_languages) or "-",
         translation_stats.unresolved,
     )
 

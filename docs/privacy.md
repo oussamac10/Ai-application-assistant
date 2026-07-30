@@ -83,6 +83,20 @@ review never has that text sent anywhere.
 Translation logs record counts, durations and language codes only: no label, option value,
 translated string, API key or provider response body is written to a log.
 
+## 5d. Document-Language Detection (Phase 15)
+
+Detecting the uploaded form's language happens **entirely on this system**. The default
+detector is local, deterministic and dependency-free; no text leaves the machine for it, and no
+third party is involved regardless of which translation provider is selected.
+
+The text sample it runs on is filtered before use: identifier-only lines (emails, IBANs, BICs,
+dates, phone numbers, amounts, URLs, UUIDs, internal keys) are removed by the same deterministic
+rules used elsewhere, and the sample is capped at 5,000 characters.
+
+Only the outcome is stored on the document — language code, confidence, provider, detection
+version and timestamp. The sample itself is never persisted, and logs record the sample's
+*length*, never its content.
+
 ## 6. Ephemeral Answers Storage
 - Form answers are stored in the database only for the duration of the active session.
 - When a session is deleted, all corresponding `form_answers` rows are deleted automatically via database cascade deletes.

@@ -6,6 +6,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -123,6 +124,35 @@ class SourceDocument(Base):
         JSON,
         nullable=True,
     )
+    # --- Detected document language (Phase 15) -------------------------
+    # The language the uploaded form is *written in*, detected once after
+    # text extraction or OCR and reused on every later request. Kept
+    # strictly separate from the session's user_language and
+    # output_language: this describes the document, not the user.
+    # "und" records that detection ran and could not determine a language —
+    # meaningfully different from NULL (never ran), and from silently
+    # assuming English, which is what mislabelled every German document.
+    detected_source_language: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+    language_detection_confidence: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    language_detection_provider: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    language_detection_version: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+    language_detected_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

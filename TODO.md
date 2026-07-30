@@ -181,19 +181,102 @@ suite was run concurrently — it `TRUNCATE`s `form_templates` and wipes the `ba
 fixture mid-run, which surfaces as unrelated failures in the Phase 12 auth specs. Never run pytest
 and Playwright against the same dev database at once.
 
-## Blocked
+## Live-testing follow-up (second round)
 
-**Live Azure Translator verification.** `AZURE_TRANSLATOR_API_KEY` is not provisioned, so:
+Four defects surfaced with `TRANSLATION_PROVIDER=azure`. Three were code bugs; the fourth was a
+configuration problem the third had been hiding.
 
-- every Azure test in `tests/translation/test_azure_translator.py` is mocked (26 tests covering
-  positional mapping, partial/malformed/short/long responses, auth failure, rate limiting, timeout,
-  transport error, retry, chunking and secret handling), and
-- the benchmark above ran with `TRANSLATION_PROVIDER=ollama`.
+### Root causes
 
-To close it: create a **Translator** resource in the Azure Portal, put `AZURE_TRANSLATOR_API_KEY`
-and `AZURE_TRANSLATOR_REGION` in the git-ignored root `.env`, set `TRANSLATION_PROVIDER=azure` and
-`TRANSLATION_FALLBACK_PROVIDER=ollama`, restart the backend and re-run both benchmarks. Expect one
-provider call per document and `detected_source=de` on the rental contract.
+| Symptom | Cause |
+|---|---|
+| German reported as `en`, Arabic as `en` | No document-language detection existed. Ollama's *assumed* language was recorded as if it were a detection, and Azure metadata only exists as a side effect of translating. |
+| `provider=azure provider_latency=42.62s` | One combined latency field. Azure was failing in ~0.15 s; Ollama was spending the 42.6 s. |
+| `provider_calls=1 characters=0 latency=0.00s` | Counters incremented on provider *selection*, not on an outbound request. |
+| 27 Arabic candidates → 2 questions | `normalize_field_name` stripped non-ASCII, so every Arabic label became the literal `"field"` and deduplication collapsed the document. Separately, Azure merged three rows into one key-value pair. |
+
+### Fixes
+
+- [x] `app/language/` — `DocumentLanguageDetector`, local + mock implementations, filtered sampling,
+      persistence on `source_documents` (migration `e1975a7403eb`), reuse, precedence, `und`.
+- [x] `TranslationUsage.source_language_is_detected` — an assumption can no longer outvote a real
+      detection.
+- [x] Separate primary/fallback metrics + `fallback_reason`; counters come from real outbound
+      requests; a failed call reports its own cost.
+- [x] `from` omitted for `und`; sent only for a trusted source language.
+- [x] Azure custom-subdomain path (`/translator/text/v3.0/translate`) and a distinct
+      `endpoint_not_found` code for 404 (not retried — a wrong endpoint will not fix itself).
+- [x] `normalize_field_name`: ASCII slug first (German/English byte-identical), Unicode fallback,
+      deterministic hash for punctuation-only labels.
+- [x] Multi-line Azure key-value keys split into one candidate per line.
+- [x] Direction-aware geometry for `ar`/`he`/`fa`/`ur` (reading-order tokens, label on the right).
+- [x] Stage-by-stage detection diagnostics.
+- [x] `tests/conftest.py` pins providers so the suite never calls a live service — it had begun
+      doing so once `.env` selected Azure, hanging for minutes on timeouts.
+
+### Live verification
+
+**Test 1 — German contract, UI French, output German**
+
+| Check | Result |
+|---|---|
+| `source_language` | **`de`** (was `en`), confidence 0.89, detected in 0.04 s |
+| `eager_language` / `deferred_languages` | `fr` / `-` |
+| Questions | **24** |
+| Azure primary | `request_count=1 duration=0.14s status_class=4xx` |
+| Fallback | `ollama request_count=3 duration=46.37s reason=authentication_error` |
+| Total | 51.75 s |
+
+The latency target is missed, and the logs now say exactly why: Azure rejects the credential in
+0.14 s and Ollama does all the work. That is the credential blocker below, not a code defect.
+
+**Test 2 — Arabic form, UI English, output Arabic**
+
+| Check | Result |
+|---|---|
+| `source_language` | **`ar`** (was `en`), confidence 0.99, `rtl=True` |
+| Stages | `raw=29 normalized_distinct=29 deduplicated=29` (was 27 → 2) |
+| Questions | **29** (was 2) |
+| Merged multi-label questions | **0** — family name, place of birth and postal code are separate |
+| Arabic text | intact, correct word order, no mojibake |
+| Repeat request | 0.089 s, **0 provider calls**, session reused |
+
+**Test 3 — interface direction** — `LanguageProvider` sets `lang`/`dir` from `user_language`
+only; covered by `language-direction.test.tsx` (4 tests).
+
+## Live verification with a working Azure Translator (final)
+
+A Translator resource was provisioned during the session. Both endpoint forms were exercised;
+the global endpoint is the final configuration.
+
+| | Test 1 — German (UI fr) | Test 2 — Arabic (UI en) | Test 3 — German (UI ar) |
+|---|---|---|---|
+| `source_language` | **de** (0.89) | **ar** (0.99) | de |
+| `user_language` | fr | en | ar |
+| `output_language` | de (auto) | ar (auto) | de |
+| Azure primary | 1 req, 0.15 s, `2xx` | 1 req, 0.21 s, `2xx` | 1 req, 0.35 s, `2xx` |
+| Fallback | 0 | 0 | 0 |
+| Translation total | **0.19 s** | **0.45 s** | 0.40 s |
+| Total duration | **5.36 s** | **5.92 s** | 5.35 s |
+| Questions | **24** | **29** (was 2) | 24 |
+| Untranslated items | 0 | 0 | 0 |
+| Merged multi-label questions | — | **0** | — |
+| Repeat request | 0.046 s, 0 provider calls | 0.046 s, 0 provider calls | — |
+
+Every target met: translation well under 3 s, total well under 15 s, one Azure array request per
+document, no fallback, and a repeat request costs nothing.
+
+Stable choice values are unchanged (`Küche,`, `Badezimmer mit WC …`), landlord and tenant stay
+distinct in Arabic (`اسم المالك` / `اسم المستأجر`), and Arabic text is byte-intact.
+
+## Output-language selector removed
+
+The upload flow no longer asks "Select completed form language". With the document's language
+detected, the completed form's language is a fact about the form, not a user choice.
+`outputLanguage` is optional across the multipart upload, `prepare-questions` and session
+creation; when omitted the backend resolves it from the detected language, falling back to the
+interface language only for `und`. The manual template flow keeps the choice, because a template
+can genuinely declare several `supportedOutputLanguages`.
 
 ## Carried Deferred Items
 

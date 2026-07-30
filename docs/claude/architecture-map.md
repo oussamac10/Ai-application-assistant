@@ -14,6 +14,9 @@
 - `backend/app/documents/`: upload, storage, validation, analysis
 - `backend/app/ocr/`: local OCR provider abstraction, page rendering, OCR API
 - `backend/app/field_detection/`: dynamic field-detection provider abstraction, extraction, review API, question-generation bridge, Phase 13 confidence routing (`confidence.py`) and orchestration (`orchestration.py`)
+- `backend/app/language/`: Phase 15 document-language detection
+  (`detector.py`), filtered sampling (`sampling.py`), persistence/reuse and
+  precedence (`service.py`)
 - `backend/app/translation/`: Phase 15 `TranslationProvider` abstraction (mock/Ollama/Azure
   Translator), provider factory, translation pipeline (`service.py`), deterministic
   identifier protection (`protected.py`), deferred-language backfill (`backfill.py`)

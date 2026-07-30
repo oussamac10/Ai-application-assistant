@@ -11,7 +11,9 @@ class DocumentAnalysisSummary(BaseModel):
     hasAcroForm: bool = Field(..., serialization_alias="hasAcroForm")
     hasEmbeddedImages: bool = Field(..., serialization_alias="hasEmbeddedImages")
     isProbablyScanned: bool = Field(..., serialization_alias="isProbablyScanned")
-    matchedTemplate: dict[str, Any] | None = Field(..., serialization_alias="matchedTemplate")
+    matchedTemplate: dict[str, Any] | None = Field(
+        ..., serialization_alias="matchedTemplate"
+    )
     nextStep: str = Field(..., serialization_alias="nextStep")
 
     class Config:
@@ -50,8 +52,12 @@ class SessionCreateResponse(BaseModel):
 
 class SessionCreateRequest(BaseModel):
     language: str
-    outputLanguage: str = Field(..., alias="outputLanguage")
+    # Optional since Phase 15. The completed form has to be written in the
+    # language the form itself is in, and that language is now detected from
+    # the document rather than chosen by the user — so the upload flow stops
+    # asking. A caller may still pin it explicitly (the manual template flow
+    # does, where a template genuinely supports several output languages).
+    outputLanguage: str | None = Field(default=None, alias="outputLanguage")
 
     class Config:
         populate_by_name = True
-

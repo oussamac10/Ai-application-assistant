@@ -408,6 +408,27 @@ def _clamp_confidence(value: Any, default: float = 0.8) -> float:
     return max(0.0, min(1.0, confidence))
 
 
+def _split_key_lines(raw_label: str) -> list[str]:
+    """Splits a key's content into usable per-line labels.
+
+    Azure separates merged rows with newlines, so the split is on the
+    document's own line boundaries rather than on guessed punctuation. Lines
+    that are blank runs, section headings or prose are dropped by the same
+    rules a single-line key is held to.
+    """
+    lines: list[str] = []
+    for raw_line in raw_label.splitlines():
+        label = raw_line.strip().rstrip(":").strip()
+        if not label:
+            continue
+        if is_blank_run(label) or starts_with_blank_run(label):
+            continue
+        if is_section_heading(label) or is_probably_prose_label(label):
+            continue
+        lines.append(label)
+    return lines
+
+
 def extract_key_value_candidates(
     analyze_result: dict[str, Any],
     geometries: dict[int, AzurePageGeometry],
@@ -427,12 +448,18 @@ def extract_key_value_candidates(
         key = pair.get("key")
         if not isinstance(key, dict):
             continue
-        label = str(key.get("content") or "").strip().rstrip(":").strip()
-        if not label:
+        raw_label = str(key.get("content") or "").strip()
+        if not raw_label:
             continue
-        if is_blank_run(label) or starts_with_blank_run(label):
-            continue
-        if is_section_heading(label) or is_probably_prose_label(label):
+
+        # A field label occupies one line. When Azure returns a key spanning
+        # several lines it has merged distinct rows into one pair — observed
+        # on an Arabic form, where "family name", "place of birth" and
+        # "postal code" arrived as a single key and therefore became a single
+        # question asking for three different things. Each line becomes its
+        # own candidate instead.
+        label_lines = _split_key_lines(raw_label)
+        if not label_lines:
             continue
 
         page_number, label_box = merge_bounding_regions(
@@ -452,33 +479,49 @@ def extract_key_value_candidates(
             None if (not raw_value or is_blank_run(raw_value)) else raw_value
         )
 
-        field_type = classify_value_pattern(existing_value or "") or classify_label(
-            label
-        )
-
-        try:
-            candidates.append(
-                DetectedFieldCandidate(
-                    candidate_key=f"azure-kv-{page_number}-{index}",
-                    page_number=page_number,
-                    label=label,
-                    normalized_name=normalize_field_name(label),
-                    field_type=field_type,
-                    # Azure having paired key->value is strong structural
-                    # evidence, but its own confidence still caps ours.
-                    confidence=min(
-                        0.9, max(0.6, _clamp_confidence(pair.get("confidence")))
-                    ),
-                    source="native",
-                    label_bounding_box=label_box,
-                    input_bounding_box=value_box,
-                    existing_value=existing_value,
-                )
+        # Only a single-line key can be trusted to own the paired value; a
+        # split key's lines each become a label-only candidate.
+        split_key = len(label_lines) > 1
+        if split_key:
+            logger.info(
+                "Azure key-value pair spans %d lines; splitting into separate "
+                "candidates",
+                len(label_lines),
             )
-        except ValueError:
-            # DetectedFieldCandidate rejects an unknown field_type or an
-            # out-of-range confidence; skip just this pair.
-            logger.warning("Skipping one malformed Azure key-value pair")
-            continue
+
+        for line_index, label in enumerate(label_lines):
+            field_type = (
+                classify_value_pattern(existing_value or "") or classify_label(label)
+                if not split_key
+                else classify_label(label) or "text"
+            )
+
+            try:
+                candidates.append(
+                    DetectedFieldCandidate(
+                        candidate_key=f"azure-kv-{page_number}-{index}-{line_index}",
+                        page_number=page_number,
+                        label=label,
+                        normalized_name=normalize_field_name(label),
+                        field_type=field_type,
+                        # Azure having paired key->value is strong structural
+                        # evidence, but its own confidence still caps ours. A
+                        # split key is weaker evidence: the pairing Azure made
+                        # was wrong, so only the label survives.
+                        confidence=min(
+                            0.9, max(0.6, _clamp_confidence(pair.get("confidence")))
+                        )
+                        - (0.1 if split_key else 0.0),
+                        source="native",
+                        label_bounding_box=label_box,
+                        input_bounding_box=None if split_key else value_box,
+                        existing_value=None if split_key else existing_value,
+                    )
+                )
+            except ValueError:
+                # DetectedFieldCandidate rejects an unknown field_type or an
+                # out-of-range confidence; skip just this line.
+                logger.warning("Skipping one malformed Azure key-value pair")
+                continue
 
     return candidates

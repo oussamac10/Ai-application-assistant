@@ -18,8 +18,9 @@ async function goToLanding(page: Page) {
 
 test.describe("OCR flow — End-to-end (requires backend)", () => {
   test.skip(
-    ({ browserName }) => process.env.CI !== "true" && browserName === "chromium",
-    "Skipped in local dev unless CI=true; requires live backend with database"
+    ({ browserName }) =>
+      process.env.CI !== "true" && browserName === "chromium",
+    "Skipped in local dev unless CI=true; requires live backend with database",
   );
 
   test("upload scanned PDF: OCR runs automatically then guided questions start (Phase 13)", async ({
@@ -29,7 +30,7 @@ test.describe("OCR flow — End-to-end (requires backend)", () => {
 
     const fixturePdf = path.resolve(
       __dirname,
-      "../../fixtures/pdf/scanned-document.pdf"
+      "../../fixtures/pdf/scanned-document.pdf",
     );
 
     if (!fs.existsSync(fixturePdf)) {
@@ -48,12 +49,18 @@ test.describe("OCR flow — End-to-end (requires backend)", () => {
     // blank scanned fixture may yield no usable questions, in which case
     // the safe "could not process" message is shown instead of a session —
     // either outcome is acceptable here; a manual OCR button must not be.
-    await expect(page.getByRole("button", { name: /Start OCR/i })).not.toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Start OCR/i }),
+    ).not.toBeVisible();
     await Promise.race([
-      page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 25000 }),
-      page.getByText(/could not confidently process|no usable questions/i).waitFor({
+      page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
         timeout: 25000,
       }),
+      page
+        .getByText(/could not confidently process|no usable questions/i)
+        .waitFor({
+          timeout: 25000,
+        }),
     ]);
   });
 
@@ -62,7 +69,7 @@ test.describe("OCR flow — End-to-end (requires backend)", () => {
 
     const fixturePdf = path.resolve(
       __dirname,
-      "../../fixtures/pdf/scanned-document.pdf"
+      "../../fixtures/pdf/scanned-document.pdf",
     );
     if (!fs.existsSync(fixturePdf)) {
       console.warn("Scanned PDF fixture not found — skipping OCR RTL E2E test");
@@ -74,13 +81,22 @@ test.describe("OCR flow — End-to-end (requires backend)", () => {
 
     await page.locator("input[type='file']").setInputFiles(fixturePdf);
     await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: /تحميل وتحليل|Upload and Analyze/i }).click();
+    await page
+      .getByRole("button", { name: /تحميل وتحليل|Upload and Analyze/i })
+      .click();
 
     // RTL must remain active during automatic processing (Phase 13).
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
     await Promise.race([
-      page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, { timeout: 25000 }),
-      page.getByText(/تعذّر|could not confidently process/i).waitFor({ timeout: 25000 }),
+      page.waitForURL(/\/application\/session\/[a-f0-9-]+$/, {
+        timeout: 25000,
+      }),
+      // `.first()`: the failure screen and its heading both carry the
+      // message, so an unqualified text locator is not strict-safe.
+      page
+        .getByText(/تعذّر|could not confidently process/i)
+        .first()
+        .waitFor({ timeout: 25000 }),
     ]);
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   });
