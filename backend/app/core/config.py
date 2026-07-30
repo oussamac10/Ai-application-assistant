@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     DATABASE_URL: str | None = None
 
+    # Application log level. Uvicorn does not configure our loggers, so
+    # app/main.py sets this up explicitly (see the basicConfig call there).
+    LOG_LEVEL: str = "INFO"
+
     FORM_SESSION_TTL_HOURS: int = 24
     SESSION_TOKEN_SECRET: str | None = None
 

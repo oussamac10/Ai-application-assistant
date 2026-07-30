@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -69,6 +71,17 @@ from app.sessions.services import (
 )
 from app.sessions.services import (
     ValidationError as SessionValidationError,
+)
+
+# Uvicorn configures only its own loggers, so without this every
+# `logging.getLogger(__name__)` call in `app/` is silently dropped — which
+# is why provider diagnostics (Azure request ids, detection counts, cache
+# reuse) were invisible in `docker compose logs`. Level is configurable via
+# LOG_LEVEL; the app never logs document text, answers, or credentials.
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+    format="%(levelname)s:%(name)s:%(message)s",
+    force=True,
 )
 
 app = FastAPI(

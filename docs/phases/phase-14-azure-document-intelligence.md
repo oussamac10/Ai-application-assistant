@@ -126,10 +126,12 @@ Automated tests never call Azure. To verify against the live service:
    ```
 
 **Measured on the live service** (resource `…-document-intelligence-dev`, `prebuilt-layout`,
-api-version `2024-11-30`): `status: "ready"` in ~40 s, **19** guided questions, first question
-`vermieter_name`, `vermieter_name` and `mieter_name` distinct, the full `kontoinhaber` / `bank` /
-`iban` / `bic` block present, 3 date fields and 4 money fields recovered from sentence-embedded
-blanks. The repeat request returned the same `sessionId` with `reusedExistingSession: true` in
+api-version `2024-11-30`, `features=keyValuePairs`): `status: "ready"`, **24** guided
+questions, first question `vermieter_name`, `vermieter_name` and `mieter_name` distinct, the
+full `kontoinhaber` / `bank` / `iban` / `bic` block present, 3 date fields and 4 money fields
+recovered from sentence-embedded blanks, plus 5 additive key-value fields (the
+Hausschlüssel / Wohnungsschlüssel / Zimmerschlüssel group) that layout analysis alone
+missed. The repeat request returned the same `sessionId` with `reusedExistingSession: true` in
 0.1 s, and `provider_usage_records` held exactly one `served_from_cache=false` row
 (`pages=2 duration=4.0s succeeded=true`). Neither the API key nor the endpoint appeared in the
 backend logs.
@@ -142,6 +144,46 @@ screen for a normal user; guided questions begin.
 `sessionId` with `reusedExistingSession: true`, and
 `SELECT provider, succeeded, served_from_cache FROM provider_usage_records ORDER BY created_at;`
 must show exactly **one** `served_from_cache = false` row for the document.
+
+## Diagnostics
+
+Every stage logs one safe, counts-only line (no document text, labels, values or
+credentials). `LOG_LEVEL` controls verbosity; `app/main.py` configures logging explicitly
+because uvicorn only sets up its own loggers — without that, none of these appeared:
+
+```
+Azure analyze started: model=prebuilt-layout api_version=2024-11-30 features=keyValuePairs bytes=487369
+Azure analyze completed: model=... pages=2 duration=4.77s request_id=e7b7d196-...
+Azure normalization: ... pages=2 lines=59 words=244 selection_marks=10 paragraphs=34
+    tables=0 key_value_pairs=26 -> tokens=254 text_candidates=20 kv_candidates=21
+    kv_kept=5 raw_candidates=25
+Detection summary: document=... provider=azure provider_raw=25 after_dedup=24 unknown=0
+    auto_confirmed=9 medium_usable=15 below_threshold_excluded=0 usable_total=24
+Question generation input: document=... detected=24 usable=24 (mode=auto,
+    accepted_statuses=confirmed,edited,pending_review) user_language=en output_language=de
+Question generation result: document=... questions=24 skipped=0 version=published
+    supported_output_languages=de,en
+```
+
+A reused result logs instead, with no provider call:
+
+```
+Detection cache HIT: document=... provider=azure model=prebuilt-layout candidates=24
+    usable=24 (provider NOT called)
+```
+
+## Add-on features
+
+`prebuilt-layout` returns **no** `keyValuePairs` unless `features=keyValuePairs` is
+requested on the analyze call, which the client now does by default. If Azure rejects the
+feature for a given model/api-version (HTTP 400) the call is retried once without it, so an
+unsupported add-on degrades to layout-only rather than failing the document.
+
+Key-value pairs are **additive only**: they are filtered against the text passes by region
+overlap. Without that filter the real rental contract produced 37 questions instead of 24 —
+`iban` from a key-value pair alongside `mietkosten_iban` from the text passes (name-based
+deduplication cannot equate the two), plus checkbox *option* labels ("Küche",
+"Hausschlüssel") promoted to standalone questions.
 
 ## Known limitations
 

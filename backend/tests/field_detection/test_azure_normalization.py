@@ -15,6 +15,7 @@ from app.field_detection.azure_normalization import (
     merge_bounding_regions,
     polygon_to_bounding_box,
 )
+from app.field_detection.providers.base import BoundingBox
 
 
 def _inch_page(**overrides: Any) -> dict[str, Any]:
@@ -346,3 +347,83 @@ def test_key_value_confidence_is_clamped_into_the_expected_band() -> None:
     # never treated as certain, nor as unusable.
     assert 0.6 <= low.confidence <= 0.9
     assert 0.6 <= high.confidence <= 0.9
+
+
+# ---------------------------------------------------------------------------
+# Cross-source positional deduplication
+# ---------------------------------------------------------------------------
+
+
+def _candidate(name: str, x: float, y: float, page: int = 1) -> Any:
+    from app.field_detection.providers.base import DetectedFieldCandidate
+
+    return DetectedFieldCandidate(
+        candidate_key=name,
+        page_number=page,
+        label=name.title(),
+        normalized_name=name,
+        field_type="text",
+        confidence=0.7,
+        source="native",
+        label_bounding_box=BoundingBox(x=x, y=y, width=50, height=12),
+    )
+
+
+def test_overlapping_key_value_candidate_is_dropped() -> None:
+    """The same blank found by both sources yields one field, not two —
+    even though the names differ ("iban" vs "mietkosten_iban")."""
+    from app.field_detection.azure_normalization import (
+        drop_positionally_duplicate_candidates,
+    )
+
+    preferred = [_candidate("mietkosten_iban", x=100, y=200)]
+    extra = [_candidate("iban", x=102, y=201)]  # same region, different name
+    kept = drop_positionally_duplicate_candidates(preferred, extra)
+    assert [c.normalized_name for c in kept] == ["mietkosten_iban"]
+
+
+def test_non_overlapping_key_value_candidate_is_additive() -> None:
+    """A key-value pair covering a region layout analysis missed is kept —
+    Azure's structural output must still contribute."""
+    from app.field_detection.azure_normalization import (
+        drop_positionally_duplicate_candidates,
+    )
+
+    preferred = [_candidate("mietkosten_iban", x=100, y=200)]
+    extra = [_candidate("hausschluessel", x=100, y=400)]
+    kept = drop_positionally_duplicate_candidates(preferred, extra)
+    assert [c.normalized_name for c in kept] == ["mietkosten_iban", "hausschluessel"]
+
+
+def test_same_region_on_a_different_page_is_not_a_duplicate() -> None:
+    from app.field_detection.azure_normalization import (
+        drop_positionally_duplicate_candidates,
+    )
+
+    preferred = [_candidate("name", x=100, y=200, page=1)]
+    extra = [_candidate("name_p2", x=100, y=200, page=2)]
+    kept = drop_positionally_duplicate_candidates(preferred, extra)
+    assert len(kept) == 2
+
+
+def test_candidate_without_geometry_is_kept() -> None:
+    """Missing geometry must not silently discard a field."""
+    from app.field_detection.azure_normalization import (
+        drop_positionally_duplicate_candidates,
+    )
+    from app.field_detection.providers.base import DetectedFieldCandidate
+
+    preferred = [_candidate("iban", x=100, y=200)]
+    extra = [
+        DetectedFieldCandidate(
+            candidate_key="k",
+            page_number=1,
+            label="Bank",
+            normalized_name="bank",
+            field_type="text",
+            confidence=0.7,
+            source="native",
+        )
+    ]
+    kept = drop_positionally_duplicate_candidates(preferred, extra)
+    assert [c.normalized_name for c in kept] == ["iban", "bank"]

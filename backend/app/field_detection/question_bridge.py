@@ -13,11 +13,21 @@ Language handling: the field-detection pipeline (native PDF text / OCR)
 does not perform document-language detection, so a detected label/option's
 own language is unknown to the system — it is assumed to be
 `_DEFAULT_SOURCE_LANGUAGE` (see constant below). That assumed source
-language is kept strictly separate from the session's `user_language`: the
+language is kept strictly separate from the session's languages: the
 original detected text is always stored under the source language (for
-mapping/audit — never discarded), and a `user_language` translation is
-produced via the AI provider only when the two differ. Stable option
-`value`s are never translated, only the display label shown to the user.
+mapping/audit — never discarded), and a translation is produced via the AI
+provider for every *other* language the version supports.
+
+Crucially that means **both** `user_language` (what the guided questions
+are displayed in) and `output_language` (what the completed form is written
+in) — see `_target_languages`. Generating only the user-language rows
+produces a version that claims to support an output language it has no text
+for, which `FormService.publish_version` rejects for any choice field, and
+which therefore silently turned every document containing a choice group
+into "no usable questions" whenever the two languages differed.
+
+Stable option `value`s are never translated, only the display label shown
+to the user.
 """
 
 from __future__ import annotations
@@ -27,7 +37,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.ai.mock_provider import AIProvider
-from app.ai.text_translation import TextTranslation, translate_text
+from app.ai.text_translation import translate_text
 from app.documents.models import SourceDocument
 from app.field_detection.confidence import AUTO_USABLE_REVIEW_STATUSES
 from app.field_detection.errors import FieldDetectionValidationError
@@ -95,43 +105,59 @@ def _unique_key(base: str, used_keys: set[str]) -> str:
     return candidate
 
 
+def _target_languages(user_language: str, output_language: str) -> list[str]:
+    """Every non-source language the generated version must carry text for.
+
+    Both are required, and for different reasons: `user_language` is what
+    the guided questions are displayed in, while `output_language` is what
+    the completed form is written in. `FormService.publish_version`
+    enforces an option translation for *every* supported output language
+    (source language included), so generating only the user-language rows
+    would make a version that claims to support an output language it has
+    no text for — which is exactly how a document containing any choice
+    field failed to publish whenever the two languages differed.
+    """
+    return sorted({user_language, output_language} - {_DEFAULT_SOURCE_LANGUAGE})
+
+
+async def _translate_into(
+    ai_provider: AIProvider, text: str, target_languages: list[str]
+) -> dict[str, str]:
+    """Translates one piece of source text into each target language.
+    Languages are deduplicated by the caller, so a user/output language
+    pair that happens to match costs a single AI call rather than two."""
+    return {
+        language: (
+            await translate_text(ai_provider, text, _DEFAULT_SOURCE_LANGUAGE, language)
+        ).translated_text
+        for language in target_languages
+    }
+
+
 def _label_translations(
-    translation: TextTranslation,
+    source_text: str, translations_by_language: dict[str, str]
 ) -> list[TranslationSchema]:
-    """Builds the field-label TranslationSchema rows: the original source
-    text is always kept (for mapping/audit), plus the user-language
-    translation only when it differs from the source."""
-    translations = [
-        TranslationSchema(
-            language=translation.source_language, label=translation.source_text
-        )
-    ]
-    if translation.target_language != translation.source_language:
-        translations.append(
-            TranslationSchema(
-                language=translation.target_language,
-                label=translation.translated_text,
-            )
-        )
-    return translations
+    """Builds the field-label rows: the original source text is always kept
+    (for mapping/audit), plus one row per target language."""
+    rows = [TranslationSchema(language=_DEFAULT_SOURCE_LANGUAGE, label=source_text)]
+    rows.extend(
+        TranslationSchema(language=language, label=label)
+        for language, label in translations_by_language.items()
+    )
+    return rows
 
 
 def _option_translations(
-    translation: TextTranslation,
+    source_text: str, translations_by_language: dict[str, str]
 ) -> list[OptionTranslationSchema]:
-    translations = [
-        OptionTranslationSchema(
-            language=translation.source_language, label=translation.source_text
-        )
+    rows = [
+        OptionTranslationSchema(language=_DEFAULT_SOURCE_LANGUAGE, label=source_text)
     ]
-    if translation.target_language != translation.source_language:
-        translations.append(
-            OptionTranslationSchema(
-                language=translation.target_language,
-                label=translation.translated_text,
-            )
-        )
-    return translations
+    rows.extend(
+        OptionTranslationSchema(language=language, label=label)
+        for language, label in translations_by_language.items()
+    )
+    return rows
 
 
 _CHOICE_FIELD_TYPES = frozenset({"radio", "select", "multiple_choice"})
@@ -211,6 +237,17 @@ async def create_session_from_confirmed_fields(
         for field in detection_result.fields
         if field.review_status in usable_statuses
     ]
+    logger.info(
+        "Question generation input: document=%s detected=%d usable=%d "
+        "(mode=%s, accepted_statuses=%s) user_language=%s output_language=%s",
+        doc.public_id,
+        len(detection_result.fields),
+        len(confirmed_fields),
+        "auto" if include_auto_usable else "manual",
+        ",".join(sorted(usable_statuses)),
+        user_language,
+        output_language,
+    )
     if not confirmed_fields:
         raise FieldDetectionValidationError(
             "No confirmed fields to generate questions from.",
@@ -243,6 +280,10 @@ async def create_session_from_confirmed_fields(
         pdf_template_key=None,
     )
 
+    # Every language the version claims to support must actually have text
+    # (see _target_languages for why both user and output language count).
+    target_languages = _target_languages(user_language, output_language)
+
     used_keys: set[str] = set()
     added_field_count = 0
     skipped_field_count = 0
@@ -252,11 +293,8 @@ async def create_session_from_confirmed_fields(
         try:
             field_type = _map_field_type(detected_field)
 
-            label_translation = await translate_text(
-                ai_provider,
-                detected_field.label,
-                _DEFAULT_SOURCE_LANGUAGE,
-                user_language,
+            label_translations = await _translate_into(
+                ai_provider, detected_field.label, target_languages
             )
 
             # Options live exclusively in the FormFieldOption rows created
@@ -269,17 +307,16 @@ async def create_session_from_confirmed_fields(
             options: list[OptionSchema] = []
             if field_type in _CHOICE_TYPES:
                 for option in detected_field.options:
-                    option_translation = await translate_text(
-                        ai_provider,
-                        option.value,
-                        _DEFAULT_SOURCE_LANGUAGE,
-                        user_language,
+                    option_translations = await _translate_into(
+                        ai_provider, option.value, target_languages
                     )
                     options.append(
                         OptionSchema(
                             value=option.value,
                             position=option.position,
-                            translations=_option_translations(option_translation),
+                            translations=_option_translations(
+                                option.value, option_translations
+                            ),
                         )
                     )
 
@@ -295,7 +332,9 @@ async def create_session_from_confirmed_fields(
                     ),
                     position=position,
                     configuration={},
-                    translations=_label_translations(label_translation),
+                    translations=_label_translations(
+                        detected_field.label, label_translations
+                    ),
                     options=options,
                 ),
             )
@@ -329,13 +368,15 @@ async def create_session_from_confirmed_fields(
             str(e), "field_detection_invalid_result"
         ) from e
 
-    if skipped_field_count:
-        logger.info(
-            "Dynamic question generation: %d field(s) added, %d skipped "
-            "after per-field validation failure.",
-            added_field_count,
-            skipped_field_count,
-        )
+    logger.info(
+        "Question generation result: document=%s questions=%d skipped=%d "
+        "version=%s supported_output_languages=%s",
+        doc.public_id,
+        added_field_count,
+        skipped_field_count,
+        version.status,
+        ",".join(version.supported_output_languages or []),
+    )
 
     session_service = SessionService(db)
     return session_service.create_session(

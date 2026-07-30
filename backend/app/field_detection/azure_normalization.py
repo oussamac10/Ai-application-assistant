@@ -187,6 +187,65 @@ def polygon_to_bounding_box(
     return BoundingBox(x=max(min_x, 0.0), y=max(min_y, 0.0), width=width, height=height)
 
 
+def _boxes_overlap(a: BoundingBox, b: BoundingBox, min_ratio: float = 0.5) -> bool:
+    """True when two boxes cover substantially the same region.
+
+    Used to drop a candidate that another source already found: Azure's
+    `keyValuePairs` and the shared text passes frequently point at the very
+    same label, and keying deduplication on `normalized_name` alone cannot
+    tell that "iban" and "mietkosten_iban" (the section-prefixed variant)
+    are one field — which produced two questions for the same blank.
+    """
+    inter_x = max(0.0, min(a.x + a.width, b.x + b.width) - max(a.x, b.x))
+    inter_y = max(0.0, min(a.y + a.height, b.y + b.height) - max(a.y, b.y))
+    intersection = inter_x * inter_y
+    if intersection <= 0:
+        return False
+    smaller = min(a.width * a.height, b.width * b.height)
+    if smaller <= 0:
+        return False
+    return (intersection / smaller) >= min_ratio
+
+
+def drop_positionally_duplicate_candidates(
+    preferred: list[DetectedFieldCandidate],
+    extra: list[DetectedFieldCandidate],
+) -> list[DetectedFieldCandidate]:
+    """Returns `preferred` plus only those `extra` candidates that do not
+    already occupy a region a preferred candidate covers.
+
+    `preferred` is the section-context-aware output of the shared text
+    passes ("Vermieter – Name"), which reads better in the guided flow than
+    an unqualified key-value label ("Name") and keeps the landlord/tenant
+    distinction. Azure's key-value pairs are then additive: they contribute
+    only fields layout analysis missed, instead of duplicating it.
+    """
+    kept = list(preferred)
+    occupied: list[tuple[int, BoundingBox]] = []
+    for candidate in preferred:
+        for box in (candidate.label_bounding_box, candidate.input_bounding_box):
+            if box is not None:
+                occupied.append((candidate.page_number, box))
+
+    for candidate in extra:
+        boxes = [
+            box
+            for box in (candidate.label_bounding_box, candidate.input_bounding_box)
+            if box is not None
+        ]
+        if boxes and any(
+            page == candidate.page_number and _boxes_overlap(box, taken)
+            for box in boxes
+            for page, taken in occupied
+        ):
+            continue
+        kept.append(candidate)
+        for box in boxes:
+            occupied.append((candidate.page_number, box))
+
+    return kept
+
+
 def merge_bounding_regions(
     regions: list[dict[str, Any]] | None,
     geometries: dict[int, AzurePageGeometry],

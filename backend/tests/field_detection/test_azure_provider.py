@@ -242,11 +242,16 @@ def test_rental_contract_layout_produces_usable_german_candidates(
         assert not field.label.startswith("§")
 
 
-def test_key_value_pairs_take_precedence_over_text_derived_candidates(
+def test_key_value_pair_does_not_duplicate_a_text_derived_field(
     tmp_path: Path,
 ) -> None:
-    """Azure's own key/value pairing is stronger evidence than layout
-    inference, so it wins for the same normalized name."""
+    """A key-value pair covering the same region as a text-derived
+    candidate must not become a second question.
+
+    Measured on the real rental contract: without this positional filter
+    Azure produced 37 questions for a 24-field document — "iban" from the
+    key-value pair alongside "mietkosten_iban" from the text passes, and so
+    on — because name-based deduplication cannot equate the two."""
     pdf_path = tmp_path / "doc.pdf"
     _create_digital_pdf(pdf_path)
     poly = [1.0, 1.0, 2.0, 1.0, 2.0, 1.2, 1.0, 1.2]
@@ -283,11 +288,12 @@ def test_key_value_pairs_take_precedence_over_text_derived_candidates(
         DetectionDocumentInput(page_count=1, source_pdf_path=pdf_path)
     )
 
-    iban = [f for f in result.fields if f.normalized_name == "iban"]
-    assert len(iban) == 1, "duplicate IBAN candidates were not deduplicated"
-    # The key-value candidate's confidence band (>=0.6) distinguishes it
-    # from the text-derived one (0.6 exactly is shared, so assert the
-    # structural evidence carried through instead).
+    # Exactly one IBAN field, and it is the text-derived one (which carries
+    # section context in a real document).
+    iban = [f for f in result.fields if "iban" in f.normalized_name]
+    assert (
+        len(iban) == 1
+    ), f"expected one IBAN field, got {[f.normalized_name for f in iban]}"
     assert iban[0].label == "IBAN"
 
 

@@ -44,6 +44,12 @@ _POLL_INTERVAL_SECONDS = 1.0
 # 401/403 (bad credentials) and 400 (bad request) never are.
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 
+# Add-on features requested by default. `keyValuePairs` is what makes
+# `prebuilt-layout` return label->input pairings at all; without it the
+# response carries layout only. Automatically dropped on a 400 so a model
+# that does not support it still analyzes normally.
+_DEFAULT_FEATURES: tuple[str, ...] = ("keyValuePairs",)
+
 
 @dataclass(frozen=True)
 class AzureAnalyzeResponse:
@@ -68,6 +74,7 @@ class AzureDocumentIntelligenceClient:
         timeout_seconds: int = 120,
         max_retries: int = 1,
         poll_interval_seconds: float = _POLL_INTERVAL_SECONDS,
+        features: tuple[str, ...] = _DEFAULT_FEATURES,
     ) -> None:
         self._endpoint = endpoint.rstrip("/")
         self._api_key = api_key
@@ -76,6 +83,7 @@ class AzureDocumentIntelligenceClient:
         self._timeout_seconds = timeout_seconds
         self._max_retries = max_retries
         self._poll_interval = poll_interval_seconds
+        self._features = features
 
     # ------------------------------------------------------------------
     # Internals
@@ -85,11 +93,20 @@ class AzureDocumentIntelligenceClient:
     def _headers(self) -> dict[str, str]:
         return {"Ocp-Apim-Subscription-Key": self._api_key}
 
-    def _analyze_url(self) -> str:
-        return (
+    def _analyze_url(self, features: tuple[str, ...] = ()) -> str:
+        url = (
             f"{self._endpoint}/documentintelligence/documentModels/"
             f"{self._model_id}:analyze?api-version={self._api_version}"
         )
+        # Add-on features are opt-in query parameters. `prebuilt-layout`
+        # returns no keyValuePairs unless `features=keyValuePairs` is
+        # requested, which is why the first implementation only ever saw
+        # layout output. Requested features are dropped and the call is
+        # retried plain if Azure rejects them (see _analyze_once), since
+        # support varies by model and api-version.
+        if features:
+            url += "&features=" + ",".join(features)
+        return url
 
     @staticmethod
     def _request_id(response: httpx.Response) -> str | None:
@@ -174,20 +191,43 @@ class AzureDocumentIntelligenceClient:
         with httpx.Client(
             timeout=httpx.Timeout(float(self._timeout_seconds))
         ) as client:
-            try:
-                submit = client.post(
-                    self._analyze_url(),
-                    headers={**self._headers, "Content-Type": "application/pdf"},
-                    content=pdf_bytes,
+
+            def _submit(features: tuple[str, ...]) -> httpx.Response:
+                try:
+                    return client.post(
+                        self._analyze_url(features),
+                        headers={**self._headers, "Content-Type": "application/pdf"},
+                        content=pdf_bytes,
+                    )
+                except httpx.TimeoutException as exc:
+                    raise AzureDocumentIntelligenceError(
+                        "Azure did not respond in time.", "azure_timeout"
+                    ) from exc
+                except httpx.HTTPError as exc:
+                    raise AzureDocumentIntelligenceError(
+                        "Could not reach the Azure endpoint.",
+                        "azure_processing_failed",
+                    ) from exc
+
+            logger.info(
+                "Azure analyze started: model=%s api_version=%s features=%s bytes=%d",
+                self._model_id,
+                self._api_version,
+                ",".join(self._features) or "-",
+                len(pdf_bytes),
+            )
+            submit = _submit(self._features)
+            # A 400 here most often means the model/api-version does not
+            # accept a requested add-on feature. Retry once without them
+            # rather than failing a document over an optional extra.
+            if submit.status_code == 400 and self._features:
+                logger.warning(
+                    "Azure rejected add-on features %s for model=%s; "
+                    "retrying without them",
+                    ",".join(self._features),
+                    self._model_id,
                 )
-            except httpx.TimeoutException as exc:
-                raise AzureDocumentIntelligenceError(
-                    "Azure did not respond in time.", "azure_timeout"
-                ) from exc
-            except httpx.HTTPError as exc:
-                raise AzureDocumentIntelligenceError(
-                    "Could not reach the Azure endpoint.", "azure_processing_failed"
-                ) from exc
+                submit = _submit(())
 
             self._raise_for_status(submit)
             request_id = self._request_id(submit)

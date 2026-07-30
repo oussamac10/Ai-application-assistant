@@ -9,7 +9,10 @@ from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.core.config import settings
 from app.documents.models import SourceDocument
 from app.documents.service import SourceDocumentService
-from app.field_detection.confidence import decide_auto_review_status
+from app.field_detection.confidence import (
+    AUTO_USABLE_REVIEW_STATUSES,
+    decide_auto_review_status,
+)
 from app.field_detection.constants import FIELD_TYPES, REVIEW_STATUSES
 from app.field_detection.errors import (
     AzureDocumentIntelligenceError,
@@ -187,6 +190,20 @@ class FieldDetectionService:
             # served_from_cache=True and no provider call.
             if existing.status == "completed":
                 if existing.detection_fingerprint == fingerprint:
+                    usable = sum(
+                        1
+                        for f in existing.fields
+                        if f.review_status in AUTO_USABLE_REVIEW_STATUSES
+                    )
+                    logger.info(
+                        "Detection cache HIT: document=%s provider=%s model=%s "
+                        "candidates=%d usable=%d (provider NOT called)",
+                        doc.public_id,
+                        existing.provider_name,
+                        _active_model_id() or "-",
+                        existing.field_count or 0,
+                        usable,
+                    )
                     self._record_cache_hit(doc, existing)
                     return existing
                 logger.info(
@@ -248,6 +265,7 @@ class FieldDetectionService:
             result.detection_fingerprint = fingerprint
             self.repo.replace_fields(self.db, result, fields)
             self._record_provider_success(doc, detection_result)
+            self._log_routing_summary(doc, detection_result, fields)
         except AzureDocumentIntelligenceError as e:
             # A remote-provider failure is recorded (for cost/diagnostics)
             # and then re-raised as the ordinary validation failure the
@@ -288,6 +306,40 @@ class FieldDetectionService:
         """The last call's diagnostics, when the active provider exposes
         them (currently only Azure). Never raises."""
         return getattr(self._provider, "last_diagnostics", None)
+
+    def _log_routing_summary(
+        self,
+        doc: SourceDocument,
+        detection_result: DetectionResult,
+        fields: list[DetectedField],
+    ) -> None:
+        """One safe line summarising the whole detection -> routing pipeline.
+
+        Counts and statuses only: no label, value, coordinate, document text
+        or credential is ever included.
+        """
+        raw = len(detection_result.fields)
+        auto_confirmed = sum(1 for f in fields if f.review_status == "confirmed")
+        medium = sum(1 for f in fields if f.review_status == "pending_review")
+        excluded = sum(1 for f in fields if f.review_status == "needs_clarification")
+        unknown = sum(1 for f in fields if f.field_type == "unknown")
+        provider_counts = getattr(self._provider, "last_azure_counts", None) or {}
+        logger.info(
+            "Detection summary: document=%s provider=%s model=%s "
+            "provider_raw=%s after_dedup=%d unknown=%d "
+            "auto_confirmed=%d medium_usable=%d below_threshold_excluded=%d "
+            "usable_total=%d",
+            doc.public_id,
+            detection_result.provider_name,
+            _active_model_id() or "-",
+            provider_counts.get("raw_candidates", raw),
+            raw,
+            unknown,
+            auto_confirmed,
+            medium,
+            excluded,
+            auto_confirmed + medium,
+        )
 
     def _record_cache_hit(
         self, doc: SourceDocument, existing: FieldDetectionResult

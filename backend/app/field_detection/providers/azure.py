@@ -7,20 +7,27 @@ bridge, ownership checks and orchestration are all completely unchanged.
 
 Detection combines two sources, in this order:
 
-1. Azure's `keyValuePairs` — the genuinely structural signal Azure adds:
-   it has already paired a label with its input region.
-2. Azure's `words` and `selectionMarks`, converted to `DetectionToken`s and
+1. Azure's `words` and `selectionMarks`, converted to `DetectionToken`s and
    run through the *same* text-line passes the local provider uses. That
    means every Phase 13 behaviour (Unicode dotted-leader and underscore
    blank runs, label-above-blank-line, sentence-embedded German date and
    currency blanks, party/§-section context for repeated landlord/tenant
    labels, prose/heading/footnote exclusion) applies to Azure output
    without being reimplemented.
+2. Azure's `keyValuePairs`, added **only** for regions the text passes did
+   not already cover.
 
-Key-value candidates win over text-derived ones for the same normalized
-name, since Azure's pairing is stronger evidence than layout inference.
-The shared `deduplicate_candidates` keeps the first candidate per name, so
-key-value candidates are simply emitted first.
+Order matters and was chosen from measured behaviour. The text passes carry
+section context ("Vermieter – Name"), which reads unambiguously in the
+guided flow and keeps the landlord's and tenant's identically-labelled
+fields distinct; a bare key-value label ("Name") does neither. And because
+name-based deduplication cannot tell that "iban" and "mietkosten_iban" are
+the same blank, letting both sources through unfiltered asked the user for
+the same value twice — and additionally turned checkbox *option* labels
+("Küche", "Hausschlüssel") into standalone questions. Key-value pairs are
+therefore filtered positionally (see
+`azure_normalization.drop_positionally_duplicate_candidates`) and are
+purely additive.
 
 Azure's own confidence is only ever an *input* here. Whether a field is
 usable, auto-confirmed, or excluded remains the deterministic Phase 13
@@ -38,6 +45,7 @@ from app.core.config import settings
 from app.field_detection.azure_normalization import (
     build_detection_pages,
     build_page_geometries,
+    drop_positionally_duplicate_candidates,
     extract_key_value_candidates,
 )
 from app.field_detection.errors import AzureDocumentIntelligenceError
@@ -87,6 +95,9 @@ class AzureDocumentIntelligenceProvider:
         # network; production leaves it None and builds from settings.
         self._client = client
         self.last_diagnostics: AzureCallDiagnostics | None = None
+        # Per-call counts of what Azure returned and what normalization made
+        # of it; read by FieldDetectionService for its own summary log.
+        self.last_azure_counts: dict[str, int] = {}
 
     @property
     def client(self) -> AzureDocumentIntelligenceClient:
@@ -144,15 +155,34 @@ class AzureDocumentIntelligenceProvider:
         analyze_result = response.analyze_result
         geometries = build_page_geometries(analyze_result, _pdf_page_sizes(document))
 
-        # 1. Azure's own key/value pairing — strongest evidence, emitted
-        #    first so deduplication prefers it.
-        candidates: list[DetectedFieldCandidate] = list(
-            extract_key_value_candidates(analyze_result, geometries)
-        )
+        # What Azure actually returned. Counts only — never content — so
+        # this is safe to log and answers "did the model give us key-value
+        # pairs at all, or only layout?" without a debugger.
+        raw_pages = analyze_result.get("pages") or []
+        azure_counts = {
+            "pages": len(raw_pages),
+            "lines": sum(
+                len(p.get("lines") or []) for p in raw_pages if isinstance(p, dict)
+            ),
+            "words": sum(
+                len(p.get("words") or []) for p in raw_pages if isinstance(p, dict)
+            ),
+            "selection_marks": sum(
+                len(p.get("selectionMarks") or [])
+                for p in raw_pages
+                if isinstance(p, dict)
+            ),
+            "paragraphs": len(analyze_result.get("paragraphs") or []),
+            "tables": len(analyze_result.get("tables") or []),
+            "key_value_pairs": len(analyze_result.get("keyValuePairs") or []),
+        }
 
-        # 2. Everything the shared text-line passes can find in Azure's
-        #    words/selection marks.
+        # 1. The shared text-line passes over Azure's words/selection marks.
+        #    These carry party/§-section context ("Vermieter – Name"), which
+        #    both reads better in the guided flow and keeps the landlord and
+        #    tenant fields distinct, so they take precedence.
         pages = build_detection_pages(analyze_result, geometries)
+        text_candidates: list[DetectedFieldCandidate] = []
         if pages:
             text_input = DetectionDocumentInput(
                 page_count=len(pages),
@@ -160,10 +190,54 @@ class AzureDocumentIntelligenceProvider:
                 acroform_widgets=(),
                 language=document.language,
             )
-            # The local provider's text passes are reused wholesale;
-            # dedup/sort then run once over the merged list below.
-            candidates.extend(
-                LocalFieldDetectionProvider().detect_from_tokens(text_input)
+            text_candidates = LocalFieldDetectionProvider().detect_from_tokens(
+                text_input
+            )
+
+        # 2. Azure's own key/value pairing, added only where it found a
+        #    region layout analysis did not. Without this positional check
+        #    the same blank yields two questions, because name-based
+        #    deduplication cannot equate "iban" with "mietkosten_iban".
+        kv_candidates = extract_key_value_candidates(analyze_result, geometries)
+        candidates = drop_positionally_duplicate_candidates(
+            text_candidates, kv_candidates
+        )
+        kv_kept = len(candidates) - len(text_candidates)
+
+        self.last_azure_counts = {
+            **azure_counts,
+            "tokens_built": sum(len(p.tokens) for p in pages),
+            "text_candidates": len(text_candidates),
+            "kv_candidates": len(kv_candidates),
+            "kv_kept_after_position_dedup": kv_kept,
+            "raw_candidates": len(candidates),
+        }
+        logger.info(
+            "Azure normalization: model=%s request_id=%s pages=%d lines=%d words=%d "
+            "selection_marks=%d paragraphs=%d tables=%d key_value_pairs=%d "
+            "-> tokens=%d text_candidates=%d kv_candidates=%d kv_kept=%d "
+            "raw_candidates=%d",
+            response.model_id,
+            response.request_id,
+            azure_counts["pages"],
+            azure_counts["lines"],
+            azure_counts["words"],
+            azure_counts["selection_marks"],
+            azure_counts["paragraphs"],
+            azure_counts["tables"],
+            azure_counts["key_value_pairs"],
+            self.last_azure_counts["tokens_built"],
+            len(text_candidates),
+            len(kv_candidates),
+            kv_kept,
+            len(candidates),
+        )
+        if azure_counts["key_value_pairs"] == 0:
+            logger.info(
+                "Azure returned no keyValuePairs (model=%s); detection relies on the "
+                "shared layout/text passes. Request the 'keyValuePairs' add-on "
+                "feature if the model supports it.",
+                response.model_id,
             )
 
         return candidates
