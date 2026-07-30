@@ -24,14 +24,28 @@ Archived under `docs/progress/`:
 Phase 15 — Azure Translator Integration. Branch `feature/azure-translator`, based on
 `feature/azure-document-intelligence`.
 
-**Status: not started.** This is a clean cut only — branch created, roadmap and phase docs updated,
-`TODO.md` reset. No Phase 15 code has been written.
+**Status: in progress.** Phase 15 has started. Implement the provider abstraction, Azure adapter,
+configuration, safe fallbacks, tests, documentation, and before/after benchmark.
 
 ## Goal
 
 Extract the `TranslationProvider` abstraction named in `docs/claude/domain-rules.md`, and implement
 Azure Translator behind it as the provider for translating question labels, choice options and
 other display text — replacing the local model for that specific job.
+
+## Confirmed implementation decisions
+
+1. Azure Translator is the primary translation provider when configured.
+2. Ollama remains available as a selectable fallback provider.
+3. Azure automatic source-language detection is included in Phase 15 to avoid incorrect and wasteful
+   forced `en -> target` translation paths for non-English source documents.
+4. Approved catalog translations, persisted translations, and cache hits must still win before any
+   provider call.
+5. Only the current user-interface language is translated eagerly during question preparation.
+6. Output-language translation remains deferred until it is actually needed by review or export.
+7. Real Azure credentials stay in the git-ignored root `.env`; `.env.example` contains empty
+   placeholders only.
+8. Automated tests must mock Azure and must never call the live service.
 
 ## Why this phase, in one paragraph
 
@@ -56,17 +70,34 @@ translation service does in a single array request.
 These are the numbers Phase 15 has to improve on, and the same measurement should be repeated at
 the end for a like-for-like before/after.
 
-## Open questions to settle before implementing
+## Implementation checklist
 
-1. **Which Azure Translator resource/region**, and is the key already provisioned? (Phase 14's
-   `.env` pattern: real values in the git-ignored root `.env`, empty placeholders in
-   `.env.example`.)
-2. **Does Ollama remain a selectable translation provider**, or does Azure become the only one once
-   configured? Keeping Ollama is the safer default and costs little.
-3. **Source-language handling.** Detected text is currently *assumed* to be the default source
-   language, so the German contract's labels take an `en -> de` round trip that mostly returns them
-   unchanged. Azure Translator can auto-detect the source language per request, which would fix
-   most of the waste — but it changes behaviour beyond a provider swap. In or out of this phase?
+- [ ] Add a `TranslationProvider` protocol and provider factory.
+- [ ] Keep deterministic mock and Ollama translation implementations.
+- [ ] Add `AzureTranslatorProvider` using one array request per target language when possible.
+- [ ] Add backend-only `AZURE_TRANSLATOR_*` configuration and Docker passthrough.
+- [ ] Validate Azure configuration only when Azure is selected.
+- [ ] Add bounded timeout, one bounded retry, safe error mapping, and request-ID capture.
+- [ ] Map positional Azure results back to stable caller IDs explicitly.
+- [ ] Validate partial, missing, duplicate, and malformed results per item.
+- [ ] Preserve approved-catalog, persisted-translation, cache, and deterministic fallback order.
+- [ ] Add source-language auto-detection while preserving the detected source metadata.
+- [ ] Translate only the current user language eagerly.
+- [ ] Keep output-language translation deferred.
+- [ ] Record request count, translated character count, cache hits, provider latency, and fallbacks.
+- [ ] Ensure API keys and raw provider responses never appear in logs or frontend responses.
+- [ ] Add unit, integration, regression, ownership, RTL, and idempotency tests.
+- [ ] Update ADR, phase docs, architecture, security, privacy, README, and `.env.example`.
+- [ ] Benchmark the German rental contract before and after.
+- [ ] Test the Arabic digital form and verify Arabic/RTL behavior.
+- [ ] Run backend and frontend quality gates.
+- [ ] Commit and push the completed phase.
+
+## Performance targets
+
+- Uncached translation duration: preferably under 3 seconds for the 24-question reference form.
+- Total preparation duration: preferably under 15 seconds on the same environment.
+- Repeat preparation: zero provider calls and approximately the existing 0.09-second path.
 
 ## Carried Deferred Items
 
