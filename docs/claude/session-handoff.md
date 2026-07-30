@@ -79,6 +79,22 @@ leaking as text questions, `Code postal, ville` accepting `70188, Stuttgart`, 38
 (100%)" and the summary was unreachable, both because they counted *required* fields only.
 `ProgressInfo` gained `totalQuestions`/`answeredQuestions`.
 
+## Fourth round — non-field content and optional skipping
+
+- **"Attention" became question 1.** A notice has a field's exact shape, and its body text
+  was being read as the field's *existing value*. `app/field_detection/notices.py` filters
+  notices/instructions/footers, but only when the layout offers no way to enter anything —
+  rejecting a real field is worse than keeping a spurious one.
+- **Skip did nothing.** The handler only re-fetched the current field, and that endpoint
+  returns the stored position, which nothing had moved.
+  `POST /form-sessions/{id}/fields/{field_id}/skip` now persists `status="skipped"` with
+  null values (migration `4575e921695e` makes `original_answer` nullable, with a backfill
+  in the downgrade), runs no validation or normalization, refuses required fields, advances
+  the position and counts toward progress. The summary shows "Skipped", never "missing".
+
+Live: question 1 is now `Nom de famille`; skipping advances to `Prénom`, stores
+`status=skipped` with nulls, and moves progress 0 -> 1 of 37.
+
 ## Live results (Azure Translator working, global endpoint)
 
 | | German (UI fr) | Arabic (UI en) | German (UI ar) |

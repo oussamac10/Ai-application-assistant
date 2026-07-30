@@ -117,6 +117,23 @@ def confirm_answer(
     return service.confirm_answer(session_id, answer_id, x_session_token)
 
 
+@router.post(
+    "/form-sessions/{session_id}/fields/{field_id}/skip",
+    response_model=AnswerResponse,
+)
+def skip_field(
+    session_id: str,
+    field_id: str,
+    x_session_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Any:
+    """Marks an optional question as deliberately unanswered and advances."""
+    service = _make_service(db, provider, current_user)
+    return service.skip_field(session_id, field_id, x_session_token)
+
+
 @router.put(
     "/form-sessions/{session_id}/fields/{field_id}/answer",
     response_model=AnswerResponse,

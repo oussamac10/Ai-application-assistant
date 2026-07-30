@@ -36,7 +36,9 @@ export default function SessionSummary() {
         const data = await getSummary(sessionId);
         setSummary(data);
       } catch (err: any) {
-        setErrorMsg(te(err.message) || "Failed to load session summary details.");
+        setErrorMsg(
+          te(err.message) || "Failed to load session summary details.",
+        );
       } finally {
         setLoading(false);
       }
@@ -44,11 +46,14 @@ export default function SessionSummary() {
     loadSummary();
   }, [sessionId, te]);
 
-  const handleEditField = async (fieldId: string, originalAnswer: string | null) => {
+  const handleEditField = async (
+    fieldId: string,
+    originalAnswer: string | null,
+  ) => {
     try {
       setLoading(true);
       setErrorMsg(null);
-      
+
       // Call changeAnswer with the existing originalAnswer (if null, empty string) to unconfirm it
       await changeAnswer(sessionId, fieldId, originalAnswer || "");
 
@@ -66,14 +71,16 @@ export default function SessionSummary() {
     try {
       setSubmitting(true);
       setErrorMsg(null);
-      
+
       // Call confirm-summary endpoint
       await confirmSummary(sessionId);
 
       // Redirect to export/complete screen
       router.push(`/application/session/${sessionId}/complete`);
     } catch (err: any) {
-      setErrorMsg(te(err.message) || "Failed to finalize summary confirmation.");
+      setErrorMsg(
+        te(err.message) || "Failed to finalize summary confirmation.",
+      );
       setSubmitting(false);
     }
   };
@@ -95,7 +102,7 @@ export default function SessionSummary() {
   }
 
   const hasIncompleteFields = summary?.fields.some(
-    (f) => f.required && f.status !== "confirmed"
+    (f) => f.required && f.status !== "confirmed",
   );
 
   return (
@@ -135,18 +142,26 @@ export default function SessionSummary() {
                   <tbody className="divide-y divide-slate-850">
                     {summary?.fields.map((f) => {
                       const isConfirmed = f.status === "confirmed";
-                      const isRequiredIncomplete = f.required && !isConfirmed;
+                      // A skipped optional question is a decision, not a
+                      // problem: it must never be shown as missing or invalid.
+                      const isSkipped = f.status === "skipped";
+                      const isRequiredIncomplete =
+                        f.required && !isConfirmed && !isSkipped;
 
                       return (
                         <tr
                           key={f.fieldId}
                           className={`transition ${
-                            isRequiredIncomplete ? "bg-rose-950/10" : "hover:bg-slate-900/20"
+                            isRequiredIncomplete
+                              ? "bg-rose-950/10"
+                              : "hover:bg-slate-900/20"
                           }`}
                         >
                           <td className="px-4 py-4 font-semibold text-slate-200">
                             {f.label}
-                            {f.required && <span className="text-indigo-400 ml-1">*</span>}
+                            {f.required && (
+                              <span className="text-indigo-400 ml-1">*</span>
+                            )}
                           </td>
                           <td className="px-4 py-4 italic text-slate-400 max-w-xs truncate">
                             {f.originalAnswer || "-"}
@@ -160,17 +175,23 @@ export default function SessionSummary() {
                                 isConfirmed
                                   ? "bg-emerald-500/10 text-emerald-400"
                                   : isRequiredIncomplete
-                                  ? "bg-rose-500/10 text-rose-400 animate-pulse"
-                                  : "bg-slate-800 text-slate-400"
+                                    ? "bg-rose-500/10 text-rose-400 animate-pulse"
+                                    : "bg-slate-800 text-slate-400"
                               }`}
                             >
-                              {f.status}
+                              {isSkipped
+                                ? t("skipped")
+                                : isRequiredIncomplete
+                                  ? t("missingRequired")
+                                  : f.status}
                             </span>
                           </td>
                           <td className="px-4 py-4 text-right">
                             <button
                               type="button"
-                              onClick={() => handleEditField(f.fieldId, f.originalAnswer)}
+                              onClick={() =>
+                                handleEditField(f.fieldId, f.originalAnswer)
+                              }
                               className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition"
                             >
                               {tc("edit")}

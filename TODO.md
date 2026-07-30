@@ -335,6 +335,40 @@ candidates, Arabic 29 questions).
 `test_option_groups.py` (25), `test_requiredness.py` (18), `test_normalization_context.py`
 (41 across currency and proper nouns), plus compound-label cases in `test_classification.py`.
 
+## Non-field content and optional skipping (fourth round)
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Question 1 was "Attention" | A notice has the same shape as a field (short label, colon, trailing text), and its body text was read as an *existing value* | `notices.py` filters notices/instructions/footers when no input evidence exists; prose is no longer a value |
+| Skip did nothing | The handler only re-fetched the current field; that endpoint returns the *stored* position, which nothing had moved | `POST /form-sessions/{id}/fields/{field_id}/skip` persists the state and advances |
+| Status stayed null | Skipping had no state of its own | `status="skipped"` with null values; `original_answer` made nullable (migration `4575e921695e`) |
+
+Deliberate calls: an empty string was rejected as the skipped representation (it would be
+validated, normalized and counted invalid, and could not be told apart from an unreached
+question); the notice filter needs wording **and** absent layout evidence, because
+rejecting a real field is worse than keeping a spurious one.
+
+### Live verification (French form)
+
+| Check | Result |
+|---|---|
+| Question 1 | **`Nom de famille`** — a real field ("Attention" filtered) |
+| Skip | advances `Nom de famille` -> `Prénom` |
+| Stored state | `status=skipped`, `originalAnswer=null`, `normalizedValue=null`, `validationStatus=not_checked` |
+| Progress | `answeredQuestions` 0 -> 1 of 37 |
+| Summary | `status: skipped`, `required: false` |
+| Required field | skip refused (HTTP 422) |
+
+### Tests added
+
+`test_notices.py` (44), `test_skip.py` (10 — persistence, refusal for required fields,
+progress, idempotency, resume, later editing, ownership), `skip-field.test.ts` (5 —
+endpoint, no body, click collapsing, per-field independence, retry after failure).
+
+Backend **809 passed**, ruff and mypy clean, migration round-trips. Frontend **138 passed**,
+lint and typecheck clean. Playwright **28 passed, 1 flaky, 1 failed** — the failure is
+`guided-flow.spec.ts`, pre-existing since Phase 9.
+
 ## Carried Deferred Items
 
 - `guided-flow.spec.ts` default-tab gap (pre-existing since Phase 9/10).

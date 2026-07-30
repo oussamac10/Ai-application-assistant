@@ -383,6 +383,71 @@ Counts only — no label, option value or answer is ever logged.
 | Interface | RTL, Arabic labels |
 | Total duration | 4.64 s |
 
+## Non-field content, and skipping optional questions
+
+Two defects surfaced together on the French form: question 1 was "Attention", and its
+Skip button did nothing.
+
+### "Attention" was not a field
+
+The form opens with `Attention : exemple non officiel. Utilisez uniquement des données
+fictives.` — a notice whose *shape* (short label, colon, trailing text) is exactly a
+field's, so it became question 1.
+
+`app/field_detection/notices.py` filters document furniture: notice headings (en/de/fr/ar),
+instructions, footers and page numbers. It deliberately refuses to decide on wording alone
+— rejecting a real field is worse than keeping a spurious one, because a user can skip a
+bad question but cannot answer one that was removed. A candidate is dropped only when the
+wording says "notice" **and** the layout offers no way to enter anything: no input region,
+no options, no short existing value.
+
+The last part mattered: the notice's own body text was being read as the field's
+*existing value*, which made it look filled in. Prose (ending in a full stop, or longer
+than a few words) is no longer treated as a value.
+
+Filtering happens before deduplication, in both providers, so a notice cannot occupy a
+normalized name that a real field needs. Diagnostics report
+`non_field_heading_filtered`, `warning_filtered`, `instruction_filtered`,
+`footer_filtered` — counts only.
+
+### Skip is a real state, not an empty answer
+
+The Skip button called only `fetchNextQuestion()`, and the current-field endpoint returns
+the *stored* position — which nothing had moved. So it never advanced.
+
+`POST /api/form-sessions/{id}/fields/{field_id}/skip` records:
+
+```json
+{ "status": "skipped", "original_answer": null, "normalized_value": null }
+```
+
+An empty string was rejected as a design: it would be validated, normalized and counted as
+invalid, and would be indistinguishable from a question the user simply has not reached.
+`form_answers.original_answer` is now nullable (migration `4575e921695e`, with a backfill
+in the downgrade so it reverses cleanly).
+
+Skipping runs **no** validation, **no** normalization and needs no confirmation. Skipping a
+*required* field is refused — that is what requiredness means. The skip advances the
+session position exactly as confirming does, and counts toward progress: the user made a
+decision about that question, so it is not outstanding work.
+
+Resume, review and editing follow from the stored state: a skipped question stays skipped,
+the summary shows "Skipped" (never "missing" or "invalid"), `confirm-summary` gates only on
+required fields, and answering it later simply replaces the state.
+
+On the frontend the Skip button is shown only when `required` is false, is **never** tied
+to the input's value, and repeated clicks collapse into one request.
+
+### Live result (French form)
+
+| Check | Before | After |
+|---|---|---|
+| Question 1 | `Attention` (a notice) | `Nom de famille` (a real field) |
+| Skip | no effect | advances `Nom de famille` -> `Prénom` |
+| Stored state | — | `status=skipped`, `originalAnswer=null`, `validation=not_checked` |
+| Progress | — | `answeredQuestions` 0 -> 1 of 37 |
+| Summary | — | `status: skipped`, `required: false` |
+
 ## Known limitations
 
 - **The endpoint must be a Translator resource, and it must use the right path.** A Document
@@ -413,5 +478,7 @@ Counts only — no label, option value or answer is ever logged.
 - Progress and completion now count every question, not only mandatory ones — a direct
   consequence of evidence-based requiredness, and the reason `ProgressInfo` gained
   `totalQuestions`/`answeredQuestions`.
+- The notice filter is keyword-plus-layout, so a notice heading that *does* have an input
+  region beside it is kept as a field. That is the deliberate direction to err in.
 - Requiredness has no per-field admin override yet; the evidence and confidence are
   recorded for the review UI that Phase 16 will add.

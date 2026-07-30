@@ -30,7 +30,11 @@ class FormAnswer(Base):
         nullable=False,
         index=True,
     )
-    original_answer: Mapped[str] = mapped_column(nullable=False)
+    # Nullable since Phase 15: a *skipped* optional question has no original
+    # answer at all. Encoding that as an empty string would be validated,
+    # normalized and counted as an invalid answer, and would be
+    # indistinguishable from a question the user has not reached yet.
+    original_answer: Mapped[str | None] = mapped_column(nullable=True)
     original_language: Mapped[str] = mapped_column(String(10), nullable=False)
     normalized_value: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, nullable=True

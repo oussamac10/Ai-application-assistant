@@ -14,6 +14,8 @@
 - `backend/app/documents/`: upload, storage, validation, analysis
 - `backend/app/ocr/`: local OCR provider abstraction, page rendering, OCR API
 - `backend/app/field_detection/`: dynamic field-detection provider abstraction, extraction, review API, question-generation bridge, Phase 13 confidence routing (`confidence.py`) and orchestration (`orchestration.py`)
+- `backend/app/field_detection/notices.py`: deterministic filtering of non-field
+  document content (notices, instructions, footers)
 - `backend/app/field_detection/option_groups.py`: Phase 15 selection-mark grouping and
   evidence-based parent-label inference; `requiredness.py`: three-state required/optional
   detection; `direction.py`: RTL-aware reading order

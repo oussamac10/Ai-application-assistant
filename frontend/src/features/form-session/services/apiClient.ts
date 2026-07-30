@@ -72,7 +72,8 @@ export const ClarificationResponseSchema = z.object({
 export const AnswerResponseSchema = z.object({
   id: z.string(),
   fieldId: z.string().optional(),
-  originalAnswer: z.string(),
+  // Null for a skipped question: a deliberate non-answer, not an empty one.
+  originalAnswer: z.string().nullable(),
   normalizedValue: z.any().nullable().optional(),
   outputValue: z.string().nullable().optional(),
   status: z.string(), // e.g. answered, draft, needs_clarification, awaiting_confirmation, confirmed
@@ -229,6 +230,42 @@ export async function getCurrentField(
     sessionId,
     CurrentFieldResponseSchema,
   );
+}
+
+/** In-flight skip requests, keyed by session + field.
+ *
+ * Skipping is idempotent server-side, but a double click would still fire two
+ * requests and race two "advance to next field" responses against each other. */
+const inFlightSkips = new Map<string, Promise<AnswerResponse>>();
+
+/** Marks an optional question as deliberately unanswered and advances.
+ *
+ * A dedicated call rather than submitting an empty string: an empty answer
+ * would be validated, normalized and counted as invalid, and could not be told
+ * apart from a question the user has not reached. */
+export async function skipField(
+  sessionId: string,
+  fieldId: string,
+): Promise<AnswerResponse> {
+  const key = `${sessionId}:${fieldId}`;
+  const existing = inFlightSkips.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const request = apiRequest(
+    `/form-sessions/${sessionId}/fields/${fieldId}/skip`,
+    { method: "POST" },
+    sessionId,
+    AnswerResponseSchema,
+  );
+
+  inFlightSkips.set(key, request);
+  try {
+    return await request;
+  } finally {
+    inFlightSkips.delete(key);
+  }
 }
 
 export async function submitAnswer(

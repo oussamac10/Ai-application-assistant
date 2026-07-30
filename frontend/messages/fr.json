@@ -40,7 +40,9 @@
     "normalizedHeader": "Valeur proposée",
     "statusHeader": "Statut",
     "submitSummary": "Confirmer et finaliser le résumé",
-    "warning": "Important : En confirmant, vous vérifiez que tous les détails sont corrects. Aucune soumission automatique n'est effectuée."
+    "warning": "Important : En confirmant, vous vérifiez que tous les détails sont corrects. Aucune soumission automatique n'est effectuée.",
+    "skipped": "Ignoré",
+    "missingRequired": "Réponse obligatoire manquante"
   },
   "complete": {
     "title": "Formulaire prêt pour l'exportation",

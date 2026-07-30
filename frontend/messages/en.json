@@ -40,7 +40,9 @@
     "normalizedHeader": "Proposed Value",
     "statusHeader": "Status",
     "submitSummary": "Confirm and Finalize Summary",
-    "warning": "Important: By confirming, you verify that all details are correct. No automatic submission is performed."
+    "warning": "Important: By confirming, you verify that all details are correct. No automatic submission is performed.",
+    "skipped": "Skipped",
+    "missingRequired": "Missing required answer"
   },
   "complete": {
     "title": "Form Ready for Export",

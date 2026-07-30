@@ -117,10 +117,13 @@ class AnswerService:
         # read "Question 1 of 0 (100%)" before a single answer.
         total_questions = len(version.fields)
         answers = self.repo.get_answers_for_session(session.id)
-        confirmed_ids = {a.field_id for a in answers if a.status == "confirmed"}
-        answered_questions = sum(
-            1 for f in version.fields if f.id in confirmed_ids
-        )
+        # A deliberately skipped question is *dealt with* as far as progress is
+        # concerned: the user made a decision about it and must not be shown
+        # as having work left on it.
+        confirmed_ids = {
+            a.field_id for a in answers if a.status in ("confirmed", "skipped")
+        }
+        answered_questions = sum(1 for f in version.fields if f.id in confirmed_ids)
 
         if total_required == 0:
             return {
@@ -142,9 +145,7 @@ class AnswerService:
         )
 
         percentage = (
-            int((answered_questions / total_questions) * 100)
-            if total_questions
-            else 0
+            int((answered_questions / total_questions) * 100) if total_questions else 0
         )
         return {
             "confirmedRequiredFields": confirmed_required,
@@ -450,6 +451,68 @@ class AnswerService:
 
         # Save
         self.repo.save_answer(answer)
+        return answer
+
+    def skip_field(
+        self, session_id: str, field_id: str, raw_token: str | None
+    ) -> FormAnswer:
+        """Records that the user chose not to answer an optional question.
+
+        A skip is its own state, not an empty answer: an empty string would be
+        validated, normalized and counted as invalid, and would be
+        indistinguishable from a field the user simply has not reached. So the
+        stored answer carries `status="skipped"` with null values, runs no
+        validation and no normalization, and needs no confirmation.
+
+        Skipping a *required* field is refused — the whole point of requiredness
+        is that those cannot be left empty.
+        """
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
+        version = self.form_repo.get_version(session.form_version_id)
+        if not version:
+            raise ResourceNotFoundError("Form version not found.")
+
+        field = next((f for f in version.fields if f.id == field_id), None)
+        if not field:
+            raise ValidationError(
+                "Field does not belong to the session's form version."
+            )
+        if field.required:
+            raise ValidationError("A required question cannot be skipped.")
+
+        answer = self.repo.get_answer(session.id, field_id)
+        if not answer:
+            answer = FormAnswer(
+                session_id=session.id,
+                field_id=field_id,
+                original_answer=None,
+                original_language=session.user_language,
+            )
+
+        answer.original_answer = None
+        answer.normalized_value = None
+        answer.output_value = None
+        answer.status = "skipped"
+        answer.validation_status = "not_checked"
+        answer.requires_clarification = False
+        answer.confirmed_by_user = False
+        answer.confirmed_at = None
+        self.repo.save_answer(answer)
+
+        # Advance exactly as confirming does, so a skip moves the user on.
+        fields = sorted(version.fields, key=lambda f: f.position)
+        next_field = next((f for f in fields if f.position > field.position), None)
+        if next_field:
+            session.current_field_position = next_field.position
+            self.db.commit()
+
+        logger.info(
+            "Question skipped: session=%s position=%d",
+            session.public_id,
+            field.position,
+        )
         return answer
 
     @staticmethod

@@ -55,6 +55,7 @@ from app.field_detection.normalization import (
     downgrade_low_confidence,
     sort_candidates_deterministically,
 )
+from app.field_detection.notices import filter_non_field_candidates
 from app.field_detection.providers.azure_client import (
     AzureAnalyzeResponse,
     AzureDocumentIntelligenceClient,
@@ -131,6 +132,10 @@ class AzureDocumentIntelligenceProvider:
         candidates = self._candidates_from_response(response, document)
 
         candidates = [downgrade_low_confidence(c) for c in candidates]
+        # Document furniture — notices, instructions, footers — looks like a
+        # label but asks for nothing. Filtered before dedup so it cannot
+        # occupy a normalized name a real field needs.
+        candidates, _filtered = filter_non_field_candidates(candidates)
         candidates = deduplicate_candidates(candidates)
         candidates = sort_candidates_deterministically(candidates)
         normalization_duration = time.perf_counter() - normalization_started

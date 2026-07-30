@@ -40,7 +40,9 @@
     "normalizedHeader": "Vorgeschlagener Wert",
     "statusHeader": "Status",
     "submitSummary": "Zusammenfassung bestätigen und abschließen",
-    "warning": "Wichtig: Mit der Bestätigung verifizieren Sie, dass alle Angaben korrekt sind. Es erfolgt keine automatische Übermittlung."
+    "warning": "Wichtig: Mit der Bestätigung verifizieren Sie, dass alle Angaben korrekt sind. Es erfolgt keine automatische Übermittlung.",
+    "skipped": "Übersprungen",
+    "missingRequired": "Pflichtangabe fehlt"
   },
   "complete": {
     "title": "Formular bereit für den Export",

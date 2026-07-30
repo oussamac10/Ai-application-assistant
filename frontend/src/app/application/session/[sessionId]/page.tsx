@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import {
   startSession,
   getCurrentField,
+  skipField,
   submitAnswer,
   submitClarification,
   confirmAnswer,
@@ -260,12 +261,24 @@ export default function GuidedSession() {
   };
 
   const handleSkipClick = async () => {
-    // Nothing is submitted: an unanswered optional question simply advances.
-    setErrorMsg(null);
-    setErrorIsFieldLevel(false);
-    setInputValue("");
-    setStep("loading");
-    await fetchNextQuestion();
+    if (!currentField || step === "submitting") return;
+    // The backend records status="skipped" with null values and advances the
+    // session. Re-fetching alone did nothing: the current-field endpoint would
+    // return the same question, because nothing had moved the position.
+    try {
+      setStep("submitting");
+      setErrorMsg(null);
+      setErrorIsFieldLevel(false);
+      await skipField(sessionId, currentField.fieldId);
+      setInputValue("");
+      setStep("loading");
+      await fetchNextQuestion();
+    } catch (err: any) {
+      console.error("SKIP ANSWER ERROR:", err.message, err.detail);
+      setErrorMsg(te(err.message) || "Could not skip this question.");
+      setErrorIsFieldLevel(false);
+      setStep("answering");
+    }
   };
 
   const handleEditClick = () => {
@@ -626,6 +639,8 @@ export default function GuidedSession() {
                     {!currentField.required && (
                       <button
                         type="button"
+                        // Never tied to the input value: skipping is what a
+                        // user does *instead* of typing something.
                         disabled={step === "submitting"}
                         onClick={handleSkipClick}
                         data-testid="skip-question"

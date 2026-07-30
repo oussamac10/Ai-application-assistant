@@ -75,6 +75,7 @@ from app.field_detection.normalization import (
     normalize_field_name,
     sort_candidates_deterministically,
 )
+from app.field_detection.notices import filter_non_field_candidates
 from app.field_detection.option_groups import (
     detect_option_groups,
     match_option_set,
@@ -229,6 +230,10 @@ class LocalFieldDetectionProvider:
             candidates = self._detect_from_text_lines(document)
 
         candidates = [downgrade_low_confidence(c) for c in candidates]
+        # Document furniture — notices, instructions, footers — looks like a
+        # label but asks for nothing. Filtered before dedup so it cannot
+        # occupy a normalized name a real field needs.
+        candidates, _filtered = filter_non_field_candidates(candidates)
         candidates = deduplicate_candidates(candidates)
         candidates = sort_candidates_deterministically(candidates)
 

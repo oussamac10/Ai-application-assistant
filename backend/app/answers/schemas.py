@@ -25,7 +25,8 @@ class AnswerResponse(BaseSchema):
     clarification: ClarificationResponse | None = None
     validation_status: str
     confirmed_by_user: bool
-    original_answer: str
+    # None for a skipped question: a deliberate non-answer, not an empty one.
+    original_answer: str | None = None
     normalized_value: Any | None = None
     output_value: str | None = None
 
