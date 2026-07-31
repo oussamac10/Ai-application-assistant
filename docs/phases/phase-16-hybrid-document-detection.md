@@ -252,3 +252,104 @@ routing branch with a stubbed Azure side.
 providers over the committed PDF and its recorded Azure response, so a change to
 either extractor that would flip a real document's routing fails in CI rather
 than on a bill.
+
+---
+
+## Part 3 — Live-testing follow-up
+
+Three real documents were tested: the French `required_optional_validation_test_form.pdf`
+(committed as `fixtures/pdf/required-optional-validation-fr.pdf`), the Stuttgart
+residence-permit form `32-41-1268-antrag-aufenthaltserlaubnis.pdf` (a real
+government document, not committed), and the existing German rental contract.
+
+### Encrypted-but-readable PDFs
+
+The Stuttgart form was rejected at upload with "PDF is encrypted or
+password-protected". It opens in every viewer without a prompt: like most
+government forms it is encrypted for *permissions* with an empty user password.
+`reader.is_encrypted` answers "does this file have an encryption dictionary?"
+and says nothing about whether it can be read.
+
+`app/documents/decryption.py::open_pdf` tries `decrypt("")` and reports
+`pdf_password_required` only when that is refused. A second, hidden half: pypdf
+reported a successful decrypt and then raised on first page access because
+`cryptography` was not installed — a deployment problem surfacing as a document
+problem. It is now pinned, and `open_pdf` probes the pages before returning.
+
+Codes: `pdf_password_required`, `pdf_decryption_failed`, `pdf_invalid`.
+Error messages no longer interpolate pypdf's own text, which can echo document
+content.
+
+### Coverage, not just quality
+
+The quality score measures the candidates an extractor produced, and cannot see
+what it missed. The French form produced **five** flawless candidates for a
+two-page form of about thirty fields — score 0.83 against a 0.55 threshold, so
+it was never escalated and the user saw five questions.
+
+`app/field_detection/coverage.py` measures against the document instead: label
+lines (trailing `*`, colon, "(Optional)") versus candidates; drawn selection
+marks versus marks folded into option lists; pages that offered something
+versus pages that produced something. Punctuation and geometry only — no
+vocabulary, so it behaves identically in French, German and Arabic.
+
+Escalation now requires quality **and** coverage, and the reason names the real
+gap: `low_label_coverage`, `unclaimed_selection_marks`, `poor_page_coverage`.
+
+Where the document offers no evidence, every ratio reports 1.0 — no evidence of
+a gap is not evidence of a gap. That is what keeps the reference rental contract
+free (3 pages, fields on 2, the third a signature block).
+
+### Choice grouping generalized
+
+Options were leaking as separate text questions. The cause was spacing, not
+wording: segmentation is gap-based, and the professional-status row segments as
+
+```
+"(_) Salarie(e)" | "(_) Independant(e)" | "(_) Etudiant(e) (_) Demandeur d'emploi"
+```
+
+`_parse_option_row` required exactly one marker per segment, so the whole row
+was rejected. A marker is an unambiguous boundary — everything from one marker
+to the next is its label — which makes grouping independent of the spacing a
+document happened to use.
+
+### Declarations are not one question
+
+Three declarations were folded into one `multiple_choice`, turning two mandatory
+consents into "tick any of these" and offering a global Skip over the block.
+`independent_boolean_options` splits any group whose *options* carry their own
+requiredness markers into one boolean per option. The trigger is structural: a
+choice question's requiredness belongs to the question, not to individual
+answers, so an option carrying its own marker cannot be an option.
+
+Requiredness markers are also stripped from display labels, which were reaching
+the UI showing requiredness twice — and in the document's language inside an
+interface in another one.
+
+### Measured (local-only, committed fixtures)
+
+| | candidates | quality | label cov | mark cov | routing |
+|---|---|---|---|---|---|
+| `required-optional-validation-fr.pdf` | 8 | 0.98 | 0.47 | 0.88 | escalate (`low_label_coverage`) |
+| `rental-contract-de.pdf` | 19 | 0.83 | 1.00 | 1.00 | local |
+
+All four reported grouping problems resolve on the French fixture: Genre and
+Statut professionnel are single radio groups (the latter required), Langues
+préférées is an optional multiple_choice, and the three declarations are
+independent booleans with per-child requiredness.
+
+### Carried
+
+- Local text-field detection still finds only the choice groups on the French
+  form; coverage-driven escalation is the safety net, not a substitute. The
+  label-above-rule pass does not recognise that document's underline geometry.
+- Three selection marks on the "Lieu et date" row remain unclaimed.
+- Signature workflows (dedicated type, signature pad, sign-after-printing,
+  export placement) are **not implemented**.
+- Frontend rendering of `compound_boolean_group`, and suppression of the global
+  Skip when a screen carries required children, are **not implemented** — the
+  backend now models them correctly.
+- Stuttgart-specific structures (yes/no rows, repeated children rows, table
+  geometry) are not specifically handled; its unclaimed marks are what drives
+  its escalation.

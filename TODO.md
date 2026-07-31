@@ -25,8 +25,10 @@ Archived under `docs/progress/`:
 Phase 16 — Hybrid Document Detection. Branch `feature/hybrid-document-detection`, based on
 `feature/azure-translator`.
 
-**Status: both parts complete.** Part 1 (validation and requiredness stabilization) and Part 2
-(hybrid local-first routing) are implemented, tested and documented, and committed separately.
+**Status: Parts 1 and 2 complete. Part 3 (live-testing follow-up) partially complete.**
+
+Part 3 fixed four reported defects at their root causes; several listed items are **not
+implemented** and are named honestly under "Not implemented" below.
 
 Phase doc: `docs/phases/phase-16-hybrid-document-detection.md`.
 Decisions: [ADR 0016](docs/decisions/0016-three-state-requiredness-and-structured-confirmation.md).
@@ -219,6 +221,65 @@ Per-tenant or per-period spend caps, and admin visibility into escalation rates 
 line. Both belong with the monitoring work in Phase 23.
 
 ---
+
+## Part 3 — Live-testing follow-up
+
+Full detail: `docs/phases/phase-16-hybrid-document-detection.md`.
+Documents: the French `required_optional_validation_test_form.pdf` (committed as
+`fixtures/pdf/required-optional-validation-fr.pdf`), the Stuttgart residence-permit form (a real
+government document, not committed), and the existing German rental contract.
+
+### Fixed
+
+- [x] **Encrypted-but-readable PDFs.** `reader.is_encrypted` answers the wrong question; most
+      government forms are encrypted for permissions and open with an empty password.
+      `app/documents/decryption.py::open_pdf` tries `decrypt("")` and reports
+      `pdf_password_required` only when refused. `cryptography` pinned — pypdf reported a
+      successful decrypt then raised on first page access without it, a deployment problem
+      surfacing as a document problem. Codes: `pdf_password_required`, `pdf_decryption_failed`,
+      `pdf_invalid`. Parser text no longer reaches error messages.
+- [x] **Coverage-aware escalation.** The quality score cannot see what an extractor missed: five
+      flawless candidates on a thirty-field form scored 0.83 and were never escalated.
+      `app/field_detection/coverage.py` measures label lines, selection marks and pages against
+      the document. Escalation now needs quality *and* coverage; reasons name the real gap.
+- [x] **Choice grouping generalized.** Option leakage was caused by *spacing*, not wording — a
+      segment holding two markers rejected the whole row. A marker is now a boundary, so grouping
+      is independent of how tightly a form spaced its options. Fixes Genre, Statut professionnel,
+      Langues préférées and Méthode de contact together.
+- [x] **Declaration child requiredness.** Three declarations folded into one `multiple_choice`
+      turned two mandatory consents into "tick any of these". `independent_boolean_options` splits
+      any group whose options carry their own requiredness markers into independent booleans.
+      Structural, not lexical.
+- [x] **Requiredness markers stripped from display labels**, and group labels now carry their own
+      requiredness instead of discarding it.
+
+### Verified (local-only; no Azure calls)
+
+| | candidates | quality | label cov | mark cov | routing |
+|---|---|---|---|---|---|
+| `required-optional-validation-fr.pdf` | 8 | 0.98 | 0.47 | 0.88 | escalate (`low_label_coverage`) |
+| `rental-contract-de.pdf` | 19 | 0.83 | 1.00 | 1.00 | local |
+
+Backend **939 passed** (was 891), ruff / `ruff format --check` / mypy clean.
+
+### Not implemented
+
+Named rather than quietly skipped:
+
+- [ ] **Signature workflows** (spec P–U): dedicated `signature` handling end to end, signature
+      pad, "sign after printing" / `pending_manual_signature`, export placement, signature
+      privacy rules. None of this is built.
+- [ ] **Frontend for declaration children** (spec I, V): `compound_boolean_group` rendering,
+      per-child validation, and suppressing the global Skip when a screen carries required
+      children. The backend models it correctly; the UI does not yet consume it.
+- [ ] **Stuttgart-specific structures** (spec J, K): yes/no rows, repeated children rows, table
+      geometry, application-purpose and family-status grouping. Its unclaimed selection marks are
+      what currently drive its escalation to Azure.
+- [ ] **Local text-field detection on the French form.** Only the choice groups are found; the
+      label-above-rule pass does not recognise that document's underline geometry. Coverage-driven
+      escalation is the safety net, not a substitute.
+- [ ] Frontend and Playwright tests for the above (spec Y).
+- [ ] Three unclaimed selection marks on the "Lieu et date" row.
 
 ## Carried Deferred Items
 
