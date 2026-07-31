@@ -266,6 +266,7 @@
     "signAfterPrinting": "Sign after printing",
     "willSignAfterPrinting": "You chose to sign this form after printing it.",
     "summaryPending": "Will be signed after printing",
-    "printReminder": "Remember to sign the printed form."
+    "printReminder": "Remember to sign the printed form in the marked signature area.",
+    "reminderTitle": "This form still needs a handwritten signature."
   }
 }

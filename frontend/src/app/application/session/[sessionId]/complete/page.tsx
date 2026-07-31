@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { removeSessionToken } from "@/features/form-session/services/sessionCredentials";
-import { createExport, downloadExportBlob, getSession, ExportResponse, ApiError, TokenMissingError } from "@/features/form-session/services/apiClient";
+import { createExport, downloadExportBlob, getSession, getSummary, ExportResponse, ApiError, TokenMissingError } from "@/features/form-session/services/apiClient";
 
 type ExportState = "ready" | "creating_export" | "export_ready" | "downloading" | "download_failed" | "export_expired" | "token_missing";
 
@@ -15,11 +15,19 @@ export default function SessionComplete() {
 
   const t = useTranslations("complete");
   const tc = useTranslations("common");
+  const ts = useTranslations("signature");
 
   const [exportState, setExportState] = useState<ExportState>("ready");
   const [exportData, setExportData] = useState<ExportResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [exportSupported, setExportSupported] = useState<boolean | null>(null);
+  /** Whether any signature will be provided on paper rather than in the app.
+   *
+   * The reminder belongs *here*, before the download, because this is the last
+   * moment the app can say anything — once the PDF is on disk the user is on
+   * their own with a form whose signature box is deliberately blank. */
+  const [needsHandwrittenSignature, setNeedsHandwrittenSignature] =
+    useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,6 +36,20 @@ export default function SessionComplete() {
         const session = await getSession(sessionId);
         if (!cancelled) {
           setExportSupported(session.exportSupported ?? true);
+        }
+        try {
+          const summary = await getSummary(sessionId);
+          if (!cancelled) {
+            setNeedsHandwrittenSignature(
+              summary.fields.some(
+                (f) => f.answerState === "pending_manual_signature",
+              ),
+            );
+          }
+        } catch {
+          // A summary we cannot read is not a reason to block the export, and
+          // showing the reminder speculatively would be wrong for someone who
+          // signed digitally.
         }
       } catch {
         // If we can't determine origin, default to allowing the normal
@@ -131,6 +153,20 @@ export default function SessionComplete() {
             <p className="mt-2 text-sm text-slate-400">
               {t("subtitle")}
             </p>
+
+            {/* Shown only when a signature was deliberately deferred to paper.
+                Never inserted into the PDF itself: the official form's
+                signature box stays exactly as its author drew it. */}
+            {needsHandwrittenSignature && (
+              <div
+                role="status"
+                data-testid="handwritten-signature-reminder"
+                className="mt-6 w-full rounded-2xl border border-amber-800 bg-amber-950/20 p-4 text-start text-sm leading-relaxed text-amber-300"
+              >
+                <p className="font-semibold">{ts("reminderTitle")}</p>
+                <p className="mt-1">{ts("printReminder")}</p>
+              </div>
+            )}
 
             <div className="my-6 w-full border-t border-slate-800" />
 

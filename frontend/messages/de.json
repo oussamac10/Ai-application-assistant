@@ -266,6 +266,7 @@
     "signAfterPrinting": "Nach dem Ausdrucken unterschreiben",
     "willSignAfterPrinting": "Sie haben gewählt, dieses Formular nach dem Ausdrucken zu unterschreiben.",
     "summaryPending": "Wird nach dem Ausdrucken unterschrieben",
-    "printReminder": "Denken Sie daran, das ausgedruckte Formular zu unterschreiben."
+    "printReminder": "Denken Sie daran, das ausgedruckte Formular im markierten Unterschriftsfeld zu unterschreiben.",
+    "reminderTitle": "Dieses Formular benötigt noch eine handschriftliche Unterschrift."
   }
 }

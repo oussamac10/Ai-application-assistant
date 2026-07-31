@@ -266,6 +266,7 @@
     "signAfterPrinting": "Signer après impression",
     "willSignAfterPrinting": "Vous avez choisi de signer ce formulaire après l'avoir imprimé.",
     "summaryPending": "Sera signé après impression",
-    "printReminder": "N'oubliez pas de signer le formulaire imprimé."
+    "printReminder": "N'oubliez pas de signer le formulaire imprimé dans la zone de signature indiquée.",
+    "reminderTitle": "Ce formulaire nécessite encore une signature manuscrite."
   }
 }
