@@ -466,13 +466,36 @@ a group and is flagged `review_required`, never split back into N questions.
 
 ### Measured on the Stuttgart form (local-only, no Azure call)
 
-| metric | before | after |
-|---|---|---|
-| checkbox widgets | 54 | 54 |
-| groups created | 0 | **21** |
-| widgets claimed | 0 | **49** |
-| widgets unclaimed | 54 | **5** |
-| total candidates | 170 | **142** |
+| metric | before grouping | first pass | after association fixes |
+|---|---|---|---|
+| checkbox widgets | 54 | 54 | 54 |
+| groups created | 0 | 21 | **15** |
+| widgets claimed | 0 | 49* | **54** |
+| widgets unclaimed | 54 | 5* | **0** |
+
+\* The first pass's "49 claimed / 5 unclaimed" was a **counting bug, not a
+grouping failure**. Claim tracking keyed on `field_name`, and the field name is
+not unique: this form gives *both* boxes of a ja/nein question the same name,
+distinguishing them only by export value and position. Nothing was ever being
+dropped. Identity is now `(name, page, x, y)`.
+
+That discovery is also the native grouping signal `/Kids` was supposed to
+provide — widgets sharing one field name are one logical field.
+
+**Wrapped option lists.** "Zweck des Aufenthalts" offers six options laid out
+three-and-three, which row clustering read as two questions. Adjacent rows with
+the same left edge and identical widget size now merge — but geometry alone is
+not enough, because "Wie sind Sie untergebracht?" and "Zweck des Aufenthalts"
+sit in adjacent, identically aligned rows of identically sized widgets and every
+positional test says "continuation". Two further guards decide it:
+
+- *Intervening text.* A wrapped list has nothing between its lines but its own
+  options; a new question has its text printed there. Only text starting left of
+  the options counts, so option labels are never mistaken for a question.
+- *Differing shared tooltips.* When each row's widgets carry their own shared
+  tooltip and the two differ, the author labelled them as two questions. The
+  consecutive legal rows align too well for any positional test and are
+  separated by this alone.
 
 Groups found: application purpose (7, column), family status (5), visa
 ja/nein, previous stay ja/nein/seit Geburt, permanent residence, family
@@ -481,12 +504,23 @@ its own question.
 
 Known imperfections, all reviewable rather than silent:
 
-- "Purpose of stay" splits into two rows (Sprachkurs/Studium/Arbeitsaufnahme and
-  Werkvertrag/Au-Pair/Sonstiges) because the form wraps the list.
 - One legal row reads its second option as "Bundesrepublik" instead of "nein"
   (text-proximity miss).
-- Child-row gender pairs pick up table-header text as their question.
-- 5 widgets remain unclaimed.
+- Child-row gender pairs still take their question from table-header text; the
+  repeated-row model that would give them row-specific labels is not built.
+
+Fixed since the first pass: purpose-of-stay is now one group of six, all five
+legal questions are separate with their own labels, and every widget is
+accounted for.
+
+### Manual-sign reminder
+
+When a signature is deferred to paper the exported PDF's signature box is left
+deliberately blank — inserting a placeholder would deface a document someone is
+about to submit to an authority. The ready-for-export screen is therefore the
+last moment the app can say anything, so the reminder lives there, shown only
+when a field is in `pending_manual_signature` and never for someone who signed
+digitally.
 
 ### Carried
 
