@@ -300,6 +300,47 @@ def match_option_set(options: tuple[str, ...]) -> _OptionSet | None:
     return best
 
 
+def independent_boolean_options(
+    options: tuple[str, ...],
+) -> tuple[tuple[str, str], ...] | None:
+    """Splits a group whose *options* carry their own requiredness markers.
+
+    Returns `((label, requiredness), ...)`, or None when the group is a normal
+    choice question.
+
+    The French test form ends with:
+
+        [_] Je certifie que les informations sont exactes *
+        [_] J'accepte le traitement des donnees de test *
+        [_] Je souhaite recevoir des nouvelles (Optional)
+
+    Grouped as one `multiple_choice`, that becomes "tick any of these" — and
+    the two mandatory consents silently stop being mandatory, which is the one
+    thing a declaration block exists to enforce. They are not options of a
+    question; they are three independent yes/no answers that happen to sit
+    together.
+
+    The trigger is structural, not vocabulary: **an option carrying its own
+    requiredness marker cannot be an option**, because a choice question's
+    requiredness belongs to the question, not to individual answers. So this
+    fires on any such block in any language, while "Documents joints" — six
+    unmarked checkboxes — stays a single multiple_choice.
+    """
+    from app.field_detection.requiredness import (
+        UNKNOWN,
+        detect_requiredness,
+        strip_requiredness_markers,
+    )
+
+    resolved = [
+        (strip_requiredness_markers(option), detect_requiredness(option).state)
+        for option in options
+    ]
+    if not any(state != UNKNOWN for _label, state in resolved):
+        return None
+    return tuple(resolved)
+
+
 def _is_declaration_group(options: tuple[str, ...]) -> bool:
     normalized = [_normalize_option(option) for option in options]
     hits = sum(

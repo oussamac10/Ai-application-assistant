@@ -153,3 +153,23 @@ def strip_required_marker(label: str) -> str:
     own "Required" indicator from the resolved state.
     """
     return _LEADING_ASTERISK.sub("", _TRAILING_ASTERISK.sub("", label)).strip()
+
+
+# A trailing optionality marker, in any supported language. Only in brackets
+# and only at the end, so "Facultatif" used as an actual field label survives.
+_TRAILING_OPTIONALITY = re.compile(
+    r"[\(\[]\s*(?:optional|facultatif|facultative|freiwillig|اختياري)\s*[\)\]]\s*$",
+    re.IGNORECASE,
+)
+
+
+def strip_requiredness_markers(label: str) -> str:
+    """Removes both an asterisk and a trailing "(Optional)" from a display
+    label.
+
+    Requiredness is rendered by the frontend from the resolved three-state
+    value. Leaving the marker in the text shows it twice, and worse, shows it
+    in the document's language inside an interface in another one — a French
+    form in an Arabic UI was rendering "(Optional)" mid-sentence.
+    """
+    return _TRAILING_OPTIONALITY.sub("", strip_required_marker(label)).strip()

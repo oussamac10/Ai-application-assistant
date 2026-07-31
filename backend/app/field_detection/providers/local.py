@@ -78,6 +78,7 @@ from app.field_detection.normalization import (
 from app.field_detection.notices import filter_non_field_candidates
 from app.field_detection.option_groups import (
     detect_option_groups,
+    independent_boolean_options,
     match_option_set,
     strip_heading_number,
 )
@@ -88,6 +89,12 @@ from app.field_detection.providers.base import (
     DetectionPageInput,
     DetectionResult,
     DetectionToken,
+)
+from app.field_detection.requiredness import (
+    OPTIONAL,
+    REQUIRED,
+    detect_requiredness,
+    strip_requiredness_markers,
 )
 from app.field_detection.sections import (
     SectionContext,
@@ -574,11 +581,54 @@ class LocalFieldDetectionProvider:
                     continue
 
             option_boxes = [line_boxes[i] for i in option_indices]
+            option_labels = tuple(label for _, label in options)
+
+            # An option carrying its own requiredness marker is not an option:
+            # a choice question's requiredness belongs to the question, not to
+            # individual answers. A declaration block ("I certify … *", "I
+            # agree … *", "I want news (Optional)") is three independent
+            # booleans, and folding it into one multiple_choice silently turns
+            # two mandatory consents into "tick any of these".
+            independent = independent_boolean_options(option_labels)
+            if independent is not None:
+                for position, (child_label, child_state) in enumerate(independent):
+                    candidates.append(
+                        DetectedFieldCandidate(
+                            candidate_key=(
+                                f"declaration-{page_number}-{heading_index}-{position}"
+                            ),
+                            page_number=page_number,
+                            label=child_label,
+                            normalized_name=_contextual_name(child_label, context),
+                            field_type="checkbox",
+                            confidence=choice_group_confidence(marker_kind),
+                            source=heading_tokens[0].source,
+                            required=(
+                                True
+                                if child_state == "required"
+                                else False
+                                if child_state == "optional"
+                                else None
+                            ),
+                            label_bounding_box=line_boxes[option_indices[position]]
+                            if position < len(option_indices)
+                            else line_boxes[heading_index],
+                            input_bounding_box=line_boxes[option_indices[position]]
+                            if position < len(option_indices)
+                            else None,
+                        )
+                    )
+                continue
+
             candidates.append(
                 DetectedFieldCandidate(
                     candidate_key=f"choice-{page_number}-{heading_index}",
                     page_number=page_number,
-                    label=heading_text,
+                    # Requiredness is metadata the frontend renders itself; a
+                    # marker left in the text shows it twice, and shows it in
+                    # the document's language inside an interface in another.
+                    label=strip_requiredness_markers(heading_text),
+                    required=_marker_requiredness(heading_text),
                     normalized_name=_contextual_name(heading_text, context),
                     field_type=field_type,
                     confidence=choice_group_confidence(marker_kind),
@@ -586,7 +636,7 @@ class LocalFieldDetectionProvider:
                     multiple=multiple,
                     label_bounding_box=line_boxes[heading_index],
                     input_bounding_box=union_bounding_box(option_boxes),
-                    options=tuple(label for _, label in options),
+                    options=option_labels,
                 )
             )
 
@@ -922,3 +972,18 @@ class LocalFieldDetectionProvider:
                 consumed.add(index)
 
         return candidates
+
+
+def _marker_requiredness(label: str) -> bool | None:
+    """The three-state requiredness a group label's own marker declares.
+
+    Returned as the tri-state `bool | None` the candidate carries: True for a
+    positive finding, False for an explicit "optional", and None when the
+    document said nothing — which must never be resolved to either.
+    """
+    state = detect_requiredness(label).state
+    if state == REQUIRED:
+        return True
+    if state == OPTIONAL:
+        return False
+    return None
