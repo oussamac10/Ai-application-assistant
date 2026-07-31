@@ -421,8 +421,14 @@ class LocalFieldDetectionProvider:
                 DetectedFieldCandidate(
                     candidate_key=f"option-group-{page_number}-{group.line_indices[0]}",
                     page_number=page_number,
-                    label=group.label,
-                    normalized_name=normalize_field_name(group.label),
+                    # The group's own marker sets its requiredness; the marker
+                    # itself is metadata the frontend renders, not part of the
+                    # question text.
+                    label=strip_requiredness_markers(group.label),
+                    required=_marker_requiredness(group.label),
+                    normalized_name=normalize_field_name(
+                        strip_requiredness_markers(group.label)
+                    ),
                     field_type=group.field_type,
                     confidence=group.confidence,
                     source="native",

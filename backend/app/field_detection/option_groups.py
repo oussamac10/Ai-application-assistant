@@ -361,33 +361,66 @@ def strip_heading_number(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _parse_option_row(segments: list[LinePhrase]) -> list[tuple[str, str]] | None:
-    """Parses one physical line as a row of marker+label options.
+def _split_segment_at_markers(
+    segment: LinePhrase,
+) -> list[tuple[str, str]] | None:
+    """Splits one segment into (marker_kind, label) pairs, one per marker.
 
-    Returns None unless *every* segment on the line is exactly one marker plus
-    a short label — a line mixing options with other content is not an option
-    row, and treating it as one would swallow a real field.
+    Segmentation is gap-based, so how many options land in a segment depends on
+    how tightly the form spaces them. On the French test form the professional-
+    status row segments as
+
+        "(_) Salarie(e)" | "(_) Independant(e)" | "(_) Etudiant(e) (_) Demandeur d'emploi"
+
+    because the gap before the fourth marker is narrower than the others.
+    Requiring exactly one marker per segment rejected that entire row, so the
+    group was never formed and all four options leaked as separate text
+    questions — the reported "Statut professionnel" failure.
+
+    A marker is an unambiguous structural boundary: everything from one marker
+    up to the next is that marker's label. Reading it that way makes the result
+    independent of the spacing the document happened to use.
     """
+    tokens = sorted(segment.tokens, key=lambda t: t.bounding_box.x)
+    marker_positions = [
+        index for index, token in enumerate(tokens) if marker_type(token.text)
+    ]
+    if not marker_positions:
+        return None
+
     options: list[tuple[str, str]] = []
-    for segment in segments:
-        tokens = list(segment.tokens)
-        markers = [t for t in tokens if marker_type(t.text) is not None]
-        if len(markers) != 1:
-            return None
-        kind = marker_type(markers[0].text)
+    for order, start in enumerate(marker_positions):
+        kind = marker_type(tokens[start].text)
         if kind is None:
             return None
-        label_tokens = sorted(
-            (t for t in tokens if marker_type(t.text) is None),
-            key=lambda t: t.bounding_box.x,
+        end = (
+            marker_positions[order + 1]
+            if order + 1 < len(marker_positions)
+            else len(tokens)
         )
-        label = " ".join(t.text for t in label_tokens).strip()
+        label = " ".join(t.text for t in tokens[start + 1 : end]).strip()
         if not label:
             return None
         if len(label.split()) > _MAX_OPTION_WORDS or label.rstrip().endswith("."):
             # A sentence is a statement, not an option.
             return None
         options.append((kind, label))
+    return options
+
+
+def _parse_option_row(segments: list[LinePhrase]) -> list[tuple[str, str]] | None:
+    """Parses one physical line as a row of marker+label options.
+
+    Returns None unless *every* segment on the line carries at least one marker
+    with a short label after it — a line mixing options with other content is
+    not an option row, and treating it as one would swallow a real field.
+    """
+    options: list[tuple[str, str]] = []
+    for segment in segments:
+        parsed = _split_segment_at_markers(segment)
+        if parsed is None:
+            return None
+        options.extend(parsed)
     return options or None
 
 

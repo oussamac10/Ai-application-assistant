@@ -14,8 +14,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.field_detection.labeling import build_line_groups
+from app.field_detection.labeling import LinePhrase, build_line_groups
 from app.field_detection.option_groups import (
+    _split_segment_at_markers,
     detect_option_groups,
     match_option_set,
     strip_heading_number,
@@ -215,3 +216,59 @@ def test_one_coincidental_word_does_not_rename_a_group() -> None:
 )
 def test_heading_numbering_is_stripped(heading: str, expected: str) -> None:
     assert strip_heading_number(heading) == expected
+
+
+# ---------------------------------------------------------------------------
+# Segment splitting (Phase 16 follow-up)
+# ---------------------------------------------------------------------------
+
+
+def test_a_segment_holding_two_markers_yields_two_options() -> None:
+    """Segmentation is gap-based, so how many options land in one segment
+    depends on how tightly the form spaced them.
+
+    On the French test form the professional-status row segments as
+
+        "(_) Salarie(e)" | "(_) Independant(e)" | "(_) Etudiant(e) (_) Demandeur d'emploi"
+
+    because the gap before the fourth marker is narrower than the others.
+    Requiring exactly one marker per segment rejected the whole row, so the
+    group was never formed and all four options leaked as separate text
+    questions. A marker is an unambiguous boundary: everything from one marker
+    to the next is that marker's label, whatever the spacing.
+    """
+    segment = _phrase(
+        [("(_)", 40), ("Etudiant(e)", 55), ("(_)", 130), ("Demandeur", 145)]
+    )
+
+    assert _split_segment_at_markers(segment) == [
+        ("radio", "Etudiant(e)"),
+        ("radio", "Demandeur"),
+    ]
+
+
+def test_a_segment_with_one_marker_is_unchanged() -> None:
+    segment = _phrase([("(_)", 40), ("Femme", 55)])
+
+    assert _split_segment_at_markers(segment) == [("radio", "Femme")]
+
+
+def test_a_segment_with_no_marker_is_not_an_option() -> None:
+    assert _split_segment_at_markers(_phrase([("Genre", 40)])) is None
+
+
+def test_a_marker_with_no_label_after_it_is_rejected() -> None:
+    """A trailing marker with nothing following it is layout, not an option."""
+    assert _split_segment_at_markers(_phrase([("Femme", 40), ("(_)", 90)])) is None
+
+
+def _phrase(parts: list[tuple[str, float]]) -> LinePhrase:
+    """One line segment built from (text, x) pairs on a single row."""
+    tokens = tuple(_token(text, x, 100.0, width=8.0 * len(text)) for text, x in parts)
+    return LinePhrase(
+        page_number=1,
+        text=" ".join(text for text, _x in parts),
+        tokens=tokens,
+        bounding_box=BoundingBox(x=parts[0][1], y=100.0, width=400.0, height=12.0),
+        source="native",
+    )
