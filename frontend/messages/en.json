@@ -7,7 +7,8 @@
     "confirm": "Confirm",
     "edit": "Edit",
     "restart": "Start Over",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "declarationRequired": "This declaration must be accepted to continue."
   },
   "landing": {
     "selectUiLanguage": "Select UI Language",
@@ -256,5 +257,15 @@
     "status_failed": "Failed",
     "error_empty_title": "Title must not be empty.",
     "error_title_too_long": "Title is too long."
+  },
+  "signature": {
+    "padLabel": "Signature drawing area",
+    "instructions": "Draw your signature above using a mouse, finger or stylus. You can also sign the form after printing it.",
+    "clear": "Clear",
+    "undo": "Undo",
+    "signAfterPrinting": "Sign after printing",
+    "willSignAfterPrinting": "You chose to sign this form after printing it.",
+    "summaryPending": "Will be signed after printing",
+    "printReminder": "Remember to sign the printed form."
   }
 }

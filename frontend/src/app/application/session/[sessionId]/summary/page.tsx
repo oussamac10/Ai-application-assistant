@@ -20,6 +20,7 @@ export default function SessionSummary() {
   const t = useTranslations("summary");
   const tc = useTranslations("common");
   const te = useTranslations("errors");
+  const ts = useTranslations("signature");
 
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -128,6 +129,7 @@ export default function SessionSummary() {
    * how a deliberate skip came to be reported as an invalid value. */
   type RowState =
     | "confirmed"
+    | "pendingManualSignature"
     | "skipped"
     | "notAnswered"
     | "missingRequired"
@@ -139,6 +141,9 @@ export default function SessionSummary() {
       f.requiredness ?? (f.required ? "required" : "unknown");
     const state = f.answerState ?? (f.status === "skipped" ? "skipped" : null);
 
+    // A deliberate completion, not an absence: the user chose to sign the
+    // printed form, and reporting that as "Skipped" would misdescribe it.
+    if (state === "pending_manual_signature") return "pendingManualSignature";
     if (state === "skipped") return "skipped";
     if (state === "invalid") return "invalid";
     if (f.status === "confirmed") return "confirmed";
@@ -239,7 +244,9 @@ export default function SessionSummary() {
                                     : "bg-slate-800 text-slate-400"
                               }`}
                             >
-                              {state === "skipped"
+                              {state === "pendingManualSignature"
+                                ? ts("summaryPending")
+                                : state === "skipped"
                                 ? t("skipped")
                                 : state === "notAnswered"
                                   ? t("notAnswered")

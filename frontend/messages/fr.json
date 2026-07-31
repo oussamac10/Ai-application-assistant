@@ -7,7 +7,8 @@
     "confirm": "Confirmer",
     "edit": "Modifier",
     "restart": "Recommencer",
-    "loading": "Chargement..."
+    "loading": "Chargement...",
+    "declarationRequired": "Cette déclaration doit être acceptée pour continuer."
   },
   "landing": {
     "selectUiLanguage": "Sélectionner la langue de l'interface",
@@ -256,5 +257,15 @@
     "status_failed": "Échoué",
     "error_empty_title": "Le titre ne doit pas être vide.",
     "error_title_too_long": "Le titre est trop long."
+  },
+  "signature": {
+    "padLabel": "Zone de dessin de la signature",
+    "instructions": "Dessinez votre signature ci-dessus avec la souris, le doigt ou un stylet. Vous pouvez aussi signer le formulaire après l'avoir imprimé.",
+    "clear": "Effacer",
+    "undo": "Annuler",
+    "signAfterPrinting": "Signer après impression",
+    "willSignAfterPrinting": "Vous avez choisi de signer ce formulaire après l'avoir imprimé.",
+    "summaryPending": "Sera signé après impression",
+    "printReminder": "N'oubliez pas de signer le formulaire imprimé."
   }
 }

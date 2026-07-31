@@ -55,6 +55,11 @@ export const CurrentFieldResponseSchema = z.object({
   // no marker either way, and the UI must then show no requiredness label
   // rather than claiming the field is optional.
   requiredness: z.string().optional(),
+  // Signature fields only. `digitalSignatureRequired` is always false: a
+  // required signature box means the printed form must be signed before it
+  // counts, never that it must be signed electronically here.
+  signatureRequirement: z.string().nullable().optional(),
+  digitalSignatureRequired: z.boolean().optional(),
   position: z.number(),
   label: z.string(),
   helpText: z.string().nullable().optional(),
@@ -100,6 +105,7 @@ export const SummaryFieldSchema = z.object({
   // Distinct from `status`, which reports "unanswered" for both a skipped
   // question and one never reached.
   answerState: z.string().optional(),
+  signatureRequirement: z.string().nullable().optional(),
 });
 
 export const SummaryResponseSchema = z.object({
@@ -372,6 +378,40 @@ export async function reopenField(
     { method: "POST" },
     sessionId,
     z.object({ fieldId: z.string(), position: z.number() }),
+  );
+}
+
+/** Stores a drawn signature as vector strokes.
+ *
+ * Deliberately not a data URI or SVG: a payload that can only hold numbers
+ * cannot carry markup. Signature data never reaches translation or an AI
+ * provider — it is biometric personal data. */
+export async function submitSignature(
+  sessionId: string,
+  fieldId: string,
+  signature: { strokes: Array<Array<[number, number]>>; width: number; height: number },
+): Promise<AnswerResponse> {
+  return apiRequest(
+    `/form-sessions/${sessionId}/fields/${fieldId}/signature`,
+    { method: "POST", body: JSON.stringify(signature) },
+    sessionId,
+    AnswerResponseSchema,
+  );
+}
+
+/** Records that the user will sign the printed form.
+ *
+ * A completion, not a skip: electronic signing is never mandatory, so this is
+ * accepted even for a signature the document marked required. */
+export async function signAfterPrinting(
+  sessionId: string,
+  fieldId: string,
+): Promise<AnswerResponse> {
+  return apiRequest(
+    `/form-sessions/${sessionId}/fields/${fieldId}/sign-after-printing`,
+    { method: "POST" },
+    sessionId,
+    AnswerResponseSchema,
   );
 }
 

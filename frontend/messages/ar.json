@@ -7,7 +7,8 @@
     "confirm": "تأكيد",
     "edit": "تعديل",
     "restart": "البدء من جديد",
-    "loading": "جاري التحميل..."
+    "loading": "جاري التحميل...",
+    "declarationRequired": "يجب قبول هذا الإقرار للمتابعة."
   },
   "landing": {
     "selectUiLanguage": "اختر لغة واجهة المستخدم",
@@ -256,5 +257,15 @@
     "status_failed": "فشل",
     "error_empty_title": "لا يجوز أن يكون العنوان فارغًا.",
     "error_title_too_long": "العنوان طويل جدًا."
+  },
+  "signature": {
+    "padLabel": "منطقة رسم التوقيع",
+    "instructions": "ارسم توقيعك أعلاه باستخدام الفأرة أو الإصبع أو القلم. يمكنك أيضاً توقيع النموذج بعد طباعته.",
+    "clear": "مسح",
+    "undo": "تراجع",
+    "signAfterPrinting": "التوقيع بعد الطباعة",
+    "willSignAfterPrinting": "لقد اخترت توقيع هذا النموذج بعد طباعته.",
+    "summaryPending": "سيتم التوقيع بعد الطباعة",
+    "printReminder": "تذكّر توقيع النموذج المطبوع."
   }
 }

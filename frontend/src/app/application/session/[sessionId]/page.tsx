@@ -7,6 +7,8 @@ import {
   startSession,
   getCurrentField,
   skipField,
+  submitSignature,
+  signAfterPrinting,
   submitAnswer,
   submitClarification,
   confirmAnswer,
@@ -17,7 +19,15 @@ import {
   AnswerResponse,
 } from "@/features/form-session/services/apiClient";
 import { removeSessionToken } from "@/features/form-session/services/sessionCredentials";
+import {
+  canSkipQuestion,
+  resolveRequiredness,
+} from "@/features/form-session/utils/questionRules";
 import { FieldRenderer } from "@/features/form-session/components/FieldRenderer";
+import {
+  SignaturePad,
+  SignatureValue,
+} from "@/features/form-session/components/SignaturePad";
 import { formatProposedValue } from "@/features/form-session/utils/formatProposedValue";
 import ClaimBanner from "@/features/applications/components/ClaimBanner";
 
@@ -260,6 +270,47 @@ export default function GuidedSession() {
     }
   };
 
+  const [signatureValue, setSignatureValue] = useState<SignatureValue | null>(
+    null,
+  );
+
+  const handleSignatureSubmit = async () => {
+    if (!currentField || !signatureValue || step === "submitting") return;
+    try {
+      setStep("submitting");
+      setErrorMsg(null);
+      setErrorIsFieldLevel(false);
+      const response = await submitSignature(
+        sessionId,
+        currentField.fieldId,
+        signatureValue,
+      );
+      setLastAnswer(response);
+      handleAnswerTransitions(response);
+    } catch (err: any) {
+      setErrorMsg(te(err.message) || "Failed to save signature.");
+      setErrorIsFieldLevel(err?.status === 422);
+      setStep("answering");
+    }
+  };
+
+  const handleSignAfterPrinting = async () => {
+    if (!currentField || step === "submitting") return;
+    try {
+      setStep("submitting");
+      setErrorMsg(null);
+      // Never a skip: the user decided how the form will be signed, and the
+      // summary must say so rather than reporting the question as unanswered.
+      await signAfterPrinting(sessionId, currentField.fieldId);
+      setSignatureValue(null);
+      setStep("loading");
+      await fetchNextQuestion();
+    } catch (err: any) {
+      setErrorMsg(te(err.message) || "Failed to record manual signing.");
+      setStep("answering");
+    }
+  };
+
   const handleSkipClick = async () => {
     if (!currentField || step === "submitting") return;
     // The backend records status="skipped" with null values and advances the
@@ -329,8 +380,14 @@ export default function GuidedSession() {
   // distinguish "optional" from "nothing was said" — "unknown", which is the
   // safe reading because it neither blocks the user nor invents a claim.
   const requiredness = currentField
-    ? (currentField.requiredness ?? (currentField.required ? "required" : "unknown"))
+    ? resolveRequiredness(currentField)
     : "unknown";
+
+  // Skip visibility comes from the question, not from a boolean: a compound
+  // declaration group carries no requiredness of its own, so a check that only
+  // looked at the question offered "Skip this question" over two mandatory
+  // consents.
+  const skippable = currentField ? canSkipQuestion(currentField) : false;
 
   // Progress percentage calculation
   // Count every question, not only the mandatory ones: with evidence-based
@@ -614,7 +671,22 @@ export default function GuidedSession() {
                     )}
                   </div>
 
-                  {/* Render input field */}
+                  {/* A signature is drawn, never typed — and the user must
+                      always be able to sign on paper instead. */}
+                  {currentField.fieldType === "signature" ? (
+                    <SignaturePad
+                      fieldKey={currentField.key}
+                      value={signatureValue}
+                      onChange={setSignatureValue}
+                      onSignAfterPrinting={handleSignAfterPrinting}
+                      pendingManualSignature={
+                        currentField.currentAnswerStatus ===
+                        "pending_manual_signature"
+                      }
+                      disabled={step === "submitting"}
+                      error={errorIsFieldLevel ? errorMsg || undefined : undefined}
+                    />
+                  ) : (
                   <FieldRenderer
                     fieldType={currentField.fieldType}
                     fieldKey={currentField.key}
@@ -632,6 +704,7 @@ export default function GuidedSession() {
                       setInputValue(val);
                     }}
                   />
+                  )}
 
                   {/* Footer navigation */}
                   <div className="flex gap-4 pt-4 border-t border-slate-800">
@@ -647,8 +720,10 @@ export default function GuidedSession() {
                     </button>
                     {/* Optional *and* unknown can be left unanswered — only a
                         question the form explicitly marked required blocks
-                        progress. Unknown does not mean required. */}
-                    {requiredness !== "required" && (
+                        progress. Unknown does not mean required. A group with
+                        any required child is never skippable, whatever the
+                        group itself says. */}
+                    {skippable && (
                       <button
                         type="button"
                         // Never tied to the input value: skipping is what a
@@ -662,8 +737,21 @@ export default function GuidedSession() {
                       </button>
                     )}
                     <button
-                      type="submit"
-                      disabled={!inputValue.trim() || step === "submitting"}
+                      type={
+                        currentField.fieldType === "signature"
+                          ? "button"
+                          : "submit"
+                      }
+                      onClick={
+                        currentField.fieldType === "signature"
+                          ? handleSignatureSubmit
+                          : undefined
+                      }
+                      disabled={
+                        currentField.fieldType === "signature"
+                          ? signatureValue === null || step === "submitting"
+                          : !inputValue.trim() || step === "submitting"
+                      }
                       className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-base font-bold transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
                     >
                       {step === "submitting" ? tc("loading") : tc("continue")}

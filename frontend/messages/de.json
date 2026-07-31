@@ -7,7 +7,8 @@
     "confirm": "Bestätigen",
     "edit": "Bearbeiten",
     "restart": "Neu starten",
-    "loading": "Wird geladen..."
+    "loading": "Wird geladen...",
+    "declarationRequired": "Diese Erklärung muss akzeptiert werden, um fortzufahren."
   },
   "landing": {
     "selectUiLanguage": "Sprache der Benutzeroberfläche wählen",
@@ -256,5 +257,15 @@
     "status_failed": "Fehlgeschlagen",
     "error_empty_title": "Der Titel darf nicht leer sein.",
     "error_title_too_long": "Der Titel ist zu lang."
+  },
+  "signature": {
+    "padLabel": "Bereich zum Zeichnen der Unterschrift",
+    "instructions": "Zeichnen Sie Ihre Unterschrift oben mit Maus, Finger oder Stift. Sie können das Formular auch nach dem Ausdrucken unterschreiben.",
+    "clear": "Löschen",
+    "undo": "Rückgängig",
+    "signAfterPrinting": "Nach dem Ausdrucken unterschreiben",
+    "willSignAfterPrinting": "Sie haben gewählt, dieses Formular nach dem Ausdrucken zu unterschreiben.",
+    "summaryPending": "Wird nach dem Ausdrucken unterschrieben",
+    "printReminder": "Denken Sie daran, das ausgedruckte Formular zu unterschreiben."
   }
 }
