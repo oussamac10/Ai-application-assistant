@@ -612,6 +612,45 @@ Validation runs again at export: storage sits between capture and rendering, and
 immediately before a renderer is the cheapest place to catch a corrupted or
 tampered row. Errors carry a structural code and never a coordinate.
 
+### Signature export, wired
+
+The renderer existed, was fully tested, and was never called — the export path
+filled AcroForm fields only. `PypdfRenderer.render` now takes signatures and
+draws them after the field pass, in two passes because they are two different
+operations: pypdf sets field values, and a signature is ink at coordinates.
+Drawing afterwards with an incremental save leaves every untouched page and
+unrelated field exactly as pypdf left them; nothing is rasterised and nothing
+unrelated is flattened.
+
+A signature answer takes its own path through the export service — never
+`format_field_value`, normalization or translation, none of which has anything
+to contribute to biometric data.
+
+`PDFFieldMapping` gains `page` and `signatureRect`, with **no fallback
+position**. A digitally signed answer with no mapped rectangle raises
+`signature_mapping_missing` rather than guessing: `domain-rules.md` forbids
+coordinate guessing, and a signature in the wrong part of an official document
+is worse than an export that declines to place it. A *deferred* signature needs
+no mapping, since nothing is drawn.
+
+Failures carry their own code (`signature_invalid`, `signature_mapping_missing`,
+`signature_export_failed`) rather than a generic one, and messages are safe by
+construction. A half-written export is deleted on failure, so a document with
+some fields and no signature is never left behind looking complete.
+
+Integration tests reopen the written PDF: ink inside the mapped rectangle and
+nowhere else, aspect ratio preserved, the form's own text and second page
+untouched, the AcroForm field still filled — and for the manual-sign path, a
+genuinely blank signature area with the export still succeeding.
+
+### Repeated child rows in the UI
+
+The summary opens a labelled group ("Child 1", "Child 2") at each row boundary,
+detected from the indexed key shape. Presentation only — keys are the contract
+with export and are never rewritten. The pattern matches the *last*
+number-delimited group, so `spouse_details_2_passport` parses correctly rather
+than taking "spouse" as the section.
+
 ### Offline Playwright
 
 `e2e/fixtures/mockSession.ts` intercepts `/api/**` and serves a deterministic
