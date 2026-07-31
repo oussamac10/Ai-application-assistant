@@ -25,8 +25,9 @@ Represents a user's answer to a specific form field within an anonymous form ses
   - `needs_clarification`: Missing attributes (e.g. currency/period for money fields).
   - `awaiting_confirmation`: Valid extraction ready for user confirmation.
   - `confirmed`: Formally confirmed by the user.
+  - `pending_manual_signature`: The user chose to sign the printed form. Its own state on purpose — neither an answer (there is no value) nor a skip (the question was dealt with, deliberately). It never blocks confirmation, and the summary shows "Will be signed after printing". Electronic signing is never mandatory: a required signature box means the *document* must be signed before it counts, not that it must be signed inside this application.
   - `skipped`: The user deliberately left the question unanswered. Stored with `original_answer = null` and `normalized_value = null` — never as an empty string, which would be validated, normalized, and indistinguishable from a question never reached.
-- **Derived answer state** (`app/answers/states.py`, not a column): `unreached` (no record) | `unanswered` (a record with no value) | `skipped` | `answered` | `invalid`. Reported to the client as `answerState`. It exists because `status` alone says "unanswered" for both a deliberate skip and a question never opened, and the summary must tell them apart. Crossed with `FormField.requiredness` — and only crossed with it — this decides what blocks confirmation.
+- **Derived answer state** (`app/answers/states.py`, not a column): `unreached` (no record) | `unanswered` (a record with no value) | `skipped` | `pending_manual_signature` | `answered` | `invalid`. Reported to the client as `answerState`. It exists because `status` alone says "unanswered" for both a deliberate skip and a question never opened, and the summary must tell them apart. Crossed with `FormField.requiredness` — and only crossed with it — this decides what blocks confirmation.
 - `validation_status` (String): Validation results. One of:
   - `not_checked`: Has not been checked against Zod/deterministic logic.
   - `valid`: Fully matches required constraints.

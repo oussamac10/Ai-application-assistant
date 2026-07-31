@@ -86,6 +86,21 @@ marker stays `unknown`.
 Skipping is allowed for `optional` **and** `unknown`, refused for `required`. A skip is its
 own state with null values, never an empty string.
 
+## Signatures
+
+A detected signature field must **never** require electronic signing. When a PDF
+marks its signature box required, the form is saying the *printed* document must
+be signed before it counts — not that it must be signed inside this
+application. `signature_requirement` (`required_before_submission | optional |
+unknown`) reports what the document said; `digital_signature_required` is always
+false. "Sign after printing" is a first-class completion recorded as
+`pending_manual_signature`, never a skip, and it never blocks confirmation.
+
+A signature is biometric personal data: never logged, never translated, never
+normalized, never sent to any AI or translation provider, never in analytics or
+an error message. Store geometry only — no pressure, tilt, device identity or
+timing.
+
 ## Answer and session state
 
 Answers use independent status dimensions, not one combined field:
