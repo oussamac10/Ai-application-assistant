@@ -342,3 +342,140 @@ def test_text_widgets_are_never_grouped() -> None:
     )
 
     assert group_checkbox_widgets([text_widget]) == []
+
+
+# ---------------------------------------------------------------------------
+# Option-label association (the "Bundesrepublik" regression)
+# ---------------------------------------------------------------------------
+
+
+def _legal_row_tokens() -> tuple[DetectionToken, ...]:
+    """The reference form's "Ausweisung" row, to scale.
+
+    The question wraps onto the line above the checkboxes and its last words
+    sit almost exactly over the option labels: `Bundesrepublik` at x=140.7 is
+    0.2pt to the *left* of `nein` at x=140.9. A nearest-by-x search picked the
+    question word.
+    """
+    return tuple(
+        DetectionToken(
+            text=text,
+            confidence=1.0,
+            bounding_box=BoundingBox(x=x, y=y, width=len(text) * 4.2, height=9.0),
+            source="native",
+        )
+        for text, x, y in (
+            ("eine", 70.0, 409.0),
+            ("Einreise", 87.6, 409.0),
+            ("in", 118.9, 409.0),
+            ("die", 127.6, 409.0),
+            ("Bundesrepublik", 140.7, 409.0),
+            ("Deutschland", 198.3, 409.0),
+            ("ja", 84.2, 422.0),
+            ("nein", 140.9, 422.0),
+        )
+    )
+
+
+def test_the_question_line_above_is_never_used_as_an_option_label() -> None:
+    """The reported bug, at the real coordinates."""
+    widgets = [
+        _checkbox("chkAusweisungS3", "Ausweisung", 67.9, 420.9),
+        _checkbox("chkAusweisungS3", "Ausweisung", 124.7, 420.7),
+    ]
+
+    group = group_checkbox_widgets(widgets, {1: _legal_row_tokens()})[0]
+
+    labels = [option.label for option in group.options]
+    assert labels == ["ja", "nein"]
+    assert "Bundesrepublik" not in labels
+
+
+def test_same_baseline_text_beats_closer_text_on_another_line() -> None:
+    """Vertical agreement is decided first and strictly: a label shares the
+    widget's baseline, and anything on another line is a different sentence
+    however close it looks horizontally."""
+    widgets = [
+        _checkbox("q", "shared", 100.0, 200.0),
+        _checkbox("q", "shared", 200.0, 200.0),
+    ]
+    tokens = (
+        # Horizontally nearer, but on the line above.
+        DetectionToken(
+            text="Wrong",
+            confidence=1.0,
+            bounding_box=BoundingBox(x=214.0, y=188.0, width=25.0, height=9.0),
+            source="native",
+        ),
+        DetectionToken(
+            text="ja",
+            confidence=1.0,
+            bounding_box=BoundingBox(x=116.0, y=201.0, width=8.0, height=9.0),
+            source="native",
+        ),
+        DetectionToken(
+            text="nein",
+            confidence=1.0,
+            bounding_box=BoundingBox(x=216.0, y=201.0, width=16.0, height=9.0),
+            source="native",
+        ),
+    )
+
+    group = group_checkbox_widgets(widgets, {1: tokens})[0]
+
+    assert [option.label for option in group.options] == ["ja", "nein"]
+
+
+def test_a_long_word_run_beside_a_widget_is_not_an_option() -> None:
+    """A long phrase next to a checkbox is the question, prose, or the next
+    column — never the answer. Left unresolved, the group keeps its shared
+    tooltip rather than being given wrong labels."""
+    widgets = [
+        _checkbox("q", "Krankenversicherung", 100.0, 200.0),
+        _checkbox("q", "Krankenversicherung", 200.0, 200.0),
+    ]
+    tokens = (
+        DetectionToken(
+            text="besteht fuer die gesamte Dauer des Aufenthalts",
+            confidence=1.0,
+            bounding_box=BoundingBox(x=116.0, y=201.0, width=200.0, height=9.0),
+            source="native",
+        ),
+    )
+
+    group = group_checkbox_widgets(widgets, {1: tokens})[0]
+
+    # Unchanged rather than wrong: two identically-labelled options are worse
+    # than one unlabelled group, and this stays reviewable.
+    assert {option.label for option in group.options} == {"Krankenversicherung"}
+
+
+def test_neighbouring_legal_rows_keep_their_own_options() -> None:
+    widgets = [
+        _checkbox("q1", "Ermittlungsverfahren", 100.0, 200.0),
+        _checkbox("q1", "Ermittlungsverfahren", 200.0, 200.0),
+        _checkbox("q2", "Strafbefehl", 100.0, 215.0),
+        _checkbox("q2", "Strafbefehl", 200.0, 215.0),
+    ]
+    tokens = tuple(
+        DetectionToken(
+            text=text,
+            confidence=1.0,
+            bounding_box=BoundingBox(x=x, y=y, width=len(text) * 4.2, height=9.0),
+            source="native",
+        )
+        for text, x, y in (
+            ("ja", 116.0, 201.0),
+            ("nein", 216.0, 201.0),
+            ("ja", 116.0, 216.0),
+            ("nein", 216.0, 216.0),
+        )
+    )
+
+    groups = group_checkbox_widgets(widgets, {1: tokens})
+
+    assert len(groups) == 2
+    for group in groups:
+        assert [option.label for option in group.options] == ["ja", "nein"]
+    # And no widget was lost between them.
+    assert len(claimed_widgets(groups)) == 4

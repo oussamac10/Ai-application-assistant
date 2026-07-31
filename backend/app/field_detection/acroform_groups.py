@@ -343,30 +343,78 @@ def _nearest_label_above(
     return text or None
 
 
-def _label_right_of(
-    rect: BoundingBox, tokens: tuple[DetectionToken, ...]
-) -> str | None:
-    """The nearest text immediately to a widget's right, on its own line.
+# An option label sits on the widget's own baseline. This is a fraction of the
+# widget height rather than a fixed distance, because it has to hold for a
+# 9pt checkbox and a 20pt one alike.
+_SAME_BASELINE_TOLERANCE = 0.45
 
-    Used when a group's widgets all carry the *same* tooltip, which means the
-    author put the question there rather than the option — the Stuttgart legal
-    questions do exactly this, giving both boxes the tooltip "polizeiliches
-    Ermittlungsverfahren". The distinguishing text ("ja", "nein") is then only
-    available from the page itself.
+# How far beside a widget its label can start. Beyond this the nearest text
+# belongs to something else.
+_LABEL_SEARCH_DISTANCE = 70.0
+
+# An option is a short phrase. A long word run beside a checkbox is the
+# question, or prose, or the next column — never the answer.
+_MAX_OPTION_LABEL_WORDS = 4
+
+
+def _label_beside(
+    rect: BoundingBox,
+    tokens: tuple[DetectionToken, ...],
+    *,
+    rtl: bool = False,
+) -> str | None:
+    """The option text belonging to one widget.
+
+    Used when a group's widgets all share a tooltip, so the distinguishing text
+    exists only on the page. Getting it wrong is subtle and damaging: the
+    reference form's "Ausweisung" row put `Bundesrepublik` — a word from the
+    *question*, printed on the line above — 0.2pt to the left of `nein`, and a
+    nearest-by-x search picked it.
+
+    So vertical agreement is decided first and strictly. A label shares the
+    widget's baseline; anything on another line is a different sentence,
+    however close it looks horizontally. Only among true same-baseline tokens
+    does horizontal distance break the tie.
     """
     centre_y = rect.y + rect.height / 2
-    right = [
-        token
-        for token in tokens
-        if token.bounding_box.x >= rect.x + rect.width - 1
-        and token.bounding_box.x < rect.x + rect.width + 60
-        and abs(token.bounding_box.y + token.bounding_box.height / 2 - centre_y)
-        <= rect.height
-    ]
-    if not right:
+    tolerance = rect.height * _SAME_BASELINE_TOLERANCE
+
+    def on_baseline(token: DetectionToken) -> bool:
+        box = token.bounding_box
+        return abs(box.y + box.height / 2 - centre_y) <= tolerance
+
+    # Reading direction decides which side to look at: an RTL form puts the
+    # label to the widget's left.
+    if rtl:
+        def beside(token: DetectionToken) -> bool:
+            box = token.bounding_box
+            return (
+                box.x + box.width <= rect.x + 1
+                and rect.x - (box.x + box.width) < _LABEL_SEARCH_DISTANCE
+            )
+
+        def distance(token: DetectionToken) -> float:
+            return rect.x - (token.bounding_box.x + token.bounding_box.width)
+    else:
+        def beside(token: DetectionToken) -> bool:
+            box = token.bounding_box
+            return (
+                box.x >= rect.x + rect.width - 1
+                and box.x - (rect.x + rect.width) < _LABEL_SEARCH_DISTANCE
+            )
+
+        def distance(token: DetectionToken) -> float:
+            return token.bounding_box.x - (rect.x + rect.width)
+
+    candidates = [t for t in tokens if on_baseline(t) and beside(t)]
+    if not candidates:
         return None
-    nearest = min(right, key=lambda t: t.bounding_box.x)
-    return nearest.text.strip() or None
+
+    nearest = min(candidates, key=distance)
+    text = nearest.text.strip()
+    if not text or len(text.split()) > _MAX_OPTION_LABEL_WORDS:
+        return None
+    return text
 
 
 def _resolve_option_labels(
@@ -387,7 +435,7 @@ def _resolve_option_labels(
     shared = next(iter(labels))
     rewritten: list[WidgetOption] = []
     for option in options:
-        text = _label_right_of(option.rect, tokens)
+        text = _label_beside(option.rect, tokens)
         if not text:
             return options, None
         rewritten.append(
