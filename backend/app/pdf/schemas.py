@@ -10,6 +10,13 @@ class PDFFieldMapping(BaseModel):
     format: str
     max_length: int | None = Field(None, alias="maxLength")
     overflow: Literal["reject", "truncate", "wrap"] = "reject"
+    # Signature fields only. A signature is drawn at coordinates rather than
+    # written into an AcroForm text field, so it needs an explicit rectangle.
+    # There is deliberately no fallback position: `docs/claude/domain-rules.md`
+    # forbids coordinate guessing, and a signature placed in the wrong part of
+    # an official form is worse than one the export refuses to place at all.
+    page: int = 1
+    signature_rect: list[float] | None = Field(None, alias="signatureRect")
 
     model_config = {
         "populate_by_name": True,

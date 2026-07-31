@@ -1,17 +1,24 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.answers.models import FormAnswer
+from app.answers.signatures import PENDING_MANUAL_SIGNATURE
 from app.core.config import settings
 from app.forms.models import FormVersion
 from app.pdf.formatting import format_field_value
 from app.pdf.models import FormExport
 from app.pdf.registry import PDFMappingError, PDFMappingLoader, PDFTemplateRegistry
 from app.pdf.renderers.pypdf_renderer import PypdfRenderer
+from app.pdf.signature_render import (
+    SIGNATURE_MAPPING_MISSING,
+    SignatureBox,
+    SignatureRenderError,
+)
 from app.pdf.validation import PDFExportValidator
 from app.sessions.models import FormSession
 from app.sessions.security import verify_ownership_token
@@ -143,6 +150,9 @@ class PDFExportService:
 
         # 9. Format confirmed answers and apply overflow rules
         values_to_fill: dict[str, object] = {}
+        # Signatures are collected separately and drawn after the form fields
+        # are written; see PypdfRenderer.render.
+        signatures: list[tuple[SignatureBox, Any]] = []
         for field_map in mapping.fields:
             # Find matching form field key
             form_field = next(
@@ -153,6 +163,21 @@ class PDFExportService:
 
             ans = answers_by_field_id.get(form_field.id)
             if not ans:
+                continue
+
+            if form_field.field_type == "signature":
+                # A signature is ink at coordinates, not a form value. It never
+                # goes through formatting, normalization or translation — it is
+                # biometric data and none of those stages has anything to
+                # contribute to it.
+                try:
+                    signature_box = _signature_box_for(field_map, ans)
+                except SignatureRenderError as exc:
+                    # Structured and safe by construction: the message names
+                    # the mapping problem and never a coordinate.
+                    raise ValidationError(str(exc), exc.error_code) from exc
+                if signature_box is not None:
+                    signatures.append(signature_box)
                 continue
 
             # Format confirmed value
@@ -222,6 +247,7 @@ class PDFExportService:
                 output_path=output_path,
                 mapping=mapping,
                 values=values_to_fill,
+                signatures=signatures,
             )
 
             # Validate generated PDF and calculate checksum
@@ -234,18 +260,74 @@ class PDFExportService:
             export.completed_at = datetime.now(UTC)
             self.db.commit()
 
+        except SignatureRenderError as e:
+            # A rejected signature is its own failure, reported with its own
+            # code. The message is safe by construction; the payload that
+            # caused it never appears in it.
+            export.status = "failed"
+            export.failed_at = datetime.now(UTC)
+            export.failure_code = e.error_code.upper()
+            self.db.commit()
+            _remove_partial_export(output_path)
+            raise ValidationError(str(e), e.error_code) from e
+
         except Exception as e:
             # Mark export as failed
             export.status = "failed"
             export.failed_at = datetime.now(UTC)
             export.failure_code = "GENERATION_ERROR"
             self.db.commit()
-            if output_path.exists():
-                try:
-                    output_path.unlink()
-                except OSError:
-                    pass
+            _remove_partial_export(output_path)
             # Safe raise
             raise ValidationError(f"PDF rendering failed: {str(e)}") from e
 
         return export
+
+
+def _remove_partial_export(output_path: Path) -> None:
+    """Deletes a half-written export.
+
+    A failed render can leave a file containing some fields and no signature;
+    keeping it around risks serving a document that looks complete and is not.
+    """
+    if output_path.exists():
+        try:
+            output_path.unlink()
+        except OSError:
+            pass
+
+
+def _signature_box_for(field_map: Any, answer: Any) -> tuple[SignatureBox, Any] | None:
+    """The rectangle and strokes for one signature answer, or None to skip.
+
+    Returns None when the user chose to sign the printed form: that box is left
+    exactly as the form's author drew it, with no placeholder of any kind.
+
+    A digitally signed answer with no mapped rectangle raises rather than
+    guessing a position — `docs/claude/domain-rules.md` forbids coordinate
+    guessing, and a signature in the wrong part of an official document is
+    worse than an export that refuses to place it.
+    """
+    if answer.status == PENDING_MANUAL_SIGNATURE:
+        return None
+    if not answer.normalized_value:
+        return None
+
+    rect = getattr(field_map, "signature_rect", None)
+    if not rect or len(rect) != 4:
+        raise SignatureRenderError(
+            SIGNATURE_MAPPING_MISSING,
+            "This template has no signature area mapped.",
+        )
+
+    x, y, width, height = (float(value) for value in rect)
+    return (
+        SignatureBox(
+            page_number=getattr(field_map, "page", 1) or 1,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+        ),
+        answer.normalized_value,
+    )
