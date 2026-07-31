@@ -136,6 +136,13 @@ class PDFExportService:
         for field in version.fields:
             ans = answers_by_field_id.get(field.id)
             if field.required:
+                # Choosing to sign the printed form is a completed decision
+                # about a required signature, not a missing answer. A required
+                # signature box means the *document* must be signed before it
+                # counts, never that it must be signed electronically here — so
+                # blocking the export would make the paper route impossible.
+                if ans is not None and ans.status == PENDING_MANUAL_SIGNATURE:
+                    continue
                 if not ans or ans.status != "confirmed":
                     raise ValidationError(
                         f"Required field '{field.key}' is not confirmed."
@@ -203,6 +210,25 @@ class PDFExportService:
                 # If wrap, we keep it as is (let reader handle it)
 
             values_to_fill[field_map.field_key] = formatted_val
+
+        # A signature the template never mapped would otherwise be dropped in
+        # silence, handing the user an official document with an empty
+        # signature box they believe they filled. Refusing is the honest
+        # outcome, and it is the same error as a mapping with no rectangle.
+        mapped_keys = {field_map.field_key for field_map in mapping.fields}
+        for field in version.fields:
+            if field.field_type != "signature":
+                continue
+            ans = answers_by_field_id.get(field.id)
+            if ans is None or ans.status == PENDING_MANUAL_SIGNATURE:
+                continue
+            if not ans.normalized_value:
+                continue
+            if field.key not in mapped_keys:
+                raise ValidationError(
+                    "This template has no signature area mapped.",
+                    SIGNATURE_MAPPING_MISSING,
+                )
 
         # 10. Start rendering
         # Load registry paths

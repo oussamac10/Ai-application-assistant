@@ -1,0 +1,27 @@
+{
+  "templateKey": "signature-demo-v1",
+  "formVersionKey": "signature-demo:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "applicant_name",
+      "pdfFieldName": "applicant_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "reject"
+    },
+    {
+      "fieldKey": "applicant_signature",
+      "pdfFieldName": "applicant_signature",
+      "format": "text",
+      "page": 1,
+      "signatureRect": {
+        "x": 72,
+        "y": 220,
+        "width": 240,
+        "height": 70
+      }
+    }
+  ]
+}
