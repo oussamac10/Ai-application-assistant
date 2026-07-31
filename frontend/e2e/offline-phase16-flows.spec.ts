@@ -661,8 +661,38 @@ test.describe("Phase 16 — offline export and repeated rows", () => {
     await page.goto(`/application/session/${SESSION}`);
 
     // Without this the screen just says "männlich / weiblich" with nothing
-    // saying whose.
-    await expect(page.getByTestId("row-context")).toHaveText("Child 2");
+    // saying whose. The row counter is nested inside the same element, so
+    // match the heading rather than the whole string.
+    await expect(page.getByTestId("row-context")).toContainText("Child 2");
+  });
+
+  test("the guided flow says how far through a child's details you are", async ({
+    page,
+  }) => {
+    await mockGuidedSession(page, {
+      sessionId: SESSION,
+      fields: [
+        {
+          id: "c1g",
+          key: "children_1_gender",
+          fieldType: "single_choice",
+          required: false,
+          position: 1,
+          label: "männlich / weiblich",
+          options: [
+            { value: "männlich", label: "männlich" },
+            { value: "weiblich", label: "weiblich" },
+          ],
+        },
+      ],
+      summary: CHILD_ROWS,
+    });
+
+    await page.goto(`/application/session/${SESSION}`);
+
+    // Global progress answers "how much of the form is left"; this answers
+    // "how much of this child is left".
+    await expect(page.getByTestId("row-progress")).toHaveText("Field 2 of 2");
   });
 
   test("an ordinary question shows no row context", async ({ page }) => {

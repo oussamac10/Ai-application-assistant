@@ -31,7 +31,8 @@
     "invalidAnswer": "Cette réponse n'est pas valide pour cette question. Veuillez vérifier votre sélection et réessayer.",
     "required": "Obligatoire",
     "optional": "Facultatif",
-    "skipQuestion": "Passer cette question"
+    "skipQuestion": "Passer cette question",
+    "rowFieldProgress": "Champ {position} sur {total}"
   },
   "summary": {
     "title": "Résumé de la session",
@@ -61,7 +62,14 @@
     "exportExpired": "Le PDF a expiré",
     "regeneratePdf": "Veuillez générer un nouveau PDF",
     "overflowError": "Une ou plusieurs valeurs ne rentrent pas dans le formulaire",
-    "dynamicExportUnsupported": "Vos réponses sont complètes. Le remplissage et l'exportation de ce PDF téléchargé ne sont pas encore pris en charge."
+    "dynamicExportUnsupported": "Vos réponses sont complètes. Le remplissage et l'exportation de ce PDF téléchargé ne sont pas encore pris en charge.",
+    "error_export_forbidden": "Vous n'avez plus l'autorisation d'exporter cette demande.",
+    "error_signature_mapping_missing": "Le champ de signature n'a pas pu être placé dans le PDF exporté.",
+    "error_signature_invalid": "La signature enregistrée est invalide. Veuillez signer à nouveau.",
+    "error_signature_too_large": "La signature est trop grande. Veuillez l'effacer et signer à nouveau.",
+    "error_signature_export_failed": "La signature n'a pas pu être ajoutée au PDF.",
+    "error_template_mapping_invalid": "Ce formulaire ne peut pas être exporté actuellement car son mappage PDF est invalide.",
+    "returnToSignature": "Signer à nouveau"
   },
   "errors": {
     "unauthorized": "Cette session est invalide ou a expiré. Veuillez démarrer une nouvelle session.",

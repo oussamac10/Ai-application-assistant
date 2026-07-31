@@ -31,7 +31,8 @@
     "invalidAnswer": "That answer isn't valid for this question. Please check your selection and try again.",
     "required": "Required",
     "optional": "Optional",
-    "skipQuestion": "Skip this question"
+    "skipQuestion": "Skip this question",
+    "rowFieldProgress": "Field {position} of {total}"
   },
   "summary": {
     "title": "Session Summary",
@@ -61,7 +62,14 @@
     "exportExpired": "The PDF has expired",
     "regeneratePdf": "Please generate a new PDF",
     "overflowError": "One or more values do not fit the form",
-    "dynamicExportUnsupported": "Your answers are complete. Filling and exporting this uploaded PDF is not supported yet."
+    "dynamicExportUnsupported": "Your answers are complete. Filling and exporting this uploaded PDF is not supported yet.",
+    "error_export_forbidden": "You no longer have permission to export this application.",
+    "error_signature_mapping_missing": "The signature field could not be placed in the exported PDF.",
+    "error_signature_invalid": "The saved signature is invalid. Please sign again.",
+    "error_signature_too_large": "The signature is too large. Please clear it and sign again.",
+    "error_signature_export_failed": "The signature could not be added to the PDF.",
+    "error_template_mapping_invalid": "This form cannot currently be exported because its PDF mapping is invalid.",
+    "returnToSignature": "Sign again"
   },
   "errors": {
     "unauthorized": "This session is invalid or has expired. Please start a new session.",

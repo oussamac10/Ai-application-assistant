@@ -4,6 +4,7 @@ import {
   groupByRow,
   parseRowKey,
   rowHeading,
+  rowProgressFor,
 } from "../utils/repeatedRows";
 
 /**
@@ -144,5 +145,80 @@ describe("rowHeading", () => {
 
   it("reads an underscored section as words", () => {
     expect(rowHeading("spouse_details", 2)).toBe("Spouse Detail 2");
+  });
+});
+
+
+describe("rowProgressFor", () => {
+  const CHILD_1 = [
+    "children_1_family_name",
+    "children_1_first_name",
+    "children_1_gender",
+    "children_1_nationality",
+  ];
+  const CHILD_2 = CHILD_1.map((k) => k.replace("_1_", "_2_"));
+  const ALL = ["nom_de_famille", ...CHILD_1, ...CHILD_2, "signature"];
+
+  it("counts position within the row, not within the form", () => {
+    // Global progress answers "how much of the form is left", which is the
+    // wrong question in the middle of six near-identical questions.
+    expect(rowProgressFor("children_1_gender", ALL)).toEqual({
+      section: "children",
+      index: 1,
+      position: 3,
+      total: 4,
+    });
+  });
+
+  it("counts each row separately", () => {
+    expect(rowProgressFor("children_2_family_name", ALL)?.position).toBe(1);
+    expect(rowProgressFor("children_2_family_name", ALL)?.index).toBe(2);
+  });
+
+  it("assumes no particular row length", () => {
+    const nine = Array.from(
+      { length: 9 },
+      (_, i) => `employment_history_3_field${i}`,
+    );
+    expect(rowProgressFor("employment_history_3_field8", nine)).toEqual({
+      section: "employment_history",
+      index: 3,
+      position: 9,
+      total: 9,
+    });
+  });
+
+  it("counts a row whose fields are not contiguous", () => {
+    // Only membership matters, not adjacency — a form may interleave rows.
+    const interleaved = [
+      "children_1_name",
+      "children_2_name",
+      "children_1_gender",
+    ];
+    expect(rowProgressFor("children_1_gender", interleaved)).toEqual({
+      section: "children",
+      index: 1,
+      position: 2,
+      total: 2,
+    });
+  });
+
+  it("reports nothing for an ordinary field", () => {
+    expect(rowProgressFor("nom_de_famille", ALL)).toBeNull();
+  });
+
+  it("reports nothing rather than a wrong count for a stale field list", () => {
+    // "0 of 4" would be worse than no counter at all.
+    expect(rowProgressFor("children_9_gender", ALL)).toBeNull();
+  });
+
+  it("handles an underscored section", () => {
+    const keys = ["spouse_details_2_passport", "spouse_details_2_issued_on"];
+    expect(rowProgressFor("spouse_details_2_issued_on", keys)).toEqual({
+      section: "spouse_details",
+      index: 2,
+      position: 2,
+      total: 2,
+    });
   });
 });

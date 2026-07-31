@@ -31,7 +31,8 @@
     "invalidAnswer": "هذه الإجابة غير صالحة لهذا السؤال. يرجى التحقق من اختيارك والمحاولة مرة أخرى.",
     "required": "إلزامي",
     "optional": "اختياري",
-    "skipQuestion": "تخطي هذا السؤال"
+    "skipQuestion": "تخطي هذا السؤال",
+    "rowFieldProgress": "الحقل {position} من {total}"
   },
   "summary": {
     "title": "ملخص الجلسة",
@@ -61,7 +62,14 @@
     "exportExpired": "انتهت صلاحية ملف PDF",
     "regeneratePdf": "يرجى إنشاء ملف PDF جديد",
     "overflowError": "قيمة واحدة أو أكثر لا تتناسب مع النموذج",
-    "dynamicExportUnsupported": "إجاباتك مكتملة. تعبئة وتصدير ملف PDF الذي تم تحميله غير مدعومين بعد."
+    "dynamicExportUnsupported": "إجاباتك مكتملة. تعبئة وتصدير ملف PDF الذي تم تحميله غير مدعومين بعد.",
+    "error_export_forbidden": "لم يعد لديك إذن لتصدير هذا الطلب.",
+    "error_signature_mapping_missing": "تعذّر وضع حقل التوقيع في ملف PDF المُصدَّر.",
+    "error_signature_invalid": "التوقيع المحفوظ غير صالح. يرجى التوقيع مرة أخرى.",
+    "error_signature_too_large": "التوقيع كبير جداً. يرجى مسحه والتوقيع مرة أخرى.",
+    "error_signature_export_failed": "تعذّر إضافة التوقيع إلى ملف PDF.",
+    "error_template_mapping_invalid": "لا يمكن تصدير هذا النموذج حالياً لأن تعيين PDF الخاص به غير صالح.",
+    "returnToSignature": "التوقيع مرة أخرى"
   },
   "errors": {
     "unauthorized": "هذه الجلسة غير صالحة أو منتهية الصلاحية. يرجى بدء جلسة جديدة.",

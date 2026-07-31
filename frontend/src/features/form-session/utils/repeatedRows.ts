@@ -109,3 +109,55 @@ export function rowHeading(section: string, index: number): string {
   const titled = singular.replace(/\b\w/g, (c) => c.toUpperCase());
   return `${titled} ${index}`;
 }
+
+
+/**
+ * How far through one row the current field is.
+ *
+ * Global progress answers "how much of the form is left", which is the wrong
+ * question while someone is in the middle of a child's details — six questions
+ * that look identical apart from a heading. This answers "how much of *this*
+ * child is left", and the two are shown together rather than one replacing the
+ * other.
+ *
+ * Positions come from the field order the backend returned, which is document
+ * order. Nothing here assumes a row length: a table with three columns and one
+ * with nine both work, and a row whose fields are not contiguous still counts
+ * correctly because only membership matters, not adjacency.
+ */
+export interface RowProgress {
+  section: string;
+  index: number;
+  /** 1-based position of the current field within its row. */
+  position: number;
+  total: number;
+}
+
+export function rowProgressFor(
+  currentKey: string,
+  allKeys: string[],
+): RowProgress | null {
+  const current = parseRowKey(currentKey);
+  if (!current) return null;
+
+  const siblings = allKeys.filter((key) => {
+    const parts = parseRowKey(key);
+    return (
+      parts !== null &&
+      parts.section === current.section &&
+      parts.index === current.index
+    );
+  });
+
+  const position = siblings.indexOf(currentKey) + 1;
+  // A current field missing from the list it is supposedly part of means the
+  // caller passed a stale set; reporting nothing beats reporting "0 of 6".
+  if (position === 0) return null;
+
+  return {
+    section: current.section,
+    index: current.index,
+    position,
+    total: siblings.length,
+  };
+}

@@ -4,6 +4,10 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { removeSessionToken } from "@/features/form-session/services/sessionCredentials";
+import {
+  extractExportErrorCode,
+  resolveExportError,
+} from "@/features/form-session/utils/resolveExportErrorMessage";
 import { createExport, downloadExportBlob, getSession, getSummary, ExportResponse, ApiError, TokenMissingError } from "@/features/form-session/services/apiClient";
 
 type ExportState = "ready" | "creating_export" | "export_ready" | "downloading" | "download_failed" | "export_expired" | "token_missing";
@@ -28,6 +32,10 @@ export default function SessionComplete() {
    * their own with a form whose signature box is deliberately blank. */
   const [needsHandwrittenSignature, setNeedsHandwrittenSignature] =
     useState<boolean>(false);
+  /** Whether the last failure is one the user can clear by signing again, and
+   * whether retrying the same export is worth offering at all. */
+  const [canResign, setCanResign] = useState<boolean>(false);
+  const [canRetry, setCanRetry] = useState<boolean>(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,19 +93,27 @@ export default function SessionComplete() {
         return;
       }
       setExportState("download_failed");
-      if (error instanceof ApiError) {
+
+      // A recognised code is rendered as its own translated sentence; nothing
+      // from the response body is ever shown, because one careless `raise`
+      // upstream would put a library message or a file path on screen.
+      const presented = resolveExportError(t, error);
+      setCanResign(presented.canResign);
+      setCanRetry(presented.canRetry);
+
+      if (error instanceof ApiError && extractExportErrorCode(error) === null) {
         if (error.status === 401 || error.status === 403) {
           setExportState("token_missing");
-          setErrorMsg("Your session credentials are no longer valid. Redirecting you to start a new session…");
+          setErrorMsg(t("error_export_forbidden"));
           setTimeout(() => router.push("/application"), 3000);
-        } else if (error.status === 422) {
-          setErrorMsg(t("overflowError"));
-        } else {
-          setErrorMsg(error.detail || t("exportFailed"));
+          return;
         }
-      } else {
-        setErrorMsg(t("exportFailed"));
+        if (error.status === 422) {
+          setErrorMsg(t("overflowError"));
+          return;
+        }
       }
+      setErrorMsg(presented.message);
     }
   };
 
@@ -236,12 +252,29 @@ export default function SessionComplete() {
                 </button>
               )}
 
-              {(exportState === "download_failed" || exportState === "export_expired") && (
+              {/* Retrying a permission failure or a broken template mapping
+                  achieves nothing, so the button is not offered there — a
+                  retry that cannot succeed just invites repeated pressing. */}
+              {(exportState === "export_expired" ||
+                (exportState === "download_failed" && canRetry)) && (
                 <button
+                  data-testid="retry-export"
                   onClick={handleGeneratePdf}
                   className="w-full rounded-xl bg-slate-800 py-4 text-base font-bold text-slate-200 hover:bg-slate-700 transition active:scale-[0.99]"
                 >
                   {t("regeneratePdf")}
+                </button>
+              )}
+
+              {/* A signature that is invalid, oversized or unrenderable is
+                  fixed by signing again — not by retrying the same export. */}
+              {exportState === "download_failed" && canResign && (
+                <button
+                  data-testid="return-to-signature"
+                  onClick={() => router.push(`/application/session/${sessionId}`)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3.5 text-base font-bold text-slate-300 hover:bg-slate-900 transition active:scale-[0.99]"
+                >
+                  {t("returnToSignature")}
                 </button>
               )}
 

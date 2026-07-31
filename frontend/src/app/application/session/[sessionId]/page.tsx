@@ -26,6 +26,7 @@ import {
 import {
   parseRowKey,
   rowHeading,
+  rowProgressFor,
 } from "@/features/form-session/utils/repeatedRows";
 import { FieldRenderer } from "@/features/form-session/components/FieldRenderer";
 import {
@@ -66,6 +67,10 @@ export default function GuidedSession() {
    * page-level banner instead. Previously one `errorMsg` fed both, so every
    * validation message was printed twice. */
   const [errorIsFieldLevel, setErrorIsFieldLevel] = useState<boolean>(false);
+  /** Every field key in document order, used only to say how far through a
+   * repeated row the current question is. Populated opportunistically from the
+   * summary; a failure to load it costs the row counter and nothing else. */
+  const [allFieldKeys, setAllFieldKeys] = useState<string[]>([]);
 
   // Clarification form state
   const [clarifyValues, setClarifyValues] = useState<Record<string, any>>({});
@@ -109,19 +114,20 @@ export default function GuidedSession() {
       }
 
       // Populate input value if there is an existing answer in summary
-      if (field.currentAnswerStatus) {
-        try {
-          const summary = await getSummary(sessionId);
-          const answerInfo = summary.fields.find(
-            (f: any) => f.fieldId === field.fieldId,
-          );
-          if (answerInfo) {
-            setInputValue(answerInfo.originalAnswer || "");
-          }
-        } catch {
-          setInputValue("");
-        }
-      } else {
+      try {
+        const summary = await getSummary(sessionId);
+        setAllFieldKeys(summary.fields.map((f) => f.fieldKey));
+        const answerInfo = summary.fields.find(
+          (f: any) => f.fieldId === field.fieldId,
+        );
+        setInputValue(
+          field.currentAnswerStatus && answerInfo
+            ? answerInfo.originalAnswer || ""
+            : "",
+        );
+      } catch {
+        // The summary is a convenience here, not a dependency: without it the
+        // question still renders, minus the row counter.
         setInputValue("");
       }
 
@@ -384,6 +390,9 @@ export default function GuidedSession() {
   // twice with nothing saying whose it is. Presentation only — the key is
   // unchanged and is still what gets submitted.
   const rowContext = currentField ? parseRowKey(currentField.fieldKey) : null;
+  const rowProgress = currentField
+    ? rowProgressFor(currentField.fieldKey, allFieldKeys)
+    : null;
 
   // Three states, not a boolean. A backend that has not been redeployed omits
   // the field; the legacy boolean then answers "required" or — since it cannot
@@ -663,6 +672,17 @@ export default function GuidedSession() {
                         className="text-xs font-bold uppercase tracking-wider text-indigo-400"
                       >
                         {rowHeading(rowContext.section, rowContext.index)}
+                        {rowProgress && (
+                          <span
+                            data-testid="row-progress"
+                            className="ms-2 font-medium text-slate-400"
+                          >
+                            {t("rowFieldProgress", {
+                              position: rowProgress.position,
+                              total: rowProgress.total,
+                            })}
+                          </span>
+                        )}
                       </p>
                     )}
                     <h2 className="text-xl font-bold text-slate-100">

@@ -31,7 +31,8 @@
     "invalidAnswer": "Diese Antwort ist für diese Frage nicht gültig. Bitte überprüfen Sie Ihre Auswahl und versuchen Sie es erneut.",
     "required": "Pflichtfeld",
     "optional": "Optional",
-    "skipQuestion": "Diese Frage überspringen"
+    "skipQuestion": "Diese Frage überspringen",
+    "rowFieldProgress": "Feld {position} von {total}"
   },
   "summary": {
     "title": "Sitzungszusammenfassung",
@@ -61,7 +62,14 @@
     "exportExpired": "Das PDF ist abgelaufen",
     "regeneratePdf": "Bitte generieren Sie ein neues PDF",
     "overflowError": "Ein oder mehrere Werte passen nicht in das Formular",
-    "dynamicExportUnsupported": "Ihre Antworten sind vollständig. Das Ausfüllen und Exportieren dieses hochgeladenen PDFs wird noch nicht unterstützt."
+    "dynamicExportUnsupported": "Ihre Antworten sind vollständig. Das Ausfüllen und Exportieren dieses hochgeladenen PDFs wird noch nicht unterstützt.",
+    "error_export_forbidden": "Sie haben keine Berechtigung mehr, diesen Antrag zu exportieren.",
+    "error_signature_mapping_missing": "Das Unterschriftsfeld konnte im exportierten PDF nicht platziert werden.",
+    "error_signature_invalid": "Die gespeicherte Unterschrift ist ungültig. Bitte unterschreiben Sie erneut.",
+    "error_signature_too_large": "Die Unterschrift ist zu groß. Bitte löschen Sie sie und unterschreiben Sie erneut.",
+    "error_signature_export_failed": "Die Unterschrift konnte dem PDF nicht hinzugefügt werden.",
+    "error_template_mapping_invalid": "Dieses Formular kann derzeit nicht exportiert werden, da seine PDF-Zuordnung ungültig ist.",
+    "returnToSignature": "Erneut unterschreiben"
   },
   "errors": {
     "unauthorized": "Diese Sitzung ist ungültig oder abgelaufen. Bitte starten Sie eine neue Sitzung.",
