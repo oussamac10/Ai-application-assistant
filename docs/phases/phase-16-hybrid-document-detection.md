@@ -469,9 +469,12 @@ a group and is flagged `review_required`, never split back into N questions.
 | metric | before grouping | first pass | after association fixes |
 |---|---|---|---|
 | checkbox widgets | 54 | 54 | 54 |
-| groups created | 0 | 21 | **15** |
+| groups created | 0 | 21 | **20** |
 | widgets claimed | 0 | 49* | **54** |
 | widgets unclaimed | 54 | 5* | **0** |
+| repeated sections | 0 | 0 | **2** |
+| repeated rows | 0 | 0 | **12** |
+| duplicate keys | — | — | **0** |
 
 \* The first pass's "49 claimed / 5 unclaimed" was a **counting bug, not a
 grouping failure**. Claim tracking keyed on `field_name`, and the field name is
@@ -504,14 +507,67 @@ its own question.
 
 Known imperfections, all reviewable rather than silent:
 
-- One legal row reads its second option as "Bundesrepublik" instead of "nein"
-  (text-proximity miss).
-- Child-row gender pairs still take their question from table-header text; the
-  repeated-row model that would give them row-specific labels is not built.
+- The per-row gender pair is emitted as its own choice question rather than as a
+  `gender` column *inside* the row model — the two modules cooperate on labelling
+  but the row's cells and its choice group are still separate candidates.
+- Row detection keys on AcroForm widget positions, so it does not yet apply to
+  purely visual tables.
+- Ruled-line geometry (`/re` segments) is extracted but not yet used; row and
+  column bands come from widget positions alone.
 
 Fixed since the first pass: purpose-of-stay is now one group of six, all five
 legal questions are separate with their own labels, and every widget is
 accounted for.
+
+### Repeated table rows
+
+The children table produced 28 independent fields with nothing tying a row
+together. The evidence that these are repeated rows is structural: consecutive
+bands whose widgets sit at the *same x positions* are the same question asked
+again. That column signature identifies a repeated section without reading a
+word, so an unanticipated table in an unanticipated language behaves
+identically. Three repeats are required — two identical rows happen by
+coincidence in ordinary layouts.
+
+Bands are built from vertical *overlap*, not equal tops: a checkbox sits lower
+than the text field beside it (589.4 against 580.7), and an equal-top rule split
+every row in two.
+
+Column names come from the header directly above, with two guards: a token
+belongs to a column only when its *centre* falls inside it (overlap alone let a
+wide header word bleed into both neighbours), and only the nearest header line
+is read (a multi-line header otherwise concatenates into one unreadable key). A
+name over 40 characters is prose that landed above the column, and `column_3` is
+more honest than something wrong.
+
+Keys are deterministic and unique by construction — `children_1_familienname`,
+`children_2_familienname` — so re-analysis never renames a field and rows cannot
+collide. Each cell keeps its widget name and rectangle for export.
+
+### Row-scoped groups
+
+A choice group inside a table row is named after its own row. All six child
+gender pairs previously read the table header, so nothing said which child each
+question concerned; they now read "männlich / weiblich — row 1" … "row 6", built
+from the option text and the row index, both supplied by the document.
+
+This also fixed a regression the row model was required to catch: the
+wrapped-row merge swallowed all six pairs into one twelve-option group, because
+they share a left edge, widget size and spacing, and the cells between them are
+*widgets* rather than text — so the intervening-text guard had nothing to see.
+Only knowing they are different rows separates them. The lookup is injected as a
+callable, so the two modules stay independent.
+
+### Option-label association
+
+One legal row read its second option as "Bundesrepublik" instead of "nein": the
+question wraps onto the line above, and its last word landed 0.2pt left of the
+correct label. Vertical agreement is now decided first and strictly — a label
+shares its widget's baseline, and anything on another line is a different
+sentence however close it looks. Only among same-baseline tokens does horizontal
+distance break the tie. A run over four words is the question, prose or the next
+column, and search direction follows reading direction. No German-specific rule
+is involved.
 
 ### Manual-sign reminder
 
