@@ -643,6 +643,36 @@ nowhere else, aspect ratio preserved, the form's own text and second page
 untouched, the AcroForm field still filled — and for the manual-sign path, a
 genuinely blank signature area with the export still succeeding.
 
+### The committed signature template
+
+`fixtures/pdf/signature-demo-v1.pdf` and its mapping exercise the real
+`create_export` path: one AcroForm text field, one drawn signature area, and a
+rectangle at (72, 220, 240, 70). A test asserts the mapping and the document
+*agree* — two files that can drift, where a stale rectangle puts a signature
+somewhere the form did not intend.
+
+**Coordinate convention**, now enforced rather than implied:
+
+- `page` is **one-based**. Page 0 is a zero-based mapping written by mistake and
+  is rejected, because silently accepting it puts the signature on the wrong page.
+- Coordinates are PDF points with a **top-left origin** — what PyMuPDF uses and
+  what the capture canvas uses, so no flip is applied anywhere.
+- `signatureRect` accepts `{"x":…, "y":…, "width":…, "height":…}` or a bare
+  list. The object form is far easier to review in a committed file.
+- Zero/negative dimensions and off-page origins are refused at *load* time: a
+  broken mapping is a deployment mistake, and finding it when someone tries to
+  download their completed form is the worst possible moment.
+
+Two defects surfaced while covering this path:
+
+- **Export blocked a required signature the user chose to sign on paper.** The
+  completeness check demanded `status == "confirmed"`, so `pending_manual_
+  signature` failed it — making the paper route impossible on exactly the forms
+  that most need it.
+- **A signature whose field key the template never mapped was silently
+  dropped**, handing the user an official document with an empty signature box
+  they believed they had filled. It now raises `signature_mapping_missing`.
+
 ### Repeated child rows in the UI
 
 The summary opens a labelled group ("Child 1", "Child 2") at each row boundary,
@@ -650,6 +680,14 @@ detected from the indexed key shape. Presentation only — keys are the contract
 with export and are never rewritten. The pattern matches the *last*
 number-delimited group, so `spouse_details_2_passport` parses correctly rather
 than taking "spouse" as the section.
+
+### Guided-flow row context
+
+`children_2_gender` rendered as a question headed only "männlich / weiblich",
+asked twice with nothing saying which child either concerned. The guided flow
+now shows the row above the question ("Child 2"), using the same parser as the
+summary. Presentation only; the key is unchanged and an ordinary question shows
+no context.
 
 ### Offline Playwright
 
@@ -663,8 +701,12 @@ a mock that quietly lets a request escape is worse than no mock.
 `e2e/offline-phase16-flows.spec.ts`: 11 specs covering signature capture and
 deferral, the pre-download reminder, currency display, requiredness/Skip, and
 repeated child rows — plus one asserting that no request leaves localhost.
-**11 passed in 10.5s.** The live-Azure specs remain separate and are the ones
-that consume quota.
+**18 passed in 17.1s.** Now also covering export and download for both the
+digital and paper-signature paths, a structured export failure (the user stays
+put and can retry, with no traceback or internal path on display), the summary's
+per-child headings, and guided-flow row context.
+
+The live-Azure specs remain separate and are the ones that consume quota.
 
 ### Manual-sign reminder
 
