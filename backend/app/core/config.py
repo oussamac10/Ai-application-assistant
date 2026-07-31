@@ -133,6 +133,17 @@ class Settings(BaseSettings):
     # automatic hosted call is most expensive and least likely to be intended,
     # so it is never escalated regardless of quality.
     HYBRID_MAX_ESCALATION_PAGES: int = 10
+    # Coverage floors — how much of what the *document* offered has to be
+    # accounted for. Separate from the quality score, which only sees the
+    # output: five flawless candidates on a thirty-field form scored 0.83 and
+    # were never escalated, because nothing in the score could see the
+    # twenty-five that were missed. See app/field_detection/coverage.py.
+    #
+    # Each is compared on its own so the reported reason names the real gap:
+    # unread labels and leaked checkboxes are different problems.
+    HYBRID_MIN_LABEL_COVERAGE: float = 0.6
+    HYBRID_MIN_MARK_COVERAGE: float = 0.75
+    HYBRID_MIN_PAGE_COVERAGE: float = 0.75
 
     # "auto": review_status is assigned automatically per the thresholds above
     # and the normal-user upload flow generates questions without a manual
@@ -350,6 +361,14 @@ class Settings(BaseSettings):
             )
         if self.HYBRID_MAX_ESCALATION_PAGES <= 0:
             raise ValueError("HYBRID_MAX_ESCALATION_PAGES must be a positive integer.")
+        for name in (
+            "HYBRID_MIN_LABEL_COVERAGE",
+            "HYBRID_MIN_MARK_COVERAGE",
+            "HYBRID_MIN_PAGE_COVERAGE",
+        ):
+            value = getattr(self, name)
+            if not (0.0 <= value <= 1.0):
+                raise ValueError(f"{name} must be between 0.0 and 1.0.")
         # Azure credentials are validated only when Azure is actually the
         # selected provider — the local/mock providers must keep working
         # with every AZURE_* setting unset. Error messages never echo the

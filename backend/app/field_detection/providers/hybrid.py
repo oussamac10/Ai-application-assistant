@@ -37,6 +37,13 @@ import time
 from dataclasses import dataclass
 
 from app.core.config import settings
+from app.field_detection.coverage import (
+    LOW_LABEL_COVERAGE,
+    POOR_PAGE_COVERAGE,
+    UNCLAIMED_SELECTION_MARKS,
+    DocumentCoverage,
+    measure_coverage,
+)
 from app.field_detection.providers.base import (
     DetectionDocumentInput,
     DetectionResult,
@@ -63,7 +70,10 @@ class HybridDecision:
     used_provider: str
     reason: str
     local_quality: ExtractionQuality
+    # The specific signal that sent this document to Azure, when one did.
+    escalation_trigger: str | None = None
     azure_quality: ExtractionQuality | None = None
+    local_coverage: DocumentCoverage | None = None
     local_duration: float = 0.0
     azure_duration: float = 0.0
     page_count: int = 0
@@ -132,20 +142,32 @@ class HybridFieldDetectionProvider:
         local_result = self._local.detect(document)
         local_duration = time.monotonic() - started
         local_quality = score_extraction(local_result.fields)
+        # Two independent questions: is what came back good, and is it all of
+        # it? A score computed only from the output cannot see what the output
+        # is missing — five perfect candidates on a thirty-field form scored
+        # 0.83 and were never escalated. See coverage.py.
+        local_coverage = measure_coverage(document, local_result.fields)
         page_count = document.page_count
 
-        blocked = self._escalation_blocked(local_quality, page_count)
+        blocked = self._escalation_blocked(local_quality, local_coverage, page_count)
         if blocked is not None:
             self._record(
                 HybridDecision(
                     used_provider="local",
                     reason=blocked,
                     local_quality=local_quality,
+                    local_coverage=local_coverage,
                     local_duration=local_duration,
                     page_count=page_count,
                 )
             )
             return local_result
+
+        # Why this document is being escalated, as a specific code rather than
+        # a generic "escalated": an operator tuning thresholds needs to know
+        # whether labels went unread, checkboxes leaked, or the candidates were
+        # simply poor.
+        trigger = self._coverage_gap(local_coverage) or local_quality.weakest_signal()
 
         azure_started = time.monotonic()
         try:
@@ -164,6 +186,7 @@ class HybridFieldDetectionProvider:
                     used_provider="local",
                     reason=REASON_AZURE_FAILED,
                     local_quality=local_quality,
+                    local_coverage=local_coverage,
                     local_duration=local_duration,
                     azure_duration=azure_duration,
                     page_count=page_count,
@@ -183,6 +206,7 @@ class HybridFieldDetectionProvider:
                     used_provider="local",
                     reason=REASON_AZURE_NOT_BETTER,
                     local_quality=local_quality,
+                    local_coverage=local_coverage,
                     azure_quality=azure_quality,
                     local_duration=local_duration,
                     azure_duration=azure_duration,
@@ -195,7 +219,9 @@ class HybridFieldDetectionProvider:
             HybridDecision(
                 used_provider="azure",
                 reason=REASON_ESCALATED,
+                escalation_trigger=trigger,
                 local_quality=local_quality,
+                local_coverage=local_coverage,
                 azure_quality=azure_quality,
                 local_duration=local_duration,
                 azure_duration=azure_duration,
@@ -207,7 +233,10 @@ class HybridFieldDetectionProvider:
         return azure_result
 
     def _escalation_blocked(
-        self, quality: ExtractionQuality, page_count: int
+        self,
+        quality: ExtractionQuality,
+        coverage: DocumentCoverage,
+        page_count: int,
     ) -> str | None:
         """The reason not to escalate, or None to go ahead.
 
@@ -215,12 +244,37 @@ class HybridFieldDetectionProvider:
         that is both over the limit and poorly read is reported as
         limit-blocked — that is the fact an operator needs.
         """
-        if quality.score >= settings.HYBRID_LOCAL_QUALITY_THRESHOLD:
+        # Both must be satisfied. Quality alone said "good" for a result that
+        # found five of thirty fields; coverage alone would escalate a short
+        # form that was read perfectly. A document is only left to the local
+        # pass when what it found is good *and* it found what was there.
+        coverage_gap = self._coverage_gap(coverage)
+        if (
+            quality.score >= settings.HYBRID_LOCAL_QUALITY_THRESHOLD
+            and not coverage_gap
+        ):
             return REASON_LOCAL_SUFFICIENT
         if page_count > settings.HYBRID_MAX_ESCALATION_PAGES:
             return REASON_PAGE_LIMIT
         if not self._azure_is_configured():
             return REASON_AZURE_NOT_CONFIGURED
+        return None
+
+    @staticmethod
+    def _coverage_gap(coverage: DocumentCoverage) -> str | None:
+        """Whether the document offered materially more than was taken.
+
+        Each ratio is compared against its own threshold rather than a single
+        combined number, so the reported reason names the actual gap: a form
+        whose checkboxes all leaked and one whose labels were never read are
+        different problems with the same score.
+        """
+        if coverage.label_coverage < settings.HYBRID_MIN_LABEL_COVERAGE:
+            return LOW_LABEL_COVERAGE
+        if coverage.mark_coverage < settings.HYBRID_MIN_MARK_COVERAGE:
+            return UNCLAIMED_SELECTION_MARKS
+        if coverage.page_coverage < settings.HYBRID_MIN_PAGE_COVERAGE:
+            return POOR_PAGE_COVERAGE
         return None
 
     # -- Diagnostics --------------------------------------------------------
@@ -246,7 +300,8 @@ class HybridFieldDetectionProvider:
         logger.info(
             "Hybrid detection: used=%s reason=%s pages=%d "
             "local_score=%.3f local_fields=%d local_labels=%.2f "
-            "local_inputs=%.2f local_duration=%.2fs "
+            "local_inputs=%.2f local_label_cov=%.2f local_mark_cov=%.2f "
+            "local_page_cov=%.2f unclaimed_marks=%d local_duration=%.2fs "
             "azure_score=%s azure_fields=%s azure_duration=%.2fs "
             "threshold=%.2f",
             decision.used_provider,
@@ -256,6 +311,12 @@ class HybridFieldDetectionProvider:
             decision.local_quality.field_count,
             decision.local_quality.label_quality,
             decision.local_quality.input_evidence,
+            decision.local_coverage.label_coverage if decision.local_coverage else -1.0,
+            decision.local_coverage.mark_coverage if decision.local_coverage else -1.0,
+            decision.local_coverage.page_coverage if decision.local_coverage else -1.0,
+            decision.local_coverage.unclaimed_selection_marks
+            if decision.local_coverage
+            else -1,
             decision.local_duration,
             f"{decision.azure_quality.score:.3f}" if decision.azure_quality else "-",
             decision.azure_quality.field_count if decision.azure_quality else "-",
