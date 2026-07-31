@@ -576,6 +576,43 @@ test.describe("Phase 16 — offline export and repeated rows", () => {
     expect(text).not.toMatch(/Traceback|pypdf|\/tmp\//);
   });
 
+  test("an export refused for permissions keeps the user where they are", async ({
+    page,
+  }) => {
+    // The old behaviour redirected into a brand new session after three
+    // seconds, destroying every answer this screen is the end of.
+    await mockGuidedSession(page, {
+      sessionId: SESSION,
+      fields: [
+        {
+          id: "f1",
+          key: "nom",
+          fieldType: "string",
+          required: false,
+          position: 1,
+          label: "Nom",
+        },
+      ],
+      exportError: { status: 403, code: "export_forbidden" },
+    });
+
+    await page.goto(`/application/session/${SESSION}/complete`);
+    await page
+      .getByRole("button", { name: /generate|export|download/i })
+      .first()
+      .click();
+
+    await expect(
+      page.getByText(/permission to export/i),
+    ).toBeVisible();
+
+    // Still here, well past the old three-second redirect.
+    await page.waitForTimeout(4000);
+    expect(page.url()).toContain(`/session/${SESSION}/complete`);
+    // Retry is hidden: the ownership state will not resolve by trying again.
+    await expect(page.getByTestId("retry-export")).toHaveCount(0);
+  });
+
   // ------------------------------------------------------------------
   // Repeated row headings
   // ------------------------------------------------------------------

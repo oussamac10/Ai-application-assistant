@@ -103,9 +103,15 @@ export default function SessionComplete() {
 
       if (error instanceof ApiError && extractExportErrorCode(error) === null) {
         if (error.status === 401 || error.status === 403) {
-          setExportState("token_missing");
+          // Stay put. Redirecting into a brand new session destroys the work
+          // this screen is the end of, and an authorization failure is
+          // something to tell someone about — not to react to by silently
+          // starting them over. Retry is hidden because the ownership state
+          // will not resolve by trying again; the manual "start over" control
+          // below is still there when the user decides that is what they want.
           setErrorMsg(t("error_export_forbidden"));
-          setTimeout(() => router.push("/application"), 3000);
+          setCanRetry(false);
+          setCanResign(false);
           return;
         }
         if (error.status === 422) {

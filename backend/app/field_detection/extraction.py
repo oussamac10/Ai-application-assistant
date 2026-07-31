@@ -23,6 +23,7 @@ from app.field_detection.providers.base import (
     DetectionDocumentInput,
     DetectionPageInput,
     DetectionToken,
+    RuledRegion,
 )
 from app.ocr.models import OCRResult
 
@@ -79,6 +80,43 @@ def _marker_glyph_for_drawing(drawing: dict[str, Any]) -> str | None:
     if item_commands <= {"re", "l"}:
         return _CHECKBOX_GLYPH
     return None
+
+
+# A drawn region is only an input area within these bounds. Narrower than this
+# is a tick or a bullet; taller than a page is a border. Deliberately generous
+# — filtering happens later on evidence, not here on size alone.
+_MIN_REGION_WIDTH = 40.0
+_MAX_UNDERLINE_HEIGHT = 3.0
+_MIN_BOX_HEIGHT = 8.0
+_MAX_BOX_HEIGHT = 200.0
+
+
+def _extract_ruled_regions(
+    page: fitz.Page, page_number: int
+) -> tuple[RuledRegion, ...]:
+    """Drawn underlines and boxes, which is where a flattened form says
+    "write here"."""
+    regions: list[RuledRegion] = []
+    for drawing in page.get_drawings():
+        rect = drawing.get("rect")
+        if rect is None or rect.width < _MIN_REGION_WIDTH:
+            continue
+        if rect.height <= _MAX_UNDERLINE_HEIGHT:
+            kind = "underline"
+        elif _MIN_BOX_HEIGHT <= rect.height <= _MAX_BOX_HEIGHT:
+            kind = "box"
+        else:
+            continue
+        regions.append(
+            RuledRegion(
+                kind=kind,
+                page_number=page_number,
+                bounding_box=BoundingBox(
+                    x=rect.x0, y=rect.y0, width=rect.width, height=rect.height
+                ),
+            )
+        )
+    return tuple(regions)
 
 
 def _extract_marker_tokens(page: fitz.Page) -> list[DetectionToken]:
@@ -175,6 +213,7 @@ def extract_native_document_input(pdf_path: Path) -> DetectionDocumentInput:
                     height=page.rect.height,
                     rotation=page.rotation,
                     tokens=tuple(tokens),
+                    ruled_regions=_extract_ruled_regions(page, page_number),
                 )
             )
 

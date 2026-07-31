@@ -70,12 +70,30 @@ class AcroFormWidgetInput:
 
 
 @dataclass(frozen=True)
+class RuledRegion:
+    """A drawn line or box on the page.
+
+    Flattened forms have no widgets, so the only thing marking "write here" is
+    geometry the author drew: an underline beneath a label, or a bordered box
+    beside one. `kind` says which — they associate with their label
+    differently, and a box can hold several lines of writing while an underline
+    holds one.
+    """
+
+    kind: str  # "underline" | "box"
+    page_number: int
+    bounding_box: BoundingBox
+
+
+@dataclass(frozen=True)
 class DetectionPageInput:
     page_number: int
     width: float
     height: float
     rotation: int = 0
     tokens: tuple[DetectionToken, ...] = field(default_factory=tuple)
+    # Drawn lines and boxes. Empty for OCR pages, which have no vector layer.
+    ruled_regions: tuple[RuledRegion, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)

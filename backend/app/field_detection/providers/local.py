@@ -111,6 +111,7 @@ from app.field_detection.sections import (
     detect_context,
     is_section_heading,
 )
+from app.field_detection.visual_fields import detect_visual_fields
 
 
 def _contextual_label(label: str, context: SectionContext | None) -> str:
@@ -466,6 +467,12 @@ class LocalFieldDetectionProvider:
                     page.page_number, line_groups, consumed
                 )
             )
+
+            # Flattened forms mark their inputs with ink rather than widgets:
+            # an underline under a label, a box beside one. Runs before the
+            # generic text passes so a drawn region's own label wins over
+            # whatever the line heuristics would have inferred.
+            candidates.extend(self._detect_visual_regions(page))
 
             candidates.extend(
                 self._detect_label_above_blank_line_fields(
@@ -1078,6 +1085,42 @@ class LocalFieldDetectionProvider:
             if found_any:
                 consumed.add(index)
 
+        return candidates
+
+    def _detect_visual_regions(
+        self, page: DetectionPageInput
+    ) -> list[DetectedFieldCandidate]:
+        """Text fields from drawn underlines and boxes.
+
+        A signature line is left alone: `classify_label` already recognises it,
+        and that classification is authoritative — a signature must not also
+        become a text question.
+        """
+        fields, _counts = detect_visual_fields(page)
+        candidates: list[DetectedFieldCandidate] = []
+
+        for order, field in enumerate(fields):
+            label = strip_requiredness_markers(field.label)
+            if classify_label(label) == "signature":
+                continue
+            candidates.append(
+                DetectedFieldCandidate(
+                    candidate_key=f"visual-{page.page_number}-{order}",
+                    page_number=page.page_number,
+                    label=label,
+                    normalized_name=normalize_field_name(label),
+                    field_type=(
+                        "multiline_text"
+                        if field.field_type == "multiline_text"
+                        else classify_label(label)
+                    ),
+                    confidence=field.confidence,
+                    source="native",
+                    required=_marker_requiredness(field.label),
+                    label_bounding_box=field.label_bounding_box,
+                    input_bounding_box=field.input_bounding_box,
+                )
+            )
         return candidates
 
 

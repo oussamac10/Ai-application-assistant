@@ -36,23 +36,45 @@ def _analyse(pdf: Path):
     return document, result, measure_coverage(document, result.fields)
 
 
-def test_the_french_form_is_scored_well_but_covered_badly() -> None:
-    """The exact shape of the reported defect, on the real file.
+def test_the_french_form_is_now_read_locally() -> None:
+    """Visual text-field detection closed the gap this file was written for.
 
-    Five candidates for a two-page form of about thirty fields. Each of the
-    five is flawless, so the per-candidate score is high — and that is
-    precisely why coverage had to exist.
+    The local pass used to produce five candidates for a two-page form of
+    about thirty fields. Each was flawless, so the per-candidate score was high
+    and only coverage noticed the twenty-five that were missing — which is why
+    coverage exists, and why it escalated the document.
+
+    Reading the form's drawn underlines fixed the cause rather than the
+    symptom: the fields are found, coverage is satisfied, and the document is
+    now served locally. No threshold was lowered to achieve it.
     """
     _document, result, coverage = _analyse(_FRENCH_FORM)
     quality = score_extraction(result.fields)
 
-    # The score alone would have left this document unescalated.
     assert quality.score >= settings.HYBRID_LOCAL_QUALITY_THRESHOLD
-
-    # Coverage sees what the score cannot.
     assert coverage.label_line_count >= 15
-    assert coverage.label_coverage < settings.HYBRID_MIN_LABEL_COVERAGE
-    assert coverage.weakest_signal() == LOW_LABEL_COVERAGE
+    # Was 0.47 before the underline pass; the label lines now all have a field.
+    assert coverage.label_coverage >= settings.HYBRID_MIN_LABEL_COVERAGE
+    assert coverage.weakest_signal() != LOW_LABEL_COVERAGE
+
+
+def test_the_french_form_needs_no_escalation() -> None:
+    """The point of the improvement: a document the hybrid router used to send
+    to a paid service is now read for free."""
+    from app.field_detection.providers.hybrid import (
+        REASON_LOCAL_SUFFICIENT,
+        HybridFieldDetectionProvider,
+    )
+
+    if not _FRENCH_FORM.exists():
+        pytest.skip(f"Fixture PDF not found: {_FRENCH_FORM.name}")
+
+    document = extract_native_document_input(_FRENCH_FORM)
+    provider = HybridFieldDetectionProvider(LocalFieldDetectionProvider())
+    provider.detect(document)
+
+    assert provider.last_decision is not None
+    assert provider.last_decision.reason == REASON_LOCAL_SUFFICIENT
 
 
 def test_the_french_form_selection_marks_are_real() -> None:
