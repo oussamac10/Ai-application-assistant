@@ -138,3 +138,72 @@ def test_typed_fields_are_never_treated_as_proper_nouns() -> None:
 def test_missing_label_is_not_protected() -> None:
     assert is_proper_noun_field(None) is False
     assert is_proper_noun_field("") is False
+
+
+# ---------------------------------------------------------------------------
+# Reported regression: "2000" in a euro field proposed as "2000 USD"
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "Revenu net mensuel en euros",
+        "Montant demande en euros *",
+        "Cout total en euros",
+        "Betrag in Euro",
+        "Monatliches Nettoeinkommen in Euro",
+        "Monthly income in euros",
+        "Amount (EUR)",
+        "Montant (€)",
+        "المبلغ باليورو",
+    ],
+)
+def test_a_euro_label_overrides_a_provider_that_answered_usd(label: str) -> None:
+    """The reported failure: the label says euros, the user typed 2000, and the
+    proposal came back "2000 USD".
+
+    The label is authoritative. Correcting deterministically is more reliable
+    than prompting harder, and `docs/claude/domain-rules.md` puts deterministic
+    logic ahead of AI wherever language understanding is not genuinely
+    required — reading the word "euros" is not language understanding.
+    """
+    corrected, changed = apply_currency_context(
+        {"amount": 2000, "currency": "USD"}, label, "2000"
+    )
+
+    assert corrected["currency"] == "EUR"
+    assert changed is True
+    # The user's number is never touched.
+    assert corrected["amount"] == 2000
+
+
+def test_an_unknown_currency_context_never_defaults_to_usd() -> None:
+    """No reliable currency means no currency. Inventing one is how "2000"
+    became dollars on a form that said nothing about dollars."""
+    corrected, changed = apply_currency_context(
+        {"amount": 2000, "currency": "USD"}, "Monthly income", "2000"
+    )
+
+    assert "currency" not in corrected
+    assert corrected["amount"] == 2000
+    assert changed is True
+
+
+def test_an_explicit_usd_label_is_preserved() -> None:
+    corrected, changed = apply_currency_context(
+        {"amount": 2000, "currency": "USD"}, "Monthly income in USD", "2000"
+    )
+
+    assert corrected["currency"] == "USD"
+    assert changed is False
+
+
+def test_a_currency_the_user_typed_is_preserved() -> None:
+    """Real evidence from the user outranks the absence of a label hint."""
+    corrected, changed = apply_currency_context(
+        {"amount": 1800, "currency": "EUR"}, "Monthly income", "1800 EUR"
+    )
+
+    assert corrected["currency"] == "EUR"
+    assert changed is False

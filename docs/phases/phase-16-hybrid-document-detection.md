@@ -339,17 +339,104 @@ Statut professionnel are single radio groups (the latter required), Langues
 préférées is an optional multiple_choice, and the three declarations are
 independent booleans with per-child requiredness.
 
+---
+
+## Part 4 — Signatures, declaration UI, and inline yes/no groups
+
+### Signatures
+
+A dedicated `signature` field type, with two rules driving everything:
+
+**A required signature field does not mean a required digital signature.** When a
+PDF marks its signature box required it is saying the *printed* document must be
+signed before it counts — not that it must be signed inside this application.
+`digital_signature_required()` returns False, always (a function rather than a
+constant so the rule is greppable). `signature_requirement` reports separately
+what the document said: `required_before_submission | optional | unknown`,
+derived from the same three-state requiredness evidence as every other field.
+
+`POST .../sign-after-printing` stores `pending_manual_signature` — its own
+answer state, because it is neither an answer (there is no value) nor a skip
+(the question was dealt with, deliberately). It never blocks confirmation, is
+accepted even for a required signature, survives resume, and can be replaced by
+a drawn signature later. An *untouched* required signature still blocks:
+deferring is a decision, ignoring is not. The summary shows "Will be signed
+after printing", never "Skipped".
+
+**A signature is biometric personal data.** `original_answer` stays null, so it
+never enters any code path that handles text — no translation, no normalization,
+no AI provider. Strokes are stored as vectors, so no user-supplied image bytes
+are ever persisted or decoded, and only geometry is kept: no pressure, tilt,
+device identity or timing. The capture log line carries stroke and point counts
+only.
+
+Validation is strict by construction. The payload holds numbers only, so an
+SVG/script/data-URI payload has nowhere to live and fails as a type error rather
+than needing sanitising. NaN and infinity are rejected explicitly — both survive
+an `isinstance` check and would otherwise reach the PDF renderer. Bounds on
+strokes, points and canvas size mean no request can store bulk data; a bad
+payload is refused whole rather than truncated, so a partial signature can never
+render as though it were complete.
+
+The pad uses **Pointer Events only** — one path for mouse, touch and stylus.
+Separate mouse and touch handlers double-fire on hybrid devices, recording a
+single stylus stroke twice. "Sign after printing" sits beside the pad rather
+than behind a disclosure, and is always enabled.
+
+### Declaration children in the UI
+
+`canSkipQuestion` decides skip visibility from the *children* when a question
+has any: skipping the screen would skip all of them, so one required child
+removes the option, whatever the group itself says. That is the reported
+failure — a declaration block carries no requiredness of its own, so a check
+that looked only at the question offered Skip over two mandatory consents.
+
+`resolveRequiredness` also fixes the compatibility path: a backend predating the
+three-state column omits `requiredness`, and `required === false` is *not*
+evidence of "optional" — the boolean could never tell "optional" from "nothing
+was said" — so it reads as `unknown`.
+
+`DeclarationGroup` renders each consent as its own checkbox with its own
+requiredness, required marker and error, inside a `fieldset`/`legend` so
+assistive technology announces exactly which ones must be checked.
+`requiredChildrenSatisfied` gates Continue on required children only.
+
+### Inline yes/no groups
+
+Real government forms put the question and its answers on one line:
+
+```
+24 Wurde gegen Sie ... ein Ermittlungsverfahren eingeleitet? [_] ja [_] nein
+```
+
+`split_inline_option_row` reads it positionally — everything before the first
+marker is the question, everything from it onwards is the answer set. No
+vocabulary is consulted, so `ja/nein`, `oui/non`, `yes/no` and `نعم/لا` group for
+the same reason. `strip_heading_number` also strips bare item numbering, which
+requires a following letter so `2000 EUR` is untouched.
+
+### Currency
+
+Verified rather than changed: the deterministic resolver already implements the
+required precedence. A euro label overrides a provider that answered USD, in
+French, German, English and Arabic and for the `€` symbol; an unknown context
+removes an invented currency rather than defaulting to USD; an explicit USD
+label and a user-typed currency are both preserved; the numeric amount is never
+touched. Now pinned by regression tests.
+
 ### Carried
 
 - Local text-field detection still finds only the choice groups on the French
   form; coverage-driven escalation is the safety net, not a substitute. The
   label-above-rule pass does not recognise that document's underline geometry.
 - Three selection marks on the "Lieu et date" row remain unclaimed.
-- Signature workflows (dedicated type, signature pad, sign-after-printing,
-  export placement) are **not implemented**.
-- Frontend rendering of `compound_boolean_group`, and suppression of the global
-  Skip when a screen carries required children, are **not implemented** — the
-  backend now models them correctly.
-- Stuttgart-specific structures (yes/no rows, repeated children rows, table
-  geometry) are not specifically handled; its unclaimed marks are what drives
-  its escalation.
+- **AcroForm checkbox grouping.** The Stuttgart residence-permit PDF is a
+  fillable AcroForm (175 widgets: 121 text, 54 checkbox), so the local provider
+  takes the widget path and none of the text-line grouping runs on it. Its 54
+  checkbox widgets are still one candidate each. Grouping AcroForm checkboxes by
+  row and shared label is separate work from the text-line passes.
+- **Repeated child rows and table-aware grouping** are not implemented.
+- **Signature export** (rendering strokes into the mapped PDF box, the
+  manual-sign reminder before download) is not implemented; capture, deferral
+  and summary display are.
+- Playwright coverage for signatures and declarations is not added.
