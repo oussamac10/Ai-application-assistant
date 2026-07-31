@@ -95,6 +95,10 @@ from app.field_detection.providers.base import (
     DetectionResult,
     DetectionToken,
 )
+from app.field_detection.repeated_rows import (
+    detect_repeated_sections,
+    row_index_for_widget,
+)
 from app.field_detection.requiredness import (
     OPTIONAL,
     REQUIRED,
@@ -289,9 +293,16 @@ class LocalFieldDetectionProvider:
         # Emitting each widget separately turned a government form's twelve
         # choice questions into fifty-four, and — because this path bypasses
         # the text-line passes entirely — none of the visual grouping applied.
+        tokens_by_page = {page.page_number: page.tokens for page in document.pages}
+        # Rows first: a choice group inside a repeated table row must be named
+        # after its own row, not after the table header shared by every row.
+        sections = detect_repeated_sections(
+            list(document.acroform_widgets), tokens_by_page, section_key="row"
+        )
         widget_groups = group_checkbox_widgets(
             list(document.acroform_widgets),
-            {page.page_number: page.tokens for page in document.pages},
+            tokens_by_page,
+            row_lookup=lambda name: row_index_for_widget(sections, name),
         )
         claimed = claimed_widgets(widget_groups)
 

@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from app.field_detection.providers.base import (
@@ -202,6 +203,7 @@ _WRAP_MAX_ROW_GAP = 1.6
 def _merge_wrapped_rows(
     runs: list[list[AcroFormWidgetInput]],
     tokens: tuple[DetectionToken, ...] = (),
+    row_lookup: RowLookup | None = None,
 ) -> list[list[AcroFormWidgetInput]]:
     """Joins an option list that wrapped onto a following row.
 
@@ -227,13 +229,37 @@ def _merge_wrapped_rows(
 
     for run in ordered[1:]:
         previous = merged[-1]
-        if _is_wrapped_continuation(previous, run) and not _text_between(
-            previous, run, tokens
+        if (
+            _is_wrapped_continuation(previous, run)
+            and not _text_between(previous, run, tokens)
+            and not _different_table_rows(previous, run, row_lookup)
         ):
             merged[-1] = previous + run
         else:
             merged.append(run)
     return merged
+
+
+def _different_table_rows(
+    previous: list[AcroFormWidgetInput],
+    run: list[AcroFormWidgetInput],
+    row_lookup: RowLookup | None,
+) -> bool:
+    """Whether two runs sit in different rows of a repeated table.
+
+    Decisive where nothing else is. Each child's gender pair is a separate
+    question about a separate person, but the pairs share a left edge, a widget
+    size and a spacing, and the cells between them are *widgets* rather than
+    text — so every other guard says "wrapped continuation" and all six rows
+    merged into one twelve-option group.
+    """
+    if row_lookup is None:
+        return False
+    previous_rows = {row_lookup(w.field_name) for w in previous} - {None}
+    run_rows = {row_lookup(w.field_name) for w in run} - {None}
+    if not previous_rows or not run_rows:
+        return False
+    return previous_rows != run_rows
 
 
 def _text_between(
@@ -450,6 +476,36 @@ def _resolve_option_labels(
     return tuple(rewritten), shared
 
 
+# Resolves a widget name to (section key, 1-based row index), or None. Injected
+# so this module never imports the repeated-row detector, keeping the two
+# independent.
+RowLookup = Callable[[str], tuple[str, int] | None]
+
+
+def _row_scoped_label(
+    run: list[AcroFormWidgetInput],
+    options: tuple[WidgetOption, ...],
+    row_lookup: RowLookup | None,
+) -> str | None:
+    """A row-specific question for a group inside a repeated table row.
+
+    "Gender — Child 2" rather than the table header repeated once per child.
+    The option text names the question (the widgets themselves are labelled
+    "männlich"/"weiblich"), and the row index says which row it belongs to —
+    both facts the document supplies, so nothing is invented.
+    """
+    if row_lookup is None:
+        return None
+    located = {row_lookup(widget.field_name) for widget in run}
+    located.discard(None)
+    # Every widget must agree, or this is not one row's group.
+    if len(located) != 1:
+        return None
+    section_key, row_index = next(iter(located))  # type: ignore[misc]
+    descriptor = " / ".join(option.label for option in options)
+    return f"{descriptor} — {section_key} {row_index}"
+
+
 def _looks_exclusive(labels: tuple[str, ...]) -> bool:
     """Whether picking more than one of these makes sense.
 
@@ -465,6 +521,7 @@ def _looks_exclusive(labels: tuple[str, ...]) -> bool:
 def group_checkbox_widgets(
     widgets: list[AcroFormWidgetInput],
     tokens_by_page: dict[int, tuple[DetectionToken, ...]] | None = None,
+    row_lookup: RowLookup | None = None,
 ) -> list[WidgetGroup]:
     """Clusters checkbox widgets into questions, page by page.
 
@@ -491,7 +548,7 @@ def group_checkbox_widgets(
             runs = _cluster(remaining, orientation)
             if orientation == "row":
                 # An option list that wrapped onto the next row is one question.
-                runs = _merge_wrapped_rows(runs, page_tokens)
+                runs = _merge_wrapped_rows(runs, page_tokens, row_lookup)
             for run in runs:
                 if len(run) < _MIN_GROUP_SIZE:
                     continue
@@ -517,6 +574,12 @@ def group_checkbox_widgets(
 
                 box = _union([w.rect for w in run])
                 labels = tuple(option.label for option in options)
+
+                # A group inside a repeated table row belongs to *that* row.
+                # Without this every child's gender question was the table
+                # header, so all four read identically and none of them said
+                # which child it was about.
+                row_label = _row_scoped_label(run, options, row_lookup)
                 exclusive = _looks_exclusive(labels)
                 groups.append(
                     WidgetGroup(
@@ -524,7 +587,11 @@ def group_checkbox_widgets(
                         page_number=page_number,
                         orientation=orientation,
                         # The author's own tooltip beats any geometric guess.
-                        label=shared_question or _nearest_label_above(box, page_tokens),
+                        label=(
+                            row_label
+                            or shared_question
+                            or _nearest_label_above(box, page_tokens)
+                        ),
                         exclusive=exclusive,
                         # Anything the exclusivity hints did not recognise is
                         # kept as a group but marked for a human to confirm the

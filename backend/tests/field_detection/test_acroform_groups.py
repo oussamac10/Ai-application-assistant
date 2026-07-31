@@ -479,3 +479,69 @@ def test_neighbouring_legal_rows_keep_their_own_options() -> None:
         assert [option.label for option in group.options] == ["ja", "nein"]
     # And no widget was lost between them.
     assert len(claimed_widgets(groups)) == 4
+
+
+# ---------------------------------------------------------------------------
+# Row-scoped groups inside repeated tables
+# ---------------------------------------------------------------------------
+
+
+def _gender_rows() -> list[AcroFormWidgetInput]:
+    """Six identical gender pairs, one per child row — the shape that merged."""
+    return [
+        _checkbox(f"chkMann{row}", "männlich", 251.1, 589.4 + row * 26.0)
+        for row in range(6)
+    ] + [
+        _checkbox(f"chkFrau{row}", "weiblich", 276.6, 589.4 + row * 26.0)
+        for row in range(6)
+    ]
+
+
+def test_per_row_groups_are_never_merged_into_one() -> None:
+    """Each child's gender is a separate question about a separate person.
+
+    Every other guard says "wrapped continuation": the pairs share a left edge,
+    a widget size and a spacing, and the cells between them are *widgets*
+    rather than text. Only the row model separates them.
+    """
+    rows = {f"chkMann{r}": ("row", r + 1) for r in range(6)}
+    rows.update({f"chkFrau{r}": ("row", r + 1) for r in range(6)})
+
+    groups = group_checkbox_widgets(
+        _gender_rows(), None, row_lookup=lambda name: rows.get(name)
+    )
+
+    assert len(groups) == 6
+    for group in groups:
+        assert len(group.options) == 2
+
+
+def test_a_per_row_group_is_named_after_its_own_row() -> None:
+    """ "männlich / weiblich — row 2", not the table header repeated six times
+    with nothing saying which child it is about."""
+    rows = {f"chkMann{r}": ("row", r + 1) for r in range(6)}
+    rows.update({f"chkFrau{r}": ("row", r + 1) for r in range(6)})
+
+    groups = group_checkbox_widgets(
+        _gender_rows(), None, row_lookup=lambda name: rows.get(name)
+    )
+
+    labels = [group.label for group in groups]
+    assert labels[0] == "männlich / weiblich — row 1"
+    assert labels[5] == "männlich / weiblich — row 6"
+    # Every row is distinguishable from every other.
+    assert len(set(labels)) == 6
+
+
+def test_without_a_row_model_nothing_changes() -> None:
+    """The lookup is injected, so a caller that has no table information gets
+    exactly the previous behaviour."""
+    groups = group_checkbox_widgets(
+        [
+            _checkbox("a", "ja", 100.0, 200.0),
+            _checkbox("b", "nein", 130.0, 200.0),
+        ]
+    )
+
+    assert len(groups) == 1
+    assert groups[0].label != "ja / nein — row 1"
