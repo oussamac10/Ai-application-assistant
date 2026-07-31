@@ -733,3 +733,45 @@ digitally.
   manual-sign reminder before download) is not implemented; capture, deferral
   and summary display are.
 - Playwright coverage for signatures and declarations is not added.
+
+
+---
+
+## Phase 16 acceptance review
+
+Verified against the criteria, local-only, with no Azure request.
+
+| Area | Criterion | Status |
+|---|---|---|
+| Requiredness | `required` / `optional` / `unknown`, `unknown` never collapsed | met |
+| Validation | empty optional/unknown never block; invalid submitted values do | met |
+| Validation | validators only ever see a submitted value | met |
+| Choices | radio and checkbox groups, structural not lexical | met |
+| Choices | declarations enforce per-child requiredness | met |
+| Ingestion | encrypted-but-readable PDFs open | met |
+| AcroForm | widget grouping, 54/54 Stuttgart widgets accounted for | met |
+| AcroForm | repeated rows, deterministic `children_N_*` keys | met |
+| AcroForm | legal ja/nein option labels correct | met |
+| Signatures | digital signing, manual signing, export, safe errors | met |
+| Currency | EUR context preserved, no USD default | met |
+| Hybrid | local-first with deterministic escalation | met |
+| **Visual PDFs** | **local text fields from blank regions** | **not implemented** |
+| **Visual PDFs** | **visual tables from ruled-line geometry** | **not implemented** |
+| Testing | backend, frontend and offline Playwright clean, zero Azure | met |
+
+Routing on the committed fixtures:
+
+```
+rental-contract-de.pdf                n=19  q=0.83  -> local accepted, no Azure
+required-optional-validation-fr.pdf   n= 8  q=0.98  -> escalate (low_label_coverage)
+```
+
+The second is correct behaviour, not a failure: the local pass genuinely reads
+only the choice groups on that document, and coverage says so rather than
+letting a high per-candidate score hide it. It is also exactly what the two
+unimplemented rows above would change — a local pass that found the text fields
+would keep that document local.
+
+**Phase 16 is therefore not complete.** Everything else in the acceptance list
+passes; visual-PDF text-field and table detection remain, and until they land
+the hybrid safety net is doing work that local extraction should be doing.
