@@ -43,8 +43,9 @@ from __future__ import annotations
 import logging
 
 from app.field_detection.acroform_groups import (
-    claimed_widget_names,
+    claimed_widgets,
     group_checkbox_widgets,
+    widget_identity,
 )
 from app.field_detection.classification import (
     acroform_widget_confidence,
@@ -292,7 +293,7 @@ class LocalFieldDetectionProvider:
             list(document.acroform_widgets),
             {page.page_number: page.tokens for page in document.pages},
         )
-        claimed = claimed_widget_names(widget_groups)
+        claimed = claimed_widgets(widget_groups)
 
         for order, group in enumerate(widget_groups):
             label = group.label or _humanize_field_name(group.options[0].widget_name)
@@ -315,7 +316,7 @@ class LocalFieldDetectionProvider:
             )
 
         for index, widget in enumerate(document.acroform_widgets):
-            if widget.field_name in claimed:
+            if widget_identity(widget) in claimed:
                 # Already part of a group; emitting it again would resurrect
                 # exactly the per-widget questions this replaces.
                 continue

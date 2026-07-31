@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 
 from app.field_detection.acroform_groups import (
-    claimed_widget_names,
+    claimed_widgets,
     group_checkbox_widgets,
     is_machine_name,
 )
@@ -255,7 +255,82 @@ def test_grouped_widgets_are_reported_as_claimed() -> None:
 
     groups = group_checkbox_widgets(widgets)
 
-    assert claimed_widget_names(groups) == {"a", "b"}
+    assert {identity[0] for identity in claimed_widgets(groups)} == {"a", "b"}
+
+
+def test_two_widgets_sharing_one_field_name_are_both_claimed() -> None:
+    """Identity is position, not name. The reference form gives both boxes of a
+    ja/nein question the same field name, distinguishing them only by export
+    value — counting names reported 54 grouped widgets as "49 claimed"."""
+    widgets = [
+        _checkbox("chkVorstrafeS3", "Vorstrafe", 400.0, 300.0),
+        _checkbox("chkVorstrafeS3", "Vorstrafe", 440.0, 300.0),
+    ]
+
+    groups = group_checkbox_widgets(
+        widgets, {1: (_token("ja", 415.0, 300.0), _token("nein", 455.0, 300.0))}
+    )
+
+    assert len(claimed_widgets(groups)) == 2
+
+
+def test_a_wrapped_option_list_becomes_one_group() -> None:
+    """Six options laid out three-and-three are one question."""
+    widgets = [
+        _checkbox("a", "Sprachkurs", 60.0, 660.0),
+        _checkbox("b", "Studium", 160.0, 660.0),
+        _checkbox("c", "Arbeitsaufnahme", 260.0, 660.0),
+        _checkbox("d", "Werkvertrag", 60.0, 675.0),
+        _checkbox("e", "Au-Pair", 160.0, 675.0),
+        _checkbox("f", "Sonstiges", 260.0, 675.0),
+    ]
+
+    groups = group_checkbox_widgets(widgets)
+
+    assert len(groups) == 1
+    assert len(groups[0].options) == 6
+
+
+def test_question_text_between_two_rows_prevents_a_merge() -> None:
+    """Geometry alone says "continuation" for two adjacent, identically
+    aligned rows. The second question's printed text is what separates them."""
+    widgets = [
+        _checkbox("a", "Einzelzimmer", 60.0, 660.0),
+        _checkbox("b", "Sammelunterkunft", 160.0, 660.0),
+        _checkbox("c", "Sprachkurs", 60.0, 682.0),
+        _checkbox("d", "Studium", 160.0, 682.0),
+    ]
+    # A new question printed to the left of the options, between the rows.
+    tokens = (_token("20 Zweck des Aufenthalts", 20.0, 675.0),)
+
+    groups = group_checkbox_widgets(widgets, {1: tokens})
+
+    assert len(groups) == 2
+
+
+def test_rows_with_different_shared_tooltips_never_merge() -> None:
+    """Native evidence outranks geometry: two consecutive legal questions align
+    too well for any positional test, but the author labelled them apart."""
+    widgets = [
+        _checkbox("q1", "Ermittlungsverfahren", 400.0, 300.0),
+        _checkbox("q1", "Ermittlungsverfahren", 440.0, 300.0),
+        _checkbox("q2", "Strafbefehl", 400.0, 315.0),
+        _checkbox("q2", "Strafbefehl", 440.0, 315.0),
+    ]
+    tokens = tuple(
+        _token(text, x, y)
+        for text, x, y in (
+            ("ja", 415.0, 300.0),
+            ("nein", 455.0, 300.0),
+            ("ja", 415.0, 315.0),
+            ("nein", 455.0, 315.0),
+        )
+    )
+
+    groups = group_checkbox_widgets(widgets, {1: tokens})
+
+    assert len(groups) == 2
+    assert {g.label for g in groups} == {"Ermittlungsverfahren", "Strafbefehl"}
 
 
 def test_text_widgets_are_never_grouped() -> None:

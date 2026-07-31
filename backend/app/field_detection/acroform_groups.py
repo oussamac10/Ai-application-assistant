@@ -112,7 +112,13 @@ class WidgetGroup:
     exclusive: bool = False
     review_required: bool = True
     bounding_box: BoundingBox | None = None
-    claimed_widget_names: frozenset[str] = field(default_factory=frozenset)
+    # Identity is (name, page, x, y), not the name alone. Two widgets can share
+    # one field name — that is how this form encodes a native ja/nein pair, one
+    # field with two differently-valued boxes — so counting names undercounts
+    # widgets and made 54 grouped widgets report as "49 claimed, 5 unclaimed".
+    claimed_widgets: frozenset[tuple[str, int, float, float]] = field(
+        default_factory=frozenset
+    )
 
 
 def is_machine_name(name: str | None) -> bool:
@@ -185,6 +191,125 @@ def _cluster(
                 current.append(widget)
         runs.append(current)
     return runs
+
+
+# A wrapped option list continues on the next line. Merged only when the rows
+# are this close vertically (as a multiple of widget height) — far enough apart
+# and they are two questions that happen to sit near each other.
+_WRAP_MAX_ROW_GAP = 1.6
+
+
+def _merge_wrapped_rows(
+    runs: list[list[AcroFormWidgetInput]],
+    tokens: tuple[DetectionToken, ...] = (),
+) -> list[list[AcroFormWidgetInput]]:
+    """Joins an option list that wrapped onto a following row.
+
+    "Zweck des Aufenthalts" offers six options laid out three-and-three:
+
+        [_] Sprachkurs  [_] Studium     [_] Arbeitsaufnahme
+        [_] Werkvertrag [_] Au-Pair     [_] Sonstiges
+
+    Row clustering sees two rows and produces two questions. The evidence that
+    they are one: the rows are vertically adjacent, start at the same x, and
+    use identically sized widgets — a continuation, not a neighbour.
+
+    Deliberately conservative. Two genuinely different questions stacked
+    closely (the legal ja/nein rows) start at *different* x positions and stay
+    separate, and a merge is only ever attempted between immediately
+    consecutive rows.
+    """
+    if len(runs) < 2:
+        return runs
+
+    ordered = sorted(runs, key=lambda run: min(_centre(w.rect)[1] for w in run))
+    merged: list[list[AcroFormWidgetInput]] = [ordered[0]]
+
+    for run in ordered[1:]:
+        previous = merged[-1]
+        if _is_wrapped_continuation(previous, run) and not _text_between(
+            previous, run, tokens
+        ):
+            merged[-1] = previous + run
+        else:
+            merged.append(run)
+    return merged
+
+
+def _text_between(
+    previous: list[AcroFormWidgetInput],
+    run: list[AcroFormWidgetInput],
+    tokens: tuple[DetectionToken, ...],
+) -> bool:
+    """Whether a new question is written between two option rows.
+
+    This is the decisive signal, and geometry alone is not enough: on the
+    reference form "Wie sind Sie untergebracht?" and "Zweck des Aufenthalts"
+    sit in adjacent, identically aligned rows of identically sized widgets, so
+    every positional test says "continuation". What separates them is that the
+    second question's *text* is printed between the two rows — and a genuinely
+    wrapped list has nothing between its lines but the options themselves.
+
+    Only text starting to the left of the options counts. The option labels
+    themselves sit beside their widgets and must not be mistaken for a new
+    question.
+    """
+    if not tokens:
+        return False
+    previous_bottom = max(w.rect.y + w.rect.height for w in previous)
+    run_top = min(w.rect.y for w in run)
+    left_edge = min(w.rect.x for w in previous)
+
+    return any(
+        previous_bottom <= token.bounding_box.y < run_top
+        and token.bounding_box.x < left_edge - 1
+        for token in tokens
+    )
+
+
+def _is_wrapped_continuation(
+    previous: list[AcroFormWidgetInput], run: list[AcroFormWidgetInput]
+) -> bool:
+    if not previous or not run or len(previous) < 2 or len(run) < 2:
+        return False
+
+    previous_bottom = max(w.rect.y + w.rect.height for w in previous)
+    run_top = min(w.rect.y for w in run)
+    height = max(w.rect.height for w in previous) or 1.0
+    if not (-height <= run_top - previous_bottom <= height * _WRAP_MAX_ROW_GAP):
+        return False
+
+    # Same left edge: a continuation restarts the list, a different question
+    # starts wherever its own text ended.
+    left_previous = min(w.rect.x for w in previous)
+    left_run = min(w.rect.x for w in run)
+    if abs(left_previous - left_run) > height:
+        return False
+
+    # Same widget size — a different control size means a different purpose.
+    if abs(previous[0].rect.width - run[0].rect.width) > 1.0:
+        return False
+
+    # Native evidence outranks geometry: when each row's widgets carry their
+    # own shared tooltip and the two differ, the author labelled them as two
+    # questions. The reference form's consecutive legal rows are exactly this
+    # ("polizeiliches Ermittlungsverfahren" then "Strafbefehl erlassen"), and
+    # they align too well for any positional test to separate them.
+    previous_tooltip = _shared_tooltip(previous)
+    run_tooltip = _shared_tooltip(run)
+    if previous_tooltip and run_tooltip and previous_tooltip != run_tooltip:
+        return False
+
+    return True
+
+
+def _shared_tooltip(run: list[AcroFormWidgetInput]) -> str | None:
+    """The tooltip every widget in a run carries, when they all agree."""
+    labels = {(w.field_label or "").strip() for w in run}
+    if len(labels) == 1:
+        only = next(iter(labels))
+        return only or None
+    return None
 
 
 def _nearest_label_above(
@@ -310,12 +435,16 @@ def group_checkbox_widgets(
         by_page.setdefault(widget.page_number, []).append(widget)
 
     for page_number, page_widgets in sorted(by_page.items()):
-        claimed: set[str] = set()
+        claimed: set[tuple[str, int, float, float]] = set()
         page_tokens = tokens_by_page.get(page_number, ())
 
         for orientation in ("row", "column"):
-            remaining = [w for w in page_widgets if w.field_name not in claimed]
-            for run in _cluster(remaining, orientation):
+            remaining = [w for w in page_widgets if widget_identity(w) not in claimed]
+            runs = _cluster(remaining, orientation)
+            if orientation == "row":
+                # An option list that wrapped onto the next row is one question.
+                runs = _merge_wrapped_rows(runs, page_tokens)
+            for run in runs:
                 if len(run) < _MIN_GROUP_SIZE:
                     continue
                 options = tuple(
@@ -355,12 +484,10 @@ def group_checkbox_widgets(
                         # admitting uncertainty beats emitting N text questions.
                         review_required=not exclusive,
                         bounding_box=box,
-                        claimed_widget_names=frozenset(
-                            option.widget_name for option in options
-                        ),
+                        claimed_widgets=frozenset(widget_identity(w) for w in run),
                     )
                 )
-                claimed.update(w.field_name for w in run)
+                claimed.update(widget_identity(w) for w in run)
 
     _log_counts(widgets, groups)
     return groups
@@ -374,20 +501,30 @@ def _union(boxes: list[BoundingBox]) -> BoundingBox:
     return BoundingBox(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
 
 
-def claimed_widget_names(groups: list[WidgetGroup]) -> set[str]:
+def widget_identity(widget: AcroFormWidgetInput) -> tuple[str, int, float, float]:
+    """A widget's identity for claim tracking.
+
+    The field *name* is not unique: this form gives both boxes of a ja/nein
+    question the same name, distinguishing them only by export value and
+    position. Position completes the identity.
+    """
+    return (widget.field_name, widget.page_number, widget.rect.x, widget.rect.y)
+
+
+def claimed_widgets(groups: list[WidgetGroup]) -> set[tuple[str, int, float, float]]:
     """Every widget already accounted for by a group.
 
     The AcroForm pass skips these so a grouped checkbox is never *also* emitted
     as its own question.
     """
-    return {name for group in groups for name in group.claimed_widget_names}
+    return {identity for group in groups for identity in group.claimed_widgets}
 
 
 def _log_counts(widgets: list[AcroFormWidgetInput], groups: list[WidgetGroup]) -> None:
     """Counts only — never a widget name, tooltip or user value, any of which
     can carry document content."""
     checkboxes = [w for w in widgets if w.field_type == "checkbox"]
-    claimed = claimed_widget_names(groups)
+    claimed = claimed_widgets(groups)
     logger.info(
         "AcroForm widget grouping: acroform_widgets_total=%d "
         "acroform_text_widgets=%d acroform_checkbox_widgets=%d "
