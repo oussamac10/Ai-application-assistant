@@ -42,6 +42,10 @@ from __future__ import annotations
 
 import logging
 
+from app.field_detection.acroform_groups import (
+    claimed_widget_names,
+    group_checkbox_widgets,
+)
 from app.field_detection.classification import (
     acroform_widget_confidence,
     choice_group_confidence,
@@ -280,7 +284,41 @@ class LocalFieldDetectionProvider:
         phrases_by_page = self._phrases_by_page(document)
         candidates: list[DetectedFieldCandidate] = []
 
+        # Checkbox widgets that together ask one question become one candidate.
+        # Emitting each widget separately turned a government form's twelve
+        # choice questions into fifty-four, and — because this path bypasses
+        # the text-line passes entirely — none of the visual grouping applied.
+        widget_groups = group_checkbox_widgets(
+            list(document.acroform_widgets),
+            {page.page_number: page.tokens for page in document.pages},
+        )
+        claimed = claimed_widget_names(widget_groups)
+
+        for order, group in enumerate(widget_groups):
+            label = group.label or _humanize_field_name(group.options[0].widget_name)
+            box = group.bounding_box or group.options[0].rect
+            candidates.append(
+                DetectedFieldCandidate(
+                    candidate_key=f"acroform-group-{group.page_number}-{order}",
+                    page_number=group.page_number,
+                    label=label,
+                    normalized_name=normalize_field_name(label),
+                    # Exclusive by evidence -> pick one. Anything the hints did
+                    # not recognise stays a group and is routed to review
+                    # rather than being split back into N questions.
+                    field_type="radio" if group.exclusive else "multiple_choice",
+                    confidence=0.55 if group.review_required else 0.9,
+                    source="acroform",
+                    input_bounding_box=box,
+                    options=tuple(option.label for option in group.options),
+                )
+            )
+
         for index, widget in enumerate(document.acroform_widgets):
+            if widget.field_name in claimed:
+                # Already part of a group; emitting it again would resurrect
+                # exactly the per-widget questions this replaces.
+                continue
             page_phrases = phrases_by_page.get(widget.page_number, [])
             nearest_label = find_nearest_label_for_box(widget.rect, page_phrases)
 

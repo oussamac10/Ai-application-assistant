@@ -56,6 +56,17 @@ class AcroFormWidgetInput:
     rect: BoundingBox
     page_number: int
     required: bool = False
+    # The widget's tooltip (/TU, "alternate field name"). On real government
+    # forms this is the human text — "Ausbildung", "ledig" — while
+    # `field_name` is a machine identifier ("chkLedigS1"). Preferred for
+    # display; the name is kept because export writes back to it.
+    field_label: str | None = None
+    # The /AP "on" state a checkbox writes when ticked. Needed to fill the
+    # form correctly and never shown to a user.
+    export_value: str | None = None
+    # The parent field name when the widget is a kid of a shared field, which
+    # is how a *native* radio group is expressed.
+    parent_name: str | None = None
 
 
 @dataclass(frozen=True)

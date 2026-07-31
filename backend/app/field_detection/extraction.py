@@ -101,6 +101,33 @@ def _extract_marker_tokens(page: fitz.Page) -> list[DetectionToken]:
     return tokens
 
 
+def _widget_on_state(widget: Any) -> str | None:
+    """The value a checkbox writes when ticked, or None.
+
+    PyMuPDF raises for widget types that have no on-state, so this is guarded
+    rather than branched on type — a new widget kind must not break extraction.
+    """
+    try:
+        return widget.on_state() or None
+    except Exception:
+        return None
+
+
+def _widget_parent_name(widget: Any) -> str | None:
+    """The widget's parent field name, when it is a kid of a shared field.
+
+    A native radio group is expressed this way. Most real forms do not use it
+    — every checkbox on the Stuttgart application is an independent field —
+    so grouping cannot depend on it, but it is decisive when present.
+    """
+    try:
+        parent = getattr(widget, "parent", None)
+        name = getattr(parent, "field_name", None) if parent is not None else None
+        return str(name) if name else None
+    except Exception:
+        return None
+
+
 def extract_native_document_input(pdf_path: Path) -> DetectionDocumentInput:
     """Extracts native text tokens and AcroForm widgets via PyMuPDF.
 
@@ -168,6 +195,9 @@ def extract_native_document_input(pdf_path: Path) -> DetectionDocumentInput:
                         ),
                         page_number=page_number,
                         required=required,
+                        field_label=(widget.field_label or None),
+                        export_value=_widget_on_state(widget),
+                        parent_name=_widget_parent_name(widget),
                     )
                 )
 
