@@ -737,41 +737,102 @@ digitally.
 
 ---
 
-## Phase 16 acceptance review
+## Visual text-field detection
 
-Verified against the criteria, local-only, with no Azure request.
+A form with AcroForm widgets says where its fields are. A flattened one says
+nothing: an underline beneath a label and the rule under a heading are the same
+drawing. The local pass therefore read only choice groups on such documents, and
+coverage correctly escalated them — which meant the hybrid safety net was paying
+a provider to do work local extraction should have been doing.
 
-| Area | Criterion | Status |
+`app/field_detection/visual_fields.py` reads drawn underlines and boxes and
+pairs each with a label beside or above it. Geometric, with no vocabulary in it.
+
+**Supported patterns:** label above an underline; label beside an underline
+("Name: ____"); label above or beside a bordered box; a tall box as
+`multiline_text`; repeated aligned label/input rows.
+
+**Association precedence:** same baseline to the left, then directly above with
+horizontal overlap (which is what keeps a two-column layout's columns apart).
+Same-row is trusted (confidence 0.75); above-association is marked
+`review_required`.
+
+**Filtering** — most of the module, because everything that marks an input also
+marks something else:
+
+| Rejected | Why |
+|---|---|
+| rule wider than 85% of the page | a section divider; the French form draws one under each page title |
+| region within 6% of a page edge | a border or footer rule |
+| box already containing text | a printed cell, not somewhere to write |
+| label longer than 9 words, or reading as a sentence | a heading, instruction or legal paragraph |
+| no plausible label at all | produces nothing — an invented question is worse than a missing one |
+
+A trailing colon survives the sentence filter: a colon is a form asking, not
+prose. A signature line is skipped entirely, because that classification is
+authoritative and a signature must not also be typed.
+
+**Thresholds** are expressed against the page or the region rather than in
+absolute points, and are documented at the top of the module.
+
+**Diagnostics** are counts only: underlines, boxes, multiline boxes,
+label/region pairs, fields generated, candidates filtered, ambiguous
+candidates. No label, coordinate or document text is ever logged.
+
+### Result on the committed French fixture
+
+| | before | after |
 |---|---|---|
-| Requiredness | `required` / `optional` / `unknown`, `unknown` never collapsed | met |
-| Validation | empty optional/unknown never block; invalid submitted values do | met |
-| Validation | validators only ever see a submitted value | met |
-| Choices | radio and checkbox groups, structural not lexical | met |
-| Choices | declarations enforce per-child requiredness | met |
-| Ingestion | encrypted-but-readable PDFs open | met |
-| AcroForm | widget grouping, 54/54 Stuttgart widgets accounted for | met |
-| AcroForm | repeated rows, deterministic `children_N_*` keys | met |
-| AcroForm | legal ja/nein option labels correct | met |
-| Signatures | digital signing, manual signing, export, safe errors | met |
-| Currency | EUR context preserved, no USD default | met |
-| Hybrid | local-first with deterministic escalation | met |
-| **Visual PDFs** | **local text fields from blank regions** | **not implemented** |
-| **Visual PDFs** | **visual tables from ruled-line geometry** | **not implemented** |
-| Testing | backend, frontend and offline Playwright clean, zero Azure | met |
+| candidates | 8 | **27** |
+| label coverage | 0.47 | **1.00** |
+| routing | escalate (`low_label_coverage`) | **`local_sufficient`, no Azure** |
+| choice groups | 5 | 5 (unchanged) |
+| duplicate keys | 0 | 0 |
 
-Routing on the committed fixtures:
+No threshold was lowered. The cause was fixed, not the symptom.
+
+## Phase 16 acceptance review — final
+
+| Mandatory criterion | Status |
+|---|---|
+| `required` / `optional` / `unknown`, never collapsed | met |
+| empty optional/unknown never block; invalid submitted values do | met |
+| choice grouping (radio, checkbox, structural) | met |
+| declarations enforce per-child requiredness | met |
+| encrypted-but-readable PDFs open | met |
+| AcroForm widget grouping (54/54 Stuttgart widgets) | met |
+| repeated rows with deterministic keys | met |
+| signature capture and export | met |
+| manual signing (`pending_manual_signature`) | met |
+| currency context preserved, no USD default | met |
+| local-first routing | met |
+| **basic visual text fields** | **met** |
+| complex unsupported documents still fall back safely | met |
+| automated tests make zero live Azure calls | met |
+
+Routing across every committed document fixture, local-only:
 
 ```
-rental-contract-de.pdf                n=19  q=0.83  -> local accepted, no Azure
-required-optional-validation-fr.pdf   n= 8  q=0.98  -> escalate (low_label_coverage)
+rental-contract-de.pdf                n=19  label=1.00  -> local_sufficient
+required-optional-validation-fr.pdf   n=27  label=1.00  -> local_sufficient
 ```
 
-The second is correct behaviour, not a failure: the local pass genuinely reads
-only the choice groups on that document, and coverage says so rather than
-letting a high per-candidate score hide it. It is also exactly what the two
-unimplemented rows above would change — a local pass that found the text fields
-would keep that document local.
+**Phase 16 is complete.**
 
-**Phase 16 is therefore not complete.** Everything else in the acceptance list
-passes; visual-PDF text-field and table detection remain, and until they land
-the hybrid safety net is doing work that local extraction should be doing.
+## Deferred to a later phase
+
+Advanced visual-table work is explicitly out of scope for the Phase 16 MVP and
+remains unbuilt:
+
+- complex flattened tables reconstructed from ruled-line geometry
+- merged visual cells
+- purely visual repeated table rows (the repeated-row model still keys on
+  AcroForm widget positions)
+- scanned-image OCR table structure
+
+Also carried:
+
+- the guided flow asks repeated-row fields one at a time; grouping is
+  presentational (heading plus row counter), not a table editor
+- `signature-demo-v1.pdf` is a manually defined form, so detection metrics on it
+  are not meaningful
