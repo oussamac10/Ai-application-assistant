@@ -25,6 +25,7 @@ from app.field_detection.providers.base import (
 from app.field_detection.repeated_rows import (
     detect_repeated_sections,
     row_index_for_widget,
+    section_choice_widget_names,
     section_widget_names,
 )
 
@@ -243,3 +244,141 @@ def test_the_stuttgart_children_table_is_detected() -> None:
     assert len(section_widget_names(sections)) == len(
         {c.widget_name for s in sections for r in s.rows for c in r.cells}
     )
+
+
+# ---------------------------------------------------------------------------
+# Choice cells inside a row
+# ---------------------------------------------------------------------------
+
+
+def _row_with_gender(rows: int = 3):
+    """Rows whose middle two columns are a male/female checkbox pair."""
+    widgets = []
+    for row in range(rows):
+        y = 100.0 + row * 26.0
+        widgets.append(_widget(f"name{row}", 60.0, y))
+        widgets.append(_widget(f"male{row}", 200.0, y, kind="checkbox", width=12.0))
+        widgets.append(_widget(f"female{row}", 226.0, y, kind="checkbox", width=12.0))
+        widgets.append(_widget(f"city{row}", 340.0, y))
+    return widgets
+
+
+def _labelled(widgets, labels: dict[str, str]):
+    return [
+        AcroFormWidgetInput(
+            field_name=w.field_name,
+            field_type=w.field_type,
+            rect=w.rect,
+            page_number=w.page_number,
+            field_label=labels.get(w.field_name),
+            export_value="Ja",
+        )
+        for w in widgets
+    ]
+
+
+def _gender_section(rows: int = 3):
+    labels = {}
+    for row in range(rows):
+        labels[f"male{row}"] = "männlich"
+        labels[f"female{row}"] = "weiblich"
+    widgets = _labelled(_row_with_gender(rows), labels)
+    return detect_repeated_sections(widgets, section_key="children")[0]
+
+
+def test_adjacent_selection_columns_become_one_choice_cell() -> None:
+    """Two checkbox columns are one question about one person — "is this child
+    male?" is not a field any form is asking."""
+    section = _gender_section()
+
+    cells = section.rows[0].cells
+    assert [cell.field_type for cell in cells] == [
+        "text",
+        "single_choice",
+        "text",
+    ]
+    choice = cells[1]
+    assert [option.source_label for option in choice.options] == [
+        "männlich",
+        "weiblich",
+    ]
+
+
+def test_a_recognised_option_set_names_the_choice_cell() -> None:
+    """Naming is the only place a recognised set is consulted, and only to
+    improve the name — grouping is positional."""
+    section = _gender_section()
+
+    assert section.rows[0].cells[1].column_key == "gender"
+    assert section.field_key(1, "gender") == "children_1_gender"
+    assert section.field_key(2, "gender") == "children_2_gender"
+
+
+def test_an_unrecognised_pair_still_merges() -> None:
+    widgets = _labelled(
+        _row_with_gender(3),
+        {
+            f"{side}{r}": label
+            for r in range(3)
+            for side, label in (("male", "Zzyzx"), ("female", "Fnord"))
+        },
+    )
+    section = detect_repeated_sections(widgets, section_key="rows")[0]
+
+    choice = section.rows[0].cells[1]
+    assert choice.field_type == "single_choice"
+    # No recognised set, so a positional name rather than an invented one.
+    assert choice.column_key == "choice"
+
+
+def test_a_choice_cell_belongs_to_exactly_one_row() -> None:
+    """Selecting Child 1's gender must not touch Child 2."""
+    section = _gender_section()
+
+    first = section.rows[0].cells[1]
+    second = section.rows[1].cells[1]
+
+    assert first.widget_names == ("male0", "female0")
+    assert second.widget_names == ("male1", "female1")
+    assert set(first.widget_names) & set(second.widget_names) == set()
+
+
+def test_every_source_widget_is_preserved_for_export() -> None:
+    """Export writes back to both checkboxes, so both rectangles and export
+    values have to survive the merge."""
+    section = _gender_section()
+
+    choice = section.rows[0].cells[1]
+    assert len(choice.options) == 2
+    for option in choice.options:
+        assert option.widget_name
+        assert option.export_value == "Ja"
+        assert option.rect.width > 0
+
+
+def test_row_choice_widgets_are_reported_for_deduplication() -> None:
+    """The AcroForm pass skips any group made entirely of these, so a child's
+    gender is asked once — inside their row — not twice."""
+    section = _gender_section()
+
+    names = section_choice_widget_names([section])
+
+    assert names == {f"{side}{r}" for r in range(3) for side in ("male", "female")}
+
+
+def test_a_lone_checkbox_column_stays_a_single_field() -> None:
+    """One checkbox in a row is a boolean, not a choice."""
+    widgets = []
+    for row in range(3):
+        y = 100.0 + row * 26.0
+        widgets.append(_widget(f"name{row}", 60.0, y))
+        widgets.append(_widget(f"flag{row}", 200.0, y, kind="checkbox", width=12.0))
+        widgets.append(_widget(f"city{row}", 340.0, y))
+
+    section = detect_repeated_sections(widgets, section_key="rows")[0]
+
+    assert [cell.field_type for cell in section.rows[0].cells] == [
+        "text",
+        "checkbox",
+        "text",
+    ]

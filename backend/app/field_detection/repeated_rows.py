@@ -61,16 +61,48 @@ _MIN_COLUMNS = 3
 # column, not a name for it.
 _MAX_COLUMN_KEY_LENGTH = 40
 
+# Widget types that select rather than accept typing. A run of these inside one
+# row is one question.
+_SELECTION_TYPES = frozenset({"checkbox", "radio"})
+
+
+@dataclass(frozen=True)
+class RowChoiceOption:
+    """One selectable widget inside a row's choice cell.
+
+    `source_label` is the document's own wording, kept verbatim; export writes
+    back to `widget_name` at `rect`.
+    """
+
+    source_label: str
+    widget_name: str
+    rect: BoundingBox
+    export_value: str | None = None
+
 
 @dataclass(frozen=True)
 class RowCell:
-    """One widget inside a repeated row, with everything export needs."""
+    """One field inside a repeated row, with everything export needs.
+
+    A cell is usually one widget. It is several when adjacent columns in the
+    row are selection controls that together ask one question — the children
+    table's männlich/weiblich pair is two checkbox columns and one question
+    about one child.
+    """
 
     column_index: int
     column_key: str
     widget_name: str
     field_type: str
     rect: BoundingBox
+    options: tuple[RowChoiceOption, ...] = ()
+
+    @property
+    def widget_names(self) -> tuple[str, ...]:
+        """Every widget this cell writes to. Export needs all of them."""
+        if self.options:
+            return tuple(option.widget_name for option in self.options)
+        return (self.widget_name,)
 
 
 @dataclass(frozen=True)
@@ -265,16 +297,19 @@ def _build_section(
     rows = tuple(
         RepeatedRow(
             index=row_index + 1,
-            cells=tuple(
-                RowCell(
-                    column_index=position,
-                    column_key=column_keys[position],
-                    widget_name=widget.field_name,
-                    field_type=widget.field_type,
-                    rect=widget.rect,
-                )
-                for position, widget in enumerate(band)
-                if position < len(column_keys)
+            cells=_merge_choice_cells(
+                tuple(
+                    RowCell(
+                        column_index=position,
+                        column_key=column_keys[position],
+                        widget_name=widget.field_name,
+                        field_type=widget.field_type,
+                        rect=widget.rect,
+                    )
+                    for position, widget in enumerate(band)
+                    if position < len(column_keys)
+                ),
+                band,
             ),
             bounding_box=_union([w.rect for w in band]),
         )
@@ -288,6 +323,90 @@ def _build_section(
         rows=rows,
         column_keys=column_keys,
     )
+
+
+def _merge_choice_cells(
+    cells: tuple[RowCell, ...], band: list[AcroFormWidgetInput]
+) -> tuple[RowCell, ...]:
+    """Collapses adjacent selection-control columns into one choice cell.
+
+    The children table gives each child two checkbox columns, männlich and
+    weiblich. Left as two cells they are two questions about one person, and
+    the answer to "is this child male?" is not a field a form is asking for.
+
+    The rule is positional: a run of consecutive checkbox/radio columns inside
+    one row is one question. Naming it is the only place a recognised option
+    set is consulted, and only to *improve* the name — an unrecognised pair
+    still merges, and falls back to a positional key.
+    """
+    from app.field_detection.option_groups import match_option_set
+
+    merged: list[RowCell] = []
+    index = 0
+    while index < len(cells):
+        cell = cells[index]
+        if cell.field_type not in _SELECTION_TYPES:
+            merged.append(cell)
+            index += 1
+            continue
+
+        run_end = index
+        while (
+            run_end + 1 < len(cells)
+            and cells[run_end + 1].field_type in _SELECTION_TYPES
+        ):
+            run_end += 1
+
+        if run_end == index:
+            # A lone checkbox in a row is a boolean, not a choice.
+            merged.append(cell)
+            index += 1
+            continue
+
+        run = cells[index : run_end + 1]
+        options = tuple(
+            RowChoiceOption(
+                source_label=_widget_label(member, band),
+                widget_name=member.widget_name,
+                rect=member.rect,
+                export_value=_widget_export_value(member, band),
+            )
+            for member in run
+        )
+        labels = tuple(option.source_label for option in options)
+        recognised = match_option_set(labels)
+        merged.append(
+            RowCell(
+                column_index=cell.column_index,
+                column_key=recognised.key if recognised else "choice",
+                # The first widget names the cell; `widget_names` exposes all
+                # of them, and export needs every rectangle.
+                widget_name=cell.widget_name,
+                field_type="single_choice",
+                rect=_union([member.rect for member in run]),
+                options=options,
+            )
+        )
+        index = run_end + 1
+
+    return tuple(merged)
+
+
+def _widget_label(cell: RowCell, band: list[AcroFormWidgetInput]) -> str:
+    """The document's own wording for one option, kept verbatim."""
+    for widget in band:
+        if widget.field_name == cell.widget_name:
+            return (widget.field_label or "").strip() or cell.column_key
+    return cell.column_key
+
+
+def _widget_export_value(
+    cell: RowCell, band: list[AcroFormWidgetInput]
+) -> str | None:
+    for widget in band:
+        if widget.field_name == cell.widget_name:
+            return widget.export_value
+    return None
 
 
 def _make_unique(keys: tuple[str, ...]) -> tuple[str, ...]:
@@ -309,6 +428,21 @@ def section_widget_names(sections: list[RepeatedSection]) -> set[str]:
         for section in sections
         for row in section.rows
         for cell in row.cells
+    }
+
+
+def section_choice_widget_names(sections: list[RepeatedSection]) -> set[str]:
+    """Widgets already answered by a choice cell inside a repeated row.
+
+    The AcroForm pass skips any group made entirely of these, so a child's
+    gender is asked once — as part of that child's row — rather than twice.
+    """
+    return {
+        option.widget_name
+        for section in sections
+        for row in section.rows
+        for cell in row.cells
+        for option in cell.options
     }
 
 

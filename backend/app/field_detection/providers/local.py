@@ -98,6 +98,7 @@ from app.field_detection.providers.base import (
 from app.field_detection.repeated_rows import (
     detect_repeated_sections,
     row_index_for_widget,
+    section_choice_widget_names,
 )
 from app.field_detection.requiredness import (
     OPTIONAL,
@@ -304,7 +305,61 @@ class LocalFieldDetectionProvider:
             tokens_by_page,
             row_lookup=lambda name: row_index_for_widget(sections, name),
         )
-        claimed = claimed_widgets(widget_groups)
+        # A choice already carried *inside* a repeated row must not also be
+        # asked on its own: the children table's gender pair belongs to its
+        # child, and a second free-standing "männlich / weiblich" question
+        # elsewhere in the flow is the same widgets asked twice.
+        row_choice_widgets = section_choice_widget_names(sections)
+        merged_away = [
+            g
+            for g in widget_groups
+            if {o.widget_name for o in g.options} <= row_choice_widgets
+        ]
+        widget_groups = [g for g in widget_groups if g not in merged_away]
+        if merged_away:
+            logger.info(
+                "Repeated-row choice merge: "
+                "repeated_row_choice_fields_merged=%d "
+                "standalone_row_choice_candidates_removed=%d",
+                sum(len(s.rows) for s in sections),
+                len(merged_away),
+            )
+        # Row choice cells are emitted below as indexed row questions, so
+        # their widgets stay claimed and never reappear as individual
+        # checkboxes.
+        claimed = claimed_widgets(widget_groups) | {
+            identity
+            for g in merged_away
+            for identity in g.claimed_widgets
+        }
+
+        # One question per row choice cell, keyed to its row. The frontend
+        # renders flat indexed fields, so `children_2_gender` is how a row's
+        # choice reaches the user while staying unambiguously that row's.
+        for section in sections:
+            for row in section.rows:
+                for cell in row.cells:
+                    if not cell.options:
+                        continue
+                    key = section.field_key(row.index, cell.column_key)
+                    candidates.append(
+                        DetectedFieldCandidate(
+                            candidate_key=f"row-choice-{key}",
+                            page_number=section.page_number,
+                            label=f"{section.key.title()} {row.index} — "
+                            + " / ".join(o.source_label for o in cell.options),
+                            normalized_name=key,
+                            field_type="radio",
+                            confidence=0.9,
+                            source="acroform",
+                            input_bounding_box=cell.rect,
+                            # Source wording verbatim: the stable value written
+                            # back to the PDF is never a translation.
+                            options=tuple(
+                                o.source_label for o in cell.options
+                            ),
+                        )
+                    )
 
         for order, group in enumerate(widget_groups):
             label = group.label or _humanize_field_name(group.options[0].widget_name)
