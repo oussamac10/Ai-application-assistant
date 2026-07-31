@@ -569,6 +569,64 @@ distance break the tie. A run over four words is the question, prose or the next
 column, and search direction follows reading direction. No German-specific rule
 is involved.
 
+### Row choice cells
+
+A child's gender was two things at once: two checkbox *columns* inside the
+repeated row, and separately a standalone "männlich / weiblich — row N"
+question. The same widgets were asked twice, and neither form was the question
+the document asks — "is this child male?" is not a field any form contains.
+
+Adjacent selection columns inside a row now collapse into one choice cell,
+positionally: a run of consecutive checkbox/radio columns in one row band is one
+question. A recognised option set is consulted only to *name* it, so an
+unrecognised pair still merges and falls back to `choice`. The cell keeps every
+source widget — name, rectangle, export value — because filling the PDF means
+writing back to both boxes.
+
+`section_choice_widget_names` reports the widgets a row already answers, and the
+AcroForm pass drops any group made entirely of them while keeping them
+*claimed*, so they do not reappear as individual checkboxes either. The row
+model is not yet renderable by the frontend, so each row choice is also emitted
+as a flat indexed question (`children_2_gender`), the spec's stated fallback.
+
+### Signature export
+
+Strokes are scaled into the signature rectangle, centred, and drawn as vector
+polylines. Vectors rather than a rasterised image because the data already *is*
+vectors: a PNG would lose resolution, add a temporary file to create, cap and
+delete, and require decoding user-supplied image bytes. Nothing is written to
+disk beyond the output document, which is why "clean up temporary assets" needs
+no code.
+
+One scale for both axes, so a signature is never stretched, and the smaller
+ratio wins so it cannot escape the box. Fitting uses the *ink's* bounds rather
+than the canvas: someone signing in the left half of the pad leaves the right
+half empty, and fitting the canvas centred that emptiness (12pt gap against
+100pt in the test that caught it).
+
+`pending_manual_signature` renders nothing at all. The rectangle is left exactly
+as the form's author drew it — no placeholder, no stamp, no faint line —
+because this is a document someone is about to hand to an authority.
+
+Validation runs again at export: storage sits between capture and rendering, and
+immediately before a renderer is the cheapest place to catch a corrupted or
+tampered row. Errors carry a structural code and never a coordinate.
+
+### Offline Playwright
+
+`e2e/fixtures/mockSession.ts` intercepts `/api/**` and serves a deterministic
+guided session, so the Phase 16 frontend flows run with **zero** Azure requests
+and no credentials. The behaviours are frontend behaviours; pinning the data
+also makes the assertions exact rather than dependent on what a detector
+happened to find. An unrecognised path returns 501 rather than falling through —
+a mock that quietly lets a request escape is worse than no mock.
+
+`e2e/offline-phase16-flows.spec.ts`: 11 specs covering signature capture and
+deferral, the pre-download reminder, currency display, requiredness/Skip, and
+repeated child rows — plus one asserting that no request leaves localhost.
+**11 passed in 10.5s.** The live-Azure specs remain separate and are the ones
+that consume quota.
+
 ### Manual-sign reminder
 
 When a signature is deferred to paper the exported PDF's signature box is left
