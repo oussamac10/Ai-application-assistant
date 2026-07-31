@@ -412,6 +412,7 @@ def _label_beside(
     # Reading direction decides which side to look at: an RTL form puts the
     # label to the widget's left.
     if rtl:
+
         def beside(token: DetectionToken) -> bool:
             box = token.bounding_box
             return (
@@ -422,6 +423,7 @@ def _label_beside(
         def distance(token: DetectionToken) -> float:
             return rect.x - (token.bounding_box.x + token.bounding_box.width)
     else:
+
         def beside(token: DetectionToken) -> bool:
             box = token.bounding_box
             return (

@@ -400,9 +400,7 @@ def _widget_label(cell: RowCell, band: list[AcroFormWidgetInput]) -> str:
     return cell.column_key
 
 
-def _widget_export_value(
-    cell: RowCell, band: list[AcroFormWidgetInput]
-) -> str | None:
+def _widget_export_value(cell: RowCell, band: list[AcroFormWidgetInput]) -> str | None:
     for widget in band:
         if widget.field_name == cell.widget_name:
             return widget.export_value

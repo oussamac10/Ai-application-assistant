@@ -328,9 +328,7 @@ class LocalFieldDetectionProvider:
         # their widgets stay claimed and never reappear as individual
         # checkboxes.
         claimed = claimed_widgets(widget_groups) | {
-            identity
-            for g in merged_away
-            for identity in g.claimed_widgets
+            identity for g in merged_away for identity in g.claimed_widgets
         }
 
         # One question per row choice cell, keyed to its row. The frontend
@@ -355,9 +353,7 @@ class LocalFieldDetectionProvider:
                             input_bounding_box=cell.rect,
                             # Source wording verbatim: the stable value written
                             # back to the PDF is never a translation.
-                            options=tuple(
-                                o.source_label for o in cell.options
-                            ),
+                            options=tuple(o.source_label for o in cell.options),
                         )
                     )
 

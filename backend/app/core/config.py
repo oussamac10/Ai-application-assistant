@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     DATABASE_URL: str | None = None
 
+    # Which environment this process is running in. Used to keep
+    # development-only fixtures (the signature demo form) out of production,
+    # where a test form appearing in a public list would be a real problem.
+    ENVIRONMENT: str = "development"
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.strip().lower() in ("production", "prod")
+
     # Application log level. Uvicorn does not configure our loggers, so
     # app/main.py sets this up explicitly (see the basicConfig call there).
     LOG_LEVEL: str = "INFO"
