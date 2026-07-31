@@ -1,8 +1,7 @@
 from typing import Any
 
-import pypdf
-
 from app.core.config import settings
+from app.documents.decryption import open_pdf
 from app.documents.errors import DocumentValidationError
 
 
@@ -13,7 +12,9 @@ class PDFAnalyzer:
     def analyze_document(self, filepath: str) -> dict[str, Any]:
         """Performs deterministic structural analysis on the PDF file."""
         try:
-            reader = pypdf.PdfReader(filepath)
+            # Permissions-encrypted forms open with an empty password; a
+            # genuinely locked one is refused here as it is at upload.
+            reader = open_pdf(filepath)
             page_count = len(reader.pages)
             if page_count == 0:
                 raise DocumentValidationError(

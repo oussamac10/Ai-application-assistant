@@ -2,6 +2,7 @@ from typing import Any, cast
 
 import pypdf
 
+from app.documents.decryption import open_pdf
 from app.documents.errors import DocumentValidationError
 
 
@@ -25,14 +26,10 @@ def validate_pdf_signature(filepath: str) -> None:
 def validate_pdf_structure(filepath: str, max_pages: int) -> None:
     """Attempts to parse the PDF to verify it is readable and within page limits."""
     try:
-        reader = pypdf.PdfReader(filepath)
-
-        # Check if encrypted or password protected
-        if reader.is_encrypted:
-            raise DocumentValidationError(
-                "PDF is encrypted or password-protected.",
-                "encrypted_pdf",
-            )
+        # An encryption dictionary is not a lock. Most government forms are
+        # encrypted for *permissions* and open with an empty password; only a
+        # file that genuinely refuses one is rejected. See decryption.py.
+        reader = open_pdf(filepath)
 
         page_count = len(reader.pages)
         if page_count == 0:
@@ -55,14 +52,16 @@ def validate_pdf_structure(filepath: str, max_pages: int) -> None:
                 )
     except pypdf.errors.FileNotDecryptedError as e:
         raise DocumentValidationError(
-            "PDF is password-protected or encrypted.",
-            "password_protected_pdf",
+            "This PDF requires a password.",
+            "pdf_password_required",
         ) from e
     except DocumentValidationError:
         raise
     except Exception as e:
+        # Never echo the parser's message: pypdf exceptions can carry object
+        # contents, and document contents are private.
         raise DocumentValidationError(
-            f"Malformed PDF or corrupted structure: {str(e)}",
+            "Malformed PDF or corrupted structure.",
             "malformed_pdf",
         ) from e
 
@@ -70,7 +69,7 @@ def validate_pdf_structure(filepath: str, max_pages: int) -> None:
 def validate_pdf_safety(filepath: str) -> None:
     """Scans the PDF catalog and pages for active or dangerous content."""
     try:
-        reader = pypdf.PdfReader(filepath)
+        reader = open_pdf(filepath)
         catalog = reader.trailer.get("/Root")
         if not catalog:
             return
@@ -143,6 +142,6 @@ def validate_pdf_safety(filepath: str) -> None:
         raise
     except Exception as e:
         raise DocumentValidationError(
-            f"Safety scan failed: {str(e)}",
+            "Safety scan failed.",
             "malformed_pdf",
         ) from e

@@ -127,7 +127,10 @@
     "no_usable_questions_body": "Wir haben in diesem Dokument keine verwendbaren Fragen gefunden. Sie können es erneut versuchen oder eine andere Datei hochladen.",
     "debug_open_review": "Technische Überprüfung öffnen (Debug)",
     "processing_failed": "Dieses Dokument konnte nicht verarbeitet werden.",
-    "error_generic_fallback": "Wir konnten dieses Dokument nicht verarbeiten. Bitte versuchen Sie es erneut."
+    "error_generic_fallback": "Wir konnten dieses Dokument nicht verarbeiten. Bitte versuchen Sie es erneut.",
+    "error_pdf_password_required": "Dieses PDF erfordert ein Passwort. Bitte laden Sie eine entsperrte Kopie hoch.",
+    "error_pdf_decryption_failed": "Dieses PDF konnte nicht geöffnet werden. Bitte versuchen Sie eine andere Kopie.",
+    "error_pdf_invalid": "Diese Datei konnte nicht als PDF gelesen werden."
   },
   "documentOcr": {
     "title": "Text mit OCR extrahieren",

@@ -5,6 +5,8 @@ from typing import Any
 
 import pypdf
 
+from app.documents.decryption import open_pdf
+
 
 class PDFFingerprintRegistry:
     def __init__(self, fixtures_dir: Path | None = None) -> None:
@@ -42,8 +44,10 @@ class PDFFingerprintRegistry:
 
         reader = None
         try:
-            reader = pypdf.PdfReader(filepath)
+            reader = open_pdf(filepath)
         except Exception:
+            # Fingerprint matching is best-effort; an unreadable file simply
+            # matches nothing and falls through to dynamic detection.
             pass
 
         for _, fp in fingerprints.items():

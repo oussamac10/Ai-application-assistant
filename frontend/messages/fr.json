@@ -127,7 +127,10 @@
     "no_usable_questions_body": "Nous n'avons trouvé aucune question utilisable dans ce document. Vous pouvez réessayer ou charger un autre fichier.",
     "debug_open_review": "Ouvrir la révision technique (débogage)",
     "processing_failed": "Nous n'avons pas pu traiter ce document.",
-    "error_generic_fallback": "Nous n'avons pas pu traiter ce document. Veuillez réessayer."
+    "error_generic_fallback": "Nous n'avons pas pu traiter ce document. Veuillez réessayer.",
+    "error_pdf_password_required": "Ce PDF nécessite un mot de passe. Veuillez téléverser une copie déverrouillée.",
+    "error_pdf_decryption_failed": "Ce PDF n'a pas pu être ouvert. Veuillez essayer une autre copie.",
+    "error_pdf_invalid": "Ce fichier n'a pas pu être lu comme un PDF."
   },
   "documentOcr": {
     "title": "Extraire le texte par OCR",

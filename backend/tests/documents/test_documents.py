@@ -84,13 +84,23 @@ def create_scanned_pdf(filepath: str, tmp_path: Path):
     c.save()
 
 
-def encrypt_pdf(input_path: str, output_path: str, password: str):
-    """Encrypts a PDF using pypdf."""
+def encrypt_pdf(
+    input_path: str,
+    output_path: str,
+    password: str,
+    owner_password: str | None = None,
+):
+    """Encrypts a PDF using pypdf.
+
+    An empty `password` with a real `owner_password` produces the
+    permissions-only encryption that real government forms use: any reader
+    opens it without prompting, while editing/printing stay restricted.
+    """
     reader = pypdf.PdfReader(input_path)
     writer = pypdf.PdfWriter()
     for page in reader.pages:
         writer.add_page(page)
-    writer.encrypt(user_password=password)
+    writer.encrypt(user_password=password, owner_password=owner_password)
     with open(output_path, "wb") as f:
         writer.write(f)
 
@@ -261,7 +271,44 @@ def test_upload_encrypted_pdf_rejected(tmp_path: Path) -> None:
                 user_language="en",
                 output_language="en",
             )
-        assert exc.value.error_code in ("encrypted_pdf", "password_protected_pdf")
+        assert exc.value.error_code == "pdf_password_required"
+    finally:
+        db.close()
+
+
+def test_upload_permissions_encrypted_pdf_succeeds(tmp_path: Path) -> None:
+    """A PDF encrypted for *permissions* opens with an empty password.
+
+    Most government forms are like this — the Stuttgart residence-permit form
+    is the reference case. `reader.is_encrypted` is true for them, which is
+    what the old check keyed on, and they were rejected with a demand for a
+    password that does not exist.
+    """
+    pdf_path = tmp_path / "normal.pdf"
+    create_simple_pdf(str(pdf_path), pages=3)
+    enc_path = tmp_path / "permissions-encrypted.pdf"
+    encrypt_pdf(str(pdf_path), str(enc_path), "", owner_password="owner-secret")
+
+    # Precondition: the file really is encrypted, or the test proves nothing.
+    assert pypdf.PdfReader(str(enc_path)).is_encrypted is True
+
+    db = SessionLocal()
+    try:
+        service = SourceDocumentService(db)
+        with open(enc_path, "rb") as f:
+            content = f.read()
+
+        doc, _token = service.upload_and_analyze(
+            filename="permissions-encrypted.pdf",
+            content_type="application/pdf",
+            file_chunks=[content],
+            privacy_accepted=True,
+            user_language="en",
+            output_language="en",
+        )
+        # Every page survives — an encrypted-but-readable document must not be
+        # silently truncated on the way through.
+        assert doc.page_count == 3
     finally:
         db.close()
 
@@ -346,7 +393,9 @@ def test_upload_malformed_pdf_rejected(tmp_path: Path) -> None:
                 user_language="en",
                 output_language="en",
             )
-        assert exc.value.error_code == "malformed_pdf"
+        # A file that cannot be parsed at all is `pdf_invalid`; `malformed_pdf`
+        # remains for a file that parses but has a broken structure.
+        assert exc.value.error_code in ("pdf_invalid", "malformed_pdf")
     finally:
         db.close()
 

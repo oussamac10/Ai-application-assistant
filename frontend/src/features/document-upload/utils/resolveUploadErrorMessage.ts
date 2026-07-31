@@ -20,6 +20,15 @@ const KNOWN_ERROR_CODES = new Set([
   "malformed_pdf",
   "invalid_pdf",
   "document_analysis_failed",
+  // A PDF that is *encrypted* is not necessarily locked: most government
+  // forms are encrypted for permissions only and open with an empty password.
+  // These three distinguish a genuinely password-protected file from an
+  // unreadable one, so the user is only told to find an unlocked copy when
+  // that is actually the problem.
+  "pdf_password_required",
+  "pdf_decryption_failed",
+  "pdf_invalid",
+  // Kept for older backends still emitting them.
   "encrypted_pdf",
   "password_protected_pdf",
   "too_many_pages",
