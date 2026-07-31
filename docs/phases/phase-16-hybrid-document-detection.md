@@ -424,6 +424,70 @@ removes an invented currency rather than defaulting to USD; an explicit USD
 label and a user-typed currency are both preserved; the numeric amount is never
 touched. Now pinned by regression tests.
 
+---
+
+## Part 5 — AcroForm widget grouping
+
+The Stuttgart residence-permit form is a *fillable* AcroForm (175 widgets: 121
+text, 54 checkbox), so the local provider takes the widget path and none of the
+text-line grouping applies to it. Each checkbox became its own question: 54
+questions where a reader sees about a dozen.
+
+**`/Kids` and the radio flag do not help.** Every checkbox on this document is
+an independent field with `flags=0` and its own name — the author never used
+native radio groups, which is likely typical of real forms.
+
+So grouping uses geometry, the same evidence a reader uses:
+
+```
+y=95.8  x=67.9   Ausbildung          ┐ same x, regular y steps
+y=110.7 x=67.9   Erwerbstätigkeit    │ -> one column = one question
+y=124.6 x=67.9   völkerrechtliche…   ┘
+
+y=374.8 x=67.9   ledig      ┐ same y, varying x
+y=374.8 x=114.3  verheiratet│ -> one row = one question
+y=374.8 x=237.8  verwitwet  ┘
+```
+
+Spacing is compared against the group's own median gap rather than a fixed
+distance, so a densely packed row and a widely spaced column both read
+correctly without per-document tuning. No vocabulary, no field-name patterns.
+
+**Labels.** Option text comes from the widget tooltip (`/TU`), which on real
+forms is already human ("Ausbildung", "ledig"), while the field name is machine
+noise ("chkLedigS1"). The name, export value and rectangle are preserved for
+export. When *every* widget in a group shares one tooltip that text is the
+question rather than the answers — the legal questions give both boxes the
+tooltip "polizeiliches Ermittlungsverfahren" — so it becomes the group label
+and each option's text is read from the page beside it.
+
+**Ambiguity is explicit.** Anything the exclusivity hints do not recognise stays
+a group and is flagged `review_required`, never split back into N questions.
+
+### Measured on the Stuttgart form (local-only, no Azure call)
+
+| metric | before | after |
+|---|---|---|
+| checkbox widgets | 54 | 54 |
+| groups created | 0 | **21** |
+| widgets claimed | 0 | **49** |
+| widgets unclaimed | 54 | **5** |
+| total candidates | 170 | **142** |
+
+Groups found: application purpose (7, column), family status (5), visa
+ja/nein, previous stay ja/nein/seit Geburt, permanent residence, family
+members, accommodation, purpose of stay, and five legal ja/nein rows each with
+its own question.
+
+Known imperfections, all reviewable rather than silent:
+
+- "Purpose of stay" splits into two rows (Sprachkurs/Studium/Arbeitsaufnahme and
+  Werkvertrag/Au-Pair/Sonstiges) because the form wraps the list.
+- One legal row reads its second option as "Bundesrepublik" instead of "nein"
+  (text-proximity miss).
+- Child-row gender pairs pick up table-header text as their question.
+- 5 widgets remain unclaimed.
+
 ### Carried
 
 - Local text-field detection still finds only the choice groups on the French
