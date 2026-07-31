@@ -412,3 +412,277 @@ test.describe("Phase 16 — offline flows (no Azure)", () => {
     expect(external).toEqual([]);
   });
 });
+
+test.describe("Phase 16 — offline export and repeated rows", () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  const CHILD_ROWS = [
+    {
+      fieldId: "c1n",
+      fieldKey: "children_1_family_name",
+      label: "Familienname",
+      required: false,
+      requiredness: "unknown",
+      originalAnswer: "Muster",
+      outputValue: "Muster",
+      status: "confirmed",
+      answerState: "answered",
+    },
+    {
+      fieldId: "c1g",
+      fieldKey: "children_1_gender",
+      label: "männlich / weiblich",
+      required: false,
+      requiredness: "unknown",
+      originalAnswer: "männlich",
+      outputValue: "männlich",
+      status: "confirmed",
+      answerState: "answered",
+    },
+    {
+      fieldId: "c2n",
+      fieldKey: "children_2_family_name",
+      label: "Familienname",
+      required: false,
+      requiredness: "unknown",
+      originalAnswer: "Beispiel",
+      outputValue: "Beispiel",
+      status: "confirmed",
+      answerState: "answered",
+    },
+    {
+      fieldId: "c2g",
+      fieldKey: "children_2_gender",
+      label: "männlich / weiblich",
+      required: false,
+      requiredness: "unknown",
+      originalAnswer: "weiblich",
+      outputValue: "weiblich",
+      status: "confirmed",
+      answerState: "answered",
+    },
+  ];
+
+  // ------------------------------------------------------------------
+  // Export
+  // ------------------------------------------------------------------
+
+  test("a digitally signed form exports and downloads", async ({ page }) => {
+    const { log } = await mockGuidedSession(page, {
+      sessionId: SESSION,
+      fields: [
+        {
+          id: "f-sig",
+          key: "signature",
+          fieldType: "signature",
+          required: true,
+          position: 1,
+          label: "Signature",
+        },
+      ],
+      summary: [
+        {
+          fieldId: "f-sig",
+          fieldKey: "signature",
+          label: "Signature",
+          required: true,
+          requiredness: "required",
+          originalAnswer: null,
+          outputValue: null,
+          status: "confirmed",
+          answerState: "answered",
+        },
+      ],
+    });
+
+    await page.goto(`/application/session/${SESSION}/complete`);
+    await page.waitForLoadState("networkidle");
+
+    // Someone who signed must not be told to sign again.
+    await expect(page.getByTestId("handwritten-signature-reminder")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /generate|export|download/i }).first().click();
+
+    await expect.poll(() => log.matching("/exports").length).toBeGreaterThan(0);
+  });
+
+  test("a form signed on paper still exports", async ({ page }) => {
+    const { log } = await mockGuidedSession(page, {
+      sessionId: SESSION,
+      fields: [
+        {
+          id: "f-sig",
+          key: "signature",
+          fieldType: "signature",
+          required: true,
+          position: 1,
+          label: "Signature",
+        },
+      ],
+      summary: [
+        {
+          fieldId: "f-sig",
+          fieldKey: "signature",
+          label: "Signature",
+          required: true,
+          requiredness: "required",
+          originalAnswer: null,
+          outputValue: null,
+          status: "pending_manual_signature",
+          answerState: "pending_manual_signature",
+        },
+      ],
+    });
+
+    await page.goto(`/application/session/${SESSION}/complete`);
+
+    // The reminder is shown *and* the export stays available — deferring is a
+    // completion, not a blocker.
+    await expect(page.getByTestId("handwritten-signature-reminder")).toBeVisible();
+
+    await page.getByRole("button", { name: /generate|export|download/i }).first().click();
+
+    await expect.poll(() => log.matching("/exports").length).toBeGreaterThan(0);
+  });
+
+  test("a failed export is reported readably and can be retried", async ({
+    page,
+  }) => {
+    await mockGuidedSession(page, {
+      sessionId: SESSION,
+      fields: [
+        {
+          id: "f-sig",
+          key: "signature",
+          fieldType: "signature",
+          required: true,
+          position: 1,
+          label: "Signature",
+        },
+      ],
+      exportError: { status: 422, code: "signature_mapping_missing" },
+    });
+
+    await page.goto(`/application/session/${SESSION}/complete`);
+    const button = page
+      .getByRole("button", { name: /generate|export|download/i })
+      .first();
+    await button.click();
+
+    // The user stays here and can try again, rather than being dropped.
+    await expect(button).toBeVisible();
+    // And no internal detail is on screen.
+    const text = await page.locator("body").innerText();
+    expect(text).not.toMatch(/Traceback|pypdf|\/tmp\//);
+  });
+
+  // ------------------------------------------------------------------
+  // Repeated row headings
+  // ------------------------------------------------------------------
+
+  test("the summary groups each child's fields under its own heading", async ({
+    page,
+  }) => {
+    await mockGuidedSession(page, {
+      sessionId: SESSION,
+      fields: [
+        {
+          id: "c1n",
+          key: "children_1_family_name",
+          fieldType: "string",
+          required: false,
+          position: 1,
+          label: "Familienname",
+        },
+      ],
+      summary: CHILD_ROWS,
+    });
+
+    await page.goto(`/application/session/${SESSION}/summary`);
+
+    await expect(page.getByTestId("row-heading-children-1")).toHaveText("Child 1");
+    await expect(page.getByTestId("row-heading-children-2")).toHaveText("Child 2");
+
+    // Each child's own gender sits in its own row, with its own value.
+    await expect(
+      page.getByTestId("summary-row-children_1_gender"),
+    ).toContainText("männlich");
+    await expect(
+      page.getByTestId("summary-row-children_2_gender"),
+    ).toContainText("weiblich");
+  });
+
+  test("a heading is not itself an answer row", async ({ page }) => {
+    await mockGuidedSession(page, {
+      sessionId: SESSION,
+      fields: [
+        {
+          id: "c1n",
+          key: "children_1_family_name",
+          fieldType: "string",
+          required: false,
+          position: 1,
+          label: "Familienname",
+        },
+      ],
+      summary: CHILD_ROWS,
+    });
+
+    await page.goto(`/application/session/${SESSION}/summary`);
+
+    // Four answers, two headings — the headings must not add editable rows.
+    await expect(page.getByRole("button", { name: "edit" })).toHaveCount(4);
+  });
+
+  // ------------------------------------------------------------------
+  // Guided flow row context
+  // ------------------------------------------------------------------
+
+  test("the guided flow says which child a question is about", async ({ page }) => {
+    await mockGuidedSession(page, {
+      sessionId: SESSION,
+      fields: [
+        {
+          id: "c2g",
+          key: "children_2_gender",
+          fieldType: "single_choice",
+          required: false,
+          requiredness: "unknown",
+          position: 1,
+          label: "männlich / weiblich",
+          options: [
+            { value: "männlich", label: "männlich" },
+            { value: "weiblich", label: "weiblich" },
+          ],
+        },
+      ],
+    });
+
+    await page.goto(`/application/session/${SESSION}`);
+
+    // Without this the screen just says "männlich / weiblich" with nothing
+    // saying whose.
+    await expect(page.getByTestId("row-context")).toHaveText("Child 2");
+  });
+
+  test("an ordinary question shows no row context", async ({ page }) => {
+    await mockGuidedSession(page, {
+      sessionId: SESSION,
+      fields: [
+        {
+          id: "f1",
+          key: "nom_de_famille",
+          fieldType: "string",
+          required: false,
+          position: 1,
+          label: "Nom de famille",
+        },
+      ],
+    });
+
+    await page.goto(`/application/session/${SESSION}`);
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByTestId("row-context")).toHaveCount(0);
+  });
+});

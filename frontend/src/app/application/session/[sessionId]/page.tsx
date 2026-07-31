@@ -23,6 +23,10 @@ import {
   canSkipQuestion,
   resolveRequiredness,
 } from "@/features/form-session/utils/questionRules";
+import {
+  parseRowKey,
+  rowHeading,
+} from "@/features/form-session/utils/repeatedRows";
 import { FieldRenderer } from "@/features/form-session/components/FieldRenderer";
 import {
   SignaturePad,
@@ -375,6 +379,12 @@ export default function GuidedSession() {
     router.push("/application");
   };
 
+  // A repeated table row reaches the guided flow as flat indexed fields
+  // (`children_2_gender`), so without context the screen just says "Gender"
+  // twice with nothing saying whose it is. Presentation only — the key is
+  // unchanged and is still what gets submitted.
+  const rowContext = currentField ? parseRowKey(currentField.fieldKey) : null;
+
   // Three states, not a boolean. A backend that has not been redeployed omits
   // the field; the legacy boolean then answers "required" or — since it cannot
   // distinguish "optional" from "nothing was said" — "unknown", which is the
@@ -647,6 +657,14 @@ export default function GuidedSession() {
                 <form onSubmit={handleSubmitAnswer} className="space-y-6">
                   {/* Dynamic Question Title */}
                   <div className="space-y-1 text-left">
+                    {rowContext && (
+                      <p
+                        data-testid="row-context"
+                        className="text-xs font-bold uppercase tracking-wider text-indigo-400"
+                      >
+                        {rowHeading(rowContext.section, rowContext.index)}
+                      </p>
+                    )}
                     <h2 className="text-xl font-bold text-slate-100">
                       {currentField.label}
                       {requiredness === "required" && (

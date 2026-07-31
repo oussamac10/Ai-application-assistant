@@ -45,6 +45,10 @@ export type MockSummaryRow = {
 };
 
 export interface MockSessionOptions {
+  /** Fail the export with this code instead of succeeding. Lets a spec check
+   * that the UI reports a structured failure readably and lets the user try
+   * again, without needing a backend that can fail on demand. */
+  exportError?: { status: number; code: string };
   sessionId?: string;
   fields: MockField[];
   summary?: MockSummaryRow[];
@@ -259,6 +263,35 @@ export async function mockGuidedSession(
 
     if (path.endsWith("/confirm-summary")) {
       return json(route, { status: "ready_for_export" });
+    }
+
+    if (path.endsWith("/exports")) {
+      if (options.exportError) {
+        return json(
+          route,
+          { detail: options.exportError.code, error_code: options.exportError.code },
+          options.exportError.status,
+        );
+      }
+      return json(route, {
+        exportId: "export-1",
+        status: "completed",
+        fileName: "form.pdf",
+        contentType: "application/pdf",
+        fileSize: 1234,
+        downloadUrl: `/api/form-sessions/${sessionId}/exports/export-1/download`,
+        expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+      });
+    }
+
+    if (path.includes("/exports/") && path.endsWith("/download")) {
+      // A minimal but genuinely valid PDF, so the browser handles a real
+      // download rather than a string pretending to be one.
+      return route.fulfill({
+        status: 200,
+        contentType: "application/pdf",
+        body: "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF",
+      });
     }
 
     if (path.match(/\/form-sessions\/[^/]+$/)) {
