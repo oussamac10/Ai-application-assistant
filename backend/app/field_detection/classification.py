@@ -21,6 +21,13 @@ _LABEL_KEYWORD_RULES: tuple[tuple[str, str], ...] = (
     ("birth date", "date"),
     ("date", "date"),
     ("signature", "signature"),
+    ("sign here", "signature"),
+    ("signed by", "signature"),
+    # Arabic. Matched as substrings because Arabic attaches the definite
+    # article and prepositions directly to the noun ("التوقيع" is "the
+    # signature"), so a word-boundary rule would miss every real occurrence.
+    ("التوقيع", "signature"),
+    ("توقيع", "signature"),
     ("address", "address"),
     ("street", "address"),
     ("city", "address"),
@@ -47,6 +54,7 @@ _LABEL_KEYWORD_RULES: tuple[tuple[str, str], ...] = (
     # Ordered before the generic fallbacks below so e.g. "unterschrift"
     # (signature) is never mistaken for "schrift"-adjacent text matches.
     ("unterschrift", "signature"),
+    ("unterzeichnung", "signature"),
     ("e-mail-adresse", "email"),
     ("telefon", "phone"),
     ("handynummer", "phone"),

@@ -32,6 +32,7 @@ from app.field_detection.requiredness import OPTIONAL, REQUIRED, UNKNOWN
 __all__ = [
     "ANSWERED",
     "INVALID",
+    "PENDING_MANUAL_SIGNATURE",
     "OPTIONAL",
     "REQUIRED",
     "SKIPPED",
@@ -51,6 +52,10 @@ __all__ = [
 UNREACHED = "unreached"
 UNANSWERED = "unanswered"
 SKIPPED = "skipped"
+# "I will sign the printed form." Its own state on purpose: not an answer
+# (there is no value) and not a skip (the question was dealt with, and the
+# summary must say so). See app/answers/signatures.py.
+PENDING_MANUAL_SIGNATURE = "pending_manual_signature"
 ANSWERED = "answered"
 INVALID = "invalid"
 
@@ -88,6 +93,8 @@ def has_submitted_value(answer: Any) -> bool:
         return False
     if getattr(answer, "status", None) == SKIPPED:
         return False
+    if getattr(answer, "status", None) == PENDING_MANUAL_SIGNATURE:
+        return False
     raw = getattr(answer, "original_answer", None)
     if raw is None:
         return False
@@ -98,8 +105,13 @@ def answer_state(answer: Any) -> str:
     """What the user did with this question."""
     if answer is None:
         return UNREACHED
-    if getattr(answer, "status", None) == SKIPPED:
+    status = getattr(answer, "status", None)
+    if status == SKIPPED:
         return SKIPPED
+    if status == PENDING_MANUAL_SIGNATURE:
+        # A deliberate completion, not an absence. It never blocks
+        # confirmation and is never validated — there is nothing to validate.
+        return PENDING_MANUAL_SIGNATURE
     if not has_submitted_value(answer):
         return UNANSWERED
     if getattr(answer, "requires_clarification", False):

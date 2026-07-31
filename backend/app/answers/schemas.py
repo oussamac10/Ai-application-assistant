@@ -61,6 +61,12 @@ class CurrentFieldResponse(BaseSchema):
     # cannot express "the document said nothing"; the frontend shows a
     # requiredness label only for the two states that are actually a finding.
     requiredness: str = "unknown"
+    # Signature fields only. `signature_requirement` reports what the
+    # *document* said; `digital_signature_required` is always False, because a
+    # required signature box means the form must be signed before it counts,
+    # never that it must be signed electronically inside this application.
+    signature_requirement: str | None = None
+    digital_signature_required: bool = False
     position: int
     label: str
     help_text: str | None = None
@@ -90,8 +96,10 @@ class SummaryFieldAnswer(BaseSchema):
     status: str = "unanswered"
     # "unreached" | "unanswered" | "skipped" | "answered" | "invalid".
     # What the user did, independent of what the document demanded — the
-    # summary must tell a deliberate skip from a question never reached.
+    # summary must tell a deliberate skip from a question never reached, and a
+    # signature deferred to the printed form from both.
     answer_state: str = "unreached"
+    signature_requirement: str | None = None
     validation_status: str = "not_checked"
     confirmed_by_user: bool = False
 

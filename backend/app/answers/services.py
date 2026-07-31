@@ -16,9 +16,16 @@ from app.answers.normalization.context import (
 )
 from app.answers.normalization.normalization import normalize_value
 from app.answers.repositories import AnswerRepository
+from app.answers.signatures import (
+    SignatureValidationError,
+    digital_signature_required,
+    parse_signature,
+    signature_requirement_from_field,
+)
 from app.answers.states import (
     ANSWERED,
     INVALID,
+    PENDING_MANUAL_SIGNATURE,
     REQUIRED,
     SKIPPED,
     UNANSWERED,
@@ -257,6 +264,14 @@ class AnswerService:
             # Three states, so the frontend can show "Required", "Optional",
             # or — when the document said nothing — no label at all.
             "requiredness": field_requiredness(field),
+            # Electronic signing is never mandatory, whatever the document
+            # says about needing a signature.
+            "signature_requirement": (
+                signature_requirement_from_field(field)
+                if field.field_type == "signature"
+                else None
+            ),
+            "digital_signature_required": digital_signature_required(),
             "position": field.position,
             "label": label,
             "help_text": help_text,
@@ -516,6 +531,127 @@ class AnswerService:
 
         # Save
         self.repo.save_answer(answer)
+        return answer
+
+    def _signature_field(self, session: Any, field_id: str) -> tuple[Any, FormField]:
+        version = self.form_repo.get_version(session.form_version_id)
+        if not version:
+            raise ResourceNotFoundError("Form version not found.")
+        field = next((f for f in version.fields if f.id == field_id), None)
+        if not field:
+            raise ValidationError(
+                "Field does not belong to the session's form version."
+            )
+        if field.field_type != "signature":
+            raise ValidationError("This question is not a signature field.")
+        return version, field
+
+    def _advance_past(self, session: Any, version: Any, field: FormField) -> None:
+        fields = sorted(version.fields, key=lambda f: f.position)
+        next_field = next((f for f in fields if f.position > field.position), None)
+        if next_field:
+            session.current_field_position = next_field.position
+        self.db.commit()
+
+    def submit_signature(
+        self, session_id: str, field_id: str, payload: Any, raw_token: str | None
+    ) -> FormAnswer:
+        """Stores a drawn signature as validated vector strokes.
+
+        The payload never reaches normalization, translation or any AI
+        provider: a signature is biometric personal data, and none of those
+        stages has anything to contribute to it. Validation happens here and
+        rejects the payload whole rather than truncating it, so a partial
+        signature can never be rendered as though it were complete.
+        """
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
+        if session.status != "in_progress":
+            raise StateConflictError("Session is not in progress.")
+        version, field = self._signature_field(session, field_id)
+
+        try:
+            signature = parse_signature(payload)
+        except SignatureValidationError as exc:
+            # The message names the structural problem only — never a
+            # coordinate and never the payload.
+            raise ValidationError(str(exc)) from exc
+
+        answer = self.repo.get_answer(session.id, field_id)
+        if not answer:
+            answer = FormAnswer(
+                session_id=session.id,
+                field_id=field_id,
+                original_answer=None,
+                original_language=session.user_language,
+            )
+
+        # `original_answer` stays null: the signature is not text, and putting
+        # it there would feed it to every code path that handles text.
+        answer.original_answer = None
+        answer.normalized_value = signature.as_dict()
+        answer.output_value = None
+        answer.status = "awaiting_confirmation"
+        answer.validation_status = "valid"
+        answer.requires_clarification = False
+        answer.confirmed_by_user = False
+        answer.confirmed_at = None
+        self.repo.save_answer(answer)
+
+        # Counts only — never a coordinate, never the payload.
+        logger.info(
+            "Signature captured: session=%s strokes=%d points=%d",
+            session.public_id,
+            len(signature.strokes),
+            signature.point_count,
+        )
+        return answer
+
+    def defer_signature(
+        self, session_id: str, field_id: str, raw_token: str | None
+    ) -> FormAnswer:
+        """Records that the user will sign the printed form instead.
+
+        Electronic signing is never mandatory. Even when the PDF marks its
+        signature box required, that says the *document* must be signed before
+        it counts — not that it must be signed inside this application. So this
+        is a completion, not a skip: it never blocks confirmation, it is
+        refused for no field, and the summary says "Will be signed after
+        printing" rather than "Skipped".
+        """
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
+        if session.status != "in_progress":
+            raise StateConflictError("Session is not in progress.")
+        version, field = self._signature_field(session, field_id)
+
+        answer = self.repo.get_answer(session.id, field_id)
+        if not answer:
+            answer = FormAnswer(
+                session_id=session.id,
+                field_id=field_id,
+                original_answer=None,
+                original_language=session.user_language,
+            )
+
+        answer.original_answer = None
+        answer.normalized_value = None
+        answer.output_value = None
+        answer.status = PENDING_MANUAL_SIGNATURE
+        answer.validation_status = "not_checked"
+        answer.requires_clarification = False
+        answer.confirmed_by_user = False
+        answer.confirmed_at = None
+        self.repo.save_answer(answer)
+
+        self._advance_past(session, version, field)
+        logger.info(
+            "Signature deferred to printed form: session=%s position=%d",
+            session.public_id,
+            field.position,
+        )
         return answer
 
     def skip_field(
@@ -852,6 +988,11 @@ class AnswerService:
                     # from "missing a required answer", and `status` alone
                     # cannot: it says "unanswered" for both of the first two.
                     "answer_state": answer_state(ans),
+                    "signature_requirement": (
+                        signature_requirement_from_field(field)
+                        if field.field_type == "signature"
+                        else None
+                    ),
                     "validation_status": ans.validation_status
                     if ans
                     else "not_checked",
@@ -923,6 +1064,12 @@ class AnswerService:
                 continue
             ans = answers.get(field.id)
             state = answer_state(ans)
+            if state == PENDING_MANUAL_SIGNATURE:
+                # The user chose to sign the printed form. That is a completed
+                # decision about a required field, not a missing answer: a
+                # required signature box means the *document* must be signed
+                # eventually, never that it must be signed electronically here.
+                continue
             if state in (UNREACHED, UNANSWERED):
                 problems.append(
                     FieldProblem(

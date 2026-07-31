@@ -135,6 +135,59 @@ def skip_field(
     return service.skip_field(session_id, field_id, x_session_token)
 
 
+class SignatureSubmitBody(BaseSchema):
+    """A drawn signature as vector strokes.
+
+    Deliberately not a string: no data URI, no SVG, no markup — a format that
+    can only hold numbers cannot carry an injection payload.
+    """
+
+    strokes: list[list[list[float]]]
+    width: float
+    height: float
+
+
+@router.post(
+    "/form-sessions/{session_id}/fields/{field_id}/signature",
+    response_model=AnswerResponse,
+)
+def submit_signature(
+    session_id: str,
+    field_id: str,
+    data: SignatureSubmitBody,
+    x_session_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Any:
+    """Stores a drawn signature. Never reaches translation or an AI provider."""
+    service = _make_service(db, provider, current_user)
+    return service.submit_signature(
+        session_id, field_id, data.model_dump(), x_session_token
+    )
+
+
+@router.post(
+    "/form-sessions/{session_id}/fields/{field_id}/sign-after-printing",
+    response_model=AnswerResponse,
+)
+def defer_signature(
+    session_id: str,
+    field_id: str,
+    x_session_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Any:
+    """Records that the user will sign the printed form.
+
+    A completion, not a skip: electronic signing is never mandatory, so this is
+    accepted for every signature field and never blocks confirmation.
+    """
+    service = _make_service(db, provider, current_user)
+    return service.defer_signature(session_id, field_id, x_session_token)
+
+
 @router.post(
     "/form-sessions/{session_id}/fields/{field_id}/reopen",
     response_model=ReopenFieldResponse,
