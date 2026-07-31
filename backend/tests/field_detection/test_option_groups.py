@@ -19,6 +19,7 @@ from app.field_detection.option_groups import (
     _split_segment_at_markers,
     detect_option_groups,
     match_option_set,
+    split_inline_option_row,
     strip_heading_number,
 )
 from app.field_detection.providers.base import BoundingBox, DetectionToken
@@ -272,3 +273,98 @@ def _phrase(parts: list[tuple[str, float]]) -> LinePhrase:
         bounding_box=BoundingBox(x=parts[0][1], y=100.0, width=400.0, height=12.0),
         source="native",
     )
+
+
+# ---------------------------------------------------------------------------
+# Inline option rows (question and options on one line)
+# ---------------------------------------------------------------------------
+
+
+def test_a_line_carrying_its_question_and_its_options_is_split() -> None:
+    """The dominant shape in real government forms.
+
+    The Stuttgart residence-permit application writes
+
+        24 Wurde gegen Sie ... ein Ermittlungsverfahren eingeleitet? [_] ja [_] nein
+
+    on one physical line. `_parse_option_row` requires every segment to begin
+    with a marker, so it rejected these outright and every yes/no question
+    leaked as free text. The rule is positional, not lexical: everything before
+    the first marker is the question, everything from it onwards is the answer
+    set.
+    """
+    line = _phrase(
+        [
+            ("24", 40),
+            ("Wurde", 55),
+            ("gegen", 90),
+            ("Sie", 125),
+            ("ein", 150),
+            ("Ermittlungsverfahren", 175),
+            ("eingeleitet?", 320),
+            ("[_]", 400),
+            ("ja", 415),
+            ("[_]", 440),
+            ("nein", 455),
+        ]
+    )
+
+    result = split_inline_option_row([line])
+
+    assert result is not None
+    parent, options = result
+    # The leading item number is stripped — it names the row, not the question.
+    assert parent == "Wurde gegen Sie ein Ermittlungsverfahren eingeleitet?"
+    assert options == [("checkbox", "ja"), ("checkbox", "nein")]
+
+
+def test_the_inline_rule_is_language_independent() -> None:
+    """No vocabulary is consulted, so `oui/non` and `نعم/لا` work for the same
+    reason as `ja/nein` — and so does a set nobody anticipated."""
+    for yes, no in (("oui", "non"), ("نعم", "لا"), ("yes", "no"), ("kyllä", "ei")):
+        line = _phrase(
+            [
+                ("Avez", 40),
+                ("vous", 70),
+                ("un", 100),
+                ("visa?", 120),
+                ("[_]", 200),
+                (yes, 215),
+                ("[_]", 250),
+                (no, 265),
+            ]
+        )
+        result = split_inline_option_row([line])
+        assert result is not None
+        assert result[1] == [("checkbox", yes), ("checkbox", no)]
+
+
+def test_a_row_that_starts_with_a_marker_is_left_to_the_plain_pass() -> None:
+    """`_parse_option_row` already handles it, and handling it twice would
+    invent a question out of the first option's label."""
+    line = _phrase([("[_]", 40), ("ja", 55), ("[_]", 80), ("nein", 95)])
+
+    assert split_inline_option_row([line]) is None
+
+
+def test_too_little_leading_text_is_not_a_question() -> None:
+    """ "ja [_] nein" reaches this pass when the first option's own marker did
+    not render. Treating "ja" as the question would produce a nonsense group."""
+    line = _phrase([("ja", 40), ("[_]", 60), ("nein", 80)])
+
+    assert split_inline_option_row([line]) is None
+
+
+def test_a_line_with_one_option_is_not_a_group() -> None:
+    line = _phrase(
+        [
+            ("Haben", 40),
+            ("Sie", 70),
+            ("ein", 95),
+            ("Visum?", 120),
+            ("[_]", 200),
+            ("ja", 215),
+        ]
+    )
+
+    assert split_inline_option_row([line]) is None

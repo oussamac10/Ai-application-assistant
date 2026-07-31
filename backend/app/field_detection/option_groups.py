@@ -46,10 +46,21 @@ logger = logging.getLogger(__name__)
 # group of statements is not a choice list.
 _MAX_OPTION_WORDS = 8
 
+# Below this many words, the text before a line's first marker is not a
+# question. "ja [_] nein" reaches the inline pass when the first option's own
+# marker did not render, and treating "ja" as the question would produce a
+# nonsense group.
+_MIN_INLINE_PARENT_WORDS = 3
+
 # Leading enumeration on a section heading: "2.", "2)", "§ 2", "II.".
 # "2.", "2)", "II.", and the German "§ 3" form, which has no trailing
 # punctuation of its own.
-_HEADING_NUMBER = re.compile(r"^\s*(?:§\s*[0-9]+\s+|[0-9IVXivx]+\s*[.)\-–]\s*)")
+# Also matches bare item numbering ("24 Wurde gegen Sie ..."), which is how
+# German government forms number their questions — no trailing punctuation at
+# all. Requires a following letter so an amount ("2000 EUR") is untouched.
+_HEADING_NUMBER = re.compile(
+    r"^\s*(?:§\s*[0-9]+\s+|[0-9IVXivx]+\s*[.)\-–]\s*|[0-9]{1,3}\s+(?=[^\W\d_]))"
+)
 
 
 @dataclass(frozen=True)
@@ -367,7 +378,7 @@ def _split_segment_at_markers(
     """Splits one segment into (marker_kind, label) pairs, one per marker.
 
     Segmentation is gap-based, so how many options land in a segment depends on
-    how tightly the form spaces them. On the French test form the professional-
+    how tightly the form spaced them. On the French test form the professional-
     status row segments as
 
         "(_) Salarie(e)" | "(_) Independant(e)" | "(_) Etudiant(e) (_) Demandeur d'emploi"
@@ -376,12 +387,65 @@ def _split_segment_at_markers(
     Requiring exactly one marker per segment rejected that entire row, so the
     group was never formed and all four options leaked as separate text
     questions — the reported "Statut professionnel" failure.
-
-    A marker is an unambiguous structural boundary: everything from one marker
-    up to the next is that marker's label. Reading it that way makes the result
-    independent of the spacing the document happened to use.
     """
-    tokens = sorted(segment.tokens, key=lambda t: t.bounding_box.x)
+    return _split_token_run(sorted(segment.tokens, key=lambda t: t.bounding_box.x))
+
+
+def split_inline_option_row(
+    segments: list[LinePhrase],
+) -> tuple[str, list[tuple[str, str]]] | None:
+    """Splits a line that carries its question *and* its options.
+
+    Returns `(parent_label, [(marker_kind, option_label), ...])`, or None.
+
+    This is the dominant shape in real government forms. The Stuttgart
+    residence-permit application writes
+
+        24 Wurde gegen Sie schon einmal ein polizeiliches
+           Ermittlungsverfahren eingeleitet? [_] ja [_] nein
+
+    with the question and both marks on one physical line. `_parse_option_row`
+    requires every segment to begin with a marker, so it rejected these lines
+    outright — the whole form's yes/no questions leaked as free text, which is
+    why its selection-mark coverage measured 0.00.
+
+    The rule is positional, not lexical: **everything before the first marker
+    is the question, everything from it onwards is the answer set.** No
+    vocabulary is consulted, so `ja/nein`, `oui/non`, `yes/no` and `نعم/لا`
+    all work for the same reason, as does an option set nobody anticipated.
+    """
+    tokens = sorted(
+        (token for segment in segments for token in segment.tokens),
+        key=lambda t: t.bounding_box.x,
+    )
+    first_marker = next(
+        (index for index, token in enumerate(tokens) if marker_type(token.text)),
+        None,
+    )
+    # A line that starts with a marker is a plain option row, which
+    # `_parse_option_row` already handles correctly.
+    if first_marker is None or first_marker == 0:
+        return None
+
+    parent = " ".join(t.text for t in tokens[:first_marker]).strip()
+    if len(parent.split()) < _MIN_INLINE_PARENT_WORDS:
+        # Too little text to be a question. "ja [_] nein" reaches here when the
+        # first option's own marker did not render, and treating "ja" as the
+        # question would produce a nonsense group.
+        return None
+
+    options = _split_token_run(tokens[first_marker:])
+    if options is None or len(options) < 2:
+        return None
+    return strip_heading_number(parent), options
+
+
+def _split_token_run(tokens: list[DetectionToken]) -> list[tuple[str, str]] | None:
+    """Reads an ordered token run as marker/label pairs.
+
+    A marker is an unambiguous boundary: everything from one marker up to the
+    next is that marker's label.
+    """
     marker_positions = [
         index for index, token in enumerate(tokens) if marker_type(token.text)
     ]
@@ -402,7 +466,6 @@ def _split_segment_at_markers(
         if not label:
             return None
         if len(label.split()) > _MAX_OPTION_WORDS or label.rstrip().endswith("."):
-            # A sentence is a statement, not an option.
             return None
         options.append((kind, label))
     return options
@@ -450,15 +513,23 @@ def detect_option_groups(
     for index, segments in enumerate(line_groups):
         if index in consumed:
             continue
+        inline_parent: str | None = None
         parsed = _parse_option_row(segments)
         if parsed is None or len(parsed) < 2:
-            continue
+            # A line can carry its question *and* its options — the dominant
+            # shape in real government forms ("24 Wurde ... eingeleitet?
+            # [_] ja [_] nein"). Everything before the first marker is the
+            # question; everything from it onwards is the answer set.
+            inline = split_inline_option_row(segments)
+            if inline is None:
+                continue
+            inline_parent, parsed = inline
 
         options = tuple(label for _, label in parsed)
         marker_kinds = {kind for kind, _ in parsed}
 
         label, label_source, needs_review, exclusive = _resolve_group_label(
-            options, heading_for_line.get(index)
+            options, inline_parent or heading_for_line.get(index)
         )
 
         # Marker geometry wins when it is unambiguous: parentheses are radio
