@@ -355,3 +355,24 @@ async def test_validation_error_raises() -> None:
                     source_language="en",
                 )
             )
+
+
+@pytest.mark.asyncio
+async def test_injected_client_and_aclose() -> None:
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    provider = GeminiAIProvider(
+        api_key="test-key",
+        client=mock_client,
+    )
+    assert provider._client is mock_client
+    await provider.aclose()
+    # If client was injected, provider does not close it (caller owns it)
+    mock_client.aclose.assert_not_called()
+
+    # Owned client is closed
+    owned_provider = GeminiAIProvider(api_key="test-key")
+    with patch.object(
+        owned_provider._client, "aclose", new_callable=AsyncMock
+    ) as mock_owned_close:
+        await owned_provider.aclose()
+        mock_owned_close.assert_called_once()

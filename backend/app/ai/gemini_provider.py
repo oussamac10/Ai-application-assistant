@@ -11,6 +11,7 @@ Design rules:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import pathlib
@@ -147,12 +148,20 @@ class GeminiAIProvider:
         base_url: str = "https://generativelanguage.googleapis.com/v1beta",
         timeout_seconds: int = 30,
         max_retries: int = 2,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._api_key = api_key.strip()
         self._model = model.strip()
         self._base_url = base_url.rstrip("/")
         self._timeout = httpx.Timeout(timeout=float(timeout_seconds))
         self._max_retries = max_retries
+        self._client_owner = client is None
+        self._client = client or httpx.AsyncClient(timeout=self._timeout)
+
+    async def aclose(self) -> None:
+        """Close the underlying HTTP client if this provider created it."""
+        if self._client_owner and self._client is not None:
+            await self._client.aclose()
 
     @property
     def model_name(self) -> str:
@@ -179,12 +188,11 @@ class GeminiAIProvider:
 
         for attempt in range(self._max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    response = await client.post(
-                        url,
-                        json=payload,
-                        headers={"Content-Type": "application/json"},
-                    )
+                response = await self._client.post(
+                    url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                )
 
                 if response.status_code in _RETRYABLE_STATUS_CODES:
                     logger.warning(
@@ -196,6 +204,8 @@ class GeminiAIProvider:
                     last_error = AIProviderUnavailableError(
                         f"Gemini returned retryable HTTP {response.status_code}"
                     )
+                    if attempt < self._max_retries:
+                        await asyncio.sleep(min(0.5 * (2**attempt), 2.0))
                     continue
 
                 if response.status_code == 404:
@@ -540,8 +550,7 @@ class GeminiAIProvider:
             return False
         try:
             url = f"{self._base_url}/models/{self._model}?key={self._api_key}"
-            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout=5.0)) as client:
-                response = await client.get(url)
-                return response.status_code == 200
+            response = await self._client.get(url, timeout=httpx.Timeout(5.0))
+            return response.status_code == 200
         except Exception:
             return False
