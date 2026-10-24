@@ -72,6 +72,7 @@ async def run_evaluation(
     fixtures_dir: pathlib.Path,
     verbose: bool = False,
     provider_override: str | None = None,
+    delay: float = 0.0,
 ) -> tuple[int, int, int, int]:
     """Run all evaluation fixtures and return (passed, failed, skipped, errors)."""
     from app.ai.schemas import ExtractionRequest
@@ -81,7 +82,14 @@ async def run_evaluation(
         settings.AI_PROVIDER = provider_override
 
     provider = build_provider()
-    provider_key = "mock" if type(provider).__name__ == "MockAIProvider" else "ollama"
+    provider_name = type(provider).__name__
+    if provider_name == "MockAIProvider":
+        provider_key = "mock"
+    elif provider_name == "GeminiAIProvider":
+        provider_key = "gemini"
+    else:
+        provider_key = "ollama"
+
     fixtures = _load_fixtures(fixtures_dir)
 
     if not fixtures:
@@ -92,15 +100,22 @@ async def run_evaluation(
     failed = 0
     skipped = 0
     errors = 0
+    effective_delay = delay if delay > 0 else (1.5 if provider_key == "gemini" else 0.0)
 
     for fixture in fixtures:
         path_label = pathlib.Path(fixture["_path"]).name
         supported_providers = fixture.get("supportedProviders", ["mock", "ollama"])
-        if provider_key not in supported_providers:
+        is_supported = provider_key in supported_providers or (
+            provider_key == "gemini" and "ollama" in supported_providers
+        )
+        if not is_supported:
             skipped += 1
             if verbose:
                 print(f"[SKIP] {fixture.get('description', path_label)}")
             continue
+
+        if effective_delay > 0:
+            await asyncio.sleep(effective_delay)
 
         try:
             request = ExtractionRequest(
@@ -136,7 +151,7 @@ async def run_evaluation(
                         f"got={result.requires_clarification}"
                     )
                     print(
-                        "       expected normalizedValue="
+                        f"       expected normalizedValue="
                         f"{expected.get('normalizedValue')} "
                         f"got={result.normalized_value}"
                     )
@@ -171,8 +186,14 @@ def main() -> None:
     parser.add_argument(
         "--provider",
         type=str,
-        choices=["mock", "ollama"],
+        choices=["mock", "ollama", "gemini"],
         help="Override the AI provider to evaluate.",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=0.0,
+        help="Delay in seconds between requests (defaults to 1.5s for Gemini to avoid rate limits).",
     )
     args = parser.parse_args()
 
@@ -181,6 +202,7 @@ def main() -> None:
             args.fixtures_dir,
             verbose=args.verbose,
             provider_override=args.provider,
+            delay=args.delay,
         )
     )
 

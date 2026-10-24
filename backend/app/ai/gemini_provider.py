@@ -205,7 +205,19 @@ class GeminiAIProvider:
                         f"Gemini returned retryable HTTP {response.status_code}"
                     )
                     if attempt < self._max_retries:
-                        await asyncio.sleep(min(0.5 * (2**attempt), 2.0))
+                        retry_after_header = response.headers.get("Retry-After")
+                        delay: float
+                        if retry_after_header:
+                            try:
+                                delay = max(float(retry_after_header), 1.0)
+                            except ValueError:
+                                delay = 2.0 * (attempt + 1)
+                        elif response.status_code == 429:
+                            delay = min(2.0 * (2**attempt), 8.0)
+                        else:
+                            delay = min(0.5 * (2**attempt), 2.0)
+
+                        await asyncio.sleep(delay)
                     continue
 
                 if response.status_code == 404:
