@@ -4,10 +4,10 @@ from typing import Any
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_SUPPORTED_PROVIDERS = frozenset({"mock", "ollama"})
+_SUPPORTED_PROVIDERS = frozenset({"mock", "ollama", "gemini"})
 _SUPPORTED_OCR_PROVIDERS = frozenset({"mock", "local"})
 _SUPPORTED_FIELD_DETECTION_PROVIDERS = frozenset({"mock", "local", "azure", "hybrid"})
-_SUPPORTED_TRANSLATION_PROVIDERS = frozenset({"mock", "ollama", "azure"})
+_SUPPORTED_TRANSLATION_PROVIDERS = frozenset({"mock", "ollama", "azure", "gemini"})
 
 
 class Settings(BaseSettings):
@@ -177,6 +177,13 @@ class Settings(BaseSettings):
     OLLAMA_MAX_RETRIES: int = 1
     OLLAMA_CACHE_ENABLED: bool = False
 
+    # Google Gemini
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-3.5-flash"
+    GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta"
+    GEMINI_REQUEST_TIMEOUT_SECONDS: int = 30
+    GEMINI_MAX_RETRIES: int = 2
+
     # Question Catalog
     QUESTION_ALLOW_PENDING_REUSE: bool = False
     QUESTION_AI_TRANSLATION_ENABLED: bool = True
@@ -279,6 +286,27 @@ class Settings(BaseSettings):
                     "AZURE_TRANSLATOR_API_KEY must be set when the azure "
                     "translation provider is selected."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def validate_gemini_settings(self) -> "Settings":
+        gemini_selected = "gemini" in (
+            self.AI_PROVIDER,
+            self.TRANSLATION_PROVIDER,
+            self.TRANSLATION_FALLBACK_PROVIDER,
+        )
+        if gemini_selected:
+            if not (self.GEMINI_API_KEY or "").strip():
+                raise ValueError(
+                    "GEMINI_API_KEY must be set when gemini is selected as "
+                    "AI_PROVIDER or TRANSLATION_PROVIDER."
+                )
+            if not (self.GEMINI_MODEL or "").strip():
+                raise ValueError("GEMINI_MODEL must not be empty.")
+            if self.GEMINI_REQUEST_TIMEOUT_SECONDS < 1:
+                raise ValueError("GEMINI_REQUEST_TIMEOUT_SECONDS must be at least 1.")
+            if self.GEMINI_MAX_RETRIES < 0:
+                raise ValueError("GEMINI_MAX_RETRIES must not be negative.")
         return self
 
     @model_validator(mode="after")

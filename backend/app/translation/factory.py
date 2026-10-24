@@ -17,12 +17,13 @@ from app.ai.mock_provider import AIProvider
 from app.translation.base import TranslationProvider
 from app.translation.errors import TranslationConfigurationError
 from app.translation.providers.azure import AzureTranslatorProvider
+from app.translation.providers.gemini import GeminiTranslationProvider
 from app.translation.providers.mock import MockTranslationProvider
 from app.translation.providers.ollama import OllamaTranslationProvider
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_TRANSLATION_PROVIDERS = ("mock", "ollama", "azure")
+SUPPORTED_TRANSLATION_PROVIDERS = ("mock", "ollama", "azure", "gemini")
 
 # Values meaning "no fallback provider". Source text is still the final
 # fallback inside the service, so this never leaves a document blocked.
@@ -35,7 +36,7 @@ def build_translation_provider(
 ) -> TranslationProvider:
     """Builds one provider by name.
 
-    `ai_provider` is required only for `ollama`, which delegates to the
+    `ai_provider` is required for `ollama` and `gemini`, which delegate to the
     existing `AIProvider` batch contract rather than reimplementing the
     prompt, parsing and repair logic that Phase 14 already got right.
     """
@@ -51,6 +52,12 @@ def build_translation_provider(
                 "The ollama translation provider requires an AI provider."
             )
         return OllamaTranslationProvider(ai_provider)
+    if normalized == "gemini":
+        if ai_provider is None:
+            raise TranslationConfigurationError(
+                "The gemini translation provider requires an AI provider."
+            )
+        return GeminiTranslationProvider(ai_provider)
 
     raise TranslationConfigurationError(
         f"Unknown translation provider '{name}'. Supported values: "

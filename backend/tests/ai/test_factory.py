@@ -9,6 +9,7 @@ import pytest
 import app.ai.factory as _factory_mod
 from app.ai.errors import AIProviderConfigurationError
 from app.ai.factory import build_provider
+from app.ai.gemini_provider import GeminiAIProvider
 from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.ai.ollama_provider import OllamaAIProvider
 from app.core.config import settings
@@ -29,6 +30,14 @@ def test_build_mock_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(provider, MockAIProvider)
 
 
+def test_build_gemini_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GEMINI_MODEL", "gemini-3.5-flash")
+    provider = build_provider()
+    assert isinstance(provider, GeminiAIProvider)
+
+
 def test_build_ollama_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "AI_PROVIDER", "ollama")
     monkeypatch.setattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434")
@@ -46,4 +55,9 @@ def test_unknown_provider_raises(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_mock_provider_satisfies_protocol() -> None:
     provider = MockAIProvider()
+    assert isinstance(provider, AIProvider)
+
+
+def test_gemini_provider_satisfies_protocol() -> None:
+    provider = GeminiAIProvider(api_key="test-key")
     assert isinstance(provider, AIProvider)

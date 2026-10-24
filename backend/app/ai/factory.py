@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 
 from app.ai.errors import AIProviderConfigurationError
+from app.ai.gemini_provider import GeminiAIProvider
 from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.ai.ollama_provider import OllamaAIProvider
 from app.core.config import settings
@@ -38,6 +39,19 @@ def build_provider() -> AIProvider:
         logger.info("AI provider: MockAIProvider")
         return MockAIProvider()
 
+    if name == "gemini":
+        logger.info(
+            "AI provider: GeminiAIProvider (model=%s)",
+            settings.GEMINI_MODEL,
+        )
+        return GeminiAIProvider(
+            api_key=settings.GEMINI_API_KEY or "",
+            model=settings.GEMINI_MODEL,
+            base_url=settings.GEMINI_BASE_URL,
+            timeout_seconds=settings.GEMINI_REQUEST_TIMEOUT_SECONDS,
+            max_retries=settings.GEMINI_MAX_RETRIES,
+        )
+
     if name == "ollama":
         logger.info(
             "AI provider: OllamaAIProvider (model=%s, url=%s)",
@@ -52,7 +66,7 @@ def build_provider() -> AIProvider:
         )
 
     raise AIProviderConfigurationError(
-        f"Unknown AI_PROVIDER: '{name}'. Supported values: mock, ollama"
+        f"Unknown AI_PROVIDER: '{name}'. Supported values: mock, ollama, gemini"
     )
 
 
