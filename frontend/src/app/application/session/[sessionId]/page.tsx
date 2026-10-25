@@ -136,6 +136,7 @@ export default function GuidedSession() {
       setInputValue(
         field.currentAnswerStatus ? field.originalAnswer || "" : "",
       );
+      setSignatureValue(null);
 
       setStep("answering");
     } catch (err: any) {
@@ -367,6 +368,7 @@ export default function GuidedSession() {
       setInputValue(
         prev.currentAnswerStatus ? prev.originalAnswer || "" : "",
       );
+      setSignatureValue(null);
       setStep("answering");
     } catch (err: any) {
       setErrorMsg(te(err.message) || "Failed to navigate to previous field.");
@@ -1065,6 +1067,7 @@ export default function GuidedSession() {
 
                       {currentField.fieldType === "signature" ? (
                         <SignaturePad
+                          key={currentField.fieldId}
                           fieldKey={currentField.key}
                           value={signatureValue}
                           onChange={setSignatureValue}
