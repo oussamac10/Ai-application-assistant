@@ -527,10 +527,10 @@ export default function GuidedSession() {
                     ? Math.min(Math.max((box.x / pageW) * 100, 1), 94)
                     : 10;
                   const widthPct = box
-                    ? Math.min(Math.max((box.width / pageW) * 100, 6), 96 - leftPct)
+                    ? Math.min(Math.max((box.width / pageW) * 100, 2), 96 - leftPct)
                     : 80;
                   const heightPct = box
-                    ? Math.min(Math.max((box.height / pageH) * 100, 2.2), 30)
+                    ? Math.min(Math.max((box.height / pageH) * 100, 1.4), 30)
                     : 5;
 
                   if (previewUrl) {
@@ -556,12 +556,8 @@ export default function GuidedSession() {
                               width: `${widthPct}%`,
                               height: `${heightPct}%`,
                             }}
-                            className="pointer-events-none absolute rounded-xs border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_3px_rgba(79,70,229,0.28)] transition-all duration-300"
-                          >
-                            <span className="absolute -top-2 -start-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-indigo-600 text-[8px] font-bold text-white shadow-xs">
-                              •
-                            </span>
-                          </div>
+                            className="pointer-events-none absolute rounded-xs border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all duration-300"
+                          />
                           <span className="absolute bottom-2 end-2 rounded-md bg-slate-900/75 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
                             Click to enlarge
                           </span>
@@ -1192,7 +1188,7 @@ export default function GuidedSession() {
                   Close
                 </button>
               </div>
-              <div className="overflow-y-auto p-4 sm:p-6 bg-slate-100/70 flex justify-center">
+              <div className="overflow-y-auto p-4 sm:p-6 bg-slate-100/70">
                 {(() => {
                   const activePage = currentField.pageNumber ?? 1;
                   const previewUrl = pagePreviewUrls[activePage];
@@ -1207,20 +1203,20 @@ export default function GuidedSession() {
                     : 10;
                   const widthPct = box
                     ? Math.min(
-                        Math.max((box.width / pageW) * 100, 6),
+                        Math.max((box.width / pageW) * 100, 2),
                         96 - leftPct,
                       )
                     : 80;
                   const heightPct = box
-                    ? Math.min(Math.max((box.height / pageH) * 100, 2.2), 30)
+                    ? Math.min(Math.max((box.height / pageH) * 100, 1.4), 30)
                     : 5;
 
                   return (
-                    <div className="relative inline-block max-w-full rounded-lg border border-slate-300 bg-white shadow-md overflow-hidden">
+                    <div className="relative mx-auto w-fit h-fit rounded-lg border border-slate-300 bg-white shadow-md">
                       <img
                         src={previewUrl}
                         alt={`Official PDF page ${activePage} enlarged`}
-                        className="block max-w-full h-auto select-none"
+                        className="block max-w-full h-auto rounded-lg select-none"
                       />
                       <div
                         style={{

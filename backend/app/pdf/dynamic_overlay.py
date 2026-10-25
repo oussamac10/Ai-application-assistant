@@ -218,22 +218,22 @@ def get_field_location_for_session(
                 doc.close()
 
             ocr_dims = _load_ocr_page_dimensions(db, source_doc.id)
-            if not effective_in:
-                try:
-                    native_doc = extract_native_document_input(
-                        Path(source_doc.storage_path)
-                    )
-                    page_tokens: Sequence[Any] = ()
-                    for p in native_doc.pages:
-                        if p.page_number == detected.page_number:
-                            page_tokens = p.tokens
-                            break
-                    raw_eff = _resolve_effective_input_box(
-                        detected, field.field_type, page_tokens
-                    )
+            try:
+                native_doc = extract_native_document_input(
+                    Path(source_doc.storage_path)
+                )
+                page_tokens: Sequence[Any] = ()
+                for p in native_doc.pages:
+                    if p.page_number == detected.page_number:
+                        page_tokens = p.tokens
+                        break
+                raw_eff = _resolve_effective_input_box(
+                    detected, field.field_type, page_tokens
+                )
+                if raw_eff:
                     effective_in = _clean_box(raw_eff)
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
             if effective_in:
                 resolved = _resolve_pdf_rect(
@@ -245,11 +245,24 @@ def get_field_location_for_session(
                     ocr_dims=ocr_dims,
                 )
                 if resolved is not None:
+                    rx, ry, rw, rh = resolved
+                    if (
+                        field.field_type
+                        not in (
+                            "multiline_text",
+                            "signature",
+                            "multiple_choice",
+                            "single_choice",
+                        )
+                        and 17.0 <= rh <= 24.0
+                    ):
+                        ry = ry + (rh - 14.5)
+                        rh = 14.5
                     effective_in = {
-                        "x": resolved[0],
-                        "y": resolved[1],
-                        "width": resolved[2],
-                        "height": resolved[3],
+                        "x": rx,
+                        "y": ry,
+                        "width": rw,
+                        "height": rh,
                     }
         except Exception:
             pass
@@ -293,6 +306,11 @@ def render_session_page_preview_png(
         if page_number > doc.page_count:
             return None
         page = doc[page_number - 1]
+        try:
+            for w in list(page.widgets() or []):
+                page.delete_widget(w)
+        except Exception:
+            pass
         pix = page.get_pixmap(dpi=144, alpha=False)
         return bytes(pix.tobytes("png"))
     finally:
