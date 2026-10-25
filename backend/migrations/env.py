@@ -23,6 +23,7 @@ from app.forms.models import (  # noqa: F401
     FormVersion,
 )
 from app.ocr.models import OCRPage, OCRResult  # noqa: F401
+from app.jobs.models import ProcessingJob  # noqa: F401
 from app.pdf.models import FormExport  # noqa: F401
 from app.questions.models import (  # noqa: F401
     QuestionDefinition,

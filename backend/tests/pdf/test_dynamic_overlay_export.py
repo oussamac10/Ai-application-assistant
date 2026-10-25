@@ -921,3 +921,151 @@ def test_clarification_merges_address_parts_instead_of_dict_repr() -> None:
         assert "{" not in (updated_name.output_value or "")
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_ocr_field_without_input_box_scales_label_bounding_box_to_pdf_points(
+    tmp_path: Path,
+) -> None:
+    from app.forms.models import FormFieldTranslation
+    from app.ocr.models import OCRPage, OCRResult
+
+    db = SessionLocal()
+    try:
+        uploaded_pdf = _create_blank_uploaded_pdf(tmp_path)
+        token = "ocr-scale-preview-token"
+        token_hash = hash_ownership_token(token)
+        expires = datetime.now(UTC) + timedelta(hours=2)
+
+        source_doc = SourceDocument(
+            ownership_token_hash=token_hash,
+            original_filename="3_scanned_form_image.png",
+            sanitized_filename="3_scanned_form_image.pdf",
+            storage_path=str(uploaded_pdf),
+            content_type="application/pdf",
+            size_bytes=uploaded_pdf.stat().st_size,
+            checksum_sha256="c" * 64,
+            status="analyzed",
+            page_count=1,
+            expires_at=expires,
+        )
+        db.add(source_doc)
+        db.commit()
+
+        ocr_res = OCRResult(
+            source_document_id=source_doc.id,
+            status="completed",
+            provider_name="local",
+            language="auto",
+            page_count=1,
+            expires_at=expires,
+        )
+        db.add(ocr_res)
+        db.commit()
+        db.add(
+            OCRPage(
+                ocr_result_id=ocr_res.id,
+                page_number=1,
+                width=2480,
+                height=3509,
+                text="Nachname *:",
+                average_confidence=92.0,
+                lines=[],
+            )
+        )
+        db.commit()
+
+        detection = FieldDetectionResult(
+            source_document_id=source_doc.id,
+            ocr_result_id=ocr_res.id,
+            status="completed",
+            provider_name="local",
+            analysis_version=1,
+            field_count=1,
+            expires_at=expires,
+        )
+        db.add(detection)
+        db.commit()
+
+        db.add(
+            DetectedField(
+                detection_result_id=detection.id,
+                page_number=1,
+                display_order=0,
+                label="Nachname *",
+                normalized_name="nachname",
+                field_type="text",
+                required=True,
+                confidence=0.85,
+                source="ocr",
+                label_bounding_box={
+                    "x": 233.0,
+                    "y": 737.0,
+                    "width": 259.0,
+                    "height": 36.0,
+                },
+                input_bounding_box=None,
+                review_status="confirmed",
+            )
+        )
+        db.commit()
+
+        template = FormTemplate(
+            key=f"dynamic-doc-{source_doc.public_id}",
+            name="Dynamic form — scan",
+        )
+        db.add(template)
+        db.commit()
+
+        version = FormVersion(
+            form_template_id=template.id,
+            version_number=1,
+            status="published",
+            source_language="de",
+            supported_output_languages=["de", "en"],
+            origin="dynamic_detection",
+        )
+        db.add(version)
+        db.commit()
+
+        f_last = FormField(
+            form_version_id=version.id,
+            key="nachname",
+            field_type="string",
+            required=True,
+            requiredness="required",
+            position=0,
+        )
+        db.add(f_last)
+        db.commit()
+        db.add(
+            FormFieldTranslation(
+                form_field_id=f_last.id,
+                language="en",
+                label="Last name",
+            )
+        )
+        db.commit()
+
+        session = FormSession(
+            form_version_id=version.id,
+            source_document_id=source_doc.id,
+            source_language="de",
+            user_language="en",
+            output_language="de",
+            status="in_progress",
+            ownership_token_hash=token_hash,
+            expires_at=expires,
+        )
+        db.add(session)
+        db.commit()
+
+        service = AnswerService(db)
+        current = await service.get_current_field(session.public_id, token)
+        box = current["input_bounding_box"]
+        assert box is not None
+        # 737 / 3509 * 842 ≈ 176.85 pt (21% down the page), NOT 737 pt (87.5%)!
+        assert box["y"] == pytest.approx(737.0 * (842.0 / 3509.0), abs=1.5)
+        assert box["x"] == pytest.approx(233.0 * (595.0 / 2480.0), abs=1.5)
+    finally:
+        db.close()

@@ -208,3 +208,286 @@ def test_extract_ocr_document_input_skips_empty_words() -> None:
     result = extract_ocr_document_input(ocr_result)
 
     assert result.pages[0].tokens == ()
+
+
+def test_extract_ocr_document_input_recovers_corrupted_asterisk_and_extracts_raster_boxes(
+    tmp_path: Path,
+) -> None:
+    import fitz
+    from PIL import Image, ImageDraw
+
+    from app.field_detection.providers.local import LocalFieldDetectionProvider
+    from app.field_detection.question_bridge import _resolve_requiredness
+
+    # Build a 300-DPI synthetic scanned form PNG (2480 x 3509) with 5 drawn boxes
+    # and wrap it into an A4 PDF (595 x 842 pt) just like S1-02 image normalization.
+    img = Image.new("RGB", (2480, 3509), "white")
+    draw = ImageDraw.Draw(img)
+    box_ys = [574, 804, 1032, 1262, 1492]
+    for by in box_ys:
+        draw.rectangle([224, by, 2232, by + 102], outline=(90, 90, 90), width=4)
+
+    png_path = tmp_path / "scan.png"
+    img.save(png_path, format="PNG")
+
+    pdf_path = tmp_path / "scan.pdf"
+    pdf_doc = fitz.open()
+    pdf_page = pdf_doc.new_page(width=595, height=842)
+    pdf_page.insert_image(pdf_page.rect, filename=str(png_path))
+    pdf_doc.save(str(pdf_path))
+    pdf_doc.close()
+
+    # Simulate Tesseract OCR output including:
+    # - `Nachname ":` (asterisk before colon misread as unpaired quote `"`)
+    # - `PT` (conf 16) and `|` (conf 47) 2004px-wide empty-box border hallucinations
+    # - A legitimate paired-quote label `Hinweis "Abschnitt A":` that must keep its quotes
+    ocr_result = OCRResult(language="auto")
+    ocr_page = OCRPage(
+        page_number=1,
+        width=2480,
+        height=3509,
+        text='Vorname *:\nNachname ":\nPT\nGeburtsdatum (TT.MM.JJJJ) *:\nAktuelle Anschrift (StraBe, Nr., PLZ, Ort) *:\nHinweis "Abschnitt A":\n|',
+        average_confidence=78.0,
+        lines=[
+            {
+                "text": "Vorname *:",
+                "confidence": 90.0,
+                "boundingBox": {"x": 231, "y": 508, "width": 225, "height": 35},
+                "words": [
+                    {
+                        "text": "Vorname",
+                        "confidence": 91.0,
+                        "boundingBox": {"x": 231, "y": 508, "width": 183, "height": 35},
+                    },
+                    {
+                        "text": "*:",
+                        "confidence": 87.0,
+                        "boundingBox": {"x": 429, "y": 508, "width": 27, "height": 34},
+                    },
+                ],
+            },
+            {
+                "text": 'Nachname ":',
+                "confidence": 92.5,
+                "boundingBox": {"x": 233, "y": 737, "width": 259, "height": 36},
+                "words": [
+                    {
+                        "text": "Nachname",
+                        "confidence": 93.0,
+                        "boundingBox": {"x": 233, "y": 737, "width": 216, "height": 36},
+                    },
+                    {
+                        "text": '":',
+                        "confidence": 92.0,
+                        "boundingBox": {"x": 465, "y": 738, "width": 27, "height": 33},
+                    },
+                ],
+            },
+            {
+                "text": "PT",
+                "confidence": 16.0,
+                "boundingBox": {"x": 228, "y": 803, "width": 2003, "height": 103},
+                "words": [
+                    {
+                        "text": "PT",
+                        "confidence": 16.0,
+                        "boundingBox": {
+                            "x": 228,
+                            "y": 803,
+                            "width": 2003,
+                            "height": 103,
+                        },
+                    }
+                ],
+            },
+            {
+                "text": "Geburtsdatum (TT.MM.JJJJ) *:",
+                "confidence": 91.0,
+                "boundingBox": {"x": 231, "y": 966, "width": 623, "height": 45},
+                "words": [
+                    {
+                        "text": "Geburtsdatum",
+                        "confidence": 93.0,
+                        "boundingBox": {"x": 231, "y": 966, "width": 286, "height": 36},
+                    },
+                    {
+                        "text": "(TT.MM.JJJJ)",
+                        "confidence": 88.0,
+                        "boundingBox": {"x": 536, "y": 967, "width": 273, "height": 44},
+                    },
+                    {
+                        "text": "*:",
+                        "confidence": 92.0,
+                        "boundingBox": {"x": 827, "y": 967, "width": 27, "height": 34},
+                    },
+                ],
+            },
+            {
+                "text": "Aktuelle Anschrift (StraBe, Nr., PLZ, Ort) *:",
+                "confidence": 92.0,
+                "boundingBox": {"x": 231, "y": 1194, "width": 860, "height": 45},
+                "words": [
+                    {
+                        "text": "Aktuelle",
+                        "confidence": 93.0,
+                        "boundingBox": {
+                            "x": 231,
+                            "y": 1195,
+                            "width": 159,
+                            "height": 35,
+                        },
+                    },
+                    {
+                        "text": "Anschrift",
+                        "confidence": 91.0,
+                        "boundingBox": {
+                            "x": 406,
+                            "y": 1195,
+                            "width": 177,
+                            "height": 35,
+                        },
+                    },
+                    {
+                        "text": "(StraBe,",
+                        "confidence": 92.0,
+                        "boundingBox": {
+                            "x": 600,
+                            "y": 1194,
+                            "width": 158,
+                            "height": 45,
+                        },
+                    },
+                    {
+                        "text": "Nr.,",
+                        "confidence": 91.0,
+                        "boundingBox": {
+                            "x": 777,
+                            "y": 1195,
+                            "width": 68,
+                            "height": 40,
+                        },
+                    },
+                    {
+                        "text": "PLZ,",
+                        "confidence": 96.0,
+                        "boundingBox": {
+                            "x": 865,
+                            "y": 1195,
+                            "width": 89,
+                            "height": 40,
+                        },
+                    },
+                    {
+                        "text": "Ort)",
+                        "confidence": 93.0,
+                        "boundingBox": {
+                            "x": 972,
+                            "y": 1194,
+                            "width": 74,
+                            "height": 45,
+                        },
+                    },
+                    {
+                        "text": "*:",
+                        "confidence": 93.0,
+                        "boundingBox": {
+                            "x": 1064,
+                            "y": 1195,
+                            "width": 27,
+                            "height": 34,
+                        },
+                    },
+                ],
+            },
+            {
+                "text": 'Hinweis "Abschnitt A":',
+                "confidence": 94.0,
+                "boundingBox": {"x": 233, "y": 1424, "width": 480, "height": 36},
+                "words": [
+                    {
+                        "text": "Hinweis",
+                        "confidence": 94.0,
+                        "boundingBox": {
+                            "x": 233,
+                            "y": 1424,
+                            "width": 160,
+                            "height": 36,
+                        },
+                    },
+                    {
+                        "text": '"Abschnitt',
+                        "confidence": 94.0,
+                        "boundingBox": {
+                            "x": 405,
+                            "y": 1424,
+                            "width": 200,
+                            "height": 36,
+                        },
+                    },
+                    {
+                        "text": 'A":',
+                        "confidence": 94.0,
+                        "boundingBox": {
+                            "x": 615,
+                            "y": 1424,
+                            "width": 98,
+                            "height": 36,
+                        },
+                    },
+                ],
+            },
+            {
+                "text": "|",
+                "confidence": 47.0,
+                "boundingBox": {"x": 227, "y": 1491, "width": 2004, "height": 104},
+                "words": [
+                    {
+                        "text": "|",
+                        "confidence": 47.0,
+                        "boundingBox": {
+                            "x": 227,
+                            "y": 1491,
+                            "width": 2004,
+                            "height": 104,
+                        },
+                    }
+                ],
+            },
+        ],
+    )
+    ocr_result.pages = [ocr_page]
+
+    doc_input = extract_ocr_document_input(ocr_result, source_pdf_path=pdf_path)
+    page = doc_input.pages[0]
+
+    token_texts = [t.text for t in page.tokens]
+    assert "PT" not in token_texts
+    assert "|" not in token_texts
+    assert 'A":' in token_texts  # Paired quotes stay untouched
+
+    box_regions = [r for r in page.ruled_regions if r.kind == "box"]
+    assert len(box_regions) == 5
+
+    detected = LocalFieldDetectionProvider().detect(doc_input)
+    by_name = {c.normalized_name: c for c in detected.fields}
+    assert "nachname" in by_name
+    assert "aktuelle_anschrift_strabe_nr_plz_ort" in by_name
+    for c in detected.fields:
+        assert c.input_bounding_box is not None
+        assert c.input_bounding_box.width > 1800
+        assert c.field_type != "multiline_text"
+        assert c.source == "ocr"
+
+    assert '"' not in by_name["nachname"].label
+
+    from typing import Any
+
+    class _StubField:
+        def __init__(self, candidate: Any) -> None:
+            self.label = candidate.label
+            self.required = candidate.required
+
+    assert _resolve_requiredness(_StubField(by_name["nachname"])) == "required"
+    assert (
+        _resolve_requiredness(_StubField(by_name["hinweis_abschnitt_a"])) == "unknown"
+    )

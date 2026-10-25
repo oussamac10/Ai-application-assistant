@@ -52,7 +52,10 @@
     "missingRequired": "Missing required answer",
     "notAnswered": "Not answered",
     "invalidAnswer": "Answer needs attention",
-    "blockedByFields": "{count} question(s) still need your attention before you can finalize."
+    "blockedByFields": "{count} question(s) still need your attention before you can finalize.",
+    "previewPdf": "Preview Filled PDF (Watermarked)",
+    "previewPdfLoading": "Generating watermarked preview...",
+    "previewPdfError": "Could not generate a PDF preview for this form."
   },
   "complete": {
     "title": "Form Ready for Export",
@@ -85,8 +88,8 @@
     "unavailable": "The AI language assistant is temporarily unavailable. Your original answer has been preserved. Please try again."
   },
   "documentUpload": {
-    "drag_and_drop_instructions": "Drag and drop your PDF here, or click to browse",
-    "maximum_size": "PDF up to 10MB (max 20 pages)",
+    "drag_and_drop_instructions": "Drag and drop a PDF or smartphone photo (JPG, PNG, WebP), or click to browse",
+    "maximum_size": "PDF, JPG, PNG, or WebP up to 10MB (max 20 pages)",
     "selected_file": "Selected File:",
     "remove_file": "Remove",
     "selectOutputLanguage": "Select completed form language",
@@ -119,8 +122,10 @@
     "start_completion": "Start Guided Form",
     "upload_error_title": "Upload or Analysis Failed",
     "retry": "Retry Upload",
-    "error_invalid_file_type": "Only PDF files are supported.",
+    "error_invalid_file_type": "Only PDF, JPG, PNG, and WebP files are supported.",
     "error_file_too_large": "File exceeds maximum size of 10MB.",
+    "error_image_too_large": "Image resolution is too large. Please upload a smaller photo or PDF.",
+    "error_rate_limit_exceeded": "Too many requests in a short time. Please wait a moment and try again.",
     "error_invalid_pdf": "Invalid PDF file structure.",
     "error_encrypted_pdf": "PDF is encrypted or password-protected.",
     "error_password_protected_pdf": "PDF is password-protected or encrypted.",

@@ -52,7 +52,10 @@
     "missingRequired": "Pflichtangabe fehlt",
     "notAnswered": "Nicht beantwortet",
     "invalidAnswer": "Antwort muss geprüft werden",
-    "blockedByFields": "{count} Frage(n) müssen noch bearbeitet werden, bevor Sie abschließen können."
+    "blockedByFields": "{count} Frage(n) müssen noch bearbeitet werden, bevor Sie abschließen können.",
+    "previewPdf": "Ausgefülltes PDF als Vorschau (Wasserzeichen)",
+    "previewPdfLoading": "Vorschau mit Wasserzeichen wird erstellt...",
+    "previewPdfError": "Für dieses Formular konnte keine PDF-Vorschau erstellt werden."
   },
   "complete": {
     "title": "Formular bereit für den Export",
@@ -85,8 +88,8 @@
     "unavailable": "Der KI-Sprachassistent ist vorübergehend nicht verfügbar. Ihre ursprüngliche Antwort wurde gespeichert. Bitte versuchen Sie es erneut."
   },
   "documentUpload": {
-    "drag_and_drop_instructions": "Ziehen Sie Ihr PDF hierher oder klicken Sie zum Durchsuchen",
-    "maximum_size": "PDF bis zu 10 MB (max. 20 Seiten)",
+    "drag_and_drop_instructions": "Ziehen Sie Ihr PDF oder Smartphone-Foto (JPG, PNG, WebP) hierher oder klicken Sie zum Durchsuchen",
+    "maximum_size": "PDF, JPG, PNG oder WebP bis zu 10 MB (max. 20 Seiten)",
     "selected_file": "Ausgewählte Datei:",
     "remove_file": "Entfernen",
     "selectOutputLanguage": "Zielsprache des ausgefüllten Formulars wählen",
@@ -119,8 +122,10 @@
     "start_completion": "Assistenten starten",
     "upload_error_title": "Hochladen oder Analyse fehlgeschlagen",
     "retry": "Erneut versuchen",
-    "error_invalid_file_type": "Es werden nur PDF-Dateien unterstützt.",
+    "error_invalid_file_type": "Es werden nur PDF-, JPG-, PNG- und WebP-Dateien unterstützt.",
     "error_file_too_large": "Die Datei überschreitet die maximale Größe von 10 MB.",
+    "error_image_too_large": "Die Bildauflösung ist zu groß. Bitte laden Sie ein kleineres Foto oder PDF hoch.",
+    "error_rate_limit_exceeded": "Zu viele Anfragen in kurzer Zeit. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
     "error_invalid_pdf": "Ungültige PDF-Dateistruktur.",
     "error_encrypted_pdf": "Das PDF ist verschlüsselt oder passwortgeschützt.",
     "error_password_protected_pdf": "Das PDF ist passwortgeschützt oder verschlüsselt.",

@@ -1,72 +1,117 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.ai.factory import get_ai_provider
 from app.ai.mock_provider import AIProvider
 from app.auth.dependencies import get_current_user_optional
 from app.auth.models import User
+from app.core.config import settings
+from app.core.rate_limit import rate_limit_prepare
 from app.database.session import get_db
 from app.documents.schemas import SessionCreateRequest, SessionCreateResponse
+from app.documents.service import SourceDocumentService
+from app.field_detection.errors import FieldDetectionValidationError
 from app.field_detection.orchestration import PrepareQuestionsService
 from app.field_detection.schemas import (
     DetectedFieldSchema,
     DetectedFieldUpdateRequest,
     FieldDetectionResultResponse,
     PrepareQuestionsResponse,
-    UncertaintyInfoSchema,
     build_detected_field_schema,
     build_field_detection_response,
 )
 from app.field_detection.service import FieldDetectionService
+from app.jobs import worker as jobs_worker
+from app.jobs.schemas import PrepareQuestionsAcceptedResponse
+from app.jobs.service import ProcessingJobService, serialize_prepare_result
+from app.sessions.repositories import SessionRepository
 
 router = APIRouter()
+
+_RETRYABLE_SESSION_STATUSES = frozenset({"expired", "cancelled", "deleted"})
 
 
 @router.post(
     "/source-documents/{document_id}/prepare-questions",
-    response_model=PrepareQuestionsResponse,
+    response_model=PrepareQuestionsResponse | PrepareQuestionsAcceptedResponse,
     status_code=status.HTTP_200_OK,
 )
 async def prepare_questions(
     document_id: str,
     body: SessionCreateRequest,
+    background_tasks: BackgroundTasks,
     x_document_token: str | None = Header(default=None, alias="X-Document-Token"),
     db: Session = Depends(get_db),
     ai_provider: AIProvider = Depends(get_ai_provider),
     current_user: User | None = Depends(get_current_user_optional),
+    _rate_limit: None = Depends(rate_limit_prepare),
 ) -> Any:
     """Single idempotent orchestration entrypoint for the normal-user upload
-    flow (Phase 13): analyze -> OCR (if needed) -> detect fields ->
-    automatically decide what is usable -> generate questions -> create or
-    reuse the guided session. Known predefined-template documents take the
-    existing fast path with no OCR/detection/AI call at all."""
+    flow (Phase 13 & Phase S1-03): fast paths return 200 immediately; slow OCR /
+    dynamic detection paths return 202 Accepted + `/api/jobs/{jobId}` when
+    background/ARQ execution is active."""
+    user_id = current_user.id if current_user else None
+
+    if settings.JOB_EXECUTION_MODE in ("background", "arq"):
+        doc = SourceDocumentService(db).get_document(
+            document_id, x_document_token, user_id
+        )
+        existing = SessionRepository(db).get_latest_session_by_source_document_id(
+            doc.id
+        )
+        is_fast_path = bool(doc.matched_template_key) or (
+            existing is not None and existing.status not in _RETRYABLE_SESSION_STATUSES
+        )
+        if not is_fast_path:
+            next_step = (doc.analysis_result or {}).get("next_step")
+            if next_step not in ("ocr_required", "dynamic_field_detection"):
+                raise FieldDetectionValidationError(
+                    "This document could not be processed automatically.",
+                    "cannot_process_automatically",
+                )
+
+            job_service = ProcessingJobService(db, current_user_id=user_id)
+            job = job_service.create_or_reuse_prepare_job(
+                doc=doc,
+                user_language=body.language,
+                output_language=body.outputLanguage,
+            )
+            if job.status == "completed" and job.result_payload is not None:
+                job_status = job_service.get_job_status(job.public_id, x_document_token)
+                if job_status.result is not None:
+                    return job_status.result
+
+            if job.status == "queued":
+                if settings.JOB_EXECUTION_MODE == "arq":
+                    await jobs_worker.enqueue_prepare_questions_job(job.public_id)
+                else:
+                    background_tasks.add_task(
+                        jobs_worker.run_prepare_questions_job_sync, job.public_id
+                    )
+
+            accepted = PrepareQuestionsAcceptedResponse(
+                documentId=doc.public_id,
+                status="running" if job.status == "running" else "queued",
+                jobId=job.public_id,
+                pollUrl=f"/api/jobs/{job.public_id}",
+            )
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content=accepted.model_dump(),
+            )
+
     service = PrepareQuestionsService(
         db,
         ai_provider=ai_provider,
-        current_user_id=current_user.id if current_user else None,
+        current_user_id=user_id,
     )
     result = await service.prepare(
         document_id, x_document_token, body.language, body.outputLanguage
     )
-    return PrepareQuestionsResponse(
-        documentId=result.document_public_id,
-        status=result.status,
-        sessionId=result.session.public_id if result.session else None,
-        ownershipToken=result.ownership_token,
-        reusedExistingSession=result.reused_existing_session,
-        uncertainty=(
-            UncertaintyInfoSchema(
-                hasUncertainFields=result.uncertainty.has_uncertain_fields,
-                uncertainFieldCount=result.uncertainty.uncertain_field_count,
-            )
-            if result.uncertainty
-            else None
-        ),
-        errorCode=result.error_code,
-        stage=result.stage,
-    )
+    return serialize_prepare_result(result)
 
 
 @router.post(

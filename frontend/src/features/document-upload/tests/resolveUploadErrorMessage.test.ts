@@ -66,6 +66,9 @@ describe("resolveUploadErrorMessage", () => {
       detail: "invalid_file_type",
     });
     expect(msg).toBe("error_invalid_file_type");
+    expect(
+      resolveUploadErrorMessage(identityT, { detail: "image_too_large" })
+    ).toBe("error_image_too_large");
   });
 
   it("uses the generic fallback for a completely malformed error value", () => {

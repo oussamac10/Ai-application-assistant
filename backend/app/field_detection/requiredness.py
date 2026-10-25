@@ -65,8 +65,9 @@ _OPTIONAL_MARKERS: tuple[str, ...] = (
 # An asterisk adjacent to the label is the near-universal "required" marker.
 # Anchored to one end or the other so a footnote reference mid-sentence ("See
 # note * for details") does not count. RTL forms commonly lead with it, LTR
-# forms commonly trail it.
-_TRAILING_ASTERISK = re.compile(r"[*∗]\s*$")
+# forms commonly trail it (often immediately before a trailing colon, e.g.
+# "Vorname *:" or "Nom (*):").
+_TRAILING_ASTERISK = re.compile(r"(?:\(\s*[*∗]\s*\)|[*∗]+)\s*[:：]?\s*$")
 _LEADING_ASTERISK = re.compile(r"^\s*[*∗]\s*(?=\S)")
 
 # A form-level statement that everything is mandatory.
@@ -158,7 +159,7 @@ def strip_required_marker(label: str) -> str:
 # A trailing optionality marker, in any supported language. Only in brackets
 # and only at the end, so "Facultatif" used as an actual field label survives.
 _TRAILING_OPTIONALITY = re.compile(
-    r"[\(\[]\s*(?:optional|facultatif|facultative|freiwillig|اختياري)\s*[\)\]]\s*$",
+    r"[\(\[]\s*(?:optional|facultatif|facultative|freiwillig|اختياري)\s*[\)\]]\s*[:：]?\s*$",
     re.IGNORECASE,
 )
 

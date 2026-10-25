@@ -145,3 +145,103 @@ def test_a_template_field_declaring_only_the_boolean_stays_required() -> None:
 
     assert field.requiredness == "required"
     assert field.required is True
+
+
+@pytest.mark.asyncio
+async def test_question_bridge_strips_asterisk_from_display_labels_while_preserving_requiredness() -> (
+    None
+):
+    from datetime import UTC, datetime, timedelta
+
+    from app.ai.mock_provider import MockAIProvider
+    from app.documents.models import SourceDocument
+    from app.field_detection.models import DetectedField, FieldDetectionResult
+    from app.field_detection.question_bridge import create_session_from_confirmed_fields
+    from app.forms.models import FormVersion
+    from app.sessions.security import hash_ownership_token
+    from app.translation.providers.mock import MockTranslationProvider
+
+    db = SessionLocal()
+    try:
+        expires = datetime.now(UTC) + timedelta(hours=2)
+        doc = SourceDocument(
+            ownership_token_hash=hash_ownership_token("req-strip-token"),
+            original_filename="scan.pdf",
+            sanitized_filename="scan.pdf",
+            storage_path="uploads/scan.pdf",
+            content_type="application/pdf",
+            size_bytes=512,
+            checksum_sha256="b" * 64,
+            status="analyzed",
+            page_count=1,
+            detected_source_language="de",
+            expires_at=expires,
+        )
+        db.add(doc)
+        db.commit()
+
+        fdr = FieldDetectionResult(
+            source_document_id=doc.id,
+            status="completed",
+            provider_name="local",
+            analysis_version=1,
+            field_count=2,
+            expires_at=expires,
+        )
+        db.add(fdr)
+        db.commit()
+
+        db.add_all(
+            [
+                DetectedField(
+                    detection_result_id=fdr.id,
+                    page_number=1,
+                    display_order=0,
+                    label="Vorname *",
+                    normalized_name="vorname",
+                    field_type="text",
+                    required=None,
+                    confidence=0.85,
+                    source="ocr",
+                    review_status="confirmed",
+                ),
+                DetectedField(
+                    detection_result_id=fdr.id,
+                    page_number=1,
+                    display_order=1,
+                    label="Geburtsdatum (TT.MM.JJJJ) *:",
+                    normalized_name="geburtsdatum",
+                    field_type="date",
+                    required=None,
+                    confidence=0.85,
+                    source="ocr",
+                    review_status="confirmed",
+                ),
+            ]
+        )
+        db.commit()
+        db.refresh(fdr)
+
+        session, _ = await create_session_from_confirmed_fields(
+            db,
+            doc,
+            fdr,
+            user_language="en",
+            output_language="de",
+            ai_provider=MockAIProvider(),
+            translation_provider=MockTranslationProvider(),
+            document_language="de",
+        )
+
+        version = db.get(FormVersion, session.form_version_id)
+        assert version is not None
+        fields = sorted(version.fields, key=lambda f: f.position)
+        assert len(fields) == 2
+        for created_field in fields:
+            assert created_field.requiredness == "required"
+            assert created_field.required is True
+            for tr in created_field.translations:
+                assert "*" not in tr.label
+                assert not tr.label.endswith(":")
+    finally:
+        db.close()

@@ -41,6 +41,7 @@ from app.field_detection.extraction import extract_native_document_input
 from app.field_detection.models import DetectedField, FieldDetectionResult
 from app.forms.models import FormField, FormVersion
 from app.ocr.models import OCRResult
+from app.pdf.font_support import draw_unicode_text_in_box
 from app.pdf.formatting import format_field_value
 from app.pdf.renderers.pypdf_renderer import PDFRenderResult
 from app.pdf.signature_render import (
@@ -51,6 +52,7 @@ from app.pdf.signature_render import (
     render_signature,
 )
 from app.sessions.models import FormSession
+from app.storage import factory as storage_factory
 
 logger = logging.getLogger(__name__)
 
@@ -202,70 +204,88 @@ def get_field_location_for_session(
     page_h = 842.0
     effective_in = _clean_box(detected.input_bounding_box)
     effective_lbl = _clean_box(detected.label_bounding_box)
+    ocr_dims = _load_ocr_page_dimensions(db, source_doc.id)
 
-    if source_doc.storage_path and Path(source_doc.storage_path).is_file():
+    storage_provider = storage_factory.get_storage_provider()
+    if source_doc.storage_path and storage_provider.exists(source_doc.storage_path):
         try:
             import fitz
 
-            doc = fitz.open(source_doc.storage_path)
-            try:
-                page_idx = detected.page_number - 1
-                if 0 <= page_idx < doc.page_count:
-                    rect = doc[page_idx].rect
-                    page_w = float(rect.width)
-                    page_h = float(rect.height)
-            finally:
-                doc.close()
+            with storage_provider.local_path(source_doc.storage_path) as local_pdf_path:
+                doc = fitz.open(local_pdf_path)
+                try:
+                    page_idx = detected.page_number - 1
+                    if 0 <= page_idx < doc.page_count:
+                        rect = doc[page_idx].rect
+                        page_w = float(rect.width)
+                        page_h = float(rect.height)
+                finally:
+                    doc.close()
 
-            ocr_dims = _load_ocr_page_dimensions(db, source_doc.id)
-            try:
-                native_doc = extract_native_document_input(
-                    Path(source_doc.storage_path)
-                )
-                page_tokens: Sequence[Any] = ()
-                for p in native_doc.pages:
-                    if p.page_number == detected.page_number:
-                        page_tokens = p.tokens
-                        break
-                raw_eff = _resolve_effective_input_box(
-                    detected, field.field_type, page_tokens
-                )
-                if raw_eff:
-                    effective_in = _clean_box(raw_eff)
-            except Exception:
-                pass
-
-            if effective_in:
-                resolved = _resolve_pdf_rect(
-                    effective_in,
-                    source=detected.source,
-                    page_number=detected.page_number,
-                    pdf_page_width=page_w,
-                    pdf_page_height=page_h,
-                    ocr_dims=ocr_dims,
-                )
-                if resolved is not None:
-                    rx, ry, rw, rh = resolved
-                    if (
-                        field.field_type
-                        not in (
-                            "multiline_text",
-                            "signature",
-                            "multiple_choice",
-                            "single_choice",
-                        )
-                        and 17.0 <= rh <= 24.0
-                    ):
-                        ry = ry + (rh - 14.5)
-                        rh = 14.5
-                    effective_in = {
-                        "x": rx,
-                        "y": ry,
-                        "width": rw,
-                        "height": rh,
-                    }
+                try:
+                    native_doc = extract_native_document_input(local_pdf_path)
+                    page_tokens: Sequence[Any] = ()
+                    for p in native_doc.pages:
+                        if p.page_number == detected.page_number:
+                            page_tokens = p.tokens
+                            break
+                    raw_eff = _resolve_effective_input_box(
+                        detected, field.field_type, page_tokens
+                    )
+                    if raw_eff:
+                        effective_in = _clean_box(raw_eff)
+                except Exception:
+                    pass
         except Exception:
             pass
+
+    if effective_in:
+        resolved = _resolve_pdf_rect(
+            effective_in,
+            source=detected.source,
+            page_number=detected.page_number,
+            pdf_page_width=page_w,
+            pdf_page_height=page_h,
+            ocr_dims=ocr_dims,
+        )
+        if resolved is not None:
+            rx, ry, rw, rh = resolved
+            if (
+                field.field_type
+                not in (
+                    "multiline_text",
+                    "signature",
+                    "multiple_choice",
+                    "single_choice",
+                )
+                and 17.0 <= rh <= 24.0
+            ):
+                ry = ry + (rh - 14.5)
+                rh = 14.5
+            effective_in = {
+                "x": rx,
+                "y": ry,
+                "width": rw,
+                "height": rh,
+            }
+
+    if effective_lbl:
+        resolved_lbl = _resolve_pdf_rect(
+            effective_lbl,
+            source=detected.source,
+            page_number=detected.page_number,
+            pdf_page_width=page_w,
+            pdf_page_height=page_h,
+            ocr_dims=ocr_dims,
+        )
+        if resolved_lbl is not None:
+            lx, ly, lw, lh = resolved_lbl
+            effective_lbl = {
+                "x": lx,
+                "y": ly,
+                "width": lw,
+                "height": lh,
+            }
 
     return (
         FieldLocationInfo(
@@ -295,30 +315,31 @@ def render_session_page_preview_png(
     if not source_doc or not source_doc.storage_path:
         return None
 
-    source_path = Path(source_doc.storage_path)
-    if not source_path.is_file():
+    storage_provider = storage_factory.get_storage_provider()
+    if not storage_provider.exists(source_doc.storage_path):
         return None
 
     import fitz
 
-    doc = fitz.open(source_path)
-    try:
-        if page_number > doc.page_count:
-            return None
-        page = doc[page_number - 1]
+    with storage_provider.local_path(source_doc.storage_path) as source_path:
+        doc = fitz.open(source_path)
         try:
-            for w in list(page.widgets() or []):
-                page.delete_widget(w)
-        except Exception:
-            pass
-        pix = page.get_pixmap(dpi=144, alpha=False)
-        return bytes(pix.tobytes("png"))
-    finally:
-        doc.close()
+            if page_number > doc.page_count:
+                return None
+            page = doc[page_number - 1]
+            try:
+                for w in list(page.widgets() or []):
+                    page.delete_widget(w)
+            except Exception:
+                pass
+            pix = page.get_pixmap(dpi=144, alpha=False)
+            return bytes(pix.tobytes("png"))
+        finally:
+            doc.close()
 
 
 def has_exportable_dynamic_document(db: Session, session: FormSession) -> bool:
-    """Returns True when `session` is linked to a SourceDocument on disk that has
+    """Returns True when `session` is linked to a SourceDocument in storage that has
     at least one confirmed/usable detected field with an `input_bounding_box`.
     """
     if not session.source_document_id:
@@ -328,7 +349,8 @@ def has_exportable_dynamic_document(db: Session, session: FormSession) -> bool:
     if not source_doc or not source_doc.storage_path:
         return False
 
-    if not Path(source_doc.storage_path).is_file():
+    storage_provider = storage_factory.get_storage_provider()
+    if not storage_provider.exists(source_doc.storage_path):
         return False
 
     detection = get_latest_completed_detection(db, source_doc.id)
@@ -500,15 +522,18 @@ def render_dynamic_overlay_pdf(
     detection: FieldDetectionResult,
     answers_by_field_id: dict[str, FormAnswer],
     output_path: Path,
+    include_unconfirmed_preview: bool = False,
 ) -> PDFRenderResult:
     """Copies the uploaded `source_doc` PDF to `output_path` and overlays all
     confirmed answers at their detected `input_bounding_box` coordinates.
     """
     import fitz
 
-    source_path = Path(source_doc.storage_path)
-    if not source_path.is_file():
-        raise ValueError("Uploaded source PDF file is no longer available on disk.")
+    storage_provider = storage_factory.get_storage_provider()
+    if not source_doc.storage_path or not storage_provider.exists(
+        source_doc.storage_path
+    ):
+        raise ValueError("Uploaded source PDF file is no longer available in storage.")
 
     field_to_detected = map_form_fields_to_detected_fields(
         list(version.fields), list(detection.fields)
@@ -516,22 +541,31 @@ def render_dynamic_overlay_pdf(
     ocr_dims = _load_ocr_page_dimensions(db, source_doc.id)
 
     native_tokens_by_page: dict[int, tuple[Any, ...]] = {}
-    try:
-        native_doc = extract_native_document_input(source_path)
-        for p in native_doc.pages:
-            native_tokens_by_page[p.page_number] = p.tokens
-    except Exception:
-        native_tokens_by_page = {}
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(source_path, output_path)
+    with storage_provider.local_path(source_doc.storage_path) as source_path:
+        try:
+            native_doc = extract_native_document_input(source_path)
+            for p in native_doc.pages:
+                native_tokens_by_page[p.page_number] = p.tokens
+        except Exception:
+            native_tokens_by_page = {}
+
+        shutil.copyfile(source_path, output_path)
+
+    allowed_statuses = (
+        ("confirmed", "awaiting_confirmation", "draft", PENDING_MANUAL_SIGNATURE)
+        if include_unconfirmed_preview
+        else ("confirmed", PENDING_MANUAL_SIGNATURE)
+    )
 
     document = fitz.open(output_path)
     try:
         page_count = document.page_count
         for form_field in sorted(version.fields, key=lambda f: f.position):
             ans = answers_by_field_id.get(form_field.id)
-            if not ans or ans.status not in ("confirmed", PENDING_MANUAL_SIGNATURE):
+            if not ans or ans.status not in allowed_statuses:
+                continue
+            if include_unconfirmed_preview and ans.validation_status == "invalid":
                 continue
 
             detected = field_to_detected.get(form_field.key)
@@ -895,64 +929,16 @@ def _draw_text_in_box(
     multiline: bool,
     mask_dots: bool = False,
 ) -> None:
-    """Draws `text` inside `(x, y, width, height)` in PDF points."""
-    import fitz
-
-    rect = fitz.Rect(
-        x + 2.0, y + 1.0, x + max(width - 2.0, 4.0), y + max(height - 1.0, 4.0)
-    )
-    ink_color = (0.06, 0.09, 0.16)
-
-    if multiline:
-        for font_size in (10.0, 9.0, 8.0, 7.0, 6.0):
-            rc = page.insert_textbox(
-                rect,
-                text,
-                fontsize=font_size,
-                fontname="helv",
-                color=ink_color,
-                align=fitz.TEXT_ALIGN_LEFT,
-            )
-            if rc >= 0:
-                return
-
-    # Single-line placement (or fallback when textbox height is too tight for
-    # PyMuPDF's line-height multiplier). Scale font size down if the string is
-    # wide relative to the box width.
-    if height <= 13.0:
-        base_font_size = min(max(height * 0.74, 7.5), 9.0)
-    else:
-        base_font_size = min(max(height * 0.58, 7.0), 11.0)
-    estimated_char_width = base_font_size * 0.52
-    max_chars_at_base = max(int((width - 4.0) / max(estimated_char_width, 1.0)), 1)
-    if len(text) > max_chars_at_base and len(text) > 0:
-        scaled = base_font_size * (max_chars_at_base / len(text))
-        font_size = max(scaled, 6.0)
-    else:
-        font_size = base_font_size
-
-    if height <= 13.0:
-        baseline_y = y + height - 1.8
-    else:
-        baseline_y = y + min(height - 2.5, (height + font_size * 0.72) / 2.0)
-
-    if mask_dots:
-        text_w = fitz.get_text_length(text, fontname="helv", fontsize=font_size)
-        mask_rect = fitz.Rect(
-            x,
-            y + 1.0,
-            min(x + text_w + 5.0, x + width),
-            y + height,
-        )
-        shape = page.new_shape()
-        shape.draw_rect(mask_rect)
-        shape.finish(width=0, color=None, fill=(1.0, 1.0, 1.0))
-        shape.commit()
-
-    page.insert_text(
-        fitz.Point(x + 2.0, baseline_y),
-        text,
-        fontsize=font_size,
-        fontname="helv",
-        color=ink_color,
+    """Draws `text` inside `(x, y, width, height)` in PDF points using embedded
+    `NotoSans` / `NotoSansArabic` TrueType fonts (`Identity-H` Type0).
+    """
+    draw_unicode_text_in_box(
+        page,
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        text=text,
+        multiline=multiline,
+        mask_dots=mask_dots,
     )

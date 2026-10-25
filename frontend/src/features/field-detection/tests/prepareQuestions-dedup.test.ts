@@ -139,4 +139,53 @@ describe("prepareQuestions request de-duplication", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("polls GET /api/jobs/{jobId} when prepare-questions returns 202 Accepted until completed", async () => {
+    const { prepareQuestions } = await import("../services/apiClient");
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: async () => ({
+          documentId: "doc-1",
+          status: "queued",
+          jobId: "job-123",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          jobId: "job-123",
+          documentId: "doc-1",
+          jobType: "prepare_questions",
+          status: "running",
+          stage: "ocr",
+          result: null,
+          errorCode: null,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          jobId: "job-123",
+          documentId: "doc-1",
+          jobType: "prepare_questions",
+          status: "completed",
+          stage: null,
+          result: READY_RESPONSE,
+          errorCode: null,
+        }),
+      });
+
+    const result = await prepareQuestions("doc-1", "ar", undefined, {
+      pollIntervalMs: 5,
+    });
+
+    expect(result.sessionId).toBe("session-1");
+    expect(result.ownershipToken).toBe("session-token-1");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/jobs/job-123");
+  });
 });

@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,7 @@ from app.sessions.services import (
     ResourceNotFoundError,
     ValidationError,
 )
+from app.storage import factory as storage_factory
 
 router = APIRouter()
 
@@ -49,15 +50,40 @@ def create_pdf_export(
 
 
 @router.get(
+    "/form-sessions/{session_id}/preview-pdf",
+)
+def preview_watermarked_pdf(
+    session_id: str,
+    x_session_token: str | None = Header(default=None, alias="X-Session-Token"),
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Response:
+    service = PDFExportService(db)
+    pdf_bytes, preview_name = service.generate_watermarked_preview_bytes(
+        session_id,
+        x_session_token,
+        current_user.id if current_user else None,
+    )
+    safe_name = preview_name.replace('"', "")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{safe_name}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get(
     "/form-exports/{export_id}/download",
-    response_class=FileResponse,
 )
 def download_pdf_export(
     export_id: str,
     x_session_token: str | None = Header(default=None, alias="X-Session-Token"),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
-) -> FileResponse:
+) -> Response:
     # 1. Fetch export record by public_id
     stmt = select(FormExport).where(FormExport.public_id == export_id)
     export = db.scalars(stmt).first()
@@ -86,12 +112,23 @@ def download_pdf_export(
             f"This PDF export is not ready (status: {export.status})."
         )
 
-    # 4. Check file exists on filesystem
+    # 4. Serve file via StorageProvider (S3 or local filesystem)
+    storage_provider = storage_factory.get_storage_provider()
+    if export.storage_path.startswith("s3://"):
+        if not storage_provider.exists(export.storage_path):
+            raise ResourceNotFoundError("PDF file not found in object storage.")
+        pdf_bytes = storage_provider.get_bytes(export.storage_path)
+        safe_name = export.file_name.replace('"', "")
+        return Response(
+            content=pdf_bytes,
+            media_type=export.content_type,
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+        )
+
     filepath = Path(export.storage_path)
     if not filepath.is_file():
         raise ResourceNotFoundError("PDF file not found in temporary storage.")
 
-    # 5. Return FileResponse streaming the file securely
     return FileResponse(
         path=str(filepath),
         filename=export.file_name,

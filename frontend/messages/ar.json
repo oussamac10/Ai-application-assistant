@@ -52,7 +52,10 @@
     "missingRequired": "إجابة إلزامية مفقودة",
     "notAnswered": "بدون إجابة",
     "invalidAnswer": "الإجابة تحتاج إلى مراجعة",
-    "blockedByFields": "{count} سؤال/أسئلة ما زالت تحتاج إلى انتباهك قبل الإنهاء."
+    "blockedByFields": "{count} سؤال/أسئلة ما زالت تحتاج إلى انتباهك قبل الإنهاء.",
+    "previewPdf": "معاينة ملف PDF المعبأ (بعلامة مائية)",
+    "previewPdfLoading": "جاري إنشاء معاينة بعلامة مائية...",
+    "previewPdfError": "تعذّر إنشاء معاينة PDF لهذا النموذج."
   },
   "complete": {
     "title": "النموذج جاهز للتصدير",
@@ -85,8 +88,8 @@
     "unavailable": "مساعد اللغة الذكي غير متاح مؤقتاً. تم حفظ إجابتك الأصلية. يرجى المحاولة مرة أخرى."
   },
   "documentUpload": {
-    "drag_and_drop_instructions": "اسحب وأسقط ملف PDF هنا، أو انقر للتصفح",
-    "maximum_size": "ملف PDF يصل إلى 10 ميجابايت (بحد أقصى 20 صفحة)",
+    "drag_and_drop_instructions": "اسحب وأسقط ملف PDF أو صورة هاتف (JPG أو PNG أو WebP)، أو انقر للتصفح",
+    "maximum_size": "ملف PDF أو JPG أو PNG أو WebP يصل إلى 10 ميجابايت (بحد أقصى 20 صفحة)",
     "selected_file": "الملف المحدد:",
     "remove_file": "إزالة",
     "selectOutputLanguage": "اختر لغة النموذج المكتمل",
@@ -119,8 +122,10 @@
     "start_completion": "بدء تعبئة النموذج الموجه",
     "upload_error_title": "فشل التحميل أو التحليل",
     "retry": "إعادة محاولة التحميل",
-    "error_invalid_file_type": "يتم دعم ملفات PDF فقط.",
+    "error_invalid_file_type": "يتم دعم ملفات PDF وJPG وPNG وWebP فقط.",
     "error_file_too_large": "يتجاوز حجم الملف الحد الأقصى وهو 10 ميجابايت.",
+    "error_image_too_large": "دقة الصورة كبيرة جداً. يرجى رفع صورة أصغر أو ملف PDF.",
+    "error_rate_limit_exceeded": "طلبات كثيرة جداً في وقت قصير. يرجى الانتظار لحظة والمحاولة مرة أخرى.",
     "error_invalid_pdf": "بنية ملف PDF غير صالحة.",
     "error_encrypted_pdf": "ملف PDF مشفر أو محمي بكلمة مرور.",
     "error_password_protected_pdf": "ملف PDF محمي بكلمة مرور أو مشفر.",

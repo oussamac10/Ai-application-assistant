@@ -80,9 +80,21 @@ export default function DocumentUploadForm({
 
   const handleFile = (selectedFile: File) => {
     setErrorMsg(null);
-    if (!selectedFile.name.toLowerCase().endsWith(".pdf")) {
+    const lowerName = selectedFile.name.toLowerCase();
+    const allowedExt = [".pdf", ".jpg", ".jpeg", ".png", ".webp"].some((ext) =>
+      lowerName.endsWith(ext),
+    );
+    const allowedMime = [
+      "application/pdf",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ].includes(selectedFile.type.toLowerCase());
+    if (!allowedExt && !allowedMime) {
       setErrorMsg(
-        t("error_invalid_file_type") || "Only PDF files are supported.",
+        t("error_invalid_file_type") ||
+          "Only PDF, JPG, PNG, and WebP files are supported.",
       );
       return;
     }
@@ -287,7 +299,7 @@ export default function DocumentUploadForm({
               type="file"
               ref={fileInputRef}
               className="hidden"
-              accept=".pdf,application/pdf"
+              accept=".pdf,application/pdf,.jpg,.jpeg,image/jpeg,.png,image/png,.webp,image/webp"
               onChange={handleFileChange}
             />
 

@@ -33,17 +33,27 @@ def _never_call_live_providers() -> Generator[None, None, None]:
         settings.TRANSLATION_PROVIDER,
         settings.TRANSLATION_FALLBACK_PROVIDER,
         settings.AZURE_TRANSLATOR_ENABLED,
+        settings.AZURE_DOCUMENT_INTELLIGENCE_ENABLED,
         settings.FIELD_DETECTION_PROVIDER,
+        settings.OCR_PROVIDER,
         settings.AI_PROVIDER,
+        settings.JOB_EXECUTION_MODE,
+        settings.RATE_LIMIT_ENABLED,
+        settings.REDIS_URL,
     )
 
     settings.TRANSLATION_PROVIDER = "mock"
     settings.TRANSLATION_FALLBACK_PROVIDER = "none"
     settings.AZURE_TRANSLATOR_ENABLED = False
-    if settings.FIELD_DETECTION_PROVIDER == "azure":
+    settings.AZURE_DOCUMENT_INTELLIGENCE_ENABLED = False
+    if settings.FIELD_DETECTION_PROVIDER in ("azure", "hybrid"):
         settings.FIELD_DETECTION_PROVIDER = "local"
+    settings.OCR_PROVIDER = "mock"
     if settings.AI_PROVIDER != "mock":
         settings.AI_PROVIDER = "mock"
+    settings.JOB_EXECUTION_MODE = "inline"
+    settings.RATE_LIMIT_ENABLED = False
+    settings.REDIS_URL = None
 
     yield
 
@@ -51,6 +61,11 @@ def _never_call_live_providers() -> Generator[None, None, None]:
         settings.TRANSLATION_PROVIDER,
         settings.TRANSLATION_FALLBACK_PROVIDER,
         settings.AZURE_TRANSLATOR_ENABLED,
+        settings.AZURE_DOCUMENT_INTELLIGENCE_ENABLED,
         settings.FIELD_DETECTION_PROVIDER,
+        settings.OCR_PROVIDER,
         settings.AI_PROVIDER,
+        settings.JOB_EXECUTION_MODE,
+        settings.RATE_LIMIT_ENABLED,
+        settings.REDIS_URL,
     ) = original

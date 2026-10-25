@@ -166,6 +166,19 @@ def _text_of(line: list[DetectionToken]) -> str:
     return " ".join(token.text for token in line).strip()
 
 
+def _effective_scale(page: DetectionPageInput) -> float:
+    """Coordinate scale relative to a standard 595pt PDF page.
+
+    Native PDF pages live in 72-DPI point space (~595pt wide), whereas OCR
+    pages live in rendered-image pixel space (typically 300 DPI, ~2480px wide).
+    Scaling point-based thresholds keeps `MIN_REGION_WIDTH` and
+    `MULTILINE_HEIGHT` resolution-independent across both spaces.
+    """
+    if page.width and page.width > 900.0:
+        return page.width / 595.0
+    return 1.0
+
+
 def _region_is_decorative(
     region: RuledRegion,
     page: DetectionPageInput,
@@ -174,7 +187,7 @@ def _region_is_decorative(
 ) -> bool:
     """Whether a drawn region is furniture rather than an input area."""
     box = region.bounding_box
-    if box.width < MIN_REGION_WIDTH:
+    if box.width < MIN_REGION_WIDTH * _effective_scale(page):
         return True
     max_width_ratio = (
         MAX_MARKED_FIELD_WIDTH_RATIO
@@ -192,16 +205,20 @@ def _region_is_decorative(
     return False
 
 
-def _contains_text(region: RuledRegion, tokens: list[DetectionToken]) -> bool:
+def _contains_text(
+    region: RuledRegion, tokens: list[DetectionToken], scale: float = 1.0
+) -> bool:
     """Whether the region already holds writing.
 
     A box with text in it is a printed cell — a table header, a caption — not
     somewhere the user is being asked to write.
     """
     box = region.bounding_box
-    inset = min(box.height * 0.2, 3.0)
+    inset = min(box.height * 0.2, 3.0 * scale)
     for token in tokens:
         t = token.bounding_box
+        if t.height > box.height * 1.05:
+            continue
         centre_x, centre_y = t.x + t.width / 2, t.y + t.height / 2
         if (
             box.x + inset <= centre_x <= box.x + box.width - inset
@@ -301,6 +318,7 @@ def detect_visual_fields(
     """
     claimed = claimed_regions or set()
     tokens = list(page.tokens)
+    scale = _effective_scale(page)
     fields: list[VisualField] = []
     underlines = boxes = multiline = filtered = ambiguous = pairs = 0
 
@@ -314,7 +332,7 @@ def detect_visual_fields(
         if (round(box.x, 1), round(box.y, 1)) in claimed:
             filtered += 1
             continue
-        if region.kind == "box" and _contains_text(region, tokens):
+        if region.kind == "box" and _contains_text(region, tokens, scale=scale):
             filtered += 1
             continue
 
@@ -346,7 +364,7 @@ def detect_visual_fields(
         label, label_box, association = found
         pairs += 1
 
-        is_multiline = box.height >= MULTILINE_HEIGHT
+        is_multiline = box.height >= MULTILINE_HEIGHT * scale
         if is_multiline:
             multiline += 1
 

@@ -44,6 +44,9 @@ class LocalOCRProvider:
         if tesseract_lang is None:
             raise OCRConfigurationError(f"Unsupported OCR language '{lang}'.")
 
+        if "+" in tesseract_lang:
+            tesseract_lang = _resolve_multiscript_packs(tesseract_lang)
+
         try:
             with Image.open(image_path) as image:
                 width, height = image.size
@@ -72,6 +75,25 @@ class LocalOCRProvider:
             average_confidence=average_confidence,
             lines=tuple(lines),
         )
+
+
+def _resolve_multiscript_packs(requested_joined: str) -> str:
+    """Intersects multi-script packs (`deu+eng+...`) against installed Tesseract packs."""
+    requested = [p.strip() for p in requested_joined.split("+") if p.strip()]
+    try:
+        installed = set(pytesseract.get_languages(config=""))
+    except Exception:
+        installed = set()
+
+    if not installed:
+        return requested_joined
+
+    available = [pack for pack in requested if pack in installed]
+    if available:
+        return "+".join(available)
+    if "eng" in installed:
+        return "eng"
+    return requested_joined
 
 
 def _group_words_into_lines(data: dict[str, list[Any]]) -> list[OCRLine]:

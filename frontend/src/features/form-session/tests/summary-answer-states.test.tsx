@@ -217,4 +217,32 @@ describe("Summary — skipped, not answered, missing required", () => {
       ).toBe(true),
     );
   });
+
+  it("renders only a single asterisk on summary rows whose label already contains a trailing *", async () => {
+    getSummaryMock.mockResolvedValue({
+      fields: [
+        row({
+          fieldId: "f-dob",
+          fieldKey: "date_of_birth",
+          label: "Date of birth (DD.MM.YYYY) *",
+          required: true,
+          requiredness: "required",
+          status: "confirmed",
+          answerState: "answered",
+          originalAnswer: "1995-05-12",
+          outputValue: "12.05.1995",
+        }),
+      ],
+    });
+    const { default: SessionSummary } = await import(
+      "@/app/application/session/[sessionId]/summary/page"
+    );
+    render(<SessionSummary />);
+
+    const rowEl = await screen.findByTestId("summary-row-date_of_birth");
+    const labelCell = rowEl.querySelector("td");
+    expect(labelCell?.textContent).toContain("Date of birth (DD.MM.YYYY)");
+    const asterisks = labelCell?.textContent?.match(/\*/g) ?? [];
+    expect(asterisks).toHaveLength(1);
+  });
 });

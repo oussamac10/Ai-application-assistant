@@ -262,6 +262,223 @@ def extract_native_document_input(pdf_path: Path) -> DetectionDocumentInput:
         doc.close()
 
 
+def _is_empty_box_border_hallucination(
+    text: str,
+    confidence: float,
+    box: dict[str, Any],
+    page_width: float,
+) -> bool:
+    """Detects single-word OCR hallucinations produced when Tesseract tries to
+    read the wide horizontal border of an empty drawn input box as 1–2 chars
+    (e.g. `"PT"` at conf 15, `"|"` at conf 47, `"اا"` at conf 52 spanning 80%
+    of the page width)."""
+    if page_width <= 0:
+        return False
+    width = float(box.get("width", 0.0))
+    height = float(box.get("height", 0.0))
+    if width < page_width * 0.5:
+        return False
+    char_count = max(len(text), 1)
+    avg_char_width = width / char_count
+    if confidence < 30.0:
+        return True
+    return avg_char_width >= max(height * 2.5, 120.0)
+
+
+def _normalize_ocr_line_words(
+    raw_words: list[dict[str, Any]],
+) -> list[tuple[str, dict[str, Any]]]:
+    """Pairs non-empty OCR words with their dicts and recovers a trailing
+    asterisk that Tesseract misread as an unpaired straight quote (`Nachname ":`
+    -> `Nachname *:`). Paired quotes (`Hinweis "Abschnitt A":`) and attached
+    unit quotes (`5":`) are never modified."""
+    cleaned: list[tuple[str, dict[str, Any]]] = []
+    for word in raw_words:
+        text = (word.get("text") or "").strip()
+        if text:
+            cleaned.append((text, word))
+
+    if len(cleaned) >= 2:
+        total_quotes = sum(t.count('"') for t, _ in cleaned)
+        last_text, last_word = cleaned[-1]
+        prev_text, _ = cleaned[-2]
+        if (
+            total_quotes == 1
+            and last_text in ('"', '":', '"：')
+            and (prev_text[-1].isalpha() or prev_text.endswith(")"))
+        ):
+            cleaned[-1] = (last_text.replace('"', "*"), last_word)
+
+    return cleaned
+
+
+def _extract_raster_ruled_regions(
+    page: fitz.Page,
+    page_number: int,
+    target_width: int,
+    target_height: int,
+    tokens: list[DetectionToken],
+) -> tuple[RuledRegion, ...]:
+    """Detects drawn input boxes and horizontal underlines on raster/scanned PDF
+    pages using local background subtraction in Pillow, returning regions in the
+    OCR page's `(target_width, target_height)` pixel coordinate space."""
+    if target_width <= 0 or target_height <= 0:
+        return ()
+
+    from PIL import Image, ImageChops, ImageFilter
+
+    pix = page.get_pixmap(dpi=150, colorspace=fitz.csGRAY, alpha=False)
+    w, h = pix.width, pix.height
+    if w <= 0 or h <= 0:
+        return ()
+
+    gray = Image.frombytes("L", (w, h), pix.samples)
+    blurred = gray.filter(ImageFilter.BoxBlur(15))
+    diff = ImageChops.subtract(blurred, gray)
+    binary = diff.point(lambda v: 255 if v >= 10 else 0)
+
+    # Mask out confirmed OCR word regions so dense letter strokes never bridge
+    # into synthetic underlines or boxes.
+    inv_sx = w / float(target_width)
+    inv_sy = h / float(target_height)
+    for token in tokens:
+        if token.confidence < 0.55:
+            continue
+        tb = token.bounding_box
+        x0 = max(0, int(tb.x * inv_sx) - 1)
+        y0 = max(0, int(tb.y * inv_sy) - 1)
+        x1 = min(w, int((tb.x + tb.width) * inv_sx) + 1)
+        y1 = min(h, int((tb.y + tb.height) * inv_sy) + 1)
+        if x1 > x0 and y1 > y0:
+            binary.paste(0, (x0, y0, x1, y1))
+
+    thick = binary.filter(ImageFilter.MaxFilter(3))
+    h_mask = thick.filter(ImageFilter.BoxBlur((25, 0))).point(
+        lambda v: 255 if v >= 200 else 0
+    )
+
+    raw = h_mask.tobytes()
+    min_seg_w = max(int(w * 0.08), 50)
+    zero_row = b"\x00" * w
+    row_segs: list[tuple[int, int, int]] = []
+
+    for y in range(h):
+        row = raw[y * w : (y + 1) * w]
+        if row == zero_row:
+            continue
+        pos = 0
+        while pos < w:
+            start = row.find(255, pos)
+            if start == -1:
+                break
+            end = row.find(0, start)
+            if end == -1:
+                end = w
+            if end - start >= min_seg_w:
+                row_segs.append((y, start, end))
+            pos = end + 1
+
+    merged: list[dict[str, int]] = []
+    for y, x0, x1 in row_segs:
+        for seg in merged:
+            if (
+                y - seg["y1"] <= 4
+                and abs(x0 - seg["x0"]) <= 15
+                and abs(x1 - seg["x1"]) <= 15
+            ):
+                seg["y1"] = y
+                seg["x0"] = min(seg["x0"], x0)
+                seg["x1"] = max(seg["x1"], x1)
+                break
+        else:
+            merged.append({"y0": y, "y1": y, "x0": x0, "x1": x1})
+
+    thick_raw = thick.tobytes()
+    used: set[int] = set()
+    regions: list[RuledRegion] = []
+    sx = float(target_width) / float(w)
+    sy = float(target_height) / float(h)
+
+    for i, top in enumerate(merged):
+        if i in used:
+            continue
+        ty = (top["y0"] + top["y1"]) // 2
+        best_box: tuple[int, int, int, int, int] | None = None
+        for j in range(i + 1, len(merged)):
+            if j in used:
+                continue
+            bot = merged[j]
+            by = (bot["y0"] + bot["y1"]) // 2
+            dy = by - ty
+            if dy < 12:
+                continue
+            if dy > int(h * 0.25):
+                break
+            if abs(top["x0"] - bot["x0"]) <= 20 and abs(top["x1"] - bot["x1"]) <= 20:
+                lx = min(top["x0"], bot["x0"])
+                rx = max(top["x1"], bot["x1"])
+                while lx > 0 and any(
+                    thick_raw[ty * w + max(0, lx - 1) : ty * w + lx + 2]
+                ):
+                    lx -= 1
+                while rx < w - 1 and any(
+                    thick_raw[ty * w + rx - 1 : ty * w + min(w, rx + 2)]
+                ):
+                    rx += 1
+                left_hits = sum(
+                    1
+                    for yy in range(ty, by + 1)
+                    if any(thick_raw[yy * w + max(0, lx - 4) : yy * w + min(w, lx + 5)])
+                )
+                right_hits = sum(
+                    1
+                    for yy in range(ty, by + 1)
+                    if any(thick_raw[yy * w + max(0, rx - 4) : yy * w + min(w, rx + 5)])
+                )
+                if left_hits >= dy * 0.6 and right_hits >= dy * 0.6:
+                    best_box = (j, lx, ty, rx - lx, by - ty)
+                    break
+
+        if best_box is not None:
+            j, bx, by0, bw, bh = best_box
+            used.add(i)
+            used.add(j)
+            regions.append(
+                RuledRegion(
+                    kind="box",
+                    page_number=page_number,
+                    bounding_box=BoundingBox(
+                        x=bx * sx,
+                        y=by0 * sy,
+                        width=bw * sx,
+                        height=bh * sy,
+                    ),
+                )
+            )
+        else:
+            seg_h = top["y1"] - top["y0"] + 1
+            if seg_h <= 6:
+                lx, rx = top["x0"], top["x1"]
+                while lx > 0 and thick_raw[ty * w + lx - 1]:
+                    lx -= 1
+                while rx < w - 1 and thick_raw[ty * w + rx + 1]:
+                    rx += 1
+                regions.append(
+                    RuledRegion(
+                        kind="underline",
+                        page_number=page_number,
+                        bounding_box=BoundingBox(
+                            x=lx * sx,
+                            y=ty * sy,
+                            width=(rx - lx) * sx,
+                            height=max(1.0, seg_h * sy),
+                        ),
+                    )
+                )
+
+    return tuple(regions)
+
+
 def extract_ocr_document_input(
     ocr_result: OCRResult, source_pdf_path: Path | None = None
 ) -> DetectionDocumentInput:
@@ -269,44 +486,73 @@ def extract_ocr_document_input(
     OCRResult. Coordinates stay in the rendered-image pixel space OCR
     produced (see ADR 0009) — no AcroForm widgets exist for a scanned page.
 
-    `source_pdf_path` is passed through unchanged for providers that must
-    upload the original file (Azure); it plays no part in OCR extraction.
+    When `source_pdf_path` is available on disk, drawn raster boxes and
+    underlines are also extracted in OCR pixel space so `detect_visual_fields`
+    associates scanned/camera form inputs with their labels just like native
+    flattened PDFs.
     """
     pages: list[DetectionPageInput] = []
+    fitz_doc: fitz.Document | None = None
+    if source_pdf_path is not None and source_pdf_path.exists():
+        try:
+            fitz_doc = fitz.open(source_pdf_path)
+        except Exception:
+            fitz_doc = None
 
-    for ocr_page in ocr_result.pages:
-        tokens: list[DetectionToken] = []
-        for line in ocr_page.lines:
-            for word in line.get("words", []):
-                text = (word.get("text") or "").strip()
-                if not text:
-                    continue
-                box = word["boundingBox"]
-                tokens.append(
-                    DetectionToken(
-                        text=text,
-                        confidence=max(
-                            0.0, min(1.0, float(word["confidence"]) / 100.0)
-                        ),
-                        bounding_box=BoundingBox(
-                            x=box["x"],
-                            y=box["y"],
-                            width=box["width"],
-                            height=box["height"],
-                        ),
-                        source="ocr",
+    try:
+        for ocr_page in ocr_result.pages:
+            tokens: list[DetectionToken] = []
+            for line in ocr_page.lines:
+                normalized_words = _normalize_ocr_line_words(line.get("words", []))
+                for text, word in normalized_words:
+                    raw_conf = float(word["confidence"])
+                    box = word["boundingBox"]
+                    if _is_empty_box_border_hallucination(
+                        text, raw_conf, box, float(ocr_page.width)
+                    ):
+                        continue
+                    tokens.append(
+                        DetectionToken(
+                            text=text,
+                            confidence=max(0.0, min(1.0, raw_conf / 100.0)),
+                            bounding_box=BoundingBox(
+                                x=box["x"],
+                                y=box["y"],
+                                width=box["width"],
+                                height=box["height"],
+                            ),
+                            source="ocr",
+                        )
                     )
-                )
 
-        pages.append(
-            DetectionPageInput(
-                page_number=ocr_page.page_number,
-                width=ocr_page.width,
-                height=ocr_page.height,
-                rotation=0,
-                tokens=tuple(tokens),
+            ruled_regions: tuple[RuledRegion, ...] = ()
+            if fitz_doc is not None:
+                page_idx = ocr_page.page_number - 1
+                if 0 <= page_idx < fitz_doc.page_count:
+                    try:
+                        ruled_regions = _extract_raster_ruled_regions(
+                            fitz_doc.load_page(page_idx),
+                            ocr_page.page_number,
+                            ocr_page.width,
+                            ocr_page.height,
+                            tokens,
+                        )
+                    except Exception:
+                        ruled_regions = ()
+
+            pages.append(
+                DetectionPageInput(
+                    page_number=ocr_page.page_number,
+                    width=ocr_page.width,
+                    height=ocr_page.height,
+                    rotation=0,
+                    tokens=tuple(tokens),
+                    ruled_regions=ruled_regions,
+                )
             )
-        )
+    finally:
+        if fitz_doc is not None:
+            fitz_doc.close()
 
     return DetectionDocumentInput(
         page_count=len(pages),

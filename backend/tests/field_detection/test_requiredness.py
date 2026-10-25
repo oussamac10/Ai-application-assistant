@@ -15,6 +15,7 @@ from app.field_detection.requiredness import (
     detect_requiredness,
     document_requires_all,
     strip_required_marker,
+    strip_requiredness_markers,
 )
 
 
@@ -142,3 +143,19 @@ def test_evidence_and_confidence_are_recorded() -> None:
     result = detect_requiredness("Name *")
     assert result.evidence == "asterisk"
     assert 0.0 < result.confidence <= 1.0
+
+
+@pytest.mark.parametrize(
+    "raw_label,expected_clean",
+    [
+        ("Vorname *:", "Vorname"),
+        ("Geburtsdatum (TT.MM.JJJJ) *:", "Geburtsdatum (TT.MM.JJJJ)"),
+        ("Nom (*):", "Nom"),
+        ("First name *", "First name"),
+    ],
+)
+def test_trailing_asterisk_before_colon_is_detected_and_stripped(
+    raw_label: str, expected_clean: str
+) -> None:
+    assert detect_requiredness(raw_label).state == REQUIRED
+    assert strip_requiredness_markers(raw_label) == expected_clean

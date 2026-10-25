@@ -175,4 +175,40 @@ describe("Guided session — three-state requiredness", () => {
     expect(screen.getByTestId("row-progress").textContent).toBe("2/2");
     expect(getSummaryMock).not.toHaveBeenCalled();
   });
+
+  it("renders only a single asterisk when a required field label already ends with * or *:", async () => {
+    getCurrentFieldMock.mockResolvedValue(
+      field({
+        label: "First name *",
+        requiredness: "required",
+        required: true,
+      }),
+    );
+    const { default: GuidedSession } = await import(
+      "@/app/application/session/[sessionId]/page"
+    );
+    render(<GuidedSession />);
+
+    const heading = await screen.findByRole("heading", { level: 2 });
+    expect(heading.textContent).toContain("First name");
+    const asterisks = heading.textContent?.match(/\*/g) ?? [];
+    expect(asterisks).toHaveLength(1);
+  });
+
+  it("strips OCR-corrupted trailing unpaired quote and colon from displayed label", async () => {
+    getCurrentFieldMock.mockResolvedValue(
+      field({
+        label: 'Last name "',
+        requiredness: "unknown",
+        required: false,
+      }),
+    );
+    const { default: GuidedSession } = await import(
+      "@/app/application/session/[sessionId]/page"
+    );
+    render(<GuidedSession />);
+
+    const heading = await screen.findByRole("heading", { level: 2 });
+    expect(heading.textContent?.trim()).toBe("Last name");
+  });
 });

@@ -238,3 +238,50 @@ def test_a_colon_survives_the_sentence_filter() -> None:
     """A trailing colon is the opposite of prose: it is a form asking."""
     assert is_plausible_label("Geburtsdatum:") is True
     assert is_plausible_label("Das ist ein Satz.") is False
+
+
+def test_border_straddling_ocr_noise_taller_than_box_does_not_reject_empty_box() -> (
+    None
+):
+    """Tesseract sometimes emits a low-confidence single-character artifact
+    straddling the outer border of an empty input box (`height=146` on a `100px`
+    box). Because no text printed *inside* a box can be taller than the box
+    itself, `_contains_text` must ignore tokens taller than the box."""
+    from app.field_detection.providers.base import (
+        BoundingBox,
+        DetectionPageInput,
+        DetectionToken,
+        RuledRegion,
+    )
+
+    page = DetectionPageInput(
+        page_number=1,
+        width=2480,
+        height=3509,
+        rotation=0,
+        tokens=(
+            DetectionToken(
+                text="Aktuelle Anschrift *:",
+                confidence=0.92,
+                bounding_box=BoundingBox(x=231, y=1195, width=860, height=45),
+                source="ocr",
+            ),
+            DetectionToken(
+                text="р",
+                confidence=0.40,
+                bounding_box=BoundingBox(x=223, y=1257, width=256, height=146),
+                source="ocr",
+            ),
+        ),
+        ruled_regions=(
+            RuledRegion(
+                kind="box",
+                page_number=1,
+                bounding_box=BoundingBox(x=220, y=1261, width=2016, height=100),
+            ),
+        ),
+    )
+
+    fields, _ = detect_visual_fields(page)
+    assert len(fields) == 1
+    assert fields[0].label == "Aktuelle Anschrift *:"

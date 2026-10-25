@@ -15,6 +15,11 @@ from app.documents.errors import (
     DocumentUnauthorizedError,
     DocumentValidationError,
 )
+from app.documents.image_normalizer import (
+    detect_upload_media_kind,
+    is_candidate_upload_type,
+    normalize_image_file_to_a4_pdf,
+)
 from app.documents.models import SourceDocument
 from app.documents.registry import PDFFingerprintRegistry
 from app.documents.repository import SourceDocumentRepository
@@ -34,12 +39,13 @@ from app.sessions.services import SessionService
 
 
 class SourceDocumentService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, *, trusted_worker: bool = False):
         self.db = db
         self.repo = SourceDocumentRepository()
         self.storage = DocumentStorage()
         self.analyzer = PDFAnalyzer()
         self.registry = PDFFingerprintRegistry()
+        self._trusted_worker = trusted_worker
 
     def upload_and_analyze(
         self,
@@ -57,9 +63,10 @@ class SourceDocumentService:
                 "Privacy policy must be accepted.", "privacy_not_accepted"
             )
 
-        if content_type != "application/pdf" and not filename.lower().endswith(".pdf"):
+        if not is_candidate_upload_type(filename, content_type):
             raise DocumentValidationError(
-                "Only PDF files are supported.", "invalid_file_type"
+                "Only PDF, JPG, PNG, and WebP files are supported.",
+                "invalid_file_type",
             )
 
         # 1. Stream file to private storage and compute checksum/size
@@ -93,12 +100,23 @@ class SourceDocumentService:
                 os.unlink(target_path)
             raise DocumentValidationError("Uploaded file is empty.", "malformed_pdf")
 
-        # 2. Run validations (validate_pdf_safety neutralizes any embedded
-        # JavaScript/OpenAction/button scripts in place on official forms)
+        # 2. Verify real magic bytes and normalize camera images (EXIF transpose
+        # + GPS/EXIF strip + A4 PDF page) or sanitize PDF active scripts.
         try:
-            validate_pdf_signature(str(target_path))
-            validate_pdf_structure(str(target_path), settings.DOCUMENT_UPLOAD_MAX_PAGES)
-            validate_pdf_safety(str(target_path))
+            source_media_type = detect_upload_media_kind(str(target_path))
+            if source_media_type == "application/pdf":
+                validate_pdf_signature(str(target_path))
+                validate_pdf_structure(
+                    str(target_path), settings.DOCUMENT_UPLOAD_MAX_PAGES
+                )
+                validate_pdf_safety(str(target_path))
+            else:
+                normalize_image_file_to_a4_pdf(
+                    str(target_path),
+                    settings.DOCUMENT_UPLOAD_MAX_IMAGE_PIXELS,
+                    source_media_type,
+                )
+                sha256 = hashlib.sha256(target_path.read_bytes())
             bytes_written = target_path.stat().st_size
         except Exception:
             # Clean up invalid file
@@ -156,12 +174,23 @@ class SourceDocumentService:
             next_step = "review_required"
 
         analysis["next_step"] = next_step
+        analysis["source_media_type"] = source_media_type
 
-        # 6. Generate ownership token and hash it
+        # 6. Persist validated & sanitized PDF via StorageProvider (Local or EU S3)
+        try:
+            storage_ref = self.storage.persist_uploaded_file(target_path)
+        except Exception as e:
+            if target_path.is_file():
+                os.unlink(target_path)
+            raise DocumentValidationError(
+                "Document storage failed.", "document_storage_failed"
+            ) from e
+
+        # 7. Generate ownership token and hash it
         raw_token = generate_ownership_token()
         token_hash = hash_ownership_token(raw_token)
 
-        # 7. Create SourceDocument entity
+        # 8. Create SourceDocument entity
         now = datetime.now(UTC)
         expires_at = now + timedelta(hours=settings.DOCUMENT_EXPIRATION_HOURS)
 
@@ -170,7 +199,7 @@ class SourceDocumentService:
             user_id=current_user_id,
             original_filename=filename,
             sanitized_filename=sanitize_filename(filename),
-            storage_path=str(target_path),
+            storage_path=storage_ref,
             content_type="application/pdf",
             size_bytes=bytes_written,
             checksum_sha256=sha256.hexdigest(),
@@ -211,14 +240,17 @@ class SourceDocumentService:
         if doc.status in ("deleted", "expired"):
             raise DocumentNotFoundError("Document has expired or been deleted.")
 
-        if doc.user_id is not None:
-            if not current_user_id or current_user_id != doc.user_id:
-                raise DocumentUnauthorizedError("Invalid document credentials.")
-        else:
-            if not ownership_token or not doc.ownership_token_hash:
-                raise DocumentUnauthorizedError("Invalid document credentials.")
-            if not verify_ownership_token(ownership_token, doc.ownership_token_hash):
-                raise DocumentUnauthorizedError("Invalid document credentials.")
+        if not self._trusted_worker:
+            if doc.user_id is not None:
+                if not current_user_id or current_user_id != doc.user_id:
+                    raise DocumentUnauthorizedError("Invalid document credentials.")
+            else:
+                if not ownership_token or not doc.ownership_token_hash:
+                    raise DocumentUnauthorizedError("Invalid document credentials.")
+                if not verify_ownership_token(
+                    ownership_token, doc.ownership_token_hash
+                ):
+                    raise DocumentUnauthorizedError("Invalid document credentials.")
 
         # Verify expiration — an authenticated (claimed) document is not
         # time-boxed by its original anonymous expiration window.

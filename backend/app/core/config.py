@@ -8,6 +8,7 @@ _SUPPORTED_PROVIDERS = frozenset({"mock", "ollama", "gemini"})
 _SUPPORTED_OCR_PROVIDERS = frozenset({"mock", "local"})
 _SUPPORTED_FIELD_DETECTION_PROVIDERS = frozenset({"mock", "local", "azure", "hybrid"})
 _SUPPORTED_TRANSLATION_PROVIDERS = frozenset({"mock", "ollama", "azure", "gemini"})
+_SUPPORTED_STORAGE_PROVIDERS = frozenset({"local", "s3"})
 
 
 class Settings(BaseSettings):
@@ -87,10 +88,21 @@ class Settings(BaseSettings):
     # Document Upload & Analysis
     DOCUMENT_UPLOAD_MAX_BYTES: int = 10485760
     DOCUMENT_UPLOAD_MAX_PAGES: int = 20
+    DOCUMENT_UPLOAD_MAX_IMAGE_PIXELS: int = 40_000_000
     DOCUMENT_EXPIRATION_HOURS: int = 24
     DOCUMENT_STORAGE_PATH: str = "/tmp/ai-form-assistant/documents"
     DOCUMENT_ANALYSIS_VERSION: int = 1
     DOCUMENT_TEXT_SAMPLE_LIMIT: int = 5000
+
+    # Private Object & File Storage (Phase S1-01)
+    STORAGE_PROVIDER: str = "local"
+    S3_ENDPOINT_URL: str | None = None
+    S3_REGION: str = "eu-central-1"
+    S3_BUCKET: str | None = None
+    S3_ACCESS_KEY_ID: str | None = None
+    S3_SECRET_ACCESS_KEY: str | None = None
+    S3_KEY_PREFIX: str = ""
+    S3_TIMEOUT_SECONDS: float = 30.0
 
     # OCR
     OCR_PROVIDER: str = "mock"
@@ -98,6 +110,16 @@ class Settings(BaseSettings):
     OCR_RENDER_STORAGE_PATH: str = "/tmp/ai-form-assistant/ocr-render"
     OCR_RENDER_DPI: int = 300
     OCR_TIMEOUT_SECONDS: int = 120
+
+    # Background Jobs & Rate Limiting (Phase S1-03)
+    REDIS_URL: str | None = None
+    JOB_EXECUTION_MODE: str = "inline"
+    JOB_EXPIRATION_HOURS: int = 24
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+    RATE_LIMIT_UPLOAD_PER_MINUTE: int = 30
+    RATE_LIMIT_PREPARE_PER_MINUTE: int = 30
+    RATE_LIMIT_AUTH_PER_MINUTE: int = 15
 
     # Dynamic Field Detection
     FIELD_DETECTION_PROVIDER: str = "mock"
@@ -484,6 +506,37 @@ class Settings(BaseSettings):
             raise ValueError(
                 "AZURE_DOCUMENT_INTELLIGENCE_MAX_RETRIES must not be negative."
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_storage_settings(self) -> "Settings":
+        provider = self.STORAGE_PROVIDER.strip().lower()
+        if provider not in _SUPPORTED_STORAGE_PROVIDERS:
+            raise ValueError(
+                f"Unknown STORAGE_PROVIDER '{self.STORAGE_PROVIDER}'. "
+                f"Supported values: {sorted(_SUPPORTED_STORAGE_PROVIDERS)}"
+            )
+        self.STORAGE_PROVIDER = provider
+        if provider == "s3":
+            endpoint = (self.S3_ENDPOINT_URL or "").strip()
+            if not endpoint.startswith(("https://", "http://")):
+                raise ValueError(
+                    "S3_ENDPOINT_URL must be a valid http(s):// URL when STORAGE_PROVIDER='s3'."
+                )
+            if not (self.S3_BUCKET or "").strip():
+                raise ValueError(
+                    "S3_BUCKET must not be empty when STORAGE_PROVIDER='s3'."
+                )
+            if not (self.S3_ACCESS_KEY_ID or "").strip():
+                raise ValueError(
+                    "S3_ACCESS_KEY_ID must not be empty when STORAGE_PROVIDER='s3'."
+                )
+            if not (self.S3_SECRET_ACCESS_KEY or "").strip():
+                raise ValueError(
+                    "S3_SECRET_ACCESS_KEY must not be empty when STORAGE_PROVIDER='s3'."
+                )
+            if self.S3_TIMEOUT_SECONDS <= 0:
+                raise ValueError("S3_TIMEOUT_SECONDS must be positive.")
         return self
 
     @model_validator(mode="before")

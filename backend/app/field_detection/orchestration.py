@@ -52,6 +52,7 @@ from app.sessions.services import (
 from app.sessions.services import (
     ValidationError as SessionValidationError,
 )
+from app.storage import factory as storage_factory
 from app.translation.base import TranslationProvider
 
 logger = logging.getLogger(__name__)
@@ -103,13 +104,15 @@ class PrepareQuestionsService:
         translation_provider: TranslationProvider | None = None,
         fallback_translation_provider: TranslationProvider | None = None,
         language_detector: DocumentLanguageDetector | None = None,
+        trusted_worker: bool = False,
     ):
         self.db = db
         self.ai_provider: AIProvider = (
             ai_provider if ai_provider is not None else MockAIProvider()
         )
         self.current_user_id = current_user_id
-        self.document_service = SourceDocumentService(db)
+        self._trusted_worker = trusted_worker
+        self.document_service = SourceDocumentService(db, trusted_worker=trusted_worker)
         self.session_repo = SessionRepository(db)
         self.ocr_repo = OCRRepository()
         # Test-only seam: production callers always leave this None so
@@ -214,6 +217,7 @@ class PrepareQuestionsService:
             current_user_id=self.current_user_id,
             translation_provider=self._translation_provider,
             fallback_translation_provider=self._fallback_translation_provider,
+            trusted_worker=self._trusted_worker,
         )
         detection_started = time.perf_counter()
         try:
@@ -332,13 +336,15 @@ class PrepareQuestionsService:
         native text, then OCR output for a scanned document."""
         sources: list[str] = []
         try:
-            with fitz.open(doc.storage_path) as pdf:
-                sources.append(
-                    "\n".join(
-                        pdf.load_page(index).get_text()
-                        for index in range(pdf.page_count)
+            storage_provider = storage_factory.get_storage_provider()
+            with storage_provider.local_path(doc.storage_path) as local_pdf_path:
+                with fitz.open(local_pdf_path) as pdf:
+                    sources.append(
+                        "\n".join(
+                            pdf.load_page(index).get_text()
+                            for index in range(pdf.page_count)
+                        )
                     )
-                )
         except Exception:
             logger.info(
                 "Could not read native text for language detection (document=%s)",
@@ -406,10 +412,14 @@ class PrepareQuestionsService:
     def _run_ocr(
         self, doc: SourceDocument, ownership_token: str | None, user_language: str
     ) -> None:
-        ocr_language = (
-            user_language if user_language in SUPPORTED_OCR_LANGUAGES else "en"
+        # Phase S1-03: OCR script recognition is a property of the scanned
+        # document, never of userLanguage (which is the UI/question language).
+        ocr_language = "auto" if "auto" in SUPPORTED_OCR_LANGUAGES else "en"
+        ocr_service = OCRService(
+            self.db,
+            current_user_id=self.current_user_id,
+            trusted_worker=self._trusted_worker,
         )
-        ocr_service = OCRService(self.db, current_user_id=self.current_user_id)
         try:
             ocr_service.request_ocr(doc.public_id, ownership_token, ocr_language)
         except OCRValidationError as e:

@@ -3,6 +3,7 @@ from typing import Any
 
 from pypdf import PdfReader, PdfWriter
 
+from app.pdf.font_support import draw_unicode_text_in_box, is_latin1_safe
 from app.pdf.schemas import PDFTemplateMapping
 from app.pdf.signature_render import (
     SIGNATURE_EXPORT_FAILED,
@@ -44,14 +45,21 @@ class PypdfRenderer:
         writer.append(reader)
 
         # Build raw dict mapping pdfFieldName to the string value
-        field_values = {}
+        field_values: dict[str, str] = {}
         for field_map in mapping.fields:
             val = values.get(field_map.field_key)
             if val is not None:
                 field_values[field_map.pdf_field_name] = str(val)
 
+        latin1_field_values = {
+            k: v for k, v in field_values.items() if is_latin1_safe(v)
+        }
+        unicode_field_values = {
+            k: v for k, v in field_values.items() if not is_latin1_safe(v)
+        }
+
         # Update page form field values across all pages and set read-only
-        if field_values:
+        if latin1_field_values:
             from pypdf.constants import CatalogDictionary, FieldFlag
             from pypdf.generic import DictionaryObject, NameObject
 
@@ -83,7 +91,7 @@ class PypdfRenderer:
             for page in writer.pages:
                 writer.update_page_form_field_values(
                     page,
-                    field_values,
+                    latin1_field_values,
                     flags=FieldFlag.READ_ONLY,
                 )
 
@@ -91,6 +99,9 @@ class PypdfRenderer:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "wb") as f:
             writer.write(f)
+
+        if unicode_field_values:
+            self._draw_unicode_widgets(output_path, unicode_field_values)
 
         if signatures:
             self._draw_signatures(output_path, signatures)
@@ -104,6 +115,44 @@ class PypdfRenderer:
             file_size=file_size,
             output_path=output_path,
         )
+
+    @staticmethod
+    def _draw_unicode_widgets(
+        output_path: Path, unicode_field_values: dict[str, str]
+    ) -> None:
+        """Overlays non-WinAnsi Unicode AcroForm text fields (Arabic, Cyrillic,
+        Turkish/Polish diacritics) using embedded Noto Sans / Noto Sans Arabic TTFs.
+        """
+        import fitz
+
+        document = fitz.open(output_path)
+        try:
+            touched = False
+            for page in document:
+                for widget in list(page.widgets() or []):
+                    name = getattr(widget, "field_name", None)
+                    if not name or name not in unicode_field_values:
+                        continue
+                    rect = widget.rect
+                    val = unicode_field_values[name]
+                    try:
+                        page.delete_widget(widget)
+                    except Exception:
+                        pass
+                    draw_unicode_text_in_box(
+                        page,
+                        x=float(rect.x0),
+                        y=float(rect.y0),
+                        width=float(rect.width),
+                        height=float(rect.height),
+                        text=val,
+                        multiline=float(rect.height) >= 36.0,
+                    )
+                    touched = True
+            if touched:
+                document.saveIncr()
+        finally:
+            document.close()
 
     @staticmethod
     def _draw_signatures(

@@ -120,7 +120,7 @@ def test_request_ocr_rejects_unsupported_language(tmp_path: Path) -> None:
     try:
         service = OCRService(db, provider=MockOCRProvider(), renderer=PDFPageRenderer())
         with pytest.raises(OCRValidationError) as exc_info:
-            service.request_ocr(doc.public_id, token, language="es")
+            service.request_ocr(doc.public_id, token, language="zz")
         assert exc_info.value.error_code == "unsupported_language"
     finally:
         db.close()

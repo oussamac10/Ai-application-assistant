@@ -1420,9 +1420,10 @@ class LocalFieldDetectionProvider:
         """
         fields, _counts = detect_visual_fields(page)
         candidates: list[DetectedFieldCandidate] = []
+        page_source = next((t.source for t in page.tokens if t.source), "native")
 
         for order, field in enumerate(fields):
-            raw_label = strip_requiredness_markers(field.label)
+            raw_label = strip_requiredness_markers(field.label).rstrip(":：").strip()
             if classify_label(raw_label) == "signature":
                 continue
             ref_y = (
@@ -1448,7 +1449,7 @@ class LocalFieldDetectionProvider:
                         else classify_label(raw_label)
                     ),
                     confidence=field.confidence,
-                    source="native",
+                    source=page_source,
                     required=_marker_requiredness(field.label),
                     label_bounding_box=field.label_bounding_box,
                     input_bounding_box=field.input_bounding_box,

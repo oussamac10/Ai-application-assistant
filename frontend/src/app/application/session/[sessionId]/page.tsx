@@ -37,6 +37,7 @@ import {
   formatOriginalAnswer,
   formatProposedValue,
 } from "@/features/form-session/utils/formatProposedValue";
+import { formatFieldLabel } from "@/features/form-session/utils/formatFieldLabel";
 import ClaimBanner from "@/features/applications/components/ClaimBanner";
 
 type FlowStep =
@@ -988,7 +989,7 @@ export default function GuidedSession() {
                         )}
                         <div className="flex items-start justify-between gap-3">
                           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
-                            {currentField.label}
+                            {formatFieldLabel(currentField.label)}
                             {requiredness === "required" && (
                               <span className="ms-1 text-rose-600" aria-hidden="true">
                                 *

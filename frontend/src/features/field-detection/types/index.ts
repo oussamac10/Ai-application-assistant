@@ -98,5 +98,26 @@ export const PrepareQuestionsResponseSchema = z.object({
 
 export type PrepareQuestionsResponse = z.infer<typeof PrepareQuestionsResponseSchema>;
 
+export const PrepareQuestionsAcceptedSchema = z.object({
+  documentId: z.string(),
+  status: z.enum(["queued", "running"]),
+  jobId: z.string(),
+  pollUrl: z.string().optional(),
+});
+
+export type PrepareQuestionsAccepted = z.infer<typeof PrepareQuestionsAcceptedSchema>;
+
+export const JobStatusResponseSchema = z.object({
+  jobId: z.string(),
+  documentId: z.string(),
+  jobType: z.string(),
+  status: z.enum(["queued", "running", "completed", "failed"]),
+  stage: z.string().nullable().optional(),
+  result: PrepareQuestionsResponseSchema.nullable().optional(),
+  errorCode: z.string().nullable().optional(),
+});
+
+export type JobStatusResponse = z.infer<typeof JobStatusResponseSchema>;
+
 // LOW_CONFIDENCE_THRESHOLD mirrors backend/app/field_detection/constants.py
 export const LOW_CONFIDENCE_THRESHOLD = 0.4;

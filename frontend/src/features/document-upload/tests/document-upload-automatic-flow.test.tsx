@@ -427,4 +427,53 @@ describe("DocumentUploadForm — slow preparation and stale state", () => {
     expect(screen.queryByText("upload_error_title")).toBeNull();
     expect(screen.queryByText("error_generic_fallback")).toBeNull();
   });
+
+  it("accepts smartphone camera photos (.jpg, .png, .webp) and rejects unsupported extensions (.exe)", async () => {
+    uploadDocumentMock.mockResolvedValue({
+      ...BASE_UPLOAD_RESULT,
+      analysis: {
+        pageCount: 1,
+        documentType: "scanned_pdf",
+        hasNativeText: false,
+        hasAcroForm: false,
+        hasEmbeddedImages: true,
+        isProbablyScanned: true,
+        matchedTemplate: null,
+        nextStep: "ocr_required",
+      },
+    });
+    prepareQuestionsMock.mockResolvedValue(readyResult);
+
+    const { default: DocumentUploadForm } =
+      await import("../components/DocumentUploadForm");
+    render(<DocumentUploadForm currentLocale="ar" />);
+
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    expect(input.getAttribute("accept")).toContain("image/jpeg");
+    expect(input.getAttribute("accept")).toContain("image/png");
+    expect(input.getAttribute("accept")).toContain("image/webp");
+
+    const badFile = new File(["MZ"], "malware.exe", {
+      type: "application/octet-stream",
+    });
+    fireEvent.change(input, { target: { files: [badFile] } });
+    expect(await screen.findByText("error_invalid_file_type")).toBeTruthy();
+
+    const photo = new File([new Uint8Array([0xff, 0xd8, 0xff])], "IMG_4021.JPG", {
+      type: "image/jpeg",
+    });
+    fireEvent.change(input, { target: { files: [photo] } });
+    expect(await screen.findByText("IMG_4021.JPG")).toBeTruthy();
+
+    fireEvent.click(await screen.findByRole("checkbox"));
+    fireEvent.click(
+      screen.getByRole("button", { name: /upload_and_analyze/i }),
+    );
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/application/session/session-1");
+    });
+  });
 });

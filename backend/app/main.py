@@ -29,6 +29,7 @@ from app.auth.errors import (
     AuthValidationError,
 )
 from app.core.config import settings
+from app.core.rate_limit import RateLimitExceededError
 from app.documents.api.routes import router as documents_router
 from app.documents.errors import (
     DocumentNotFoundError,
@@ -50,6 +51,7 @@ from app.forms.services import (
     StateConflictError,
     ValidationError,
 )
+from app.jobs.api.routes import router as jobs_router
 from app.ocr.api.routes import router as ocr_router
 from app.ocr.errors import (
     OCRAlreadyProcessingError,
@@ -169,6 +171,17 @@ async def unauthorized_handler(
 ) -> JSONResponse:
     return JSONResponse(
         status_code=401, content={"detail": "Invalid session credentials"}
+    )
+
+
+@app.exception_handler(RateLimitExceededError)
+async def rate_limit_exceeded_handler(
+    request: Request, exc: RateLimitExceededError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        headers={"Retry-After": str(exc.retry_after_seconds)},
+        content={"detail": str(exc), "error_code": exc.error_code},
     )
 
 
@@ -439,3 +452,4 @@ app.include_router(pdf_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
 app.include_router(ocr_router, prefix="/api")
 app.include_router(field_detection_router, prefix="/api")
+app.include_router(jobs_router, prefix="/api")

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user_optional
 from app.auth.models import User
+from app.core.rate_limit import rate_limit_upload
 from app.database.session import get_db
 from app.documents.schemas import (
     DocumentAnalysisSummary,
@@ -47,6 +48,7 @@ def upload_document(
     privacyAccepted: bool = Form(...),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
+    _rate_limit: None = Depends(rate_limit_upload),
 ) -> Any:
     service = SourceDocumentService(db)
 

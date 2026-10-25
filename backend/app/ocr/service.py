@@ -18,6 +18,7 @@ from app.ocr.providers.base import OCRLine, OCRProvider
 from app.ocr.providers.mock import MockOCRProvider
 from app.ocr.renderer import PageRenderer, RenderedPage
 from app.ocr.repository import OCRRepository
+from app.storage import factory as storage_factory
 
 
 def build_default_provider() -> OCRProvider:
@@ -45,10 +46,11 @@ class OCRService:
         provider: OCRProvider | None = None,
         renderer: PageRenderer | None = None,
         current_user_id: str | None = None,
+        trusted_worker: bool = False,
     ):
         self.db = db
         self.repo = OCRRepository()
-        self.document_service = SourceDocumentService(db)
+        self.document_service = SourceDocumentService(db, trusted_worker=trusted_worker)
         self._provider = provider
         self._renderer = renderer
         # See FieldDetectionService for the same dual-ownership rationale.
@@ -119,11 +121,13 @@ class OCRService:
             result = self.repo.update(self.db, result)
 
         rendered_pages: list[RenderedPage] = []
+        output_dir = self._render_output_dir(result.id)
         try:
-            output_dir = self._render_output_dir(result.id)
-            rendered_pages = self.renderer.render_pages(
-                pdf_path=Path(doc.storage_path), output_dir=output_dir
-            )
+            storage_provider = storage_factory.get_storage_provider()
+            with storage_provider.local_path(doc.storage_path) as local_pdf_path:
+                rendered_pages = self.renderer.render_pages(
+                    pdf_path=local_pdf_path, output_dir=output_dir
+                )
 
             pages: list[OCRPage] = []
             for rendered in rendered_pages:

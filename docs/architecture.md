@@ -1,6 +1,6 @@
 # Architecture Documentation (Current System & Production SaaS Target)
 
-This document is the canonical architectural reference for **AI Form Assistant**, combining the verified implementation through **Phase 18** (including ADRs `0001`–`0017`) with the **Production SaaS Modular Monolith** target architecture.
+This document is the canonical architectural reference for **AI Form Assistant**, combining the verified implementation through **Phase 18** and **SaaS Phases `S0`–`S1`** (including ADRs `0001`–`0017`) with the **Production SaaS Modular Monolith** target architecture.
 
 ---
 
@@ -44,6 +44,7 @@ Services raise framework-agnostic domain exceptions mapped globally in `app/main
 - `ValidationError` / `DocumentValidationError` / `AuthValidationError` -> `422 Unprocessable Entity`
 - `UnauthorizedError` / `DocumentUnauthorizedError` / `AuthUnauthorizedError` -> `401 Unauthorized` (generic message to prevent IDOR/account enumeration)
 - `AuthForbiddenError` -> `403 Forbidden` (insufficient RBAC role)
+- `RateLimitExceededError` -> `429 Too Many Requests` with `Retry-After` header (`app/core/rate_limit.py`)
 - `AIProviderUnavailableError` / `OCRProviderUnavailableError` / `FieldDetectionProviderUnavailableError` -> `503 Service Unavailable`
 
 ---
@@ -59,15 +60,15 @@ Services raise framework-agnostic domain exceptions mapped globally in `app/main
 - Anonymous sessions use high-entropy tokens hashed at rest with HMAC-SHA256 (`SESSION_TOKEN_SECRET`) and passed exclusively via `X-Session-Token` ([ADR 0002](decisions/0002-anonymous-session-ownership.md), [ADR 0006](decisions/0006-frontend-session-state.md)).
 - Authenticated accounts (`Phase 12`, [ADR 0011](decisions/0011-user-accounts-persistent-sessions.md)) use Argon2id password hashes, `HttpOnly` cookie sessions (`AUTH_SECRET`), token rotation, and double-submit `X-CSRF-Token` checks. Claiming an anonymous session (`POST /api/applications/claim`) atomically sets `user_id` and nulls `ownership_token_hash`.
 
-### 3.3 Document Analysis, OCR, Hybrid Field Detection & Translation (`app/documents/`, `app/ocr/`, `app/field_detection/`, `app/language/`, `app/translation/`)
-- **Structural Upload Analysis (`app/documents/`):** Validates `%PDF` signature, unlocks empty-password government PDFs, neutralizes embedded `/JavaScript`, `/OpenAction`, `/AA`, `/Launch`, and `/EmbeddedFiles` in place, and matches known template fingerprints ([ADR 0008](decisions/0008-structural-pdf-document-analysis.md)).
-- **Local OCR (`app/ocr/`):** Renders scanned pages at 300 DPI and extracts word/line bounding boxes via `OCRProvider` ([ADR 0009](decisions/0009-local-ocr-provider.md)).
+### 3.3 Document Analysis, Camera Uploads, Storage, Async Jobs, OCR & Hybrid Detection (`app/documents/`, `app/storage/`, `app/jobs/`, `app/ocr/`, `app/field_detection/`, `app/language/`, `app/translation/`)
+- **Pluggable Storage & Camera Image Normalization (`app/storage/`, `app/documents/image_normalizer.py`):** All uploaded documents and generated exports persist via `StorageProvider` (`LocalStorageProvider` backed by persistent volumes or `S3StorageProvider` using AWS Signature Version 4 over `httpx` for EU S3/Hetzner/R2). Uploaded smartphone photos (`JPG`, `PNG`, `WebP`) undergo magic-byte validation, `40 MP` decompression-bomb protection, `ImageOps.exif_transpose`, 100% EXIF/GPS metadata stripping via raw pixel reconstruction, and ISO A4 PDF wrapping before structural PDF analysis ([ADR 0008](decisions/0008-structural-pdf-document-analysis.md)).
+- **Multi-Script OCR & Durable Async Jobs (`app/ocr/`, `app/jobs/`):** `LocalOCRProvider` runs multi-script Tesseract (`deu+eng+fra+ara+tur+ukr+spa`) independent of `userLanguage` ([ADR 0009](decisions/0009-local-ocr-provider.md)). Slow document preparation offloads to `ProcessingJob` (`202 Accepted` + `GET /api/jobs/{job_id}` polling + ARQ `WorkerSettings` in `app/jobs/worker.py`, with Fernet-encrypted transient session tokens at rest).
 - **Hybrid Field Detection (`app/field_detection/`):** `HybridFieldDetectionProvider` runs `LocalFieldDetectionProvider` first, evaluates deterministic quality (`quality.py`) and coverage (`coverage.py`) floors, and escalates to `AzureDocumentIntelligenceProvider` (`<= 10` pages, cached by SHA-256 fingerprint) only below threshold ([ADR 0010](decisions/0010-dynamic-field-detection.md), [ADR 0012](decisions/0012-automatic-confidence-routing.md), [ADR 0013](decisions/0013-azure-document-intelligence-provider.md), [ADR 0017](decisions/0017-hybrid-local-first-field-detection.md)).
 - **Language & Batch Translation (`app/language/`, `app/translation/`):** Detects `source_language` locally without external network calls, withholds identifiers (`protected.py`), batches unique labels/options by ID ([ADR 0014](decisions/0014-batched-translation-and-request-duration.md)), and backfills deferred output languages lazily ([ADR 0015](decisions/0015-translation-provider-and-azure-translator.md)).
 
-### 3.4 Three-State Requiredness, Signatures & PDF Export (`app/answers/`, `app/pdf/`)
+### 3.4 Three-State Requiredness, Signatures, Unicode/RTL Fonts & Watermarked Preview (`app/answers/`, `app/pdf/`)
 - **Requiredness vs. Answer State:** `FormField.requiredness` (`required | optional | unknown`) and `answer_state` (`unreached | unanswered | skipped | answered | invalid`) resolve orthogonally in `app/answers/states.py` ([ADR 0016](decisions/0016-three-state-requiredness-and-structured-confirmation.md)).
-- **PDF Rendering (`app/pdf/`):** Static templates fill AcroForm fields across all pages via `PypdfRenderer` ([ADR 0007](decisions/0007-explicit-pdf-template-mapping.md)); uploaded PDFs render confirmed values, checkboxes, and vector signatures (`signature_render.py`) at exact detected coordinates via `dynamic_overlay.py`, never guessing missing coordinates.
+- **PDF Rendering & Watermarked Preview (`app/pdf/`):** Static templates fill AcroForm fields across all pages via `PypdfRenderer` ([ADR 0007](decisions/0007-explicit-pdf-template-mapping.md)); uploaded PDFs and non-WinAnsi Unicode AcroForm widgets embed bundled OFL `NotoSans-Regular.ttf` and `NotoSansArabic-Regular.ttf` (`Identity-H` Type0) via `font_support.py` (HarfBuzz contextual Arabic shaping, right-aligned RTL placement, mixed-script fallback spans, and crisp Cyrillic/Turkish diacritics). Users can inspect an ephemeral diagonal-watermarked preview (`GET /api/form-sessions/{session_id}/preview-pdf`) during review without creating `FormExport` rows.
 
 ---
 

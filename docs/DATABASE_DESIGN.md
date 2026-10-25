@@ -15,7 +15,7 @@
 
 ---
 
-## 2. Verified Current Schema (16 Production Tables — Migrations `0001` through `cae821cb676c` + Phase `S0`)
+## 2. Verified Current Schema (17 Production Tables — Migrations `0001` through `b2c3d4e5f6a7` + Phases `S0`–`S1`)
 
 | Domain | Table | Key Columns & Constraints | Lifecycle & Cascade Rules |
 | :--- | :--- | :--- | :--- |
@@ -35,6 +35,7 @@
 | **Detection** | `provider_usage_records` | `id` (PK), `operation` (`field_detection` \| `translation` \| `ai_extraction`), `provider`, `model_id`, `document_id` (FK SET NULL), `page_count`, `character_count`, `token_count`, `cache_hit`, `duration_ms`, `success`, `error_code`, `provider_request_id`, `estimated_cost_usd` | Zero-PII operational telemetry and cost accounting table. |
 | **Auth** | `users` | `id` (PK), `public_id` (UNIQUE UUID), `email` (UNIQUE normalized lowercase), `password_hash` (Argon2id), `role` (`user` \| `org_admin` \| `platform_admin`), `status` (`active` \| `disabled` \| `deleted`), `created_at`, `last_login_at` | Authenticated user accounts with RBAC role enforcement (`Phase S0`). |
 | **Auth** | `auth_sessions` | `id` (PK), `public_id` (UNIQUE UUID), `user_id` (FK `users.id` CASCADE), `token_hash` (UNIQUE HMAC-SHA256), `expires_at`, `revoked_at`, `last_seen_at` | Server-revocable cookie sessions with rotation on `/api/auth/refresh`. |
+| **Jobs** | `processing_jobs` | `id` (PK), `public_id` (UNIQUE UUID), `job_type`, `source_document_id` (FK `source_documents.id` CASCADE, indexed), `user_id` (FK `users.id` SET NULL, indexed), `status` (`queued` \| `running` \| `completed` \| `failed`), `stage`, `request_payload` (JSON), `result_payload` (JSON, transient tokens Fernet-encrypted), `error_code`, `created_at`, `started_at`, `completed_at`, `expires_at`, `INDEX(status, created_at)` | Durable async document preparation jobs (`Phase S1`, `202 Accepted` + `GET /api/jobs/{id}`). |
 
 ---
 

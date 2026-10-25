@@ -7,6 +7,7 @@ import {
   getSummary,
   confirmSummary,
   reopenField,
+  fetchWatermarkedPreviewPdfBlob,
   ApiError,
   Summary,
 } from "@/features/form-session/services/apiClient";
@@ -19,6 +20,7 @@ import {
   formatOriginalAnswer,
   formatProposedValue,
 } from "@/features/form-session/utils/formatProposedValue";
+import { formatFieldLabel } from "@/features/form-session/utils/formatFieldLabel";
 
 export default function SessionSummary() {
   const router = useRouter();
@@ -33,6 +35,7 @@ export default function SessionSummary() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [previewLoading, setPreviewLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [blockingFields, setBlockingFields] = useState<Map<string, string>>(
     new Map(),
@@ -107,6 +110,29 @@ export default function SessionSummary() {
     router.push("/application");
   };
 
+  const handlePreviewPdf = async () => {
+    if (previewLoading) return;
+    try {
+      setPreviewLoading(true);
+      setErrorMsg(null);
+      const blob = await fetchWatermarkedPreviewPdfBlob(sessionId);
+      const objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => {
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch {
+          // ignore cleanup failure
+        }
+      }, 60_000);
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : "unavailable";
+      setErrorMsg(te(code) || t("previewPdfError"));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center text-slate-900">
@@ -168,7 +194,7 @@ export default function SessionSummary() {
         }`}
       >
         <td className="px-4 py-3.5 font-semibold text-slate-900">
-          {f.label}
+          {formatFieldLabel(f.label)}
           {isRequired && (
             <span className="text-rose-600 ms-1">*</span>
           )}
@@ -346,7 +372,7 @@ export default function SessionSummary() {
             <span>{t("warning")}</span>
           </div>
 
-          {/* Confirm button / Restart button */}
+          {/* Confirm button / Preview PDF / Restart button */}
           <div className="flex flex-col gap-3 pt-2">
             <button
               type="button"
@@ -355,6 +381,14 @@ export default function SessionSummary() {
               className="btn-primary w-full py-3.5 text-sm font-semibold"
             >
               {submitting ? tc("loading") : t("submitSummary")}
+            </button>
+            <button
+              type="button"
+              disabled={previewLoading || submitting}
+              onClick={handlePreviewPdf}
+              className="btn-secondary w-full py-3 text-sm font-semibold"
+            >
+              {previewLoading ? t("previewPdfLoading") : t("previewPdf")}
             </button>
             <button
               type="button"

@@ -346,6 +346,28 @@ export async function fetchSessionPagePreviewBlob(
   return response.blob();
 }
 
+export async function fetchWatermarkedPreviewPdfBlob(
+  sessionId: string,
+): Promise<Blob> {
+  const token = getSessionToken(sessionId);
+  const headers = new Headers();
+  if (token) {
+    headers.set("X-Session-Token", token);
+  }
+  const response = await fetch(
+    `/api/form-sessions/${sessionId}/preview-pdf`,
+    {
+      method: "GET",
+      headers,
+      credentials: "include",
+    },
+  );
+  if (!response.ok) {
+    throw new ApiError(response.status, "unavailable");
+  }
+  return response.blob();
+}
+
 /** In-flight skip requests, keyed by session + field.
  *
  * Skipping is idempotent server-side, but a double click would still fire two

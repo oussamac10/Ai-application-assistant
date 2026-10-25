@@ -1,3 +1,4 @@
+import tempfile
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -16,6 +17,7 @@ from app.pdf.dynamic_overlay import (
     has_exportable_dynamic_document,
     render_dynamic_overlay_pdf,
 )
+from app.pdf.font_support import apply_preview_watermark
 from app.pdf.formatting import format_field_value
 from app.pdf.models import FormExport
 from app.pdf.registry import PDFMappingError, PDFMappingLoader, PDFTemplateRegistry
@@ -34,6 +36,7 @@ from app.sessions.services import (
     UnauthorizedError,
     ValidationError,
 )
+from app.storage import factory as storage_factory
 
 
 class PDFExportService:
@@ -124,12 +127,13 @@ class PDFExportService:
         )
         existing_export = self.db.scalars(stmt).first()
 
+        storage_provider = storage_factory.get_storage_provider()
         if existing_export:
-            # If completed and file exists, return it
-            if existing_export.status == "completed":
-                filepath = Path(existing_export.storage_path)
-                if filepath.is_file():
-                    return existing_export
+            # If completed and file exists in storage, return it
+            if existing_export.status == "completed" and storage_provider.exists(
+                existing_export.storage_path
+            ):
+                return existing_export
             # If pending or processing, wait or raise conflict
             if existing_export.status == "processing":
                 raise StateConflictError("Export is already being processed.")
@@ -288,7 +292,18 @@ class PDFExportService:
             # Validate generated PDF and calculate checksum
             checksum = self.validator.validate(output_path)
 
+            # Persist rendered PDF via StorageProvider (Local or EU S3)
+            storage_ref = storage_provider.save_file(
+                namespace="exports",
+                filename=filename,
+                source_path=output_path,
+                content_type="application/pdf",
+            )
+            if storage_ref.startswith("s3://"):
+                _remove_partial_export(output_path)
+
             # Complete the export record
+            export.storage_path = storage_ref
             export.status = "completed"
             export.file_size = render_result.file_size
             export.checksum = checksum
@@ -351,11 +366,12 @@ class PDFExportService:
             FormExport.mapping_version == mapping_version,
         )
         existing_export = self.db.scalars(stmt).first()
+        storage_provider = storage_factory.get_storage_provider()
         if existing_export:
-            if existing_export.status == "completed":
-                filepath = Path(existing_export.storage_path)
-                if filepath.is_file():
-                    return existing_export
+            if existing_export.status == "completed" and storage_provider.exists(
+                existing_export.storage_path
+            ):
+                return existing_export
             if existing_export.status == "processing":
                 raise StateConflictError("Export is already being processed.")
 
@@ -424,6 +440,15 @@ class PDFExportService:
                 output_path=output_path,
             )
             checksum = self.validator.validate(output_path)
+            storage_ref = storage_provider.save_file(
+                namespace="exports",
+                filename=filename,
+                source_path=output_path,
+                content_type="application/pdf",
+            )
+            if storage_ref.startswith("s3://"):
+                _remove_partial_export(output_path)
+            export.storage_path = storage_ref
             export.status = "completed"
             export.file_size = render_result.file_size
             export.checksum = checksum
@@ -445,6 +470,129 @@ class PDFExportService:
             raise ValidationError(f"PDF rendering failed: {str(e)}") from e
 
         return export
+
+    def generate_watermarked_preview_bytes(
+        self,
+        session_id: str,
+        ownership_token: str | None,
+        current_user_id: str | None = None,
+    ) -> tuple[bytes, str]:
+        """Renders an ephemeral watermarked PDF preview of current non-invalid
+        answers without requiring `ready_for_export` or writing a `FormExport` row.
+        """
+        session_stmt = select(FormSession).where(FormSession.public_id == session_id)
+        session = self.db.scalars(session_stmt).first()
+        if not session:
+            raise ResourceNotFoundError(f"Session with ID '{session_id}' not found.")
+
+        self._verify_ownership(session, ownership_token, current_user_id)
+
+        if session.status in ("cancelled", "deleted"):
+            raise StateConflictError(f"Session is {session.status}.")
+        if session.status == "expired" or session.expires_at < datetime.now(UTC):
+            raise StateConflictError("Session has expired.")
+
+        version = self.db.get(FormVersion, session.form_version_id)
+        if not version:
+            raise ResourceNotFoundError("Session form version not found.")
+
+        stmt_answers = select(FormAnswer).where(FormAnswer.session_id == session.id)
+        answers = self.db.scalars(stmt_answers).all()
+        answers_by_field_id = {ans.field_id: ans for ans in answers}
+
+        with tempfile.TemporaryDirectory(prefix="pdf-preview-") as tmp_dir_str:
+            preview_path = Path(tmp_dir_str) / "preview.pdf"
+
+            if not version.pdf_template_key:
+                if not has_exportable_dynamic_document(self.db, session):
+                    raise ValidationError(
+                        "This session's form is not associated with an exportable PDF template.",
+                        "dynamic_pdf_export_not_supported",
+                    )
+                source_doc = (
+                    self.db.get(SourceDocument, session.source_document_id)
+                    if session.source_document_id
+                    else None
+                )
+                detection = (
+                    get_latest_completed_detection(self.db, source_doc.id)
+                    if source_doc
+                    else None
+                )
+                if not source_doc or not detection:
+                    raise ValidationError(
+                        "This session's form is not associated with an exportable PDF template.",
+                        "dynamic_pdf_export_not_supported",
+                    )
+                render_dynamic_overlay_pdf(
+                    db=self.db,
+                    session=session,
+                    version=version,
+                    source_doc=source_doc,
+                    detection=detection,
+                    answers_by_field_id=answers_by_field_id,
+                    output_path=preview_path,
+                    include_unconfirmed_preview=True,
+                )
+                safe_stem = Path(source_doc.sanitized_filename or "document.pdf").stem
+                preview_name = f"{safe_stem}-preview.pdf"
+            else:
+                pdf_template_key = version.pdf_template_key
+                try:
+                    mapping = self.loader.load_mapping(pdf_template_key)
+                    template_path = self.registry.get_template_path(pdf_template_key)
+                except PDFMappingError as exc:
+                    raise ValidationError(str(exc)) from exc
+
+                values_to_fill: dict[str, object] = {}
+                signatures: list[tuple[SignatureBox, Any]] = []
+                for field_map in mapping.fields:
+                    form_field = next(
+                        (f for f in version.fields if f.key == field_map.field_key),
+                        None,
+                    )
+                    if not form_field:
+                        continue
+                    ans = answers_by_field_id.get(form_field.id)
+                    if (
+                        not ans
+                        or ans.status in ("unanswered", PENDING_MANUAL_SIGNATURE)
+                        or ans.validation_status == "invalid"
+                    ):
+                        continue
+                    if form_field.field_type == "signature":
+                        try:
+                            sig_box = _signature_box_for(field_map, ans)
+                            if sig_box is not None:
+                                signatures.append(sig_box)
+                        except SignatureRenderError:
+                            continue
+                        continue
+                    formatted_val = format_field_value(
+                        field_type=form_field.field_type,
+                        normalized_value=ans.normalized_value,
+                        output_value=ans.output_value,
+                        output_language=session.output_language,
+                    )
+                    if (
+                        field_map.max_length is not None
+                        and len(formatted_val) > field_map.max_length
+                    ):
+                        formatted_val = formatted_val[: field_map.max_length]
+                    if formatted_val:
+                        values_to_fill[field_map.field_key] = formatted_val
+
+                self.renderer.render(
+                    template_path=template_path,
+                    output_path=preview_path,
+                    mapping=mapping,
+                    values=values_to_fill,
+                    signatures=signatures,
+                )
+                preview_name = f"{pdf_template_key}-preview.pdf"
+
+            watermarked_bytes = apply_preview_watermark(preview_path)
+            return watermarked_bytes, preview_name
 
 
 def _remove_partial_export(output_path: Path) -> None:

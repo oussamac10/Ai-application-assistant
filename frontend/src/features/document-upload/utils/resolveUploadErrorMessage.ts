@@ -17,6 +17,8 @@
 const KNOWN_ERROR_CODES = new Set([
   "invalid_file_type",
   "file_too_large",
+  "image_too_large",
+  "rate_limit_exceeded",
   "malformed_pdf",
   "invalid_pdf",
   "document_analysis_failed",
@@ -57,6 +59,9 @@ export function extractErrorCode(err: unknown): string | null {
 
   if (typeof anyErr.detail === "string" && anyErr.detail.trim()) {
     return anyErr.detail;
+  }
+  if (typeof anyErr.errorCode === "string" && anyErr.errorCode.trim()) {
+    return anyErr.errorCode;
   }
   if (typeof anyErr.code === "string" && anyErr.code.trim()) {
     return anyErr.code;

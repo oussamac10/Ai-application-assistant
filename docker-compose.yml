@@ -16,7 +16,17 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
+    image: ai-application-assistant-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -26,6 +36,7 @@ services:
     volumes:
       - ./backend:/app
       - ./fixtures:/fixtures
+      - storage_data:/var/lib/ai-form-assistant/storage
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_local_dev_pass
@@ -33,6 +44,19 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       DATABASE_URL: postgresql://postgres:postgres_local_dev_pass@postgres:5432/ai_form_assistant
+      SESSION_TOKEN_SECRET: ${SESSION_TOKEN_SECRET:-dev-session-token-secret-do-not-use-in-prod}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-auth-secret-do-not-use-in-prod}
+      DOCUMENT_STORAGE_PATH: ${DOCUMENT_STORAGE_PATH:-/var/lib/ai-form-assistant/storage/documents}
+      PDF_EXPORT_DIRECTORY: ${PDF_EXPORT_DIRECTORY:-/var/lib/ai-form-assistant/storage/exports}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      S3_REGION: ${S3_REGION:-eu-central-1}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_KEY_PREFIX: ${S3_KEY_PREFIX:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JOB_EXECUTION_MODE: ${JOB_EXECUTION_MODE:-arq}
       OCR_PROVIDER: ${OCR_PROVIDER:-local}
       FIELD_DETECTION_PROVIDER: ${FIELD_DETECTION_PROVIDER:-local}
       AI_PROVIDER: ${AI_PROVIDER:-gemini}
@@ -74,11 +98,82 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  worker:
+    image: ai-application-assistant-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: worker
+    command: ["arq", "app.jobs.worker.WorkerSettings"]
+    volumes:
+      - ./backend:/app
+      - ./fixtures:/fixtures
+      - storage_data:/var/lib/ai-form-assistant/storage
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_local_dev_pass
+      POSTGRES_DB: ai_form_assistant
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql://postgres:postgres_local_dev_pass@postgres:5432/ai_form_assistant
+      SESSION_TOKEN_SECRET: ${SESSION_TOKEN_SECRET:-dev-session-token-secret-do-not-use-in-prod}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-auth-secret-do-not-use-in-prod}
+      DOCUMENT_STORAGE_PATH: ${DOCUMENT_STORAGE_PATH:-/var/lib/ai-form-assistant/storage/documents}
+      PDF_EXPORT_DIRECTORY: ${PDF_EXPORT_DIRECTORY:-/var/lib/ai-form-assistant/storage/exports}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      S3_REGION: ${S3_REGION:-eu-central-1}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_KEY_PREFIX: ${S3_KEY_PREFIX:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JOB_EXECUTION_MODE: ${JOB_EXECUTION_MODE:-arq}
+      OCR_PROVIDER: ${OCR_PROVIDER:-local}
+      FIELD_DETECTION_PROVIDER: ${FIELD_DETECTION_PROVIDER:-local}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      GEMINI_REQUEST_TIMEOUT_SECONDS: ${GEMINI_REQUEST_TIMEOUT_SECONDS:-30}
+      GEMINI_MAX_RETRIES: ${GEMINI_MAX_RETRIES:-2}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+      AI_TRANSLATION_BATCH_SIZE: ${AI_TRANSLATION_BATCH_SIZE:-12}
+      AI_TRANSLATION_CONCURRENCY: ${AI_TRANSLATION_CONCURRENCY:-3}
+      TRANSLATION_PROVIDER: ${TRANSLATION_PROVIDER:-ollama}
+      TRANSLATION_FALLBACK_PROVIDER: ${TRANSLATION_FALLBACK_PROVIDER:-none}
+      AZURE_TRANSLATOR_ENABLED: ${AZURE_TRANSLATOR_ENABLED:-false}
+      AZURE_TRANSLATOR_ENDPOINT: ${AZURE_TRANSLATOR_ENDPOINT:-https://api.cognitive.microsofttranslator.com}
+      AZURE_TRANSLATOR_API_KEY: ${AZURE_TRANSLATOR_API_KEY:-}
+      AZURE_TRANSLATOR_REGION: ${AZURE_TRANSLATOR_REGION:-}
+      AZURE_TRANSLATOR_API_VERSION: ${AZURE_TRANSLATOR_API_VERSION:-3.0}
+      AZURE_TRANSLATOR_TIMEOUT_SECONDS: ${AZURE_TRANSLATOR_TIMEOUT_SECONDS:-30}
+      AZURE_TRANSLATOR_MAX_RETRIES: ${AZURE_TRANSLATOR_MAX_RETRIES:-1}
+      AZURE_TRANSLATOR_MAX_BATCH_SIZE: ${AZURE_TRANSLATOR_MAX_BATCH_SIZE:-50}
+      AZURE_DOCUMENT_INTELLIGENCE_ENABLED: ${AZURE_DOCUMENT_INTELLIGENCE_ENABLED:-false}
+      AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: ${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT:-}
+      AZURE_DOCUMENT_INTELLIGENCE_API_KEY: ${AZURE_DOCUMENT_INTELLIGENCE_API_KEY:-}
+      AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID: ${AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID:-prebuilt-layout}
+      AZURE_DOCUMENT_INTELLIGENCE_API_VERSION: ${AZURE_DOCUMENT_INTELLIGENCE_API_VERSION:-2024-11-30}
+      AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT_SECONDS: ${AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT_SECONDS:-120}
+      AZURE_DOCUMENT_INTELLIGENCE_MAX_RETRIES: ${AZURE_DOCUMENT_INTELLIGENCE_MAX_RETRIES:-1}
+      HYBRID_LOCAL_QUALITY_THRESHOLD: ${HYBRID_LOCAL_QUALITY_THRESHOLD:-0.55}
+      HYBRID_MAX_ESCALATION_PAGES: ${HYBRID_MAX_ESCALATION_PAGES:-10}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   frontend:
     build:
@@ -103,3 +198,4 @@ services:
 
 volumes:
   postgres_data:
+  storage_data:

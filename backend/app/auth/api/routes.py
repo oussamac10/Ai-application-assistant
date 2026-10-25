@@ -7,6 +7,7 @@ from app.auth.schemas import LoginRequest, RegisterRequest, UserResponse
 from app.auth.security import generate_csrf_token
 from app.auth.services import AuthService
 from app.core.config import settings
+from app.core.rate_limit import rate_limit_auth
 from app.database.session import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -50,6 +51,7 @@ def register(
     body: RegisterRequest,
     response: Response,
     db: Session = Depends(get_db),
+    _rate_limit: None = Depends(rate_limit_auth),
 ) -> User:
     service = AuthService(db)
     user = service.register(body.email, body.password, body.password_confirmation)
@@ -63,6 +65,7 @@ def login(
     body: LoginRequest,
     response: Response,
     db: Session = Depends(get_db),
+    _rate_limit: None = Depends(rate_limit_auth),
 ) -> User:
     service = AuthService(db)
     user, raw_token = service.login(body.email, body.password)

@@ -52,7 +52,10 @@
     "missingRequired": "Réponse obligatoire manquante",
     "notAnswered": "Sans réponse",
     "invalidAnswer": "Réponse à vérifier",
-    "blockedByFields": "{count} question(s) nécessitent encore votre attention avant de finaliser."
+    "blockedByFields": "{count} question(s) nécessitent encore votre attention avant de finaliser.",
+    "previewPdf": "Aperçu du PDF rempli (avec filigrane)",
+    "previewPdfLoading": "Génération de l'aperçu filigrané...",
+    "previewPdfError": "Impossible de générer un aperçu PDF pour ce formulaire."
   },
   "complete": {
     "title": "Formulaire prêt pour l'exportation",
@@ -85,8 +88,8 @@
     "unavailable": "L'assistant linguistique IA est temporairement indisponible. Votre réponse originale a été conservée. Veuillez réessayer."
   },
   "documentUpload": {
-    "drag_and_drop_instructions": "Glissez-déposez votre PDF ici, ou cliquez pour parcourir",
-    "maximum_size": "PDF jusqu'à 10 Mo (max 20 pages)",
+    "drag_and_drop_instructions": "Glissez-déposez un PDF ou une photo de smartphone (JPG, PNG, WebP), ou cliquez pour parcourir",
+    "maximum_size": "PDF, JPG, PNG ou WebP jusqu'à 10 Mo (max 20 pages)",
     "selected_file": "Fichier sélectionné :",
     "remove_file": "Supprimer",
     "selectOutputLanguage": "Sélectionner la langue du formulaire complété",
@@ -119,8 +122,10 @@
     "start_completion": "Commencer le formulaire guidé",
     "upload_error_title": "Échec du téléchargement ou de l'analyse",
     "retry": "Réessayer le téléchargement",
-    "error_invalid_file_type": "Seuls les fichiers PDF sont pris en charge.",
+    "error_invalid_file_type": "Seuls les fichiers PDF, JPG, PNG et WebP sont pris en charge.",
     "error_file_too_large": "Le fichier dépasse la taille maximale de 10 Mo.",
+    "error_image_too_large": "La résolution de l'image est trop élevée. Veuillez charger une photo plus petite ou un PDF.",
+    "error_rate_limit_exceeded": "Trop de requêtes en peu de temps. Veuillez patienter un instant et réessayer.",
     "error_invalid_pdf": "Structure de fichier PDF invalide.",
     "error_encrypted_pdf": "Le PDF est crypté ou protégé par mot de passe.",
     "error_password_protected_pdf": "Le PDF est protégé par mot de passe ou crypté.",

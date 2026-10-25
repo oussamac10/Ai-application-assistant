@@ -2,7 +2,6 @@ import hashlib
 import logging
 from dataclasses import replace
 from datetime import UTC, datetime
-from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -47,6 +46,7 @@ from app.field_detection.usage import record_provider_usage
 from app.ocr.models import OCRResult
 from app.ocr.repository import OCRRepository
 from app.sessions.models import FormSession
+from app.storage import factory as storage_factory
 from app.translation.base import TranslationProvider
 from app.translation.factory import (
     build_fallback_translation_provider,
@@ -124,11 +124,12 @@ class FieldDetectionService:
         current_user_id: str | None = None,
         translation_provider: TranslationProvider | None = None,
         fallback_translation_provider: TranslationProvider | None = None,
+        trusted_worker: bool = False,
     ):
         self.db = db
         self.repo = FieldDetectionRepository()
         self.ocr_repo = OCRRepository()
-        self.document_service = SourceDocumentService(db)
+        self.document_service = SourceDocumentService(db, trusted_worker=trusted_worker)
         self._provider = provider
         self.ai_provider: AIProvider = (
             ai_provider if ai_provider is not None else MockAIProvider()
@@ -274,13 +275,15 @@ class FieldDetectionService:
             result = self.repo.update(self.db, result)
 
         try:
-            if source_type == "native":
-                document_input = extract_native_document_input(Path(doc.storage_path))
-            else:
-                assert ocr_result is not None
-                document_input = extract_ocr_document_input(
-                    ocr_result, Path(doc.storage_path)
-                )
+            storage_provider = storage_factory.get_storage_provider()
+            with storage_provider.local_path(doc.storage_path) as local_pdf_path:
+                if source_type == "native":
+                    document_input = extract_native_document_input(local_pdf_path)
+                else:
+                    assert ocr_result is not None
+                    document_input = extract_ocr_document_input(
+                        ocr_result, local_pdf_path
+                    )
 
             # The document's detected language drives direction-aware
             # geometry (RTL forms put a field's value to the *left* of its

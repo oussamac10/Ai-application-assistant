@@ -6,6 +6,7 @@ from sqlalchemy import and_, or_, select
 
 from app.database.session import SessionLocal
 from app.pdf.models import FormExport
+from app.storage import factory as storage_factory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,7 +29,19 @@ def cleanup_expired_exports() -> int:
         exports = db.scalars(stmt).all()
         cleaned_count = 0
 
+        storage_provider = storage_factory.get_storage_provider()
         for export in exports:
+            if export.storage_path.startswith("s3://"):
+                if export.status == "deleted" and not storage_provider.exists(
+                    export.storage_path
+                ):
+                    continue
+                if storage_provider.delete(export.storage_path):
+                    logger.info(f"Deleted expired S3 export object: {export.public_id}")
+                export.status = "deleted"
+                cleaned_count += 1
+                continue
+
             # Skip if status is already marked deleted and the file was already cleaned
             if export.status == "deleted" and not Path(export.storage_path).exists():
                 continue
@@ -37,7 +50,8 @@ def cleanup_expired_exports() -> int:
             # Safe delete file if exists
             if filepath.exists() and filepath.is_file():
                 try:
-                    filepath.unlink()
+                    if not storage_provider.delete(export.storage_path):
+                        filepath.unlink()
                     logger.info(f"Deleted expired export file: {export.public_id}")
                 except OSError as e:
                     logger.error(
@@ -74,6 +88,17 @@ def cleanup_expired_exports() -> int:
         cleaned_docs_count = 0
 
         for doc in docs:
+            if doc.storage_path.startswith("s3://"):
+                if doc.status == "deleted" and not storage_provider.exists(
+                    doc.storage_path
+                ):
+                    continue
+                if storage_provider.delete(doc.storage_path):
+                    logger.info(f"Deleted expired S3 source document: {doc.public_id}")
+                doc.status = "deleted"
+                cleaned_docs_count += 1
+                continue
+
             # Skip if status is already marked deleted and the file was already cleaned
             if doc.status == "deleted" and not Path(doc.storage_path).exists():
                 continue
@@ -82,7 +107,8 @@ def cleanup_expired_exports() -> int:
             # Safe delete file if exists
             if filepath.exists() and filepath.is_file():
                 try:
-                    filepath.unlink()
+                    if not storage_provider.delete(doc.storage_path):
+                        filepath.unlink()
                     logger.info(
                         f"Deleted expired source document file: {doc.public_id}"
                     )

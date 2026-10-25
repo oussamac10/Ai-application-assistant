@@ -4,6 +4,9 @@ import {
   DetectedField,
   FieldDetectionResultResponse,
   FieldDetectionResultResponseSchema,
+  JobStatusResponse,
+  JobStatusResponseSchema,
+  PrepareQuestionsAcceptedSchema,
   PrepareQuestionsResponse,
   PrepareQuestionsResponseSchema,
   SessionCreateResponse,
@@ -144,6 +147,26 @@ const inFlightPreparations = new Map<
   Promise<PrepareQuestionsResponse>
 >();
 
+export interface PrepareQuestionsOptions {
+  pollIntervalMs?: number;
+  maxPollAttempts?: number;
+}
+
+export async function getProcessingJobStatus(
+  documentId: string,
+  jobId: string,
+): Promise<JobStatusResponse> {
+  const response = await fetch(`/api/jobs/${jobId}`, {
+    method: "GET",
+    headers: authHeaders(documentId),
+  });
+  if (!response.ok) {
+    throw await parseErrorResponse(response);
+  }
+  const data = await response.json();
+  return JobStatusResponseSchema.parse(data);
+}
+
 export async function prepareQuestions(
   documentId: string,
   language: string,
@@ -152,6 +175,7 @@ export async function prepareQuestions(
    * Only callers that genuinely offer a choice (the manual template flow)
    * pass one. */
   outputLanguage?: string,
+  options?: PrepareQuestionsOptions,
 ): Promise<PrepareQuestionsResponse> {
   const key = `${documentId}:${language}:${outputLanguage ?? "auto"}`;
   const existing = inFlightPreparations.get(key);
@@ -159,7 +183,11 @@ export async function prepareQuestions(
     return existing;
   }
 
-  const request = (async () => {
+  const pollIntervalMs = options?.pollIntervalMs ?? 1200;
+  const maxPollAttempts = options?.maxPollAttempts ?? 150;
+
+  const request: Promise<PrepareQuestionsResponse> = (
+    async (): Promise<PrepareQuestionsResponse> => {
     const response = await fetch(
       `/api/source-documents/${documentId}/prepare-questions`,
       {
@@ -174,8 +202,47 @@ export async function prepareQuestions(
     }
 
     const data = await response.json();
+    if (
+      response.status === 202 ||
+      data?.status === "queued" ||
+      data?.status === "running"
+    ) {
+      const accepted = PrepareQuestionsAcceptedSchema.parse(data);
+      for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+        const jobStatus = await getProcessingJobStatus(
+          documentId,
+          accepted.jobId,
+        );
+        if (jobStatus.status === "completed" && jobStatus.result) {
+          return jobStatus.result;
+        }
+        if (jobStatus.status === "failed") {
+          if (jobStatus.result) {
+            return jobStatus.result;
+          }
+          return {
+            documentId,
+            status: "failed",
+            sessionId: null,
+            ownershipToken: null,
+            reusedExistingSession: false,
+            uncertainty: null,
+            errorCode: jobStatus.errorCode ?? "document_processing_failed",
+            stage: jobStatus.stage ?? null,
+          };
+        }
+      }
+      throw new ApiError(
+        504,
+        "Document preparation timed out.",
+        "document_processing_failed",
+      );
+    }
+
     return PrepareQuestionsResponseSchema.parse(data);
-  })();
+    }
+  )();
 
   inFlightPreparations.set(key, request);
   try {

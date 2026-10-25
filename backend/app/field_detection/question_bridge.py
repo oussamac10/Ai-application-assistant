@@ -33,6 +33,7 @@ to the user.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass
 
@@ -44,7 +45,10 @@ from app.documents.models import SourceDocument
 from app.field_detection.confidence import AUTO_USABLE_REVIEW_STATUSES
 from app.field_detection.errors import FieldDetectionValidationError
 from app.field_detection.models import DetectedField, FieldDetectionResult
-from app.field_detection.requiredness import detect_requiredness
+from app.field_detection.requiredness import (
+    detect_requiredness,
+    strip_requiredness_markers,
+)
 from app.forms.schemas import (
     FieldCreate,
     OptionSchema,
@@ -138,6 +142,19 @@ def _supported_languages(
     return sorted({source_language, user_language, output_language})
 
 
+_TRAILING_LABEL_COLON = re.compile(r"\s*[:：]\s*$")
+
+
+def _display_label(raw_label: str) -> str:
+    """Strips requiredness markers (`*`, `(*)`, `(Optional)`) and trailing
+    colons from a field label for translation and display, while preserving
+    `DetectedField.label` untouched for audit and `_resolve_requiredness`."""
+    cleaned = _TRAILING_LABEL_COLON.sub(
+        "", strip_requiredness_markers(raw_label)
+    ).strip()
+    return cleaned if cleaned else raw_label.strip()
+
+
 def _approved_catalog_labels(
     db: Session, fields: list[DetectedField], language: str
 ) -> dict[str, str]:
@@ -152,11 +169,12 @@ def _approved_catalog_labels(
     repo = QuestionRepository(db)
     approved: dict[str, str] = {}
     for detected in fields:
-        if not detected.label or detected.label in approved:
+        display = _display_label(detected.label) if detected.label else ""
+        if not display or display in approved:
             continue
         translation = repo.get_approved_translation(detected.normalized_name, language)
         if translation is not None and translation.text:
-            approved[detected.label] = translation.text
+            approved[display] = _display_label(translation.text)
     return approved
 
 
@@ -169,11 +187,12 @@ def _persisted_catalog_labels(
     repo = QuestionRepository(db)
     persisted: dict[str, str] = {}
     for detected in fields:
-        if not detected.label or detected.label in persisted:
+        display = _display_label(detected.label) if detected.label else ""
+        if not display or display in persisted:
             continue
         translation = repo.get_pending_translation(detected.normalized_name, language)
         if translation is not None and translation.text:
-            persisted[detected.label] = translation.text
+            persisted[display] = _display_label(translation.text)
     return persisted
 
 
@@ -234,7 +253,7 @@ def _translatable_texts(fields: list[DetectedField]) -> list[str]:
     texts: list[str] = []
     for detected in fields:
         if detected.label:
-            texts.append(detected.label)
+            texts.append(_display_label(detected.label))
         for option in detected.options:
             if option.value:
                 texts.append(option.value)
@@ -391,13 +410,14 @@ def _label_translations(
     source_language: str,
     translations_by_language: dict[str, str],
 ) -> list[TranslationSchema]:
-    """Builds the field-label rows: the original text is always kept under the
-    document's own (detected) language for mapping and audit, plus one row per
-    other language. `translations_by_language` never contains the source
-    language, so no row is ever emitted twice."""
-    rows = [TranslationSchema(language=source_language, label=source_text)]
+    """Builds the field-label rows: the cleaned display label is kept under the
+    document's own (detected) language, plus one row per other language.
+    `translations_by_language` never contains the source language, so no row is
+    ever emitted twice."""
+    clean_source = _display_label(source_text)
+    rows = [TranslationSchema(language=source_language, label=clean_source)]
     rows.extend(
-        TranslationSchema(language=language, label=label)
+        TranslationSchema(language=language, label=_display_label(label))
         for language, label in translations_by_language.items()
         if language != source_language
     )
@@ -590,8 +610,9 @@ async def create_session_from_confirmed_fields(
         try:
             field_type = _map_field_type(detected_field)
 
+            display_source_label = _display_label(detected_field.label)
             label_translations = _translations_for(
-                detected_field.label, translations_by_language
+                display_source_label, translations_by_language
             )
 
             # Options live exclusively in the FormFieldOption rows created
@@ -632,7 +653,7 @@ async def create_session_from_confirmed_fields(
                     position=position,
                     configuration={},
                     translations=_label_translations(
-                        detected_field.label, source_language, label_translations
+                        display_source_label, source_language, label_translations
                     ),
                     options=options,
                 ),
