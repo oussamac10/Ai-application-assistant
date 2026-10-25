@@ -888,10 +888,57 @@ class AnswerService:
         field = answer.field
         # Merge values
         existing = answer.normalized_value or {}
-        if isinstance(existing, dict):
-            merged = {**existing, **values}
+        if field.field_type == "money":
+            if isinstance(existing, dict):
+                merged: Any = {**existing, **values}
+            else:
+                merged = values
         else:
-            merged = values
+            supplied_parts = [
+                str(v).strip()
+                for v in values.values()
+                if v is not None and str(v).strip()
+            ]
+            additive_keys = {
+                "city",
+                "ort",
+                "stadt",
+                "ville",
+                "postal_code",
+                "plz",
+                "zip",
+                "street",
+                "straße",
+                "strasse",
+                "house_number",
+                "hausnummer",
+                "country",
+                "land",
+                "addition",
+                "zusatz",
+                "etage",
+                "floor",
+            }
+            all_keys_additive = bool(values) and all(
+                str(k).strip().lower().replace(" ", "_") in additive_keys
+                for k in values.keys()
+            )
+            base_orig = str(answer.original_answer or "").strip().rstrip(",")
+            if (
+                field.field_type in ("address", "string", "multiline_text")
+                and all_keys_additive
+                and base_orig
+            ):
+                new_parts = [
+                    p for p in supplied_parts if p.lower() not in base_orig.lower()
+                ]
+                merged = (
+                    f"{base_orig}, {', '.join(new_parts)}" if new_parts else base_orig
+                )
+            elif field.field_type == "person_name":
+                merged = " ".join(supplied_parts) if supplied_parts else base_orig
+            else:
+                merged = ", ".join(supplied_parts) if supplied_parts else base_orig
 
         # Re-evaluate money clarification
         requires_clar = False
@@ -933,6 +980,8 @@ class AnswerService:
                 # Construct output value
                 if field.field_type == "money" and isinstance(norm_val, dict):
                     answer.output_value = format_money_output(norm_val)
+                elif field.field_type == "person_name" and isinstance(norm_val, dict):
+                    answer.output_value = str(norm_val.get("fullName", "")).strip()
                 else:
                     answer.output_value = str(norm_val)
             else:

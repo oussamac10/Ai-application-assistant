@@ -87,9 +87,24 @@ def normalize_value(field_type: str, raw_val: Any) -> Any:
     elif field_type == "person_name":
         if isinstance(raw_val, str):
             return {"fullName": raw_val.strip()}
+        if isinstance(raw_val, dict) and "fullName" not in raw_val:
+            parts = [
+                str(v).strip()
+                for v in raw_val.values()
+                if v is not None and str(v).strip()
+            ]
+            if parts:
+                return {"fullName": " ".join(parts)}
         return raw_val
 
-    elif field_type in ("string", "multiline_text", "email", "date"):
+    elif field_type in ("string", "multiline_text", "email", "date", "address"):
+        if isinstance(raw_val, dict):
+            parts = [
+                str(v).strip()
+                for v in raw_val.values()
+                if v is not None and str(v).strip()
+            ]
+            return ", ".join(parts)
         return str(raw_val).strip()
 
     return raw_val

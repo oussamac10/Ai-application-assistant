@@ -32,7 +32,11 @@ import app.auth.models  # noqa: F401
 from app.answers.models import FormAnswer
 from app.answers.signatures import PENDING_MANUAL_SIGNATURE
 from app.documents.models import SourceDocument
-from app.field_detection.classification import marker_type
+from app.field_detection.classification import (
+    is_blank_run,
+    marker_type,
+    starts_with_blank_run,
+)
 from app.field_detection.extraction import extract_native_document_input
 from app.field_detection.models import DetectedField, FieldDetectionResult
 from app.forms.models import FormField, FormVersion
@@ -62,12 +66,12 @@ class FieldLocationInfo:
 
 
 def _sanitize_key(name: str) -> str:
-    """Matches `app/field_detection/question_bridge.py:_sanitize_key`."""
+    """Matches `app/field_detection/question_bridge.py:_unique_key` base key."""
     cleaned = re.sub(r"[^a-zA-Z0-9_]", "_", name.strip().lower())
     cleaned = re.sub(r"_+", "_", cleaned).strip("_")
     if not cleaned or not cleaned[0].isalpha():
         cleaned = f"field_{cleaned}" if cleaned else "field"
-    return cleaned[:64]
+    return cleaned
 
 
 def _preview_unique_key(base_name: str, used: set[str]) -> str:
@@ -77,7 +81,7 @@ def _preview_unique_key(base_name: str, used: set[str]) -> str:
     counter = 2
     while candidate in used:
         suffix = f"_{counter}"
-        candidate = f"{base[: 64 - len(suffix)]}{suffix}"
+        candidate = f"{base}{suffix}"
         counter += 1
     return candidate
 
@@ -291,6 +295,92 @@ def _resolve_pdf_rect(
     return x, y, width, height
 
 
+def _resolve_effective_input_box(
+    detected: DetectedField,
+    form_field_type: str,
+    native_page_tokens: Sequence[Any],
+) -> dict[str, Any] | None:
+    """Resolves the effective `input_bounding_box` for `detected`.
+
+    Handles:
+    1. Explicit `detected.input_bounding_box`, including legacy inline-blank
+       fields where `input_bounding_box` stored `after.bounding_box` instead
+       of the blank gap between `label_bounding_box` (`before`) and `after`.
+    2. Blank-run fields where `input_bounding_box` was `None` in an earlier
+       detection pass, by locating the blank-run token (`…………` or `________`)
+       on the same physical line in `native_page_tokens`.
+    3. Choice/boolean fields falling back to `label_bounding_box`.
+    """
+    raw_input = detected.input_bounding_box
+    raw_label = detected.label_bounding_box
+
+    if raw_input and raw_label:
+        in_coords = _extract_token_box_coords(raw_input)
+        lbl_coords = _extract_token_box_coords(raw_label)
+        if in_coords is not None and lbl_coords is not None:
+            ix, iy, iw, ih = in_coords
+            lx, ly, lw, lh = lbl_coords
+            same_line = abs(iy - ly) <= max(lh, ih, 6.0)
+            gap = ix - (lx + lw)
+            if same_line and gap >= 12.0 and native_page_tokens:
+                overlaps_printed_word = any(
+                    not (
+                        is_blank_run(getattr(t, "text", ""))
+                        or starts_with_blank_run(getattr(t, "text", ""))
+                    )
+                    and (
+                        tc := _extract_token_box_coords(
+                            getattr(t, "bounding_box", None)
+                        )
+                    )
+                    is not None
+                    and abs(tc[0] - ix) <= 2.5
+                    and abs(tc[1] - iy) <= 2.5
+                    for t in native_page_tokens
+                )
+                if overlaps_printed_word:
+                    return {
+                        "x": lx + lw + 2.0,
+                        "y": ly,
+                        "width": max(gap - 4.0, 16.0),
+                        "height": max(lh, ih),
+                    }
+
+    if raw_input:
+        return raw_input
+
+    if raw_label:
+        lbl_coords = _extract_token_box_coords(raw_label)
+        if lbl_coords is not None and native_page_tokens:
+            lx, ly, lw, lh = lbl_coords
+            blank_boxes: list[tuple[float, float, float, float]] = []
+            for t in native_page_tokens:
+                txt = getattr(t, "text", "")
+                if not (is_blank_run(txt) or starts_with_blank_run(txt)):
+                    continue
+                tc = _extract_token_box_coords(getattr(t, "bounding_box", None))
+                if tc is None:
+                    continue
+                tx, ty, tw, th = tc
+                if abs(ty - ly) <= max(lh, th, 6.0) and tx >= lx:
+                    blank_boxes.append((tx, ty, tw, th))
+            if blank_boxes:
+                min_x = min(b[0] for b in blank_boxes)
+                min_y = min(b[1] for b in blank_boxes)
+                max_r = max(b[0] + b[2] for b in blank_boxes)
+                max_b = max(b[1] + b[3] for b in blank_boxes)
+                return {
+                    "x": min_x,
+                    "y": min_y,
+                    "width": max_r - min_x,
+                    "height": max_b - min_y,
+                }
+        if form_field_type in ("single_choice", "multiple_choice", "boolean"):
+            return raw_label
+
+    return None
+
+
 def render_dynamic_overlay_pdf(
     *,
     db: Session,
@@ -337,14 +427,11 @@ def render_dynamic_overlay_pdf(
             detected = field_to_detected.get(form_field.key)
             raw_box = None
             if detected is not None:
-                raw_box = detected.input_bounding_box
-                if (
-                    not raw_box
-                    and detected.label_bounding_box
-                    and form_field.field_type
-                    in ("single_choice", "multiple_choice", "boolean")
-                ):
-                    raw_box = detected.label_bounding_box
+                raw_box = _resolve_effective_input_box(
+                    detected,
+                    form_field.field_type,
+                    native_tokens_by_page.get(detected.page_number, ()),
+                )
 
             if not detected or not raw_box:
                 if (
@@ -453,8 +540,45 @@ def render_dynamic_overlay_pdf(
                 output_value=ans.output_value,
                 output_language=session.output_language,
             )
+            formatted_val = formatted_val.strip() if formatted_val else ""
             if not formatted_val:
                 continue
+
+            page_tokens = native_tokens_by_page.get(detected.page_number, ())
+            if (
+                form_field.field_type == "money"
+                and formatted_val.upper().endswith(" EUR")
+                and page_tokens
+            ):
+                has_printed_euro = any(
+                    getattr(t, "text", "").strip(".,;:()").lower()
+                    in ("euro", "eur", "€")
+                    and (
+                        tc := _extract_token_box_coords(
+                            getattr(t, "bounding_box", None)
+                        )
+                    )
+                    is not None
+                    and abs(tc[1] - y) <= max(height, tc[3], 6.0)
+                    and x <= tc[0] <= x + width + 24.0
+                    for t in page_tokens
+                )
+                if has_printed_euro:
+                    formatted_val = formatted_val[:-4].strip()
+
+            over_dotted_run = any(
+                (
+                    is_blank_run(getattr(t, "text", ""))
+                    or starts_with_blank_run(getattr(t, "text", ""))
+                )
+                and ("." in getattr(t, "text", "") or "…" in getattr(t, "text", ""))
+                and (tc := _extract_token_box_coords(getattr(t, "bounding_box", None)))
+                is not None
+                and abs(tc[1] - y) <= max(height, tc[3], 6.0)
+                and tc[0] < x + width
+                and tc[0] + tc[2] > x
+                for t in page_tokens
+            )
 
             _draw_text_in_box(
                 page,
@@ -464,7 +588,19 @@ def render_dynamic_overlay_pdf(
                 height=height,
                 text=formatted_val,
                 multiline=(form_field.field_type == "multiline_text" or height >= 36),
+                mask_dots=over_dotted_run,
             )
+
+        # Remove interactive AcroForm widgets on the exported copy so PDF
+        # viewers never cover overlaid text/checkmarks with empty interactive
+        # input boxes or display form-reset/print pushbuttons.
+        for page_idx in range(page_count):
+            pg = document[page_idx]
+            try:
+                for w in list(pg.widgets() or []):
+                    pg.delete_widget(w)
+            except Exception:
+                pass
 
         document.saveIncr()
     finally:
@@ -642,6 +778,7 @@ def _draw_text_in_box(
     height: float,
     text: str,
     multiline: bool,
+    mask_dots: bool = False,
 ) -> None:
     """Draws `text` inside `(x, y, width, height)` in PDF points."""
     import fitz
@@ -683,6 +820,20 @@ def _draw_text_in_box(
         baseline_y = y + height - 1.8
     else:
         baseline_y = y + min(height - 2.5, (height + font_size * 0.72) / 2.0)
+
+    if mask_dots:
+        text_w = fitz.get_text_length(text, fontname="helv", fontsize=font_size)
+        mask_rect = fitz.Rect(
+            x,
+            y + 1.0,
+            min(x + text_w + 5.0, x + width),
+            y + height,
+        )
+        shape = page.new_shape()
+        shape.draw_rect(mask_rect)
+        shape.finish(width=0, color=None, fill=(1.0, 1.0, 1.0))
+        shape.commit()
+
     page.insert_text(
         fitz.Point(x + 2.0, baseline_y),
         text,

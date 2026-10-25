@@ -643,15 +643,81 @@ export default function GuidedSession() {
                       </div>
 
                       <div className="space-y-4">
-                        {lastAnswer.clarification.missing.map((key) => (
-                          <div key={key} className="space-y-1.5 text-start">
-                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                              {key.replace("_", " ")}
-                            </label>
-                            {key === "currency" ? (
-                              <div className="relative">
-                                <select
-                                  className="input-field pe-10 appearance-none"
+                        {lastAnswer.clarification.missing.map((key) => {
+                          const isSentenceReason =
+                            key.includes(" ") && key.length > 25;
+                          return (
+                            <div key={key} className="space-y-2 text-start">
+                              {isSentenceReason ? (
+                                <>
+                                  <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900">
+                                    {key}
+                                  </p>
+                                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                    {currentField?.label || t("yourAnswerLabel")}
+                                  </label>
+                                </>
+                              ) : (
+                                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                  {key.replace(/_/g, " ")}
+                                </label>
+                              )}
+                              {key === "currency" ? (
+                                <div className="relative">
+                                  <select
+                                    className="input-field pe-10 appearance-none"
+                                    value={clarifyValues[key] || ""}
+                                    onChange={(e) =>
+                                      setClarifyValues({
+                                        ...clarifyValues,
+                                        [key]: e.target.value,
+                                      })
+                                    }
+                                    required
+                                  >
+                                    <option value="" disabled className="bg-white text-slate-400">
+                                      Select currency...
+                                    </option>
+                                    <option value="EUR" className="bg-white text-slate-900">EUR (€)</option>
+                                    <option value="USD" className="bg-white text-slate-900">USD ($)</option>
+                                    <option value="GBP" className="bg-white text-slate-900">GBP (£)</option>
+                                  </select>
+                                  <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              ) : key === "period" ? (
+                                <div className="relative">
+                                  <select
+                                    className="input-field pe-10 appearance-none"
+                                    value={clarifyValues[key] || ""}
+                                    onChange={(e) =>
+                                      setClarifyValues({
+                                        ...clarifyValues,
+                                        [key]: e.target.value,
+                                      })
+                                    }
+                                    required
+                                  >
+                                    <option value="" disabled className="bg-white text-slate-400">
+                                      Select frequency...
+                                    </option>
+                                    <option value="monthly" className="bg-white text-slate-900">Monthly</option>
+                                    <option value="yearly" className="bg-white text-slate-900">Yearly</option>
+                                    <option value="weekly" className="bg-white text-slate-900">Weekly</option>
+                                  </select>
+                                  <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              ) : (
+                                <input
+                                  type="text"
+                                  className="input-field"
                                   value={clarifyValues[key] || ""}
                                   onChange={(e) =>
                                     setClarifyValues({
@@ -660,62 +726,11 @@ export default function GuidedSession() {
                                     })
                                   }
                                   required
-                                >
-                                  <option value="" disabled className="bg-white text-slate-400">
-                                    Select currency...
-                                  </option>
-                                  <option value="EUR" className="bg-white text-slate-900">EUR (€)</option>
-                                  <option value="USD" className="bg-white text-slate-900">USD ($)</option>
-                                  <option value="GBP" className="bg-white text-slate-900">GBP (£)</option>
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                  </svg>
-                                </div>
-                              </div>
-                            ) : key === "period" ? (
-                              <div className="relative">
-                                <select
-                                  className="input-field pe-10 appearance-none"
-                                  value={clarifyValues[key] || ""}
-                                  onChange={(e) =>
-                                    setClarifyValues({
-                                      ...clarifyValues,
-                                      [key]: e.target.value,
-                                    })
-                                  }
-                                  required
-                                >
-                                  <option value="" disabled className="bg-white text-slate-400">
-                                    Select frequency...
-                                  </option>
-                                  <option value="monthly" className="bg-white text-slate-900">Monthly</option>
-                                  <option value="yearly" className="bg-white text-slate-900">Yearly</option>
-                                  <option value="weekly" className="bg-white text-slate-900">Weekly</option>
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                  </svg>
-                                </div>
-                              </div>
-                            ) : (
-                              <input
-                                type="text"
-                                className="input-field"
-                                value={clarifyValues[key] || ""}
-                                onChange={(e) =>
-                                  setClarifyValues({
-                                    ...clarifyValues,
-                                    [key]: e.target.value,
-                                  })
-                                }
-                                required
-                              />
-                            )}
-                          </div>
-                        ))}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
 
                       <div className="flex gap-3 pt-2">

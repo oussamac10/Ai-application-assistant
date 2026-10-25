@@ -686,3 +686,233 @@ async def test_french_flattened_pdf_end_to_end_prepare_and_export(
         doc_service.storage.delete_file(src_doc.storage_path)
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_german_rental_contract_pdf_end_to_end_prepare_and_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End-to-end test for `fixtures/pdf/rental-contract-de.pdf` (`Mietvertrag`):
+    - Dotted-line (`…………`) and underscore (`________`) fields in `_detect_normal_fields`
+      receive `input_bounding_box` coordinates and render on Page 1 and Page 2
+    - Long keys (>64 chars, e.g. `anzahl_der_untergebrachten_personen_...`) match
+      between `question_bridge` and `dynamic_overlay`
+    - Inline blank fields (`beginnt am ____ und endet am ____`, `beträgt ____ Euro.`)
+      render inside the blank gap without duplicating `EUR Euro.`.
+    """
+    from app.ai.mock_provider import MockAIProvider
+    from app.core.config import settings
+    from app.documents.service import SourceDocumentService
+    from app.field_detection.orchestration import PrepareQuestionsService
+    from app.field_detection.providers.local import LocalFieldDetectionProvider
+
+    monkeypatch.setattr(settings, "PDF_EXPORT_DIRECTORY", str(tmp_path / "exports"))
+
+    fixture_pdf = (
+        Path(__file__).resolve().parents[3]
+        / "fixtures"
+        / "pdf"
+        / "rental-contract-de.pdf"
+    )
+    if not fixture_pdf.is_file():
+        fixture_pdf = Path("/fixtures/pdf/rental-contract-de.pdf")
+    assert fixture_pdf.is_file()
+
+    db = SessionLocal()
+    try:
+        doc_service = SourceDocumentService(db)
+        src_doc, doc_token = doc_service.upload_and_analyze(
+            filename="rental-contract-de.pdf",
+            content_type="application/pdf",
+            file_chunks=[fixture_pdf.read_bytes()],
+            privacy_accepted=True,
+            user_language="en",
+            output_language="de",
+        )
+        prep_service = PrepareQuestionsService(
+            db,
+            ai_provider=MockAIProvider(),
+            field_detection_provider=LocalFieldDetectionProvider(),
+        )
+        prep_res = await prep_service.prepare(src_doc.public_id, doc_token, "en", "de")
+        assert prep_res.status == "ready"
+        assert prep_res.session is not None
+        assert prep_res.ownership_token is not None
+
+        session = prep_res.session
+        sess_token = prep_res.ownership_token
+
+        for f in session.version.fields:
+            if f.key == "vermieter_name":
+                val: object = "Hans Vermieter"
+                out_str = "Hans Vermieter"
+            elif f.key == "vermieter_stra_e_nr":
+                val = "Hauptstr. 10, Stuttgart"
+                out_str = "Hauptstr. 10, Stuttgart"
+            elif f.key == "mieter_name":
+                val = "Oussama Chajii"
+                out_str = "Oussama Chajii"
+            elif "im_haus" in f.key:
+                val = "Stuttgart Landhausstr. 250"
+                out_str = "Stuttgart Landhausstr. 250"
+            elif f.field_type == "integer":
+                val = 3
+                out_str = "3"
+            elif f.field_type == "date":
+                val = "2026-05-01"
+                out_str = "01.05.2026"
+            elif f.field_type == "money":
+                val = {"amount": 1200, "currency": "EUR", "period": "monthly"}
+                out_str = "1200 EUR"
+            elif f.key == "mietkosten_iban":
+                val = "DE89370400440532013000"
+                out_str = "DE89370400440532013000"
+            else:
+                val = f"Test-{f.position}"
+                out_str = f"Test-{f.position}"
+
+            db.add(
+                FormAnswer(
+                    session_id=session.id,
+                    field_id=f.id,
+                    original_answer=out_str,
+                    original_language="de",
+                    normalized_value=val,
+                    output_value=out_str,
+                    status="confirmed",
+                    confirmed_by_user=True,
+                )
+            )
+        session.status = "ready_for_export"
+        db.commit()
+
+        pdf_dir = tmp_path / "fixtures" / "pdf"
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        pdf_service = PDFExportService(db, pdf_dir)
+        export = pdf_service.create_export(session.public_id, sess_token)
+        assert export.status == "completed"
+
+        export_path = Path(export.storage_path)
+        assert export_path.is_file()
+        rendered_doc = fitz.open(str(export_path))
+        try:
+            p1_text = rendered_doc[0].get_text("text")
+            p2_text = rendered_doc[1].get_text("text")
+        finally:
+            rendered_doc.close()
+
+        assert "Hans Vermieter" in p1_text
+        assert "Hauptstr. 10, Stuttgart" in p1_text
+        assert "Oussama Chajii" in p1_text
+        assert "Stuttgart Landhausstr. 250" in p1_text
+        assert "01.05.2026" in p2_text
+        assert "1,200" in p2_text
+        assert "DE89370400440532013000" in p2_text
+        assert "EUR Euro." not in p2_text
+
+        doc_service.storage.delete_file(src_doc.storage_path)
+    finally:
+        db.close()
+
+
+def test_clarification_merges_address_parts_instead_of_dict_repr() -> None:
+    """Regression test: submitting clarification `{'city': 'Stuttgart'}` for an
+    address field with `original_answer='Landhausstrasse 260, 70188'` must
+    produce `'Landhausstrasse 260, 70188, Stuttgart'`, never `\"{'city': 'Stuttgart'}\"`.
+    """
+    db = SessionLocal()
+    try:
+        token = "clarify-address-token"
+        token_hash = hash_ownership_token(token)
+        expires = datetime.now(UTC) + timedelta(hours=2)
+
+        template = FormTemplate(key="clarify-addr-tpl", name="Clarify Addr")
+        db.add(template)
+        db.commit()
+
+        version = FormVersion(
+            form_template_id=template.id,
+            version_number=1,
+            status="published",
+            source_language="de",
+            supported_output_languages=["de", "en"],
+        )
+        db.add(version)
+        db.commit()
+
+        addr_field = FormField(
+            form_version_id=version.id,
+            key="anschrift",
+            field_type="address",
+            required=True,
+            requiredness="required",
+            position=0,
+        )
+        name_field = FormField(
+            form_version_id=version.id,
+            key="wohnungsgeber_name",
+            field_type="string",
+            required=True,
+            requiredness="required",
+            position=1,
+        )
+        db.add_all([addr_field, name_field])
+        db.commit()
+
+        session = FormSession(
+            form_version_id=version.id,
+            user_language="en",
+            source_language="de",
+            output_language="de",
+            ownership_token_hash=token_hash,
+            status="in_progress",
+            expires_at=expires,
+        )
+        db.add(session)
+        db.commit()
+
+        addr_ans = FormAnswer(
+            session_id=session.id,
+            field_id=addr_field.id,
+            original_answer="Landhausstrasse 260, 70188",
+            original_language="en",
+            normalized_value="Landhausstrasse 260, 70188",
+            status="needs_clarification",
+            requires_clarification=True,
+        )
+        gibberish_ans = FormAnswer(
+            session_id=session.id,
+            field_id=name_field.id,
+            original_answer="knjdgksj iengioew",
+            original_language="en",
+            normalized_value="knjdgksj iengioew",
+            status="needs_clarification",
+            requires_clarification=True,
+        )
+        db.add_all([addr_ans, gibberish_ans])
+        db.commit()
+
+        service = AnswerService(db)
+        updated_addr = service.submit_clarification(
+            session.public_id,
+            addr_ans.id,
+            {"city": "Stuttgart"},
+            token,
+        )
+        assert updated_addr.status == "awaiting_confirmation"
+        assert updated_addr.output_value == "Landhausstrasse 260, 70188, Stuttgart"
+        assert "{" not in (updated_addr.output_value or "")
+
+        updated_name = service.submit_clarification(
+            session.public_id,
+            gibberish_ans.id,
+            {
+                "The user answer 'knjdgksj iengioew' is gibberish and does not represent a valid name.": "Oussama Chajii"
+            },
+            token,
+        )
+        assert updated_name.status == "awaiting_confirmation"
+        assert updated_name.output_value == "Oussama Chajii"
+        assert "{" not in (updated_name.output_value or "")
+    finally:
+        db.close()

@@ -434,12 +434,33 @@ class LocalFieldDetectionProvider:
                 else widget.rect.y
             )
             context = self._context_for_y(page_groups, page_context_map, ref_y)
-            label = _contextual_label(label, context)
 
-            if mapped_type == "text":
-                mapped_type = classify_label(label)
-                if mapped_type == "text" and widget.field_name:
-                    mapped_type = classify_label(humanized_widget_name)
+            raw_label_text = label
+            wname_lower = (widget.field_name or "").lower()
+            is_combined_place_date_sig = (
+                mapped_type == "text"
+                and any(tok in wname_lower for tok in ("ort", "datum", "place", "date"))
+                and classify_label(raw_label_text) == "signature"
+                and any(
+                    tok in raw_label_text.lower()
+                    for tok in ("ort", "datum", "place", "date", "lieu")
+                )
+            )
+            if is_combined_place_date_sig:
+                place_date_label = re.sub(
+                    r",\s*(?:unterschrift|unterzeichnung|signature)\b",
+                    "",
+                    raw_label_text,
+                    count=1,
+                    flags=re.IGNORECASE,
+                ).strip()
+                label = _contextual_label(place_date_label or raw_label_text, context)
+            else:
+                label = _contextual_label(label, context)
+                if mapped_type == "text":
+                    mapped_type = classify_label(label)
+                    if mapped_type == "text" and widget.field_name:
+                        mapped_type = classify_label(humanized_widget_name)
 
             confidence = acroform_widget_confidence(
                 mapped_type, label_found=nearest_label is not None
@@ -465,6 +486,52 @@ class LocalFieldDetectionProvider:
                     input_bounding_box=widget.rect,
                 )
             )
+
+            if is_combined_place_date_sig:
+                sig_label_raw = re.sub(
+                    r"^\s*(?:ort\s*,\s*datum|datum\s*,\s*ort|place\s*,\s*date)\s*,\s*",
+                    "",
+                    raw_label_text,
+                    count=1,
+                    flags=re.IGNORECASE,
+                ).strip()
+                sig_label = _contextual_label(sig_label_raw or "Unterschrift", context)
+                sig_x = widget.rect.x + widget.rect.width + 8.0
+                caption_right = (
+                    nearest_label.bounding_box.x + nearest_label.bounding_box.width
+                    if nearest_label is not None
+                    else sig_x + 180.0
+                )
+                sig_w = max(caption_right - sig_x, 140.0)
+                sig_box = BoundingBox(
+                    x=sig_x,
+                    y=widget.rect.y,
+                    width=sig_w,
+                    height=max(widget.rect.height, 22.0),
+                )
+                sig_norm_name = (
+                    f"{normalize_field_name(widget.field_name)}_unterschrift"
+                    if widget.field_name
+                    else _contextual_name(sig_label_raw or "Unterschrift", context)
+                )
+                candidates.append(
+                    DetectedFieldCandidate(
+                        candidate_key=f"acroform-sig-{widget.page_number}-{index}",
+                        page_number=widget.page_number,
+                        label=sig_label,
+                        normalized_name=sig_norm_name,
+                        field_type="signature",
+                        confidence=acroform_widget_confidence(
+                            "signature", label_found=True
+                        ),
+                        source="acroform",
+                        required=widget.required,
+                        label_bounding_box=nearest_label.bounding_box
+                        if nearest_label
+                        else None,
+                        input_bounding_box=sig_box,
+                    )
+                )
 
         return candidates
 
@@ -976,6 +1043,66 @@ class LocalFieldDetectionProvider:
                         field_type = "text"
                         confidence = 0.55
 
+                label_box = phrase.bounding_box
+                input_box: BoundingBox | None = None
+                if phrase.has_blank_sibling:
+                    sibling = next(
+                        (
+                            s
+                            for s in group[segment_index + 1 :]
+                            if is_blank_run(s.text) or starts_with_blank_run(s.text)
+                        ),
+                        None,
+                    )
+                    if sibling is None:
+                        sibling = next(
+                            (
+                                s
+                                for s in group
+                                if s is not phrase
+                                and (
+                                    is_blank_run(s.text)
+                                    or starts_with_blank_run(s.text)
+                                )
+                            ),
+                            None,
+                        )
+                    if sibling is not None:
+                        input_box = sibling.bounding_box
+                elif phrase.has_blank_marker:
+                    blank_token_boxes = [
+                        t.bounding_box
+                        for t in phrase.tokens
+                        if is_blank_run(t.text) or starts_with_blank_run(t.text)
+                    ]
+                    label_token_boxes = [
+                        t.bounding_box
+                        for t in phrase.tokens
+                        if not (is_blank_run(t.text) or starts_with_blank_run(t.text))
+                    ]
+                    if blank_token_boxes:
+                        input_box = union_bounding_box(blank_token_boxes)
+                    if label_token_boxes:
+                        label_box = union_bounding_box(label_token_boxes)
+                elif has_large_gap_below and not phrase.trailing_text:
+                    gap_y = phrase.bounding_box.y + phrase.bounding_box.height + 2.0
+                    gap_h = (
+                        max((next_box.y - 2.0) - gap_y, 24.0)
+                        if next_box is not None
+                        else 48.0
+                    )
+                    gap_w = max(
+                        page.width - phrase.bounding_box.x - 40.0,
+                        phrase.bounding_box.width,
+                        160.0,
+                    )
+                    input_box = BoundingBox(
+                        x=phrase.bounding_box.x,
+                        y=gap_y,
+                        width=gap_w,
+                        height=gap_h,
+                    )
+
                 context = context_map.get(index)
                 candidates.append(
                     DetectedFieldCandidate(
@@ -988,7 +1115,8 @@ class LocalFieldDetectionProvider:
                         field_type=field_type,
                         confidence=confidence,
                         source=phrase.source,
-                        label_bounding_box=phrase.bounding_box,
+                        label_bounding_box=label_box,
+                        input_bounding_box=input_box,
                         # A blank-run marker (e.g. "……………") is a placeholder
                         # for where the user will write their answer — it is
                         # never real prefilled data, so it must never be
@@ -1140,6 +1268,15 @@ class LocalFieldDetectionProvider:
                     if not label:
                         continue
 
+                    gap_x = right_edge(before.bounding_box) + 2.0
+                    gap_w = max(after.bounding_box.x - gap_x - 2.0, 16.0)
+                    input_box = BoundingBox(
+                        x=gap_x,
+                        y=before.bounding_box.y,
+                        width=gap_w,
+                        height=height,
+                    )
+
                     context = context_map.get(index)
                     found_any = True
                     candidates.append(
@@ -1163,7 +1300,7 @@ class LocalFieldDetectionProvider:
                             confidence=0.6,
                             source=before.source,
                             label_bounding_box=before.bounding_box,
-                            input_bounding_box=after.bounding_box,
+                            input_bounding_box=input_box,
                         )
                     )
 

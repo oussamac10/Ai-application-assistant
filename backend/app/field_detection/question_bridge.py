@@ -91,7 +91,7 @@ _FIELD_TYPE_MAP: dict[str, str] = {
     "radio": "single_choice",
     "select": "single_choice",
     "multiple_choice": "multiple_choice",
-    "signature": "string",
+    "signature": "signature",
     "unknown": "string",
 }
 
@@ -103,6 +103,8 @@ def _map_field_type(detected_field: DetectedField) -> str:
     if mapped in _CHOICE_TYPES and not detected_field.options:
         # A choice type with no known options can't be rendered — the
         # existing FormService.publish_version would reject it outright.
+        return "string"
+    if mapped == "signature" and not detected_field.input_bounding_box:
         return "string"
     return mapped
 
