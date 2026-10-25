@@ -21,54 +21,35 @@ Archived under `docs/progress/`:
 15. Azure Translator Integration
 16. Hybrid Document Detection
 17. Dynamic Coordinate-Overlay PDF Export, Document Location Preview & Voice Dictation
+18. Plain-Language Field Explanations & Submission Checklist
 
 ## Current Task
 
-Implement Phase 18: Plain-Language "Explain This Field" Helper and Personalized Final Submission & Attachment Checklist.
+Execute **SaaS Phase S0** (`S0-01` through `S0-04`): P0 Security, Privacy & Production Blockers Remediation (see [`docs/SAAS_ROADMAP.md`](docs/SAAS_ROADMAP.md)).
 
 ## Goal
 
-Help users completing unfamiliar bureaucratic forms understand what each field means and where to find the required information in plain, non-legal language (in their chosen `userLanguage`), and provide a personalized, interactive Submission & Supporting Document Checklist on the final completion screen (`complete/page.tsx`) based on the form's fields, signatures, and document context.
+Eliminate all P0 security, multi-tenancy, credential-leakage, and data-retention blockers identified in the Principal Architecture Audit before enabling cloud object storage, Stripe billing, and public SaaS launch.
 
 ## Acceptance Criteria
 
-- [x] Deterministic + multilingual plain-language field explanation resolver (`backend/app/answers/explanations.py`) that explains common bureaucratic concepts (housing provider confirmation / `Wohnungsgeberbestätigung`, `IBAN`/`BIC`, `Kaution`, `Grundmiete`/`Betriebskostenvorauszahlung`/`Heizkostenvorauszahlung`, `PLZ`/`Ort`, tax/registration identifiers, signatures, dates, etc.) in plain words with "What this means" and "Where to find it" guidance, strictly adhering to product boundaries (never offering legal advice or eligibility decisions)
-- [x] `CurrentFieldResponse` (`backend/app/answers/schemas.py`, `backend/app/answers/services.py`) includes structured `field_explanation` metadata (`summary`, `where_to_find`, `example`) localized to `session.user_language` (with translation fallback via `TranslationProvider` when needed)
-- [x] Guided Session UI (`frontend/src/app/application/session/[sessionId]/page.tsx`) includes an interactive *"Explain this field in simple words"* toggle button and collapsible callout card showing the plain-language explanation, where to find the value, and a concrete example
-- [x] `SummaryResponse` (`backend/app/answers/schemas.py`, `backend/app/answers/services.py`) includes a deterministic `submission_checklist` list of actionable post-completion checklist items (e.g., printing & signing deferred signatures, obtaining landlord/second-party counter-signature when `Wohnungsgeber`/`Vermieter` fields are present, attaching identity/supporting documents when referenced, verifying IBAN/account details)
-- [x] Final Completion page (`frontend/src/app/application/session/[sessionId]/complete/page.tsx`) renders the interactive **Submission & Supporting Document Checklist** so users can check off required steps and attachments before submitting their completed PDF to the authority
-- [x] Unit tests for backend explanation & checklist generation and frontend tests pass with zero regressions
-
-## Planned Steps
-
-- [x] Create `backend/app/answers/explanations.py` with deterministic plain-language field explanations and submission checklist generation
-- [x] Expose `field_explanation` on `CurrentFieldResponse` and `submission_checklist` on `SummaryResponse` in `backend/app/answers/schemas.py` and `backend/app/answers/services.py`
-- [x] Update `frontend/src/features/form-session/services/apiClient.ts`, `frontend/src/app/application/session/[sessionId]/page.tsx`, and `frontend/src/app/application/session/[sessionId]/complete/page.tsx`
-- [x] Add unit tests in `backend/tests/answers/test_explanations_and_checklist.py` and verify backend (`pytest`, `ruff`, `mypy`) and frontend (`vitest`, `tsc --noEmit`)
-
-## Files Expected to Change
-
-- `TODO.md`
-- `docs/progress/phase-17-dynamic-pdf-export.md`
-- `backend/app/answers/explanations.py`
-- `backend/app/answers/schemas.py`
-- `backend/app/answers/services.py`
-- `backend/tests/answers/test_explanations_and_checklist.py`
-- `frontend/src/features/form-session/services/apiClient.ts`
-- `frontend/src/app/application/session/[sessionId]/page.tsx`
-- `frontend/src/app/application/session/[sessionId]/complete/page.tsx`
-
-## Decisions and Assumptions
-
-- Plain-language explanations use a deterministic static catalog first (matching semantic field keys, label keywords, and field types in `en`, `de`, `fr`, `ar`, and fallback translation for any other `user_language`), avoiding unnecessary paid AI calls per `AGENTS.md` Section 5.5 and 6.1.
-- Explanations strictly inform the user what the form field asks for and where to find the information on official letters/contracts; they never give legal advice, financial advice, or eligibility conclusions (`AGENTS.md` Section 4).
-
-## Blockers
-
-- None
-
-## Verification
-
-- [x] Backend tests pass (`pytest`)
-- [x] Backend linting and type checking pass (`ruff check`, `ruff format --check`, `mypy`)
-- [x] Frontend tests and type checking pass (`vitest`, `tsc --noEmit`)
+- [x] **`S0-01` Admin RBAC & Dynamic Form Isolation**:
+  - Add `users.role` (`user` | `org_admin` | `platform_admin`, default `user`) + Alembic migration `a1b2c3d4e5f6` + `ADMIN_EMAILS` bootstrap configuration.
+  - Protect all admin form/version/field CRUD/publish/clone endpoints (`/api/forms*`, `/api/form-versions/{id}` admin routes, `/api/form-fields/{id}`) and `/api/questions*` with `require_admin` (`401` anonymous, `403` regular user) and `verify_csrf` on mutations.
+  - Filter `GET /api/published-forms` (and `POST /api/form-versions/{id}/sessions`) strictly to `FormVersion.origin == "predefined_template"` (and exclude `signature-demo` in production) so uploaded user PDFs (`dynamic_detection`) never leak across sessions.
+- [x] **`S0-02` Cloud AI Credential Header Hardening**:
+  - Transmit `GEMINI_API_KEY` exclusively via `x-goog-api-key` HTTP header in `GeminiAIProvider._post` and `health_check` (never in `?key=` URL query strings), separate `systemInstruction`, and pin `httpx` / `httpcore` loggers to `WARNING` in `app/main.py`.
+- [x] **`S0-03` Production Secret Fail-Fast, Backdoor Removal & Constant-Time Login**:
+  - Fail fast at startup when `ENVIRONMENT=production` if `SESSION_TOKEN_SECRET` or `AUTH_SECRET` is unset, `< 32` chars, or equals a dev fallback, or if `AUTH_COOKIE_SECURE` is `False`.
+  - Remove legacy `REBIND_ON_NEXT_REQUEST` ownership-token branch in `SessionService.get_session`.
+  - Equalize `AuthService.login` timing on unknown/inactive emails using `_DUMMY_PASSWORD_HASH`.
+- [x] **`S0-04` Claimed Document Retention, Multi-Page AcroForm Export, Progress % & Console Cleanup**:
+  - Restrict `SourceDocument` TTL cleanup in `cleanup_expired_exports.py` to anonymous documents (`user_id IS NULL`) unless explicitly marked `deleted`.
+  - Update `PypdfRenderer.render` to populate AcroForm fields across all pages (`for page in writer.pages`) with `/DR` catalog fallback.
+  - Compute application dashboard progress over `len(session.version.fields)` when `total_required_fields == 0` in `applications/services.py`.
+  - Remove `console.log("FETCHED FIELD:", ...)` from `frontend/src/app/application/session/[sessionId]/page.tsx`.
+- [x] All backend (`ruff`, `mypy`, `1,154` `pytest` tests on isolated `ai_form_assistant_test` DB) and frontend (`tsc`, `eslint`, `239` `vitest` tests) checks pass with new security regression tests.
+- [x] **Workspace Agent Skills & Rule Budget Upgrade (Pre-`Phase S1`)**:
+  - Installed `9` vetted, zero-script open-source GitHub skills (`vercel-react-best-practices`, `frontend-design`, `wcag-audit-patterns`, `supabase-postgres-best-practices`, `stripe-best-practices`, `differential-review`, `systematic-debugging`, `test-driven-development`, `verification-before-completion`) pinned with SHA-256 hashes in `.agents/skills/SOURCES.lock.json`.
+  - Authored `6` custom AI Form Assistant project skills (`ai-form-architecture`, `multilingual-form-engine`, `pdf-processing-quality`, `ai-reliability`, `saas-readiness`, `release-quality-gate`) and `.agents/skills/README.md`.
+  - Compacted `.agents/AGENTS.md` from `40,263` bytes to `12,699` bytes so Antigravity `<user_rules>` loads `100%` of project rules with zero trailing truncation.

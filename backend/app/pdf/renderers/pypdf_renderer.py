@@ -50,15 +50,42 @@ class PypdfRenderer:
             if val is not None:
                 field_values[field_map.pdf_field_name] = str(val)
 
-        # Update page form field values and set read-only/flatten
+        # Update page form field values across all pages and set read-only
         if field_values:
-            from pypdf.constants import FieldFlag
+            from pypdf.constants import CatalogDictionary, FieldFlag
+            from pypdf.generic import DictionaryObject, NameObject
 
-            writer.update_page_form_field_values(
-                writer.pages[0],
-                field_values,
-                flags=FieldFlag.READ_ONLY,
-            )
+            # Guard against pypdf's _update_field_annotation crashing with
+            # AttributeError when an AcroForm catalog lacks a /DR dictionary.
+            if CatalogDictionary.ACRO_FORM in writer.root_object:
+                acro_form = writer.root_object[CatalogDictionary.ACRO_FORM].get_object()
+                if isinstance(acro_form, DictionaryObject) and "/DR" not in acro_form:
+                    acro_form[NameObject("/DR")] = DictionaryObject(
+                        {
+                            NameObject("/Font"): DictionaryObject(
+                                {
+                                    NameObject("/Helv"): DictionaryObject(
+                                        {
+                                            NameObject("/Type"): NameObject("/Font"),
+                                            NameObject("/Subtype"): NameObject(
+                                                "/Type1"
+                                            ),
+                                            NameObject("/BaseFont"): NameObject(
+                                                "/Helvetica"
+                                            ),
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    )
+
+            for page in writer.pages:
+                writer.update_page_form_field_values(
+                    page,
+                    field_values,
+                    flags=FieldFlag.READ_ONLY,
+                )
 
         # Write output file safely
         output_path.parent.mkdir(parents=True, exist_ok=True)

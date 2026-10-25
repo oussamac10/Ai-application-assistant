@@ -226,7 +226,37 @@ _EXPLANATION_CATALOG: tuple[tuple[tuple[str, ...], dict[str, dict[str, str]]], .
         },
     ),
     (
-        ("txtortdatum1_datum", "txtortdatum2_datum", "_datum"),
+        ("einzug", "auszug", "move_in", "move_out", "mietbeginn"),
+        {
+            "en": {
+                "summary": "The official move-in or move-out date when you actually move into or leave the apartment.",
+                "where_to_find": "Check your rental contract (Mietvertrag) or apartment handover protocol (Übergabeprotokoll) for the exact move-in date.",
+                "example": "01.11.2026",
+            },
+            "de": {
+                "summary": "Das tatsächliche Einzugs- bzw. Auszugsdatum, an dem Sie die Wohnung beziehen oder verlassen.",
+                "where_to_find": "Prüfen Sie Ihren Mietvertrag oder das Wohnungsübergabeprotokoll für das genaue Datum.",
+                "example": "01.11.2026",
+            },
+            "fr": {
+                "summary": "La date réelle d'emménagement ou de déménagement dans le logement.",
+                "where_to_find": "Vérifiez votre contrat de bail ou l'état des lieux d'entrée.",
+                "example": "01.11.2026",
+            },
+            "ar": {
+                "summary": "تاريخ الانتقال الفعلي للسكن (Einzug) أو مغادرته (Auszug).",
+                "where_to_find": "راجع عقد الإيجار أو محضر استلام الشقة للتأكد من تاريخ الانتقال الدقيق.",
+                "example": "01.11.2026",
+            },
+        },
+    ),
+    (
+        (
+            "txtortdatum1_datum",
+            "txtortdatum2_datum",
+            "ortdatum_datum",
+            "unterschrift_datum",
+        ),
         {
             "en": {
                 "summary": "The date (Datum) on which this form is signed.",

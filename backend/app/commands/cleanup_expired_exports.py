@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 
 from app.database.session import SessionLocal
 from app.pdf.models import FormExport
@@ -57,12 +57,16 @@ def cleanup_expired_exports() -> int:
         else:
             logger.info("No expired exports found to clean up.")
 
-        # Cleanup expired source documents
+        # Cleanup expired anonymous source documents (authenticated user-owned
+        # documents persist until explicitly deleted by their owner).
         from app.documents.models import SourceDocument
 
         stmt_docs = select(SourceDocument).where(
             or_(
-                SourceDocument.expires_at < now,
+                and_(
+                    SourceDocument.user_id.is_(None),
+                    SourceDocument.expires_at < now,
+                ),
                 SourceDocument.status.in_(["expired", "deleted"]),
             )
         )

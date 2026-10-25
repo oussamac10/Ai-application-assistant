@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
-from app.auth.errors import AuthUnauthorizedError
+from app.auth.errors import AuthForbiddenError, AuthUnauthorizedError
 from app.auth.models import User
 from app.auth.services import AuthService
 from app.core.config import settings
@@ -39,6 +39,14 @@ def require_user(request: Request, db: Session = Depends(get_db)) -> User:
     if not resolved:
         raise AuthUnauthorizedError("Authentication required.")
     return resolved[0]
+
+
+def require_admin(user: User = Depends(require_user)) -> User:
+    """Requires an authenticated platform administrator (401 if unauthenticated,
+    403 if authenticated without platform_admin privileges)."""
+    if user.role != "platform_admin":
+        raise AuthForbiddenError("Administrator privileges required.")
+    return user
 
 
 def verify_csrf(request: Request) -> None:

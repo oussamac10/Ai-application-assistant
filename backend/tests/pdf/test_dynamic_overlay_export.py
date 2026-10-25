@@ -352,9 +352,9 @@ async def test_current_field_includes_document_location_metadata(
         assert current["page_number"] == 2
         assert current["input_bounding_box"] == {
             "x": 140.0,
-            "y": 260.0,
+            "y": 263.5,
             "width": 120.0,
-            "height": 18.0,
+            "height": 14.5,
         }
         assert current["source_document_filename"] == "wohngeld_2026.pdf"
         assert current["source_document_page_count"] == 2

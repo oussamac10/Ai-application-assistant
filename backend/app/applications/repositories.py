@@ -21,7 +21,10 @@ class ApplicationRepository:
         stmt = (
             select(FormSession)
             .where(FormSession.user_id == user_id, FormSession.deleted_at.is_(None))
-            .options(joinedload(FormSession.version).joinedload(FormVersion.template))
+            .options(
+                joinedload(FormSession.version).joinedload(FormVersion.template),
+                joinedload(FormSession.version).joinedload(FormVersion.fields),
+            )
             .order_by(FormSession.updated_at.desc())
         )
         return list(self.db.scalars(stmt).unique().all())
@@ -34,9 +37,12 @@ class ApplicationRepository:
                 FormSession.user_id == user_id,
                 FormSession.deleted_at.is_(None),
             )
-            .options(joinedload(FormSession.version).joinedload(FormVersion.template))
+            .options(
+                joinedload(FormSession.version).joinedload(FormVersion.template),
+                joinedload(FormSession.version).joinedload(FormVersion.fields),
+            )
         )
-        return self.db.scalars(stmt).first()
+        return self.db.scalars(stmt).unique().first()
 
     def touch_last_opened(self, session: FormSession, now: datetime) -> None:
         session.last_opened_at = now

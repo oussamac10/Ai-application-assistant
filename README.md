@@ -11,26 +11,24 @@ The AI Form Assistant bridges the language gap by allowing users to complete for
 
 It guides the user through the form one field at a time, normalizing, validating, and confirming answers.
 
-## Current Phase: Phase 16 — Hybrid Document Detection
+## Current Status: MVP Phases 1–18 Completed | SaaS Production Roadmap Active (`Phase S0`)
 
-See [`docs/claude/current-phase.md`](docs/claude/current-phase.md) and
-[`docs/phases/phase-16-hybrid-document-detection.md`](docs/phases/phase-16-hybrid-document-detection.md).
+### Architecture & SaaS Strategy Documentation
 
-The phase opens with a stabilization pass on validation and requiredness. A field now records
-what the document actually declared — `required`, `optional`, or **`unknown`** when it said
-nothing — instead of a boolean that had to guess, and the interface shows no requiredness label
-at all for `unknown` rather than claiming "Optional". Confirming the summary no longer validates
-questions that have no value, and a rejection lists every blocking field by key and reason code
-instead of one sentence about one field. See
-[ADR 0016](docs/decisions/0016-three-state-requiredness-and-structured-confirmation.md).
+* **Product & Market Strategy**: [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md)
+* **System Architecture & ADRs**: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+* **Database Schema & Retention**: [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md)
+* **AI, OCR & Document Pipeline**: [`docs/AI_PIPELINE.md`](docs/AI_PIPELINE.md)
+* **Monetization & Unit Economics**: [`docs/MONETIZATION.md`](docs/MONETIZATION.md)
+* **Production Deployment Plan**: [`docs/DEPLOYMENT_PLAN.md`](docs/DEPLOYMENT_PLAN.md)
+* **Go-To-Market Playbook**: [`docs/GO_TO_MARKET.md`](docs/GO_TO_MARKET.md)
+* **Master SaaS Roadmap (`Phases S0–S6`)**: [`docs/SAAS_ROADMAP.md`](docs/SAAS_ROADMAP.md)
 
-Field detection then gained a `hybrid` provider: the local pass runs on every document, its
-output is scored deterministically, and Azure Document Intelligence is called only when that
-score says the document was not read — so an ordinary digital form costs nothing while a hard one
-still works. Escalation can only improve the answer, and no model participates in the decision to
-spend. Set `FIELD_DETECTION_PROVIDER=hybrid`; it works with Azure unconfigured, in which case it
-simply serves the local result. See
-[ADR 0017](docs/decisions/0017-hybrid-local-first-field-detection.md).
+### Recent Feature Milestones (Phases 16–18)
+
+* **Phase 18 (Completed)**: Plain-language *"Explain This Field"* civic helper (`What this means` + `Where to find it`) and personalized **Final Submission & Supporting Document Checklist** on session completion.
+* **Phase 17 (Completed)**: Dynamic coordinate-overlay & AcroForm PDF export for any uploaded PDF, live split-screen PDF field-location highlighting, compound `Ort, Datum, Unterschrift` splitting, multi-signature support, and browser Web Speech voice dictation — see [`docs/progress/phase-17-dynamic-pdf-export.md`](docs/progress/phase-17-dynamic-pdf-export.md).
+* **Phase 16 (Completed)**: Three-state field requiredness (`required`, `optional`, `unknown` — [ADR 0016](docs/decisions/0016-three-state-requiredness-and-structured-confirmation.md)) and `hybrid` local-first field detection with deterministic escalation to Azure Document Intelligence ([ADR 0017](docs/decisions/0017-hybrid-local-first-field-detection.md)).
 
 Phase 15 (completed) —
 [`docs/phases/phase-15-azure-translator.md`](docs/phases/phase-15-azure-translator.md).
@@ -127,7 +125,7 @@ pip install -r requirements.txt
 ```
 
 * **Run Server**: `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`
-* **Run Tests**: `PYTHONPATH=. pytest`
+* **Run Tests (always use isolated test DB)**: `POSTGRES_DB=ai_form_assistant_test PYTHONPATH=. pytest`
 * **Format Check**: `ruff format --check .`
 * **Auto-format**: `ruff format .`
 * **Lint Check**: `ruff check .`

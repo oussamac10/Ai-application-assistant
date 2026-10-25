@@ -69,6 +69,10 @@ class SessionService:
             raise ResourceNotFoundError(
                 f"Form version with ID '{form_version_id}' not found."
             )
+        if version.origin != "predefined_template" and source_document_id is None:
+            raise ResourceNotFoundError(
+                f"Form version with ID '{form_version_id}' not found."
+            )
 
         # 2. Reject non-published versions
         if version.status != "published":
@@ -142,10 +146,7 @@ class SessionService:
         else:
             if not raw_token or not session.ownership_token_hash:
                 raise UnauthorizedError("Invalid session credentials")
-            if session.ownership_token_hash == "REBIND_ON_NEXT_REQUEST":
-                session.ownership_token_hash = hash_ownership_token(raw_token)
-                self.db.commit()
-            elif not verify_ownership_token(raw_token, session.ownership_token_hash):
+            if not verify_ownership_token(raw_token, session.ownership_token_hash):
                 raise UnauthorizedError("Invalid session credentials")
 
         # Check and handle expiration first. Claimed (authenticated-owned)

@@ -25,7 +25,20 @@ def _form_name(session: FormSession) -> str:
 
 def to_summary_dict(session: FormSession) -> dict[str, Any]:
     total = session.total_required_fields
-    progress = int((session.current_field_position / total) * 100) if total > 0 else 0
+    if total <= 0 and session.version and session.version.fields:
+        total = len(session.version.fields)
+    if session.status in (
+        "awaiting_final_confirmation",
+        "ready_for_export",
+        "completed",
+    ):
+        progress = 100
+    else:
+        progress = (
+            min(100, int((session.current_field_position / total) * 100))
+            if total > 0
+            else 0
+        )
     return {
         "id": session.public_id,
         "title": session.title or _form_name(session),

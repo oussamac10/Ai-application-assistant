@@ -26,6 +26,7 @@ class LoginRequest(BaseSchema):
 class UserResponse(BaseSchema):
     id: str
     email: str
+    role: str = "user"
     created_at: datetime
     last_login_at: datetime | None = None
 

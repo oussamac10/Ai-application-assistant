@@ -11,12 +11,17 @@ class UserRepository:
         self.db = db
 
     def create_user(
-        self, email: str, normalized_email: str, password_hash: str
+        self,
+        email: str,
+        normalized_email: str,
+        password_hash: str,
+        role: str = "user",
     ) -> User:
         user = User(
             email=email,
             normalized_email=normalized_email,
             password_hash=password_hash,
+            role=role,
             status="active",
         )
         self.db.add(user)

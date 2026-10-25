@@ -56,6 +56,7 @@ services:
       AZURE_TRANSLATOR_MAX_RETRIES: ${AZURE_TRANSLATOR_MAX_RETRIES:-1}
       AZURE_TRANSLATOR_MAX_BATCH_SIZE: ${AZURE_TRANSLATOR_MAX_BATCH_SIZE:-50}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       # Azure Document Intelligence (Phase 14) — backend-only, and only
       # needed when FIELD_DETECTION_PROVIDER=azure. Values come from the
       # host environment / .env so no credential is ever written into this

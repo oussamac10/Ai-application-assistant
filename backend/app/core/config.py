@@ -199,6 +199,15 @@ class Settings(BaseSettings):
     AUTH_CSRF_COOKIE_NAME: str = "csrf_token"
     AUTH_CSRF_HEADER_NAME: str = "X-CSRF-Token"
     PASSWORD_MIN_LENGTH: int = 10
+    ADMIN_EMAILS: str = ""
+
+    @property
+    def admin_emails_set(self) -> set[str]:
+        return {
+            email.strip().lower()
+            for email in self.ADMIN_EMAILS.split(",")
+            if email.strip()
+        }
 
     # Comma-separated list of frontend origins allowed to send credentialed
     # (cookie-bearing) requests. A wildcard cannot be combined with
@@ -212,14 +221,36 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_session_secret(self) -> "Settings":
-        if not self.SESSION_TOKEN_SECRET:
-            self.SESSION_TOKEN_SECRET = "unsafe-dev-fallback-secret-key-12345678"
+        dev_fallback = "unsafe-dev-fallback-secret-key-12345678"
+        if self.is_production:
+            secret = (self.SESSION_TOKEN_SECRET or "").strip()
+            if not secret or secret == dev_fallback or len(secret) < 32:
+                raise ValueError(
+                    "SESSION_TOKEN_SECRET must be explicitly set to a strong "
+                    "secret (>= 32 characters) in production."
+                )
+        elif not self.SESSION_TOKEN_SECRET:
+            self.SESSION_TOKEN_SECRET = dev_fallback
         return self
 
     @model_validator(mode="after")
     def validate_auth_settings(self) -> "Settings":
-        if not self.AUTH_SECRET:
-            self.AUTH_SECRET = "unsafe-dev-fallback-auth-secret-key-12345678"
+        dev_auth_fallback = "unsafe-dev-fallback-auth-secret-key-12345678"
+        if self.is_production:
+            auth_secret = (self.AUTH_SECRET or "").strip()
+            if (
+                not auth_secret
+                or auth_secret == dev_auth_fallback
+                or len(auth_secret) < 32
+            ):
+                raise ValueError(
+                    "AUTH_SECRET must be explicitly set to a strong secret "
+                    "(>= 32 characters) in production."
+                )
+            if not self.AUTH_COOKIE_SECURE:
+                raise ValueError("AUTH_COOKIE_SECURE must be true in production.")
+        elif not self.AUTH_SECRET:
+            self.AUTH_SECRET = dev_auth_fallback
         if self.AUTH_SESSION_TTL_HOURS <= 0:
             raise ValueError("AUTH_SESSION_TTL_HOURS must be a positive integer.")
         if self.AUTH_COOKIE_SAMESITE.lower() not in ("lax", "strict", "none"):

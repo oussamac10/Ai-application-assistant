@@ -22,17 +22,22 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def clean_db() -> Generator[None, None, None]:
+    client.cookies.clear()
+    client.headers.pop("X-CSRF-Token", None)
     db = SessionLocal()
     try:
         db.execute(text("TRUNCATE TABLE form_templates CASCADE"))
         db.execute(text("TRUNCATE TABLE question_definitions CASCADE"))
         db.execute(text("TRUNCATE TABLE question_resolution_logs CASCADE"))
+        db.execute(text("TRUNCATE TABLE users CASCADE"))
         db.commit()
         yield
     except Exception:
         db.rollback()
     finally:
         db.close()
+        client.cookies.clear()
+        client.headers.pop("X-CSRF-Token", None)
 
 
 @pytest.fixture
@@ -361,9 +366,42 @@ def test_admin_api_disabled_by_default(question_catalog_setup: dict[str, Any]) -
 
 def test_admin_api_workflow(question_catalog_setup: dict[str, Any]) -> None:
     old_admin = settings.QUESTION_ADMIN_API_ENABLED
+    old_admin_emails = settings.QUESTION_ADMIN_API_ENABLED, settings.ADMIN_EMAILS
     settings.QUESTION_ADMIN_API_ENABLED = True
 
     try:
+        # Anonymous caller must be rejected with 401 even when QUESTION_ADMIN_API_ENABLED=True
+        anon_resp = client.get("/api/questions")
+        assert anon_resp.status_code == 401
+
+        # Regular authenticated user must be rejected with 403
+        user_client = TestClient(app)
+        reg_user = user_client.post(
+            "/api/auth/register",
+            json={
+                "email": "regular-q@example.com",
+                "password": "secure-password-123",
+                "passwordConfirmation": "secure-password-123",
+            },
+        )
+        assert reg_user.status_code == 201
+        assert user_client.get("/api/questions").status_code == 403
+
+        # Authenticate platform_admin on `client`
+        settings.ADMIN_EMAILS = "q-admin@example.com"
+        reg_admin = client.post(
+            "/api/auth/register",
+            json={
+                "email": "q-admin@example.com",
+                "password": "secure-password-123",
+                "passwordConfirmation": "secure-password-123",
+            },
+        )
+        assert reg_admin.status_code == 201
+        csrf = client.cookies.get("csrf_token")
+        assert csrf
+        client.headers["X-CSRF-Token"] = csrf
+
         db = SessionLocal()
         # 1. Create a pending translation manually in DB to test review workflow
         repo = QuestionRepository(db)
@@ -408,6 +446,7 @@ def test_admin_api_workflow(question_catalog_setup: dict[str, Any]) -> None:
         assert data[0]["text"] == "Quel est votre prénom ?"
     finally:
         settings.QUESTION_ADMIN_API_ENABLED = old_admin
+        settings.ADMIN_EMAILS = old_admin_emails[1]
         db.close()
 
 

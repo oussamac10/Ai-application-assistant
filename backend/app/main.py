@@ -24,6 +24,7 @@ from app.applications.errors import (
 from app.auth.api.routes import router as auth_router
 from app.auth.errors import (
     AuthConflictError,
+    AuthForbiddenError,
     AuthUnauthorizedError,
     AuthValidationError,
 )
@@ -84,6 +85,9 @@ logging.basicConfig(
     format="%(levelname)s:%(name)s:%(message)s",
     force=True,
 )
+# Prevent httpx/httpcore from logging outbound request URLs at INFO level.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 app = FastAPI(
     title="AI Form Assistant API",
@@ -228,6 +232,15 @@ async def auth_unauthorized_handler(
     request: Request, exc: AuthUnauthorizedError
 ) -> JSONResponse:
     return JSONResponse(status_code=401, content={"detail": "Authentication required."})
+
+
+@app.exception_handler(AuthForbiddenError)
+async def auth_forbidden_handler(
+    request: Request, exc: AuthForbiddenError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=403, content={"detail": "Administrator privileges required."}
+    )
 
 
 @app.exception_handler(ApplicationNotFoundError)

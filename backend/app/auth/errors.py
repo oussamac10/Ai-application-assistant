@@ -18,3 +18,9 @@ class AuthUnauthorizedError(Exception):
     regardless of the specific cause, to prevent account enumeration."""
 
     pass
+
+
+class AuthForbiddenError(Exception):
+    """Raised when an authenticated user lacks sufficient role permissions (403)."""
+
+    pass

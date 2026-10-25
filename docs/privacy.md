@@ -97,6 +97,15 @@ Only the outcome is stored on the document — language code, confidence, provid
 version and timestamp. The sample itself is never persisted, and logs record the sample's
 *length*, never its content.
 
+## 5e. Optional Cloud AI Extraction (`AI_PROVIDER=gemini` / Vertex AI EU)
+
+By default in automated tests (`AI_PROVIDER=mock`) or local development (`AI_PROVIDER=ollama`), AI extraction and clarification run without sending data to a third party.
+
+When `AI_PROVIDER=gemini` (or production EU Vertex AI in `europe-west3` Frankfurt) is explicitly configured:
+- Only the **single active field's metadata** (key, type, allowed options, languages) and the user's answer for **that single field** are sent for structured JSON normalization or clarification — never the full PDF, unrelated answers, session tokens, or account identifiers.
+- Deterministic field types (dates, emails, phone numbers, booleans, choice selections, signatures) are validated locally in Python without calling the AI provider.
+- API credentials travel exclusively in HTTP headers (`x-goog-api-key` or IAM bearer header) — never in URLs or logs.
+
 ## 6. Ephemeral Answers Storage
 - Form answers are stored in the database only for the duration of the active session.
 - When a session is deleted, all corresponding `form_answers` rows are deleted automatically via database cascade deletes.

@@ -376,3 +376,54 @@ async def test_injected_client_and_aclose() -> None:
     ) as mock_owned_close:
         await owned_provider.aclose()
         mock_owned_close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_api_key_sent_via_header_and_never_in_url() -> None:
+    secret_key = "AIzaSy-SUPER-SECRET-DO-NOT-LEAK"
+    provider = GeminiAIProvider(
+        api_key=secret_key,
+        model="gemini-3.5-flash",
+        timeout_seconds=5,
+        max_retries=0,
+    )
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = _mock_gemini_response(
+            {
+                "normalizedValue": "Berlin",
+                "outputValue": "Berlin",
+                "requiresClarification": False,
+                "uncertainties": [],
+            }
+        )
+        await provider.extract_value(
+            ExtractionRequest(
+                field_id="city",
+                field_type="string",
+                answer="Berlin",
+                user_language="en",
+                source_language="de",
+                output_language="de",
+            )
+        )
+        called_url = mock_post.call_args.args[0]
+        called_headers = mock_post.call_args.kwargs["headers"]
+        called_json = mock_post.call_args.kwargs["json"]
+        assert secret_key not in called_url
+        assert "key=" not in called_url
+        assert called_headers["x-goog-api-key"] == secret_key
+        assert "systemInstruction" in called_json
+        assert "untrusted data" in called_json["systemInstruction"]["parts"][0]["text"]
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        ok_resp = MagicMock()
+        ok_resp.status_code = 200
+        mock_get.return_value = ok_resp
+
+        assert await provider.health_check() is True
+        health_url = mock_get.call_args.args[0]
+        health_headers = mock_get.call_args.kwargs["headers"]
+        assert secret_key not in health_url
+        assert "key=" not in health_url
+        assert health_headers["x-goog-api-key"] == secret_key

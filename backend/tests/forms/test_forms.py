@@ -2,22 +2,50 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.database.session import SessionLocal
+from app.forms.schemas import FieldCreate, TranslationSchema
+from app.forms.services import FormService
 from app.main import app
 
 client = TestClient(app)
+ADMIN_PASSWORD = "admin-secure-password-123"
+
+
+def _authenticate_admin(c: TestClient, email: str = "forms-admin@example.com") -> None:
+    old_admins = settings.ADMIN_EMAILS
+    settings.ADMIN_EMAILS = email
+    try:
+        res = c.post(
+            "/api/auth/register",
+            json={
+                "email": email,
+                "password": ADMIN_PASSWORD,
+                "passwordConfirmation": ADMIN_PASSWORD,
+            },
+        )
+        assert res.status_code == 201
+        csrf = c.cookies.get("csrf_token")
+        assert csrf
+        c.headers["X-CSRF-Token"] = csrf
+    finally:
+        settings.ADMIN_EMAILS = old_admins
 
 
 @pytest.fixture(autouse=True)
 def clean_db() -> None:
+    client.cookies.clear()
+    client.headers.pop("X-CSRF-Token", None)
     db = SessionLocal()
     try:
         db.execute(text("TRUNCATE TABLE form_templates CASCADE"))
+        db.execute(text("TRUNCATE TABLE users CASCADE"))
         db.commit()
     except Exception:
         db.rollback()
     finally:
         db.close()
+    _authenticate_admin(client)
 
 
 def test_create_template() -> None:
@@ -520,3 +548,123 @@ def test_list_published_forms() -> None:
     assert target_form["versionNumber"] == 1
     assert target_form["sourceLanguage"] == "en"
     assert target_form["supportedOutputLanguages"] == ["en", "de"]
+
+
+def test_admin_form_endpoints_reject_anonymous_and_regular_users() -> None:
+    anon_client = TestClient(app)
+    assert anon_client.get("/api/forms").status_code == 401
+    assert (
+        anon_client.post("/api/forms", json={"key": "k1", "name": "N1"}).status_code
+        == 401
+    )
+
+    user_client = TestClient(app)
+    reg = user_client.post(
+        "/api/auth/register",
+        json={
+            "email": "regular-user@example.com",
+            "password": ADMIN_PASSWORD,
+            "passwordConfirmation": ADMIN_PASSWORD,
+        },
+    )
+    assert reg.status_code == 201
+    csrf = user_client.cookies.get("csrf_token")
+    assert csrf
+
+    assert user_client.get("/api/forms").status_code == 403
+    assert (
+        user_client.post(
+            "/api/forms",
+            json={"key": "k2", "name": "N2"},
+            headers={"X-CSRF-Token": csrf},
+        ).status_code
+        == 403
+    )
+
+    # Admin mutation without CSRF header must fail with 401
+    no_csrf_headers = {
+        k: v for k, v in client.headers.items() if k.lower() != "x-csrf-token"
+    }
+    res_no_csrf = client.post(
+        "/api/forms",
+        json={"key": "k3", "name": "N3"},
+        headers={"X-CSRF-Token": ""},
+    )
+    assert res_no_csrf.status_code == 401
+    _ = no_csrf_headers
+
+
+def test_published_forms_excludes_dynamic_detection_and_prod_demo() -> None:
+    db = SessionLocal()
+    try:
+        svc = FormService(db)
+        # 1. Dynamic detection form (from uploaded user PDF) must NEVER appear publicly
+        dyn_tpl = svc.create_template(
+            key="uploaded-user-pdf", name="Private Uploaded PDF"
+        )
+        dyn_ver = svc.create_draft_version(
+            form_template_id=dyn_tpl.id,
+            source_language="de",
+            supported_output_languages=["de"],
+            origin="dynamic_detection",
+        )
+        svc.add_field_to_draft(
+            dyn_ver.id,
+            FieldCreate(
+                key="secret_field",
+                field_type="string",
+                required=True,
+                position=1,
+                translations=[TranslationSchema(language="de", label="Geheim")],
+            ),
+        )
+        svc.publish_version(dyn_ver.id)
+
+        # 2. Signature demo form
+        demo_tpl = svc.create_template(key="signature-demo", name="Signature Demo")
+        demo_ver = svc.create_draft_version(
+            form_template_id=demo_tpl.id,
+            source_language="en",
+            supported_output_languages=["en"],
+            origin="predefined_template",
+        )
+        svc.add_field_to_draft(
+            demo_ver.id,
+            FieldCreate(
+                key="sig",
+                field_type="signature",
+                required=False,
+                position=1,
+                translations=[TranslationSchema(language="en", label="Signature")],
+            ),
+        )
+        svc.publish_version(demo_ver.id)
+        dyn_ver_id = dyn_ver.id
+        demo_ver_id = demo_ver.id
+    finally:
+        db.close()
+
+    anon_client = TestClient(app)
+    pub_list = anon_client.get("/api/published-forms")
+    assert pub_list.status_code == 200
+    ids = {f["id"] for f in pub_list.json()}
+    assert dyn_ver_id not in ids
+    assert demo_ver_id in ids
+
+    # Public session endpoint must also refuse dynamic_detection versions directly
+    dyn_session_attempt = anon_client.post(
+        f"/api/form-versions/{dyn_ver_id}/sessions",
+        json={"userLanguage": "de", "outputLanguage": "de"},
+    )
+    assert dyn_session_attempt.status_code == 404
+
+    # In production mode, signature-demo is hidden from /api/published-forms
+    old_env = settings.ENVIRONMENT
+    settings.ENVIRONMENT = "production"
+    try:
+        prod_list = anon_client.get("/api/published-forms")
+        assert prod_list.status_code == 200
+        prod_ids = {f["id"] for f in prod_list.json()}
+        assert demo_ver_id not in prod_ids
+    finally:
+        settings.ENVIRONMENT = old_env

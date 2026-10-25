@@ -42,13 +42,37 @@ async function goToLanding(page: Page) {
  * translation and no question_key is exactly the "manually selected form
  * with no catalog/multi-language coverage" scenario this fix addresses. */
 async function ensureFixtureForm(request: APIRequestContext): Promise<void> {
+  const adminEmail = process.env.E2E_ADMIN_EMAIL || "e2e-admin@example.com";
+  const adminPassword = process.env.E2E_ADMIN_PASSWORD || "e2e-admin-password-123";
+
+  // Register (or log in if already created in this E2E run) as platform_admin
+  let authRes = await request.post("/api/auth/register", {
+    data: {
+      email: adminEmail,
+      password: adminPassword,
+      passwordConfirmation: adminPassword,
+    },
+  });
+  if (authRes.status() === 409) {
+    authRes = await request.post("/api/auth/login", {
+      data: { email: adminEmail, password: adminPassword },
+    });
+  }
+  const storage = await request.storageState();
+  const csrfCookie = storage.cookies.find((c) => c.name === "csrf_token");
+  const headers: Record<string, string> = csrfCookie
+    ? { "X-CSRF-Token": csrfCookie.value }
+    : {};
+
   const templateRes = await request.post("/api/forms", {
     data: { key: FIXTURE_FORM_KEY, name: FIXTURE_FORM_NAME, description: null },
+    headers,
   });
   const template = await templateRes.json();
 
   const versionRes = await request.post(`/api/forms/${template.id}/versions`, {
     data: { sourceLanguage: "en", supportedOutputLanguages: ["en"] },
+    headers,
   });
   const version = await versionRes.json();
 
@@ -60,9 +84,10 @@ async function ensureFixtureForm(request: APIRequestContext): Promise<void> {
       position: 1,
       translations: [{ language: "en", label: "What is your full name?" }],
     },
+    headers,
   });
 
-  await request.post(`/api/form-versions/${version.id}/publish`);
+  await request.post(`/api/form-versions/${version.id}/publish`, { headers });
 }
 
 function createDigitalPdf(name = "select-manually-upload-smoke.pdf"): string {

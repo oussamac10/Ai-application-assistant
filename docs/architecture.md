@@ -1,184 +1,106 @@
-# Architecture Documentation
+# Architecture Documentation (Current System & Production SaaS Target)
 
-This document explains the architecture of the AI Form Assistant backend and frontend.
+This document is the canonical architectural reference for **AI Form Assistant**, combining the verified implementation through **Phase 18** (including ADRs `0001`–`0017`) with the **Production SaaS Modular Monolith** target architecture.
 
-## System Overview
+---
 
-The system is a monorepo consisting of:
-1. **Next.js Frontend**: Serves the user interface and proxies API requests.
-2. **FastAPI Backend**: Implements the business logic, schemas, validation, and REST API.
-3. **PostgreSQL Database**: Persistent storage for form templates, versions, fields, options, and temporary sessions.
+## 1. System Overview & Architectural Principles
+
+AI Form Assistant is a **modular monolith** monorepo consisting of:
+1. **Next.js 14 Frontend (`frontend/`):** App Router TypeScript UI supporting LTR and RTL layouts (`next-intl`), step-by-step guided sessions, live PDF field highlighting, digital vector signatures, and user dashboards.
+2. **FastAPI Backend (`backend/app/`):** Domain-partitioned Python 3.11 service layer controlling workflow state, deterministic validation, hybrid document understanding, replaceable AI/OCR/translation/storage providers, and PDF export.
+3. **PostgreSQL Database:** Source of truth for immutable form versions, semantic question catalogs, sessions, answers, accounts, provider usage records, and SaaS billing ledgers.
+4. **Private EU Object Storage & Async Worker *(SaaS Production Layer)*:** Encrypted S3-compatible object storage (replacing local `/tmp` storage) and a Redis + ARQ background worker (running from the same backend container image) for non-blocking OCR/detection jobs and sliding-window rate limiting.
+
+### Non-Negotiable Boundaries
+- **Backend Owns Workflow State:** AI providers never decide field order, navigation, spending escalation, or auto-confirmation.
+- **Three Independent Languages:** `source_language` (document), `user_language` (UI/questions), and `output_language` (completed PDF) remain distinct across every layer.
+- **Deterministic Code Over AI:** Validation of dates, emails, phone numbers, IBANs, currencies, booleans, choice sets, and signature geometry is 100% deterministic.
+
+---
+
+## 2. Backend Layered Domain Structure
+
+Every domain module follows strict four-layer separation:
+
+```text
+API Routing Layer (routes.py)        -> FastAPI DTO validation, auth/CSRF dependencies, HTTP status mapping
+        │
+        ▼
+Service Layer (services.py)          -> Pure domain workflows, state transitions, ownership checks
+        │
+        ▼
+Repository Layer (repositories.py)   -> Encapsulated SQLAlchemy 2.0 queries and persistence
+        │
+        ▼
+Database Models (models.py)          -> Typed SQLAlchemy Mapped[...] ORM entities
+```
+
+### Centralized Exception Mapping (`backend/app/main.py`)
+Services raise framework-agnostic domain exceptions mapped globally in `app/main.py`:
+- `ResourceNotFoundError` / `DocumentNotFoundError` / `ApplicationNotFoundError` -> `404 Not Found`
+- `StateConflictError` / `IntegrityError` / `AuthConflictError` -> `409 Conflict`
+- `SummaryNotConfirmableError` -> `409 Conflict` with structured `missing_required_fields` and `invalid_answer_fields` (field keys and reason codes only — never private values or labels; see [ADR 0016](decisions/0016-three-state-requiredness-and-structured-confirmation.md))
+- `ValidationError` / `DocumentValidationError` / `AuthValidationError` -> `422 Unprocessable Entity`
+- `UnauthorizedError` / `DocumentUnauthorizedError` / `AuthUnauthorizedError` -> `401 Unauthorized` (generic message to prevent IDOR/account enumeration)
+- `AuthForbiddenError` -> `403 Forbidden` (insufficient RBAC role)
+- `AIProviderUnavailableError` / `OCRProviderUnavailableError` / `FieldDetectionProviderUnavailableError` -> `503 Service Unavailable`
+
+---
+
+## 3. Verified Core Subsystems & ADR Index
+
+### 3.1 Immutable Form Versioning & Catalog Privacy (`app/forms/`, `app/questions/`)
+- Published `FormVersion` rows are immutable; editing creates a cloned draft ([ADR 0001](decisions/0001-immutable-form-versions.md)).
+- `FormVersion.origin` distinguishes curated `"predefined_template"` versions from user-uploaded `"dynamic_detection"` versions. Public catalog listings (`GET /api/published-forms`) expose **only** `"predefined_template"` versions so user-uploaded documents never leak across sessions, while administrative template/question write endpoints require `platform_admin` RBAC.
+- Reusable questions resolve through a 6-step deterministic-first hierarchy (`QuestionResolver` in `app/questions/resolver.py`; [ADR 0005](decisions/0005-hybrid-question-resolution.md)).
+
+### 3.2 Dual Session Ownership & Accounts (`app/sessions/`, `app/auth/`, `app/applications/`)
+- Anonymous sessions use high-entropy tokens hashed at rest with HMAC-SHA256 (`SESSION_TOKEN_SECRET`) and passed exclusively via `X-Session-Token` ([ADR 0002](decisions/0002-anonymous-session-ownership.md), [ADR 0006](decisions/0006-frontend-session-state.md)).
+- Authenticated accounts (`Phase 12`, [ADR 0011](decisions/0011-user-accounts-persistent-sessions.md)) use Argon2id password hashes, `HttpOnly` cookie sessions (`AUTH_SECRET`), token rotation, and double-submit `X-CSRF-Token` checks. Claiming an anonymous session (`POST /api/applications/claim`) atomically sets `user_id` and nulls `ownership_token_hash`.
+
+### 3.3 Document Analysis, OCR, Hybrid Field Detection & Translation (`app/documents/`, `app/ocr/`, `app/field_detection/`, `app/language/`, `app/translation/`)
+- **Structural Upload Analysis (`app/documents/`):** Validates `%PDF` signature, unlocks empty-password government PDFs, neutralizes embedded `/JavaScript`, `/OpenAction`, `/AA`, `/Launch`, and `/EmbeddedFiles` in place, and matches known template fingerprints ([ADR 0008](decisions/0008-structural-pdf-document-analysis.md)).
+- **Local OCR (`app/ocr/`):** Renders scanned pages at 300 DPI and extracts word/line bounding boxes via `OCRProvider` ([ADR 0009](decisions/0009-local-ocr-provider.md)).
+- **Hybrid Field Detection (`app/field_detection/`):** `HybridFieldDetectionProvider` runs `LocalFieldDetectionProvider` first, evaluates deterministic quality (`quality.py`) and coverage (`coverage.py`) floors, and escalates to `AzureDocumentIntelligenceProvider` (`<= 10` pages, cached by SHA-256 fingerprint) only below threshold ([ADR 0010](decisions/0010-dynamic-field-detection.md), [ADR 0012](decisions/0012-automatic-confidence-routing.md), [ADR 0013](decisions/0013-azure-document-intelligence-provider.md), [ADR 0017](decisions/0017-hybrid-local-first-field-detection.md)).
+- **Language & Batch Translation (`app/language/`, `app/translation/`):** Detects `source_language` locally without external network calls, withholds identifiers (`protected.py`), batches unique labels/options by ID ([ADR 0014](decisions/0014-batched-translation-and-request-duration.md)), and backfills deferred output languages lazily ([ADR 0015](decisions/0015-translation-provider-and-azure-translator.md)).
+
+### 3.4 Three-State Requiredness, Signatures & PDF Export (`app/answers/`, `app/pdf/`)
+- **Requiredness vs. Answer State:** `FormField.requiredness` (`required | optional | unknown`) and `answer_state` (`unreached | unanswered | skipped | answered | invalid`) resolve orthogonally in `app/answers/states.py` ([ADR 0016](decisions/0016-three-state-requiredness-and-structured-confirmation.md)).
+- **PDF Rendering (`app/pdf/`):** Static templates fill AcroForm fields across all pages via `PypdfRenderer` ([ADR 0007](decisions/0007-explicit-pdf-template-mapping.md)); uploaded PDFs render confirmed values, checkboxes, and vector signatures (`signature_render.py`) at exact detected coordinates via `dynamic_overlay.py`, never guessing missing coordinates.
+
+---
+
+## 4. Production SaaS Modular Monolith (11 Domain Modules)
+
+To support commercial billing, durable storage, reusable profiles, and B2B2C Organization Portals without microservice sprawl, the monolith is organized into **11 bounded modules**:
+
+| # | Module | Backend Package(s) | Responsibility |
+| :- | :--- | :--- | :--- |
+| 1 | **Identity & Users** | `app/auth/`, `app/profiles/`, `app/organizations/` | Auth cookies/CSRF, RBAC (`user`, `org_admin`, `platform_admin`), email verify/reset, Reusable Profile Vault, Organization memberships. |
+| 2 | **Document Management** | `app/documents/`, `app/storage/` | PDF + camera-image ingestion, active-content sanitization, `StorageProvider` (Local / EU S3), retention & GDPR hard-purge. |
+| 3 | **Document Extraction** | `app/ocr/`, `app/language/`, `app/field_detection/` | Async `prepare-questions` job orchestration, multi-script OCR, local language detection, hybrid local/Azure extraction. |
+| 4 | **Form Schema & Templates** | `app/forms/`, `app/questions/` | Immutable versions, curated public catalog, Organization Portal forms (`/p/{slug}`), semantic `QuestionCatalog`. |
+| 5 | **AI Conversation** | `app/ai/`, `app/translation/` | Replaceable `AIProvider` (`mock`, `ollama`, `gemini`, `openai_eu`) & `TranslationProvider`, versioned prompts, Pydantic schemas. |
+| 6 | **Form Sessions & Answers** | `app/sessions/`, `app/applications/`, `app/answers/` | Guided Q&A state machine, skip/reopen, plain-language civic explanations, saved user applications. |
+| 7 | **Validation** | `app/answers/validation/`, `app/answers/consistency.py` | Deterministic field validators + pre-export cross-field consistency warnings. |
+| 8 | **Document Generation** | `app/pdf/` | AcroForm + coordinate-overlay PDF export with embedded Unicode/RTL Noto fonts, watermarked preview, and clean unlocked export. |
+| 9 | **Subscription & Billing** | `app/billing/` | Stripe Checkout, Stripe Tax, Customer Portal, and idempotent `Stripe-Signature` webhook processing. |
+| 10 | **Usage Metering** | `app/metering/` | Token/character/page cost ledger (`ai_usage_events`), `credit_ledger`, per-session cost caps, and Redis rate limiting. |
+| 11 | **Admin & Monitoring** | `app/admin/`, `app/api/health.py` | Liveness/readiness probes, question/template review queue, unit-cost telemetry, and scheduled retention sweepers. |
 
 ```mermaid
-graph TD
-    Client[Next.js Frontend] -->|REST API /api/*| App[FastAPI Backend]
-    App -->|SQLAlchemy ORM| DB[(PostgreSQL Database)]
+flowchart TD
+    Browser["Browser Client (Next.js 14 LTR/RTL)"] -->|"HTTPS :443"| Caddy["Caddy 2 Reverse Proxy"]
+    Caddy -->|"/api/*"| FastAPI["FastAPI Modular Monolith (:8000)"]
+    Caddy -->|"/*"| Next["Next.js Standalone (:3000)"]
+    FastAPI --> PG[("PostgreSQL 16")]
+    FastAPI --> Redis[("Redis 7 (ARQ Jobs + Rate Limits)")]
+    FastAPI --> S3[("EU S3-Compatible Object Storage")]
+    Worker["ARQ Background Worker + Retention Cron"] --> Redis
+    Worker --> PG
+    Worker --> S3
+    FastAPI -.-> AI["EU LLM / Azure Providers"]
+    Worker -.-> AI
+    FastAPI <--> Stripe["Stripe Checkout + Webhooks"]
 ```
-
----
-
-## Backend Layers
-
-The backend follows a clean, layered architecture organized into domain packages:
-
-```
-+-------------------------------------------------------------+
-|                      API Routing Layer                      |
-| (app/forms/api/routes.py, sessions/api, answers/api/routes) |
-+-----------------------------+-------------------------------+
-                              |
-                              v
-+-----------------------------+-------------------------------+
-|                       Service Layer                         |
-|   (app/forms/services.py, sessions/services, answers/serv)  |
-+-----------------------------+-------------------------------+
-                              |
-                              v
-+-----------------------------+-------------------------------+
-|                     Repository Layer                        |
-|  (app/forms/repositories, sessions/repos, answers/repos)    |
-+-----------------------------+-------------------------------+
-                              |
-                              v
-+-----------------------------+-------------------------------+
-|                       Database Models                       |
-|    (app/forms/models.py, sessions/models, answers/models)   |
-+-------------------------------------------------------------+
-```
-
-### 1. Database Models Layer (`models.py`)
-Declares database entities mapped to Postgres tables using SQLAlchemy 2.0 type-safe `Mapped` and `mapped_column` annotations.
-
-### 2. Repository Layer (`repositories.py`)
-Separates persistence mechanics from business logic. Handles basic database queries and object creations.
-
-### 3. Service Layer (`services.py`)
-Contains the application's business rules and workflows (e.g., publishing check, cloning logic, configuration validation, session tokens hashing). Service methods are framework-agnostic and raise clean Python exceptions rather than FastAPI `HTTPException`.
-
-### 4. API Routing Layer (`routes.py`)
-Defines FastAPI endpoints, handles dependency injection (e.g., DB session), validates payloads with Pydantic, and returns JSON DTOs.
-
----
-
-## Error Handling Pattern
-
-To keep route handlers thin and business logic separate from HTTP concerns, exception handling is centralized in `backend/app/main.py` using global exception handlers:
-
-- **ResourceNotFoundError** -> HTTP `404 Not Found`
-- **StateConflictError** / **IntegrityError** -> HTTP `409 Conflict`
-- **SummaryNotConfirmableError** -> HTTP `409 Conflict` with a structured body (`code`, `missing_required_fields`, `invalid_answer_fields`) rather than one sentence, so the client can mark every blocking question at once. Field keys and reason codes only — never a submitted value or a label.
-- **ValidationError** / **ConfigurationValidationError** -> HTTP `422 Unprocessable Entity`
-- **UnauthorizedError** -> HTTP `401 Unauthorized` (used for invalid/missing session ownership tokens)
-
----
-
-## Field-Detection Providers (Phase 11 / 14)
-
-Field detection is behind a provider interface (`app/field_detection/providers/base.py`),
-selected by `FIELD_DETECTION_PROVIDER`:
-
-```
-FieldDetectionProvider (Protocol)
-├── MockFieldDetectionProvider          deterministic, for tests/dev
-├── LocalFieldDetectionProvider         rules-based, no network, the default
-├── AzureDocumentIntelligenceProvider   hosted Azure Document Intelligence (opt-in)
-└── HybridFieldDetectionProvider        local-first, escalating to Azure (Phase 16)
-```
-
-`hybrid` runs the local pass on every document, scores the result
-deterministically (`app/field_detection/quality.py`: field count, label quality,
-input evidence and the provider's own confidence, weighted), and calls Azure only
-below `HYBRID_LOCAL_QUALITY_THRESHOLD` — so an ordinary digital form costs
-nothing. Escalation can only improve the answer: a failure, a missing
-configuration, or an Azure result that scores no higher all serve the local
-result, and `HYBRID_MAX_ESCALATION_PAGES` blocks long documents regardless of
-score. No model participates in the decision, per the domain rule that AI never
-decides provider spending. See
-[ADR 0017](decisions/0017-hybrid-local-first-field-detection.md).
-
-The Azure provider converts Azure `words`/`selectionMarks` into the same `DetectionToken`
-shape the local provider consumes and reuses its text passes, then adds Azure's own
-`keyValuePairs`. Deterministic confidence routing, ownership, and orchestration are
-identical for every provider. Results are cached on a fingerprint of
-(document checksum, provider, model id, analysis version), so switching providers
-recomputes rather than serving stale cross-provider fields, and an unchanged configuration
-never re-calls a paid service. See
-[ADR 0013](decisions/0013-azure-document-intelligence-provider.md).
-
-Question generation translates every detected label and choice option in **batched**,
-deduplicated, cached requests (`app/ai/batch_translation.py`,
-`AIProvider.translate_output_batch`) rather than one AI call per text, with bounded concurrency
-across chunks. Translations map back by request id, never by response position. `prepare-questions`
-is synchronous and can take tens of seconds; `next.config.js` raises the rewrite proxy's ceiling
-accordingly and the upload flow retries a bare gateway failure, which is safe because the endpoint
-is idempotent. See [ADR 0014](decisions/0014-batched-translation-and-request-duration.md).
-
-Translation itself lives behind a dedicated `TranslationProvider` abstraction
-(`app/translation/`), separate from `AIProvider`: mock, Ollama and Azure Translator implementations,
-selected by `TRANSLATION_PROVIDER` with an optional fallback. Azure detects the document's source
-language, which becomes the generated form version's `source_language` instead of an assumed one.
-Only the interface language is translated during preparation; other supported languages hold
-source-text placeholders that `app/translation/backfill.py` fills on demand. See
-[ADR 0015](decisions/0015-translation-provider-and-azure-translator.md).
-
-The uploaded form's own language is detected once by `app/language/` (script-first, then
-function-word frequency; deterministic and dependency-free), persisted on `source_documents`,
-and reused on later requests. It drives RTL-aware field geometry and is the version's
-`source_language`. `und` records "could not determine" and is never silently turned into `en`.
-The three language concepts stay separate: `source_language` describes the document,
-`user_language` the interface, `output_language` the completed form.
-
----
-
-## Requiredness and Answer State (Phase 16)
-
-Two independent dimensions, resolved in one place (`app/answers/states.py`) and never
-inferred from each other:
-
-- **`FormField.requiredness`** — `required | optional | unknown`: what the *document*
-  declared, from evidence only (`app/field_detection/requiredness.py`). `unknown` is the
-  ordinary case for a detected form and is never collapsed into either direction.
-  `FormField.required` remains as a derived legacy boolean.
-- **answer state** — `unreached | unanswered | skipped | answered | invalid`: what the
-  *user* did.
-
-Only the cross-product decides anything. Absence blocks confirmation solely where the
-document demanded an answer; an invalid *value* blocks regardless of requiredness. Value
-validators, normalization and the AI provider only ever see a submitted value — a blank
-submission is refused (422) rather than stored, and a skip stores nulls with
-`status="skipped"`. See
-[ADR 0016](decisions/0016-three-state-requiredness-and-structured-confirmation.md).
-
----
-
-## Frontend Architecture
-
-The Next.js frontend is structured for localization, secure step-based workflow management, and responsive dynamic form presentation:
-
-### 1. Route Layout & Localization
-- **`LanguageProvider`**: Wrapped around the root layout, it dynamically sets the document language and direction (e.g., `dir="rtl"` and `lang="ar"` for Arabic) based on UI language choices, preserving selections in `localStorage`.
-- **`next-intl`**: Handles static translation strings for headers, labels, placeholders, errors, and summaries using static translation assets (`en.json`, `de.json`, `fr.json`, `ar.json`).
-
-### 2. Session Ownership and Security
-- **`sessionCredentials` Service**: Manages `ownershipToken` mappings in `sessionStorage` isolated by browser tab.
-- **Secure API Client (`apiClient.ts`)**: Appends the tab's `ownershipToken` using the `X-Session-Token` request header. It completely avoids URL token injection.
-
-### 3. Automatic Upload-to-Questions Orchestration (Phase 13)
-
-`app/field_detection/orchestration.py::PrepareQuestionsService` composes document analysis, OCR,
-field detection, deterministic confidence routing, and question generation into one idempotent
-call (`POST /api/source-documents/{id}/prepare-questions`). Normal users never drive OCR/detection/
-review as separate manual steps; the frontend's `DocumentUploadForm` calls this endpoint
-automatically after upload and navigates straight to the guided session. The Phase 11 manual
-review screen (`FieldDetectionPanel`) is unchanged and still reachable directly for admin/debug
-use — see [ADR 0012](decisions/0012-automatic-confidence-routing.md).
-
-### 4. Workflow Routing & Dynamic Rendering
-- **Guided Form Container (`/application/session/[sessionId]/page.tsx`)**: Integrates standard, clarification, and confirmation sub-flows based on backend answer state transitions.
-- **`FieldRenderer` Component**: A unified entrypoint rendering appropriate input inputs for all 14 field types including:
-  - Text: `string`, `person_name`, `country`, `money`
-  - Numeric: `integer`, `decimal`
-  - DateTime: `date`
-  - Special: `email`, `phone` (with custom direction controls), `boolean` (custom Yes/No buttons), `address` (multi-line textarea)
-  - Choices: `single_choice` (custom dropdown select), `multiple_choice` (checkbox list group)
-

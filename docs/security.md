@@ -169,3 +169,12 @@ holds a third-party API key. The controls around it:
   Azure, an endpoint, a response body, or a stack trace.
 - **No credential in the repository.** `.env.example` and `docker-compose.yml` contain only
   empty placeholders / host-environment interpolation.
+
+---
+
+## 8. Role-Based Access Control, Template Isolation & Production Secret Enforcement (`Phase S0`)
+
+- **Admin RBAC (`users.role` + `require_admin`)**: Administrative endpoints for template creation, version cloning/publishing, field editing, and reusable question catalog mutations (`/api/forms*`, `/api/form-versions*`, `/api/form-fields*`, `/api/questions*`) require an authenticated `platform_admin` user (`401` when unauthenticated, `403` when `role != "platform_admin"`) plus `X-CSRF-Token` verification on mutations.
+- **Public Catalog Isolation (`FormVersion.origin`)**: `GET /api/published-forms` strictly filters `FormVersion.origin == "predefined_template"` (and excludes internal demo templates in production), ensuring dynamically generated form versions from private user PDF uploads (`origin == "dynamic_detection"`) are never enumerated publicly.
+- **Header-Only Cloud AI Authentication**: `GeminiAIProvider` transmits `GEMINI_API_KEY` exclusively via the `x-goog-api-key` HTTP header (never in query parameters), and `httpx`/`httpcore` loggers are pinned to `WARNING` so request URLs are never logged at `INFO`.
+- **Production Fail-Fast Secrets & Constant-Time Login**: When `APP_ENV=production`, startup fails immediately if `SESSION_TOKEN_SECRET` or `AUTH_SECRET` uses a development fallback or has `< 32` characters, or if `AUTH_COOKIE_SECURE` is `False`. `AuthService.login` runs a dummy Argon2id verification on unknown/inactive emails to eliminate account-enumeration timing side-channels.

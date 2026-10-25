@@ -3,6 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin, verify_csrf
 from app.core.config import settings
 from app.database.session import get_db
 from app.questions.repositories import QuestionRepository
@@ -26,7 +27,7 @@ def verify_admin_api_enabled() -> None:
 @router.get(
     "/questions",
     response_model=list[QuestionTranslationResponse],
-    dependencies=[Depends(verify_admin_api_enabled)],
+    dependencies=[Depends(verify_admin_api_enabled), Depends(require_admin)],
 )
 def list_questions(
     question_key: str | None = Query(default=None, alias="questionKey"),
@@ -49,7 +50,11 @@ def list_questions(
     "/questions/{question_key}/translations",
     response_model=QuestionTranslationResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(verify_admin_api_enabled)],
+    dependencies=[
+        Depends(verify_admin_api_enabled),
+        Depends(require_admin),
+        Depends(verify_csrf),
+    ],
 )
 def create_manual_translation(
     question_key: str,
@@ -71,7 +76,11 @@ def create_manual_translation(
 @router.post(
     "/questions/{question_key}/translations/{language}/approve",
     response_model=QuestionTranslationResponse,
-    dependencies=[Depends(verify_admin_api_enabled)],
+    dependencies=[
+        Depends(verify_admin_api_enabled),
+        Depends(require_admin),
+        Depends(verify_csrf),
+    ],
 )
 def approve_translation(
     question_key: str,
@@ -86,7 +95,11 @@ def approve_translation(
 @router.post(
     "/questions/{question_key}/translations/{language}/reject",
     response_model=QuestionTranslationResponse,
-    dependencies=[Depends(verify_admin_api_enabled)],
+    dependencies=[
+        Depends(verify_admin_api_enabled),
+        Depends(require_admin),
+        Depends(verify_csrf),
+    ],
 )
 def reject_translation(
     question_key: str,

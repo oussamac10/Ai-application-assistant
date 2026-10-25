@@ -21,6 +21,10 @@ from app.auth.security import (
 from app.core.config import settings
 
 _MAX_PASSWORD_LENGTH = 256
+# Precomputed once at import time so unknown-email login attempts perform a
+# full Argon2id verification pass and take the same wall-clock time as an
+# existing account with an incorrect password.
+_DUMMY_PASSWORD_HASH = hash_password("timing-equalizer-placeholder-password-0123456789")
 
 
 class AuthService:
@@ -58,8 +62,12 @@ class AuthService:
             raise AuthConflictError("Unable to complete registration.")
 
         password_hash = hash_password(password)
+        role = "platform_admin" if normalized in settings.admin_emails_set else "user"
         return self.users.create_user(
-            email=email, normalized_email=normalized, password_hash=password_hash
+            email=email,
+            normalized_email=normalized,
+            password_hash=password_hash,
+            role=role,
         )
 
     def login(self, email: str, password: str) -> tuple[User, str]:
@@ -69,15 +77,14 @@ class AuthService:
         normalized = normalize_email(email)
         user = self.users.get_by_normalized_email(normalized)
         if not user or user.status != "active":
-            # Still runs a hash comparison-shaped delay isn't strictly
-            # required here (argon2 verify is not a timing oracle for
-            # account existence in the same way constant-time comparisons
-            # are), but never short-circuit with a distinguishable error.
+            verify_password(password, _DUMMY_PASSWORD_HASH)
             raise AuthUnauthorizedError("Unknown account.")
 
         if not verify_password(password, user.password_hash):
             raise AuthUnauthorizedError("Incorrect password.")
 
+        if normalized in settings.admin_emails_set and user.role != "platform_admin":
+            user.role = "platform_admin"
         user.last_login_at = datetime.now(UTC)
         self.db.commit()
 

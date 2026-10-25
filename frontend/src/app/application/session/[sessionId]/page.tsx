@@ -107,14 +107,6 @@ export default function GuidedSession() {
       setErrorMsg(null);
       setShowExplanation(false);
       const field = await getCurrentField(sessionId);
-      console.log(
-        "FETCHED FIELD:",
-        field.label,
-        "KEY:",
-        field.key,
-        "STATUS:",
-        field.currentAnswerStatus,
-      );
       setCurrentFieldData(field);
 
       const total =
