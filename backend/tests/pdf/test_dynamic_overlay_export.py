@@ -520,3 +520,169 @@ async def test_unmatched_official_acroform_pdf_end_to_end_prepare_and_export(
         doc_service.storage.delete_file(src_doc.storage_path)
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_french_flattened_pdf_end_to_end_prepare_and_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End-to-end test for `fixtures/pdf/required-optional-validation-fr.pdf`:
+    - Full-width single-column underline fields (`Adresse complete`, `Adresse e-mail`,
+      `Intitule de la formation`) are detected alongside 2-column underline fields
+    - Standalone option groups (`Statut professionnel`, `Methode de contact preferee`)
+      and choice groups (`Genre`, `Cochez les documents fournis`, `Langues preferees`)
+      mark their vector checkbox/radio squares instead of printing text over options
+    - Declaration boolean fields (`Je certifie...`, `J'accepte...`, `Je souhaite...`)
+      check only `True` boxes and never print `"Yes"` / `"No"` text on the page.
+    """
+    from app.ai.mock_provider import MockAIProvider
+    from app.core.config import settings
+    from app.documents.service import SourceDocumentService
+    from app.field_detection.orchestration import PrepareQuestionsService
+    from app.field_detection.providers.local import LocalFieldDetectionProvider
+
+    monkeypatch.setattr(settings, "PDF_EXPORT_DIRECTORY", str(tmp_path / "exports"))
+
+    fixture_pdf = (
+        Path(__file__).resolve().parents[3]
+        / "fixtures"
+        / "pdf"
+        / "required-optional-validation-fr.pdf"
+    )
+    if not fixture_pdf.is_file():
+        fixture_pdf = Path("/fixtures/pdf/required-optional-validation-fr.pdf")
+    assert fixture_pdf.is_file()
+
+    db = SessionLocal()
+    try:
+        doc_service = SourceDocumentService(db)
+        src_doc, doc_token = doc_service.upload_and_analyze(
+            filename="required-optional-validation-fr.pdf",
+            content_type="application/pdf",
+            file_chunks=[fixture_pdf.read_bytes()],
+            privacy_accepted=True,
+            user_language="en",
+            output_language="fr",
+        )
+        prep_service = PrepareQuestionsService(
+            db,
+            ai_provider=MockAIProvider(),
+            field_detection_provider=LocalFieldDetectionProvider(),
+        )
+        prep_res = await prep_service.prepare(src_doc.public_id, doc_token, "en", "fr")
+        assert prep_res.status == "ready"
+        assert prep_res.session is not None
+        assert prep_res.ownership_token is not None
+
+        session = prep_res.session
+        sess_token = prep_res.ownership_token
+        fields_by_key = {f.key: f for f in session.version.fields}
+
+        # Verify full-width marked underlines are detected
+        assert "adresse_complete" in fields_by_key
+        assert "adresse_e_mail" in fields_by_key
+        assert "intitule_de_la_formation" in fields_by_key
+        assert "statut_professionnel" in fields_by_key
+
+        for f in session.version.fields:
+            if f.key == "nom_de_famille":
+                val: object = "Alaoui"
+                out_str = "Alaoui"
+            elif f.key == "prenom":
+                val = "Youssef"
+                out_str = "Youssef"
+            elif f.key == "adresse_complete":
+                val = "12 Rue de Rivoli"
+                out_str = "12 Rue de Rivoli"
+            elif f.key == "adresse_e_mail":
+                val = "youssef@example.org"
+                out_str = "youssef@example.org"
+            elif f.key == "intitule_de_la_formation":
+                val = "Ingénierie Logicielle"
+                out_str = "Ingénierie Logicielle"
+            elif f.key == "genre":
+                val = "Homme"
+                out_str = "Homme"
+            elif f.key == "statut_professionnel":
+                val = "Salarie(e)"
+                out_str = "Salarie(e)"
+            elif f.field_type == "single_choice":
+                opts = (f.configuration or {}).get("options") or []
+                first_val = opts[0]["value"] if opts else "Option"
+                val = first_val
+                out_str = first_val
+            elif f.field_type == "multiple_choice":
+                opts = (f.configuration or {}).get("options") or []
+                picked = [opts[0]["value"]] if opts else []
+                val = picked
+                out_str = ", ".join(picked)
+            elif f.field_type == "boolean":
+                # Mix True and False to ensure neither prints "Yes" or "No"
+                is_true = "certifie" in f.key or "accepte" in f.key
+                val = is_true
+                out_str = "Yes" if is_true else "No"
+            elif f.field_type == "signature":
+                val = {
+                    "mode": "drawn",
+                    "strokes": [
+                        [
+                            {"x": 0.1, "y": 0.5},
+                            {"x": 0.5, "y": 0.3},
+                            {"x": 0.9, "y": 0.6},
+                        ]
+                    ],
+                }
+                out_str = "Signed"
+            else:
+                val = f"Val-{f.position}"
+                out_str = f"Val-{f.position}"
+
+            db.add(
+                FormAnswer(
+                    session_id=session.id,
+                    field_id=f.id,
+                    original_answer=out_str,
+                    original_language="fr",
+                    normalized_value=val,
+                    output_value=out_str,
+                    status="confirmed",
+                    confirmed_by_user=True,
+                )
+            )
+        session.status = "ready_for_export"
+        db.commit()
+
+        pdf_dir = tmp_path / "fixtures" / "pdf"
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        pdf_service = PDFExportService(db, pdf_dir)
+        export = pdf_service.create_export(session.public_id, sess_token)
+        assert export.status == "completed"
+
+        export_path = Path(export.storage_path)
+        assert export_path.is_file()
+        rendered_doc = fitz.open(str(export_path))
+        try:
+            p1_text = rendered_doc[0].get_text("text")
+            p2_text = rendered_doc[1].get_text("text")
+        finally:
+            rendered_doc.close()
+
+        # Underlined text fields on page 1 and page 2 are rendered into the PDF
+        assert "Alaoui" in p1_text
+        assert "Youssef" in p1_text
+        assert "12 Rue de Rivoli" in p1_text
+        assert "youssef@example.org" in p1_text
+        assert "Ingénierie Logicielle" in p2_text
+
+        # Choice fields ("Homme", "Salarie(e)") must mark vector squares and NOT
+        # print a second copy of the option text over the page
+        assert p1_text.count("Homme") == 1
+        assert p1_text.count("Salarie(e)") == 1
+
+        # Boolean fields must never print literal "Yes" or "No" on page 2
+        assert "Yes" not in p2_text
+        assert "No" not in p2_text
+
+        doc_service.storage.delete_file(src_doc.storage_path)
+    finally:
+        db.close()

@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,8 @@ import app.auth.models  # noqa: F401
 from app.answers.models import FormAnswer
 from app.answers.signatures import PENDING_MANUAL_SIGNATURE
 from app.documents.models import SourceDocument
+from app.field_detection.classification import marker_type
+from app.field_detection.extraction import extract_native_document_input
 from app.field_detection.models import DetectedField, FieldDetectionResult
 from app.forms.models import FormField, FormVersion
 from app.ocr.models import OCRResult
@@ -267,10 +270,11 @@ def _resolve_pdf_rect(
         return None
 
     # A drawn underline (RuledRegion with kind="underline") has height == 0 at
-    # the baseline of the writing area. Place a 16pt single-line box directly
-    # above the underline so overlaid text rests on the rule.
+    # the baseline of the writing area. Place an 11.5pt single-line box directly
+    # above the underline so overlaid text rests on the rule without overlapping
+    # a tight label caption above it.
     if height <= 2.0:
-        line_height = 16.0
+        line_height = 11.5
         y = max(0.0, y - line_height)
         height = line_height
 
@@ -311,6 +315,14 @@ def render_dynamic_overlay_pdf(
     )
     ocr_dims = _load_ocr_page_dimensions(db, source_doc.id)
 
+    native_tokens_by_page: dict[int, tuple[Any, ...]] = {}
+    try:
+        native_doc = extract_native_document_input(source_path)
+        for p in native_doc.pages:
+            native_tokens_by_page[p.page_number] = p.tokens
+    except Exception:
+        native_tokens_by_page = {}
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source_path, output_path)
 
@@ -323,7 +335,18 @@ def render_dynamic_overlay_pdf(
                 continue
 
             detected = field_to_detected.get(form_field.key)
-            if not detected or not detected.input_bounding_box:
+            raw_box = None
+            if detected is not None:
+                raw_box = detected.input_bounding_box
+                if (
+                    not raw_box
+                    and detected.label_bounding_box
+                    and form_field.field_type
+                    in ("single_choice", "multiple_choice", "boolean")
+                ):
+                    raw_box = detected.label_bounding_box
+
+            if not detected or not raw_box:
                 if (
                     form_field.field_type == "signature"
                     and ans.status == "confirmed"
@@ -349,7 +372,7 @@ def render_dynamic_overlay_pdf(
             pdf_h = float(page.rect.height)
 
             resolved = _resolve_pdf_rect(
-                detected.input_bounding_box,
+                raw_box,
                 source=detected.source,
                 page_number=detected.page_number,
                 pdf_page_width=pdf_w,
@@ -375,22 +398,38 @@ def render_dynamic_overlay_pdf(
                 render_signature(page, sig_box, ans.normalized_value)
                 continue
 
-            # 2. Boolean fields on compact checkbox boxes: draw a crisp mark
-            # only when True; leave unchecked when False.
-            if form_field.field_type == "boolean" and width <= 26 and height <= 26:
+            # 2. Boolean fields: draw a crisp checkmark in the checkbox square
+            # only when True; leave unchecked when False (never write "Yes"/"No"
+            # text over the checkbox or declaration sentence).
+            if form_field.field_type == "boolean":
                 raw_bool: object = ans.normalized_value
                 if raw_bool is True:
-                    _draw_checkbox_mark(page, x, y, width, height)
+                    if width <= 26 and height <= 26:
+                        _draw_checkbox_mark(page, x, y, width, height)
+                    else:
+                        marker_rect = _find_marker_rect_in_box(
+                            native_tokens_by_page.get(detected.page_number, ()),
+                            box_x=x,
+                            box_y=y,
+                            box_w=width,
+                            box_h=height,
+                        )
+                        if marker_rect is not None:
+                            mx, my, mw, mh = marker_rect
+                            _draw_checkbox_mark(page, mx, my, mw, mh)
+                        else:
+                            side = min(max(height, 9.0), 12.0)
+                            _draw_checkbox_mark(page, x, y, side, side)
                 continue
 
             # 2b. Choice groups backed by individual checkbox/radio squares:
             # mark the selected option square(s) directly when each option in
-            # `detected.options` maps 1-to-1 to a checkbox/radio widget inside
-            # `input_bounding_box`.
+            # `detected.options` maps 1-to-1 to a checkbox/radio widget or
+            # vector-drawn marker inside `input_bounding_box`.
             if (
                 form_field.field_type in ("single_choice", "multiple_choice")
                 and detected.options
-                and detected.field_type in ("radio", "multiple_choice")
+                and detected.field_type in ("radio", "single_choice", "multiple_choice")
                 and _try_mark_selected_choice_squares(
                     page=page,
                     detected=detected,
@@ -400,6 +439,9 @@ def render_dynamic_overlay_pdf(
                     box_y=y,
                     box_w=width,
                     box_h=height,
+                    native_page_tokens=native_tokens_by_page.get(
+                        detected.page_number, ()
+                    ),
                 )
             ):
                 continue
@@ -436,6 +478,56 @@ def render_dynamic_overlay_pdf(
     )
 
 
+def _extract_token_box_coords(
+    bb: Any,
+) -> tuple[float, float, float, float] | None:
+    """Extracts `(x, y, width, height)` from a `BoundingBox` dataclass or `dict`."""
+    if bb is None:
+        return None
+    try:
+        if isinstance(bb, dict):
+            return (
+                float(bb["x"]),
+                float(bb["y"]),
+                float(bb["width"]),
+                float(bb["height"]),
+            )
+        return (
+            float(bb.x),
+            float(bb.y),
+            float(bb.width),
+            float(bb.height),
+        )
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None
+
+
+def _find_marker_rect_in_box(
+    native_page_tokens: Sequence[Any],
+    *,
+    box_x: float,
+    box_y: float,
+    box_w: float,
+    box_h: float,
+) -> tuple[float, float, float, float] | None:
+    """Finds the first checkbox/radio marker token intersecting `(box_x, box_y, box_w, box_h)`."""
+    import fitz
+
+    target = fitz.Rect(
+        box_x - 4.0, box_y - 4.0, box_x + box_w + 4.0, box_y + box_h + 4.0
+    )
+    for t in native_page_tokens:
+        if marker_type(getattr(t, "text", "")) not in ("checkbox", "radio"):
+            continue
+        coords = _extract_token_box_coords(getattr(t, "bounding_box", None))
+        if coords is None:
+            continue
+        tx, ty, tw, th = coords
+        if fitz.Rect(tx, ty, tx + tw, ty + th).intersects(target):
+            return (tx, ty, tw, th)
+    return None
+
+
 def _try_mark_selected_choice_squares(
     *,
     page: Any,
@@ -446,10 +538,12 @@ def _try_mark_selected_choice_squares(
     box_y: float,
     box_w: float,
     box_h: float,
+    native_page_tokens: Sequence[Any] = (),
 ) -> bool:
-    """Marks the checkbox/radio widget(s) inside `(box_x, box_y, box_w, box_h)`
-    corresponding to the selected option(s) when a 1-to-1 widget mapping exists.
-    Returns True if marks were drawn, or False to fall back to text rendering.
+    """Marks the checkbox/radio widget(s) or vector marker square(s) inside
+    `(box_x, box_y, box_w, box_h)` corresponding to the selected option(s) when
+    a 1-to-1 mapping exists. Returns True if marks were drawn, or False to fall
+    back to text rendering.
     """
     import fitz
 
@@ -500,6 +594,21 @@ def _try_mark_selected_choice_squares(
         matching_rects = []
 
     matching_rects.sort(key=lambda rect: (round(rect[1] / 6.0), rect[0]))
+    if len(matching_rects) != len(ordered_options) and native_page_tokens:
+        token_rects: list[tuple[float, float, float, float]] = []
+        for t in native_page_tokens:
+            if marker_type(getattr(t, "text", "")) not in ("checkbox", "radio"):
+                continue
+            coords = _extract_token_box_coords(getattr(t, "bounding_box", None))
+            if coords is None:
+                continue
+            tx, ty, tw, th = coords
+            if fitz.Rect(tx, ty, tx + tw, ty + th).intersects(group_rect):
+                token_rects.append((tx, ty, tw, th))
+        token_rects.sort(key=lambda rect: (round(rect[1] / 6.0), rect[0]))
+        if len(token_rects) == len(ordered_options):
+            matching_rects = token_rects
+
     if len(matching_rects) != len(ordered_options):
         return False
 
@@ -558,7 +667,10 @@ def _draw_text_in_box(
     # Single-line placement (or fallback when textbox height is too tight for
     # PyMuPDF's line-height multiplier). Scale font size down if the string is
     # wide relative to the box width.
-    base_font_size = min(max(height * 0.58, 7.0), 11.0)
+    if height <= 13.0:
+        base_font_size = min(max(height * 0.74, 7.5), 9.0)
+    else:
+        base_font_size = min(max(height * 0.58, 7.0), 11.0)
     estimated_char_width = base_font_size * 0.52
     max_chars_at_base = max(int((width - 4.0) / max(estimated_char_width, 1.0)), 1)
     if len(text) > max_chars_at_base and len(text) > 0:
@@ -567,7 +679,10 @@ def _draw_text_in_box(
     else:
         font_size = base_font_size
 
-    baseline_y = y + min(height - 2.5, (height + font_size * 0.72) / 2.0)
+    if height <= 13.0:
+        baseline_y = y + height - 1.8
+    else:
+        baseline_y = y + min(height - 2.5, (height + font_size * 0.72) / 2.0)
     page.insert_text(
         fitz.Point(x + 2.0, baseline_y),
         text,

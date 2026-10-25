@@ -612,6 +612,7 @@ class LocalFieldDetectionProvider:
                     source="native",
                     multiple=group.field_type == "multiple_choice",
                     label_bounding_box=group.bounding_box,
+                    input_bounding_box=group.bounding_box,
                     options=group.options,
                 )
             )
@@ -776,6 +777,17 @@ class LocalFieldDetectionProvider:
             independent = independent_boolean_options(option_labels)
             if independent is not None:
                 for position, (child_label, child_state) in enumerate(independent):
+                    marker_box = None
+                    if position < len(option_indices):
+                        opt_line_idx = option_indices[position]
+                        marker_box = next(
+                            (
+                                t.bounding_box
+                                for t in _line_tokens(line_groups[opt_line_idx])
+                                if marker_type(t.text) in ("checkbox", "radio")
+                            ),
+                            line_boxes[opt_line_idx],
+                        )
                     candidates.append(
                         DetectedFieldCandidate(
                             candidate_key=(
@@ -797,9 +809,7 @@ class LocalFieldDetectionProvider:
                             label_bounding_box=line_boxes[option_indices[position]]
                             if position < len(option_indices)
                             else line_boxes[heading_index],
-                            input_bounding_box=line_boxes[option_indices[position]]
-                            if position < len(option_indices)
-                            else None,
+                            input_bounding_box=marker_box,
                         )
                     )
                 continue
@@ -848,6 +858,10 @@ class LocalFieldDetectionProvider:
                 continue
 
             consumed.add(index)
+            marker_box = next(
+                (t.bounding_box for t in tokens if marker_type(t.text) == "checkbox"),
+                _line_box(group),
+            )
             candidates.append(
                 DetectedFieldCandidate(
                     candidate_key=f"confirm-{page_number}-{index}",
@@ -858,6 +872,7 @@ class LocalFieldDetectionProvider:
                     confidence=choice_group_confidence("checkbox"),
                     source=tokens[0].source,
                     label_bounding_box=_line_box(group),
+                    input_bounding_box=marker_box,
                 )
             )
 

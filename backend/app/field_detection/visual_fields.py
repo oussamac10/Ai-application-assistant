@@ -40,6 +40,7 @@ from app.field_detection.providers.base import (
     DetectionToken,
     RuledRegion,
 )
+from app.field_detection.requiredness import OPTIONAL, REQUIRED, detect_requiredness
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +77,10 @@ MIN_LABEL_CHARACTERS = 2
 # closer to the edge than that, while page-number rules and borders live there.
 PAGE_MARGIN_RATIO = 0.06
 
-# A region spanning this much of the page width is a separator, not a field.
-# A form's inputs sit inside its margins and columns; a rule that runs almost
-# edge to edge is dividing the page. The committed French form draws exactly
-# this under each page title, and its subtitle sits above it looking enough
-# like a label to be mistaken for one.
+# A region spanning this much of the page width is a separator, not a field,
+# unless its caption carries an explicit required/optional/colon field marker.
 MAX_REGION_WIDTH_RATIO = 0.85
+MAX_MARKED_FIELD_WIDTH_RATIO = 0.88
 
 # How far left of a region its inline label may start, as a multiple of the
 # region height. Keeps "Name: ____" together and rejects a label from the
@@ -167,12 +166,22 @@ def _text_of(line: list[DetectionToken]) -> str:
     return " ".join(token.text for token in line).strip()
 
 
-def _region_is_decorative(region: RuledRegion, page: DetectionPageInput) -> bool:
+def _region_is_decorative(
+    region: RuledRegion,
+    page: DetectionPageInput,
+    *,
+    has_explicit_field_marker: bool = False,
+) -> bool:
     """Whether a drawn region is furniture rather than an input area."""
     box = region.bounding_box
     if box.width < MIN_REGION_WIDTH:
         return True
-    if page.width and box.width / page.width > MAX_REGION_WIDTH_RATIO:
+    max_width_ratio = (
+        MAX_MARKED_FIELD_WIDTH_RATIO
+        if has_explicit_field_marker and region.kind == "underline"
+        else MAX_REGION_WIDTH_RATIO
+    )
+    if page.width and box.width / page.width > max_width_ratio:
         # A rule spanning almost the whole page separates sections.
         return True
     if page.height:
@@ -305,9 +314,6 @@ def detect_visual_fields(
         if (round(box.x, 1), round(box.y, 1)) in claimed:
             filtered += 1
             continue
-        if _region_is_decorative(region, page):
-            filtered += 1
-            continue
         if region.kind == "box" and _contains_text(region, tokens):
             filtered += 1
             continue
@@ -315,6 +321,20 @@ def detect_visual_fields(
         # Same-row first: "Name: ____" is unambiguous, while a caption above
         # could belong to a neighbouring column.
         found = _label_beside(region, tokens) or _label_above(region, tokens)
+        has_explicit_marker = False
+        if found is not None:
+            candidate_label = found[0]
+            req_state = detect_requiredness(candidate_label).state
+            has_explicit_marker = req_state in (REQUIRED, OPTIONAL) or bool(
+                _TRAILING_COLON.search(candidate_label.strip())
+            )
+
+        if _region_is_decorative(
+            region, page, has_explicit_field_marker=has_explicit_marker
+        ):
+            filtered += 1
+            continue
+
         if found is None:
             # No usable label. A missing question is recoverable — the user can
             # still fill the printed form — while an invented one asks for
