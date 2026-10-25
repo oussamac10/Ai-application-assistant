@@ -547,11 +547,7 @@ def render_dynamic_overlay_pdf(
                 continue
 
             page_tokens = native_tokens_by_page.get(detected.page_number, ())
-            if (
-                form_field.field_type == "money"
-                and formatted_val.upper().endswith(" EUR")
-                and page_tokens
-            ):
+            if form_field.field_type == "money" and page_tokens:
                 has_printed_euro = any(
                     getattr(t, "text", "").strip(".,;:()").lower()
                     in ("euro", "eur", "€")
@@ -566,7 +562,14 @@ def render_dynamic_overlay_pdf(
                     for t in page_tokens
                 )
                 if has_printed_euro:
-                    formatted_val = formatted_val[:-4].strip()
+                    stripped_amount = re.sub(
+                        r"\s*(?:EUR|EURO|USD|GBP|CHF|MAD|€|\$|£)\b.*$",
+                        "",
+                        formatted_val,
+                        flags=re.IGNORECASE,
+                    ).strip()
+                    if stripped_amount:
+                        formatted_val = stripped_amount
 
             over_dotted_run = any(
                 (
