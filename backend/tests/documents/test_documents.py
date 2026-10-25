@@ -605,3 +605,57 @@ def test_cleanup_expired_source_documents(tmp_path: Path) -> None:
         assert not pdf_path.exists()
     finally:
         db.close()
+
+
+def test_upload_official_pdf_with_javascript_print_and_reset_buttons_sanitizes_and_succeeds(
+    tmp_path: Path,
+) -> None:
+    """Official municipal forms (such as the Stuttgart Wohnungsgeberbestätigung)
+    include embedded JavaScript for 'Drucken' (Print) / 'Alle Angaben löschen'
+    (Reset) buttons or field formatting. Upload must sanitize active triggers
+    in place rather than rejecting the form with unsupported_pdf_feature.
+    """
+    from app.documents.validation import _has_active_pdf_content
+
+    base_pdf = tmp_path / "base_form.pdf"
+    create_acroform_pdf(
+        str(base_pdf),
+        ["einzug_datum", "wohnungsgeber_name"],
+        text_content="Landeshauptstadt Stuttgart Wohnungsgeberbestätigung nach § 19 BMG",
+    )
+
+    js_pdf = tmp_path / "stuttgart_wohnungsgeber.pdf"
+    reader = pypdf.PdfReader(str(base_pdf))
+    writer = pypdf.PdfWriter()
+    writer.append(reader)
+    writer.add_js("this.print({bUI: true, bSilent: false});")
+    with open(js_pdf, "wb") as f:
+        writer.write(f)
+
+    assert _has_active_pdf_content(pypdf.PdfReader(str(js_pdf))) is True
+
+    db = SessionLocal()
+    try:
+        service = SourceDocumentService(db)
+        with open(js_pdf, "rb") as f:
+            content = f.read()
+
+        doc, _token = service.upload_and_analyze(
+            filename="stuttgart_wohnungsgeber.pdf",
+            content_type="application/pdf",
+            file_chunks=[content],
+            privacy_accepted=True,
+            user_language="en",
+            output_language="de",
+        )
+
+        assert doc.status == "analyzed"
+        assert doc.page_count == 1
+        assert Path(doc.storage_path).is_file()
+        # Active JavaScript triggers were scrubbed in place on disk
+        sanitized_reader = pypdf.PdfReader(doc.storage_path)
+        assert _has_active_pdf_content(sanitized_reader) is False
+
+        service.storage.delete_file(doc.storage_path)
+    finally:
+        db.close()

@@ -93,11 +93,13 @@ class SourceDocumentService:
                 os.unlink(target_path)
             raise DocumentValidationError("Uploaded file is empty.", "malformed_pdf")
 
-        # 2. Run validations
+        # 2. Run validations (validate_pdf_safety neutralizes any embedded
+        # JavaScript/OpenAction/button scripts in place on official forms)
         try:
             validate_pdf_signature(str(target_path))
             validate_pdf_structure(str(target_path), settings.DOCUMENT_UPLOAD_MAX_PAGES)
             validate_pdf_safety(str(target_path))
+            bytes_written = target_path.stat().st_size
         except Exception:
             # Clean up invalid file
             if target_path.is_file():

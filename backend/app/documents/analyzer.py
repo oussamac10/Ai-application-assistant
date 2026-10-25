@@ -48,8 +48,13 @@ class PDFAnalyzer:
                         # Field type map: /Tx = Text, /Btn = Button (Check/Radio), /Ch = Choice, /Sig = Signature
                         ft_str = "text"
                         if field_type == "/Btn":
-                            # Check if checkbox or radio button
-                            flags = field_info.get("/Ff", 0)
+                            # Check if pushbutton, radio button, or checkbox
+                            flags = int(field_info.get("/Ff", 0) or 0)
+                            # Pushbutton flag in PDF spec (Table 226) is 1 << 16 (65536).
+                            # Pushbuttons (e.g. "Drucken", "Alle Angaben löschen") are
+                            # action buttons, not fillable form fields.
+                            if flags & 65536:
+                                continue
                             # Radio button flag is 1 << 14 (16384)
                             if flags & 16384:
                                 ft_str = "radio"

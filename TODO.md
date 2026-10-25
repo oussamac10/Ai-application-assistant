@@ -43,6 +43,8 @@ Enable users who upload arbitrary PDFs (with detected field bounding boxes) to g
 - [x] `CurrentFieldResponse` exposes optional `page_number`, `input_bounding_box`, `source_document_filename`, and `source_document_page_count` metadata
 - [x] Guided Session page (`frontend/src/app/application/session/[sessionId]/page.tsx`) displays a visual Document Location Preview card showing the target page and highlighted field bounding box on the official document
 - [x] `FieldRenderer.tsx` includes an accessible Voice Dictation button for text and multiline inputs using the Web Speech API when available
+- [x] `validate_pdf_safety` in `backend/app/documents/validation.py` sanitizes active PDF triggers (`/JavaScript`, `/JS`, `/OpenAction`, `/AA`, `/Launch`, `/EmbeddedFiles`) in place instead of rejecting official forms with `unsupported_pdf_feature`
+- [x] Pushbutton AcroForm widgets (`Button` / `/Btn` with flag `65536`, e.g., `Drucken` and `Alle Angaben löschen`) are skipped in `backend/app/field_detection/extraction.py` and `backend/app/documents/analyzer.py`
 - [x] Backend unit/integration tests (`pytest`, `ruff`, `mypy`) and frontend tests (`vitest`, `tsc --noEmit`, `next lint`) pass without regressions
 
 ## Planned Steps
@@ -56,6 +58,11 @@ Enable users who upload arbitrary PDFs (with detected field bounding boxes) to g
 ## Files Expected to Change
 
 - `TODO.md`
+- `backend/app/documents/validation.py`
+- `backend/app/documents/service.py`
+- `backend/app/documents/analyzer.py`
+- `backend/app/field_detection/extraction.py`
+- `backend/tests/documents/test_documents.py`
 - `backend/app/pdf/dynamic_overlay.py`
 - `backend/app/pdf/services.py`
 - `backend/app/sessions/models.py`

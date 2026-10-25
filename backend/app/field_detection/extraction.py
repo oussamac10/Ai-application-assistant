@@ -219,6 +219,14 @@ def extract_native_document_input(pdf_path: Path) -> DetectionDocumentInput:
 
             for widget in page.widgets() or []:
                 raw_type = widget.field_type_string or ""
+                if (
+                    raw_type == "Button"
+                    or widget.field_type == fitz.PDF_WIDGET_TYPE_BUTTON
+                ):
+                    # Pushbuttons (e.g. "Drucken", "Alle Angaben löschen" on
+                    # German municipal forms) are UI action buttons, never
+                    # data-entry fields to ask the user about.
+                    continue
                 mapped_type = _ACROFORM_TYPE_MAP.get(raw_type, "text")
                 required = bool((widget.field_flags or 0) & _PDF_FIELD_IS_REQUIRED)
                 rect = widget.rect

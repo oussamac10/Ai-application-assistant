@@ -1,9 +1,14 @@
+import logging
+import os
 from typing import Any, cast
 
 import pypdf
+from pypdf.generic import NullObject
 
 from app.documents.decryption import open_pdf
 from app.documents.errors import DocumentValidationError
+
+logger = logging.getLogger(__name__)
 
 
 def validate_pdf_signature(filepath: str) -> None:
@@ -66,78 +71,170 @@ def validate_pdf_structure(filepath: str, max_pages: int) -> None:
         ) from e
 
 
-def validate_pdf_safety(filepath: str) -> None:
-    """Scans the PDF catalog and pages for active or dangerous content."""
-    try:
-        reader = open_pdf(filepath)
-        catalog = reader.trailer.get("/Root")
-        if not catalog:
-            return
+def _deref(obj: Any) -> Any:
+    if obj is None:
+        return None
+    val = obj.get_object() if hasattr(obj, "get_object") else obj
+    if isinstance(val, NullObject):
+        return None
+    return val
 
-        catalog_obj = (
-            catalog.get_object() if hasattr(catalog, "get_object") else catalog
+
+def _has_active_pdf_content(reader: Any) -> bool:
+    """Returns True if the PDF contains non-empty JavaScript, OpenAction,
+    Additional Actions, Launch actions, or embedded files that must be
+    neutralized before processing.
+    """
+    catalog_obj = _deref(reader.trailer.get("/Root"))
+    if not catalog_obj or not hasattr(catalog_obj, "get"):
+        return False
+
+    for key in ("/JavaScript", "/JS", "/OpenAction", "/AA"):
+        if _deref(catalog_obj.get(key)) is not None:
+            return True
+
+    names_obj = _deref(catalog_obj.get("/Names"))
+    if names_obj and hasattr(names_obj, "get"):
+        if (
+            _deref(names_obj.get("/EmbeddedFiles")) is not None
+            or _deref(names_obj.get("/JavaScript")) is not None
+        ):
+            return True
+
+    for page in reader.pages:
+        page_obj = _deref(page)
+        if page_obj is None:
+            continue
+        if _deref(cast(Any, page_obj).get("/AA")) is not None:
+            return True
+
+        annots_obj = (
+            _deref(page_obj.get("/Annots")) if hasattr(page_obj, "get") else None
+        )
+        if isinstance(annots_obj, list):
+            for annot in annots_obj:
+                annot_obj = _deref(annot)
+                if not annot_obj or not hasattr(annot_obj, "get"):
+                    continue
+                if _deref(annot_obj.get("/AA")) is not None:
+                    return True
+                action_obj = _deref(annot_obj.get("/A"))
+                if action_obj and hasattr(action_obj, "get"):
+                    action_type = action_obj.get("/S")
+                    if action_type in ("/JavaScript", "/JS", "/Launch"):
+                        js_payload = _deref(action_obj.get("/JS"))
+                        if action_type == "/Launch" or (
+                            js_payload is not None and str(js_payload).strip() != ""
+                        ):
+                            return True
+
+    return False
+
+
+def _sanitize_pdf_active_content(filepath: str) -> None:
+    """Strips embedded JavaScript, OpenAction, Additional Actions (/AA), Launch
+    actions, and embedded file attachments in place using PyMuPDF while keeping
+    all visual pages, text, and fillable AcroForm widgets intact.
+
+    Many official municipal and government PDF forms (such as German
+    *Wohnungsgeberbestätigung*, *Kindergeld*, and *Wohngeld* forms) include
+    "Drucken" (Print) and "Alle Angaben löschen" (Reset) buttons or field-level
+    formatting scripts (`/AA`). Neutralizing active triggers in place allows
+    citizens to upload and complete real government forms safely.
+    """
+    import fitz
+
+    tmp_filepath = f"{filepath}.sanitized.pdf"
+    doc = fitz.open(filepath)
+    try:
+        if doc.is_encrypted:
+            doc.authenticate("")
+
+        doc.scrub(
+            attached_files=True,
+            clean_pages=False,
+            embedded_files=True,
+            hidden_text=False,
+            javascript=True,
+            metadata=False,
+            redactions=False,
+            redact_images=0,
+            remove_links=False,
+            reset_fields=False,
+            reset_responses=False,
+            thumbnails=False,
+            xml_metadata=False,
         )
 
-        # Check for active actions at root level
-        if "/JavaScript" in catalog_obj or "/JS" in catalog_obj:
-            raise DocumentValidationError(
-                "PDF contains embedded JavaScript.",
-                "unsupported_pdf_feature",
-            )
-        if "/OpenAction" in catalog_obj:
-            raise DocumentValidationError(
-                "PDF contains automatic OpenAction triggers.",
-                "unsupported_pdf_feature",
-            )
-        if "/AA" in catalog_obj:
-            raise DocumentValidationError(
-                "PDF contains active Additional Actions.",
-                "unsupported_pdf_feature",
-            )
+        cat_xref = doc.pdf_catalog()
+        if cat_xref > 0:
+            for cat_key in (
+                "OpenAction",
+                "AA",
+                "JavaScript",
+                "JS",
+                "Names/JavaScript",
+                "Names/EmbeddedFiles",
+            ):
+                try:
+                    doc.xref_set_key(cat_xref, cat_key, "null")
+                except Exception:
+                    continue
 
-        # Check for embedded files or names list JavaScript
-        names = catalog_obj.get("/Names")
-        if names:
-            names_obj = names.get_object() if hasattr(names, "get_object") else names
-            if "/EmbeddedFiles" in names_obj or "/JavaScript" in names_obj:
-                raise DocumentValidationError(
-                    "PDF contains embedded files or JavaScript attachments.",
-                    "unsupported_pdf_feature",
-                )
-
-        # Check pages and annotations
-        for page in reader.pages:
-            page_obj = page.get_object() if hasattr(page, "get_object") else page
-            if page_obj is None:
+        # Strip any remaining /OpenAction, /AA, or /JavaScript / /Launch action
+        # dictionaries across indirect objects so no viewer or parser ever
+        # encounters active triggers.
+        for xref in range(1, doc.xref_length()):
+            try:
+                if not doc.xref_is_dict(xref):
+                    continue
+                for key in (
+                    "OpenAction",
+                    "AA",
+                    "JavaScript",
+                    "JS",
+                    "EmbeddedFiles",
+                ):
+                    kind, _val = doc.xref_get_key(xref, key)
+                    if kind != "null":
+                        doc.xref_set_key(xref, key, "null")
+                action_s_kind, action_s_val = doc.xref_get_key(xref, "S")
+                if action_s_kind == "name" and action_s_val in (
+                    "/JavaScript",
+                    "/JS",
+                    "/Launch",
+                ):
+                    doc.xref_set_key(xref, "S", "null")
+                    doc.xref_set_key(xref, "JS", "null")
+                    doc.xref_set_key(xref, "F", "null")
+                sub_s_kind, sub_s_val = doc.xref_get_key(xref, "A/S")
+                if sub_s_kind == "name" and sub_s_val in (
+                    "/JavaScript",
+                    "/JS",
+                    "/Launch",
+                ):
+                    doc.xref_set_key(xref, "A", "null")
+            except Exception:
                 continue
-            if "/AA" in cast(Any, page_obj):
-                raise DocumentValidationError(
-                    "Page contains active Additional Actions.",
-                    "unsupported_pdf_feature",
-                )
 
-            annots = page_obj.get("/Annots") if hasattr(page_obj, "get") else None
-            if annots:
-                # annots can be an array of indirect references
-                for annot in annots:
-                    annot_obj = (
-                        annot.get_object() if hasattr(annot, "get_object") else annot
-                    )
-                    if not annot_obj:
-                        continue
-                    action = annot_obj.get("/A")
-                    if action:
-                        action_obj = (
-                            action.get_object()
-                            if hasattr(action, "get_object")
-                            else action
-                        )
-                        action_type = action_obj.get("/S")
-                        if action_type in ("/JavaScript", "/JS", "/Launch"):
-                            raise DocumentValidationError(
-                                "Annotation contains JavaScript or Launch actions.",
-                                "unsupported_pdf_feature",
-                            )
+        doc.save(tmp_filepath, garbage=2, deflate=True)
+    finally:
+        doc.close()
+
+    os.replace(tmp_filepath, filepath)
+    logger.info(
+        "Sanitized active PDF content (JavaScript/actions) in uploaded document."
+    )
+
+
+def validate_pdf_safety(filepath: str) -> None:
+    """Scans the PDF catalog and pages for active content and neutralizes any
+    embedded JavaScript, automatic actions, or attachments in place.
+    """
+    try:
+        reader = open_pdf(filepath)
+        if _has_active_pdf_content(reader):
+            _sanitize_pdf_active_content(filepath)
     except DocumentValidationError:
         raise
     except Exception as e:
