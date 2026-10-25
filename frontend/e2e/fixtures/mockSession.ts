@@ -86,7 +86,9 @@ function fieldPayload(
   field: MockField,
   total: number,
   answered: number,
+  summaryRows: MockSummaryRow[] = [],
 ): Record<string, unknown> {
+  const row = summaryRows.find((r) => r.fieldId === field.id);
   return {
     id: field.id,
     fieldId: field.id,
@@ -103,6 +105,8 @@ function fieldPayload(
     placeholder: null,
     options: field.options ?? null,
     currentAnswerStatus: field.currentAnswerStatus ?? null,
+    originalAnswer: row?.originalAnswer ?? null,
+    allFieldKeys: summaryRows.map((r) => r.fieldKey),
     progress: {
       confirmedRequiredFields: answered,
       totalRequiredFields: total,
@@ -167,7 +171,10 @@ export async function mockGuidedSession(
 
     if (path.endsWith("/current-field")) {
       const field = fields[Math.min(cursor, fields.length - 1)];
-      return json(route, fieldPayload(field, fields.length, answered));
+      return json(
+        route,
+        fieldPayload(field, fields.length, answered, summaryRows),
+      );
     }
 
     if (path.endsWith("/summary")) {

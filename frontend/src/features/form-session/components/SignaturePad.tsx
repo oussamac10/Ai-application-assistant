@@ -3,28 +3,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
-/**
- * A signature pad, and an equally prominent way not to use it.
- *
- * Electronic signing is never mandatory. Even when the source PDF marks its
- * signature box required, that says the *printed* document must be signed
- * before it counts — not that it must be signed here. Someone on a desktop with
- * a mouse, or with a motor impairment, or who simply prefers pen on paper, must
- * be able to continue. So "Sign after printing" sits beside the pad rather than
- * hidden behind it, and it is a completion rather than a skip.
- *
- * Input uses Pointer Events only. They cover mouse, touch and stylus in one
- * code path, which is not just less code: separate mouse and touch handlers
- * double-fire on hybrid devices, so a single stylus stroke would be recorded
- * twice.
- *
- * Strokes are kept as vectors. They render crisply at any export size, they are
- * a fraction of the size of a bitmap, and — because the payload can only hold
- * numbers — there is no way for markup or a data URI to travel inside one.
- * Nothing here records pressure, tilt or device identity: none of it improves a
- * rendered signature, and all of it would widen what a leak exposes.
- */
-
 export type Stroke = Array<[number, number]>;
 
 export interface SignatureValue {
@@ -33,8 +11,6 @@ export interface SignatureValue {
   height: number;
 }
 
-// Mirrors the backend's limits (app/answers/signatures.py) so the pad refuses
-// to build a payload the server would reject.
 const MAX_STROKES = 200;
 const MAX_POINTS_PER_STROKE = 2000;
 
@@ -70,10 +46,10 @@ export function SignaturePad({
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
     context.clearRect(0, 0, canvas.width, canvas.height);
-    context.lineWidth = 2.5;
+    context.lineWidth = 2.75;
     context.lineCap = "round";
     context.lineJoin = "round";
-    context.strokeStyle = "#e2e8f0";
+    context.strokeStyle = "#1e293b";
     for (const stroke of allStrokes) {
       if (stroke.length === 0) continue;
       context.beginPath();
@@ -81,8 +57,6 @@ export function SignaturePad({
       for (const [x, y] of stroke.slice(1)) {
         context.lineTo(x, y);
       }
-      // A single tap is a dot, not nothing — without this a deliberate mark
-      // would vanish.
       if (stroke.length === 1) {
         context.lineTo(stroke[0][0] + 0.1, stroke[0][1] + 0.1);
       }
@@ -90,14 +64,9 @@ export function SignaturePad({
     }
   }, []);
 
-  /** Canvas-space coordinates, clamped to the canvas.
-   *
-   * The element is responsive, so its rendered size differs from its backing
-   * store; scaling here is what keeps a stroke drawn on a phone landing in the
-   * same place as one drawn on a desktop. Clamping matters because a pointer
-   * capture keeps delivering events after the pointer leaves the element, and
-   * the backend rejects any point outside the declared canvas. */
-  const pointFrom = (event: React.PointerEvent<HTMLCanvasElement>): [number, number] => {
+  const pointFrom = (
+    event: React.PointerEvent<HTMLCanvasElement>
+  ): [number, number] => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * canvas.width;
@@ -114,14 +83,12 @@ export function SignaturePad({
     onChange(
       allStrokes.length === 0
         ? null
-        : { strokes: allStrokes, width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
+        : { strokes: allStrokes, width: CANVAS_WIDTH, height: CANVAS_HEIGHT }
     );
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (disabled || strokes.length >= MAX_STROKES) return;
-    // Capture keeps the stroke alive when the pointer leaves the canvas, so a
-    // fast signature is not chopped at the edge.
     event.currentTarget.setPointerCapture?.(event.pointerId);
     drawingRef.current = [pointFrom(event)];
   };
@@ -147,49 +114,85 @@ export function SignaturePad({
   const hasSignature = strokes.length > 0;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3.5">
       {pendingManualSignature && !hasSignature ? (
         <div
           data-testid="signature-pending-manual"
-          className="rounded-xl border border-amber-800 bg-amber-950/20 p-4 text-sm text-amber-300"
+          className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-sm text-amber-900 flex items-center gap-3"
         >
-          {t("willSignAfterPrinting")}
+          <svg
+            className="h-4 w-4 text-amber-600 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+            />
+          </svg>
+          <span>{t("willSignAfterPrinting")}</span>
         </div>
       ) : null}
 
-      <canvas
-        ref={canvasRef}
-        data-testid="signature-canvas"
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
-        role="img"
-        aria-label={t("padLabel")}
-        // `touch-none` stops the browser scrolling the page instead of
-        // delivering the pointer events a signature is made of.
-        className="w-full max-w-full touch-none rounded-xl border border-slate-700 bg-slate-950 shadow-inner"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      />
+      <div className="relative rounded-xl border border-slate-300 bg-slate-50 p-1.5 shadow-inner">
+        <canvas
+          ref={canvasRef}
+          data-testid="signature-canvas"
+          width={CANVAS_WIDTH}
+          height={CANVAS_HEIGHT}
+          role="img"
+          aria-label={t("padLabel")}
+          className="w-full max-w-full touch-none rounded-lg bg-white border border-slate-200 cursor-crosshair"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        />
 
-      <p id={`signature-help-${fieldKey}`} className="text-xs text-slate-400">
+        <div className="pointer-events-none absolute bottom-5 inset-x-6 flex items-center gap-2 opacity-60">
+          <span className="font-mono text-[10px] text-slate-500 uppercase tracking-widest">
+            ✕
+          </span>
+          <div className="flex-1 border-b border-dashed border-slate-300" />
+        </div>
+      </div>
+
+      <p id={`signature-help-${fieldKey}`} className="text-xs text-slate-500">
         {t("instructions")}
       </p>
 
       {error ? (
-        <p className="text-sm text-rose-400" role="alert">
-          {error}
+        <p
+          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800 flex items-center gap-2"
+          role="alert"
+        >
+          <svg
+            className="h-4 w-4 shrink-0 text-rose-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <span>{error}</span>
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2 pt-1">
         <button
           type="button"
           data-testid="signature-clear"
           disabled={disabled || !hasSignature}
           onClick={handleClear}
-          className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-slate-900 disabled:opacity-40 disabled:pointer-events-none"
+          className="btn-secondary px-3.5 py-2 text-xs"
         >
           {t("clear")}
         </button>
@@ -198,18 +201,16 @@ export function SignaturePad({
           data-testid="signature-undo"
           disabled={disabled || !hasSignature}
           onClick={handleUndo}
-          className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-slate-900 disabled:opacity-40 disabled:pointer-events-none"
+          className="btn-secondary px-3.5 py-2 text-xs"
         >
           {t("undo")}
         </button>
-        {/* Always available, never behind a disclosure: signing on paper is a
-            first-class way to complete the form, not a fallback. */}
         <button
           type="button"
           data-testid="signature-sign-after-printing"
           disabled={disabled}
           onClick={onSignAfterPrinting}
-          className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-slate-900 disabled:opacity-40 disabled:pointer-events-none"
+          className="btn-secondary px-3.5 py-2 text-xs"
         >
           {t("signAfterPrinting")}
         </button>

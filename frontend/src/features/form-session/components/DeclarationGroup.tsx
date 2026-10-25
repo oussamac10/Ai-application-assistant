@@ -7,27 +7,6 @@ import {
   unsatisfiedRequiredChildren,
 } from "@/features/form-session/utils/questionRules";
 
-/**
- * A block of independent consents, rendered as independent controls.
- *
- * The backend models these as separate booleans, each carrying the requiredness
- * its own marker declared:
- *
- *     Je certifie que les informations sont exactes *   -> required
- *     J'accepte le traitement des donnees de test *     -> required
- *     Je souhaite recevoir des nouvelles (Optional)     -> optional
- *
- * Rendered as one multiple-choice question they became "tick any of these", and
- * the two mandatory consents silently stopped being mandatory. They are not
- * options of a question; they are three yes/no answers that happen to sit
- * together, and each needs its own control, its own requiredness and its own
- * error.
- *
- * A `fieldset`/`legend` rather than a styled div: it is what tells a screen
- * reader these checkboxes belong together, which is the whole semantic content
- * of the grouping.
- */
-
 interface DeclarationGroupProps {
   groupKey: string;
   label: string;
@@ -47,15 +26,17 @@ export function DeclarationGroup({
 }: DeclarationGroupProps) {
   const t = useTranslations("common");
   const unsatisfied = new Set(
-    unsatisfiedRequiredChildren(children).map((child) => child.key),
+    unsatisfiedRequiredChildren(children).map((child) => child.key)
   );
 
   return (
     <fieldset
       data-testid={`declaration-group-${groupKey}`}
-      className="space-y-3 border-0 p-0"
+      className="space-y-2.5 border-0 p-0"
     >
-      <legend className="text-sm font-semibold text-slate-300">{label}</legend>
+      <legend className="text-sm font-semibold text-slate-800 mb-2">
+        {label}
+      </legend>
 
       {children.map((child) => {
         const inputId = `declaration-${child.key}`;
@@ -63,10 +44,14 @@ export function DeclarationGroup({
         const showError = showErrors && unsatisfied.has(child.key);
 
         return (
-          <div key={child.key} className="space-y-1">
+          <div key={child.key} className="space-y-1.5">
             <label
               htmlFor={inputId}
-              className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3 transition hover:border-slate-700"
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors ${
+                child.value === true
+                  ? "border-indigo-500 bg-indigo-50/70"
+                  : "border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50"
+              }`}
             >
               <input
                 id={inputId}
@@ -74,28 +59,23 @@ export function DeclarationGroup({
                 type="checkbox"
                 checked={child.value === true}
                 disabled={disabled}
-                // Each child carries its own required state, so assistive
-                // technology announces exactly the two that must be checked
-                // rather than the block as a whole.
                 aria-required={child.requiredness === "required"}
                 aria-invalid={showError || undefined}
                 aria-describedby={showError ? errorId : undefined}
                 onChange={(event) => onChange(child.key, event.target.checked)}
-                className="mt-0.5 h-5 w-5 shrink-0 accent-indigo-500"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 bg-white accent-indigo-600"
               />
-              <span className="text-sm text-slate-200">
+              <span className="text-sm text-slate-800 leading-snug">
                 {child.label}
                 {child.requiredness === "required" ? (
-                  <span className="ms-1 text-rose-400" aria-hidden="true">
+                  <span className="ms-1 text-rose-600" aria-hidden="true">
                     *
                   </span>
                 ) : null}
-                {/* Only a real finding is labelled. `unknown` says nothing,
-                    because the document said nothing. */}
                 {child.requiredness !== "unknown" ? (
                   <span
                     data-testid={`declaration-requiredness-${child.key}`}
-                    className="ms-2 text-xs font-medium tracking-wide text-slate-400"
+                    className="ms-2 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600"
                   >
                     {child.requiredness === "required"
                       ? t("required")
@@ -110,7 +90,7 @@ export function DeclarationGroup({
                 id={errorId}
                 data-testid={`declaration-error-${child.key}`}
                 role="alert"
-                className="ps-3 text-sm text-rose-400"
+                className="ps-3 text-xs font-medium text-rose-600"
               >
                 {t("declarationRequired")}
               </p>

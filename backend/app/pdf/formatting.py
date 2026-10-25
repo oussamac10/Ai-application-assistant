@@ -90,7 +90,7 @@ def format_field_value(
                     parts.append(str(amount))
             if currency:
                 parts.append(str(currency))
-            if period:
+            if period and str(period).strip().lower() != "once":
                 parts.append(str(period))
             return " ".join(parts)
         return output_value or str(val) if val is not None else ""

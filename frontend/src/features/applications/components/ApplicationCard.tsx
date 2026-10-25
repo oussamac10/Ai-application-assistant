@@ -56,9 +56,18 @@ export default function ApplicationCard({ application, onRename, onDelete }: Pro
     }
   };
 
+  const statusColor =
+    application.status === "completed"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : application.status === "ready_for_export"
+      ? "bg-sky-50 text-sky-700 border-sky-200"
+      : application.status === "awaiting_final_confirmation"
+      ? "bg-amber-50 text-amber-800 border-amber-200"
+      : "bg-indigo-50 text-indigo-700 border-indigo-200";
+
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg backdrop-blur-xl">
-      <div className="flex items-start justify-between gap-4">
+    <div className="surface-card rounded-2xl p-5 sm:p-6 transition-colors duration-150 hover:border-slate-300">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           {editing ? (
             <div className="flex items-center gap-2">
@@ -67,13 +76,13 @@ export default function ApplicationCard({ application, onRename, onDelete }: Pro
                 value={titleDraft}
                 onChange={(e) => setTitleDraft(e.target.value)}
                 autoFocus
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm text-slate-100 outline-none focus:border-indigo-500"
+                className="input-field py-2 text-sm"
               />
               <button
                 type="button"
                 onClick={handleSaveTitle}
                 disabled={busy}
-                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                className="btn-primary px-3.5 py-2 text-xs font-semibold"
               >
                 {t("renameSave")}
               </button>
@@ -83,45 +92,65 @@ export default function ApplicationCard({ application, onRename, onDelete }: Pro
                   setTitleDraft(application.title);
                   setEditing(false);
                 }}
-                className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300"
+                className="btn-secondary px-3.5 py-2 text-xs font-medium"
               >
                 {t("cancel")}
               </button>
             </div>
           ) : (
-            <h2 className="truncate text-base font-bold text-slate-100">{application.title}</h2>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">{application.title}</h2>
+              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusColor}`}>
+                {t(`status_${application.status}`)}
+              </span>
+            </div>
           )}
-          <p className="mt-1 text-xs text-slate-400">
-            {application.formName} &middot; {t(`status_${application.status}`)}
+          <p className="mt-1 text-xs font-medium text-slate-700">
+            {application.formName}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 tabular-nums">
             {t("updatedLabel")}: {new Date(application.updatedAt).toLocaleString()}
           </p>
           {!application.exportSupported && (
-            <p className="mt-1 text-xs text-amber-400">{t("exportUnsupported")}</p>
+            <p className="mt-1.5 text-xs text-amber-800 flex items-center gap-1.5">
+              <svg className="h-3.5 w-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>{t("exportUnsupported")}</span>
+            </p>
           )}
         </div>
-        <div className="h-2 w-16 shrink-0 overflow-hidden rounded-full bg-slate-800">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
-            style={{ width: `${application.progressPercentage}%` }}
-          />
+
+        {/* Progress indicator */}
+        <div className="flex items-center gap-2.5 self-start sm:self-center">
+          <div className="h-1.5 w-24 sm:w-28 overflow-hidden rounded-full bg-slate-100 border border-slate-200">
+            <div
+              className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+              style={{ width: `${application.progressPercentage}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-slate-700 w-9 text-end tabular-nums">
+            {application.progressPercentage}%
+          </span>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-5 flex flex-wrap items-center gap-2 pt-3.5 border-t border-slate-200">
         <button
           type="button"
           onClick={handleResume}
-          className="rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-500 px-3 py-1.5 text-xs font-bold text-white shadow shadow-indigo-500/20 transition hover:opacity-95"
+          className="btn-primary px-4 py-2 text-xs font-semibold"
         >
-          {t("resume")}
+          <span>{t("resume")}</span>
+          <svg className="h-3.5 w-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
         </button>
         {!editing && (
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-slate-500"
+            className="btn-secondary px-3.5 py-2 text-xs font-medium"
           >
             {t("rename")}
           </button>
@@ -130,7 +159,7 @@ export default function ApplicationCard({ application, onRename, onDelete }: Pro
           type="button"
           onClick={handleDelete}
           disabled={busy}
-          className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-rose-300 transition hover:border-rose-700 disabled:opacity-40"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-40"
         >
           {t("delete")}
         </button>

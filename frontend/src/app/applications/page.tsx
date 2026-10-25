@@ -23,10 +23,6 @@ export default function MyApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  // Deliberately does not depend on `t` (the next-intl translator): this
-  // avoids re-fetching every time the surrounding component re-renders,
-  // which would otherwise silently undo an in-flight rename/delete by
-  // reloading the pre-mutation list from the server.
   const loadApplications = useCallback(async () => {
     try {
       setLoadFailed(false);
@@ -61,39 +57,74 @@ export default function MyApplicationsPage() {
 
   if (authLoading || loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 text-slate-100">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-indigo-500" />
-          <p className="text-sm font-medium text-slate-400">{tc("loading")}</p>
+      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center text-slate-900">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
+          <p className="text-sm font-medium text-slate-600">{tc("loading")}</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 px-4 py-16 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-2xl">
-        <h1 className="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
-          {t("title")}
-        </h1>
-        <p className="mt-2 text-sm text-slate-400">{t("subtitle")}</p>
+    <main className="min-h-[calc(100vh-3.5rem)] px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-4xl">
+        {/* Dashboard Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-6">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-0.5 text-xs font-semibold text-indigo-700 mb-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
+              User Dashboard
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+              {t("title")}
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">{t("subtitle")}</p>
+          </div>
+
+          <Link
+            href="/application"
+            className="btn-primary px-5 py-2.5 text-sm font-semibold"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>{t("startNew")}</span>
+          </Link>
+        </div>
 
         <div className="mt-8 space-y-4">
           {loadFailed && (
-            <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
+            <div
+              role="alert"
+              className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
+            >
               {t("empty")}
             </div>
           )}
 
           {applications.length === 0 && !loadFailed ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center">
-              <p className="text-sm text-slate-400">{t("empty")}</p>
-              <Link
-                href="/application"
-                className="mt-4 inline-block rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:opacity-95"
-              >
-                {t("startNew")}
-              </Link>
+            <div className="surface-card rounded-2xl p-12 text-center space-y-4">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600">
+                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-base font-bold text-slate-900">{t("empty")}</p>
+              <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                You haven&apos;t started any applications yet. Begin an assisted session to fill official documents.
+              </p>
+              <div className="pt-2">
+                <Link
+                  href="/application"
+                  className="btn-primary px-6 py-3 text-sm font-semibold"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>{t("startNew")}</span>
+                </Link>
+              </div>
             </div>
           ) : (
             applications.map((app) => (

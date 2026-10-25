@@ -25,15 +25,8 @@ export default function SessionComplete() {
   const [exportData, setExportData] = useState<ExportResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [exportSupported, setExportSupported] = useState<boolean | null>(null);
-  /** Whether any signature will be provided on paper rather than in the app.
-   *
-   * The reminder belongs *here*, before the download, because this is the last
-   * moment the app can say anything — once the PDF is on disk the user is on
-   * their own with a form whose signature box is deliberately blank. */
   const [needsHandwrittenSignature, setNeedsHandwrittenSignature] =
     useState<boolean>(false);
-  /** Whether the last failure is one the user can clear by signing again, and
-   * whether retrying the same export is worth offering at all. */
   const [canResign, setCanResign] = useState<boolean>(false);
   const [canRetry, setCanRetry] = useState<boolean>(true);
 
@@ -55,13 +48,9 @@ export default function SessionComplete() {
             );
           }
         } catch {
-          // A summary we cannot read is not a reason to block the export, and
-          // showing the reminder speculatively would be wrong for someone who
-          // signed digitally.
+          // ignore
         }
       } catch {
-        // If we can't determine origin, default to allowing the normal
-        // export flow rather than silently hiding it.
         if (!cancelled) setExportSupported(true);
       }
     }
@@ -86,7 +75,6 @@ export default function SessionComplete() {
     } catch (error: any) {
       console.error("PDF generation failed:", error);
       if (error instanceof TokenMissingError) {
-        // Session token was lost (tab closed / storage cleared) — redirect to start fresh
         setExportState("token_missing");
         setErrorMsg("Your session credentials were lost (the tab may have been closed or refreshed). Redirecting you to start a new session…");
         setTimeout(() => router.push("/application"), 3000);
@@ -94,21 +82,12 @@ export default function SessionComplete() {
       }
       setExportState("download_failed");
 
-      // A recognised code is rendered as its own translated sentence; nothing
-      // from the response body is ever shown, because one careless `raise`
-      // upstream would put a library message or a file path on screen.
       const presented = resolveExportError(t, error);
       setCanResign(presented.canResign);
       setCanRetry(presented.canRetry);
 
       if (error instanceof ApiError && extractExportErrorCode(error) === null) {
         if (error.status === 401 || error.status === 403) {
-          // Stay put. Redirecting into a brand new session destroys the work
-          // this screen is the end of, and an authorization failure is
-          // something to tell someone about — not to react to by silently
-          // starting them over. Retry is hidden because the ownership state
-          // will not resolve by trying again; the manual "start over" control
-          // below is still there when the user decides that is what they want.
           setErrorMsg(t("error_export_forbidden"));
           setCanRetry(false);
           setCanResign(false);
@@ -155,92 +134,130 @@ export default function SessionComplete() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 px-4 text-slate-100">
-      <div className="w-full max-w-md">
-        <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 p-8 text-center shadow-2xl backdrop-blur-xl animate-fade-in">
-          {/* Glowing decorator background */}
-          <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
-
-          <div className="relative z-10 flex flex-col items-center">
-            {/* Green Success Checkmark */}
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30">
-              <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-10 text-slate-900">
+      <div className="w-full max-w-2xl">
+        <div className="surface-panel rounded-2xl p-8 sm:p-10 text-center">
+          <div className="flex flex-col items-center">
+            {/* Green Success Checkmark Badge */}
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-600">
+              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
 
-            <h1 className="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 mb-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+              <span className="tabular-nums">Step 4 of 4 • Complete</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
               {t("title")}
             </h1>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-1.5 text-sm text-slate-600">
               {t("subtitle")}
             </p>
 
-            {/* Shown only when a signature was deliberately deferred to paper.
-                Never inserted into the PDF itself: the official form's
-                signature box stays exactly as its author drew it. */}
+            {/* Document Certificate Metadata Box */}
+            <div className="mt-6 w-full rounded-xl border border-slate-200 bg-slate-50/70 p-5 text-start space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  Document Package
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+                  Official AcroForm
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-500 block">Session Reference</span>
+                  <span className="font-mono text-slate-800 font-semibold truncate block mt-0.5 tabular-nums">{sessionId.slice(0, 8)}…</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Compilation</span>
+                  <span className="font-semibold text-slate-800 block mt-0.5">Deterministic Fill</span>
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <span className="text-slate-500 block">Data Retention</span>
+                  <span className="font-semibold text-emerald-700 block mt-0.5">Zero-Retention</span>
+                </div>
+              </div>
+            </div>
+
             {needsHandwrittenSignature && (
               <div
                 role="status"
                 data-testid="handwritten-signature-reminder"
-                className="mt-6 w-full rounded-2xl border border-amber-800 bg-amber-950/20 p-4 text-start text-sm leading-relaxed text-amber-300"
+                className="mt-5 w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-start text-sm leading-relaxed text-amber-900"
               >
-                <p className="font-semibold">{ts("reminderTitle")}</p>
+                <p className="font-bold">{ts("reminderTitle")}</p>
                 <p className="mt-1">{ts("printReminder")}</p>
               </div>
             )}
 
-            <div className="my-6 w-full border-t border-slate-800" />
+            <div className="my-6 w-full border-t border-slate-200" />
 
-            <p className="text-sm leading-relaxed text-slate-300">
+            <p className="text-sm leading-relaxed text-slate-700">
               {t("body")}
             </p>
 
             {exportSupported === false && (
-              <div className="mt-4 w-full rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-300">
+              <div className="mt-4 w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
                 {t("dynamicExportUnsupported")}
               </div>
             )}
 
-            {/* Error Message rendering */}
             {errorMsg && (
-              <div className="mt-4 w-full rounded-xl border border-rose-900/30 bg-rose-950/20 p-3 text-xs text-rose-300">
+              <div
+                role="alert"
+                className="mt-4 w-full rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800"
+              >
                 {errorMsg}
               </div>
             )}
 
             {/* Interactive Actions */}
-            <div className="mt-6 w-full space-y-3">
+            <div className="mt-7 w-full space-y-3">
               {exportSupported === true && exportState === "ready" && (
                 <button
                   onClick={handleGeneratePdf}
-                  className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-4 text-base font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:opacity-95 active:scale-[0.99]"
+                  className="btn-primary w-full py-3.5 text-sm font-semibold"
                 >
-                  {t("generatePdf")}
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>{t("generatePdf")}</span>
                 </button>
               )}
 
               {exportState === "creating_export" && (
                 <button
                   disabled
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 py-4 text-base font-bold text-slate-400 cursor-not-allowed"
+                  className="btn-secondary w-full py-3.5 text-sm font-medium cursor-not-allowed"
                 >
-                  <svg className="h-5 w-5 animate-spin text-indigo-400" viewBox="0 0 24 24" fill="none">
+                  <svg className="h-4 w-4 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  {t("preparingPdf")}
+                  <span>{t("preparingPdf")}</span>
                 </button>
               )}
 
               {exportState === "export_ready" && (
                 <div className="space-y-3">
-                  <div className="text-xs text-emerald-400 font-medium">✓ {t("pdfReady")}</div>
+                  <div className="text-xs text-emerald-700 font-semibold flex items-center justify-center gap-1.5">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>{t("pdfReady")}</span>
+                  </div>
                   <button
                     onClick={handleDownloadPdf}
-                    className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-4 text-base font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:opacity-95 active:scale-[0.99]"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-emerald-700"
                   >
-                    {t("downloadPdf")}
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span>{t("downloadPdf")}</span>
                   </button>
                 </div>
               )}
@@ -248,37 +265,32 @@ export default function SessionComplete() {
               {exportState === "downloading" && (
                 <button
                   disabled
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 py-4 text-base font-bold text-slate-400 cursor-not-allowed"
+                  className="btn-secondary w-full py-3.5 text-sm font-medium cursor-not-allowed"
                 >
-                  <svg className="h-5 w-5 animate-spin text-emerald-400" viewBox="0 0 24 24" fill="none">
+                  <svg className="h-4 w-4 animate-spin text-emerald-600" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  {tc("loading")}
+                  <span>{tc("loading")}</span>
                 </button>
               )}
 
-              {/* Retrying a permission failure or a broken template mapping
-                  achieves nothing, so the button is not offered there — a
-                  retry that cannot succeed just invites repeated pressing. */}
               {(exportState === "export_expired" ||
                 (exportState === "download_failed" && canRetry)) && (
                 <button
                   data-testid="retry-export"
                   onClick={handleGeneratePdf}
-                  className="w-full rounded-xl bg-slate-800 py-4 text-base font-bold text-slate-200 hover:bg-slate-700 transition active:scale-[0.99]"
+                  className="btn-primary w-full py-3.5 text-sm font-semibold"
                 >
                   {t("regeneratePdf")}
                 </button>
               )}
 
-              {/* A signature that is invalid, oversized or unrenderable is
-                  fixed by signing again — not by retrying the same export. */}
               {exportState === "download_failed" && canResign && (
                 <button
                   data-testid="return-to-signature"
                   onClick={() => router.push(`/application/session/${sessionId}`)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3.5 text-base font-bold text-slate-300 hover:bg-slate-900 transition active:scale-[0.99]"
+                  className="btn-secondary w-full py-3.5 text-sm font-medium"
                 >
                   {t("returnToSignature")}
                 </button>
@@ -286,7 +298,7 @@ export default function SessionComplete() {
 
               <button
                 onClick={handleStartNew}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/40 py-4 text-base font-bold text-slate-400 hover:text-slate-200 transition"
+                className="btn-secondary w-full py-3.5 text-sm font-medium"
               >
                 {t("startNew")}
               </button>

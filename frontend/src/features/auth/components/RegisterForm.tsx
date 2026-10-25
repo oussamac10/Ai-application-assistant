@@ -43,25 +43,38 @@ export default function RegisterForm() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 px-4 py-12 text-slate-100">
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-12 text-slate-900">
       <div className="w-full max-w-md">
-        <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 p-8 shadow-2xl backdrop-blur-xl">
-          <h1 className="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-center text-3xl font-extrabold tracking-tight text-transparent">
-            {t("registerTitle")}
-          </h1>
+        <div className="surface-panel rounded-2xl p-8 sm:p-10">
+          <div className="text-center">
+            <div className="mx-auto mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              {t("registerTitle")}
+            </h1>
+            <p className="mt-1.5 text-xs text-slate-600">
+              Create your account to claim and manage applications
+            </p>
+          </div>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-7 space-y-5">
             {errorKey && (
               <div
                 role="alert"
-                className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300"
+                className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-800"
               >
-                {t(errorKey)}
+                <svg className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{t(errorKey)}</span>
               </div>
             )}
 
-            <div className="space-y-2">
-              <label htmlFor="register-email" className="block text-sm font-semibold text-slate-300">
+            <div className="space-y-1.5">
+              <label htmlFor="register-email" className="block text-xs font-semibold text-slate-700">
                 {t("emailLabel")}
               </label>
               <input
@@ -71,15 +84,13 @@ export default function RegisterForm() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                // See LoginForm.tsx — password-manager extensions inject
-                // attributes onto credential inputs after server render.
+                className="input-field"
                 suppressHydrationWarning
               />
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="register-password" className="block text-sm font-semibold text-slate-300">
+            <div className="space-y-1.5">
+              <label htmlFor="register-password" className="block text-xs font-semibold text-slate-700">
                 {t("passwordLabel")}
               </label>
               <input
@@ -90,15 +101,15 @@ export default function RegisterForm() {
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                className="input-field"
                 suppressHydrationWarning
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label
                 htmlFor="register-password-confirmation"
-                className="block text-sm font-semibold text-slate-300"
+                className="block text-xs font-semibold text-slate-700"
               >
                 {t("passwordConfirmationLabel")}
               </label>
@@ -110,7 +121,7 @@ export default function RegisterForm() {
                 autoComplete="new-password"
                 value={passwordConfirmation}
                 onChange={(e) => setPasswordConfirmation(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                className="input-field"
                 suppressHydrationWarning
               />
             </div>
@@ -118,15 +129,15 @@ export default function RegisterForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-base font-bold shadow-lg shadow-indigo-500/20 transition hover:opacity-95 disabled:pointer-events-none disabled:opacity-40"
+              className="btn-primary w-full py-3 text-sm font-semibold"
             >
               {submitting ? t("registerSubmitting") : t("registerButton")}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
+          <p className="mt-6 text-center text-xs text-slate-600">
             {t("haveAccountPrompt")}{" "}
-            <Link href="/login" className="font-semibold text-indigo-400 hover:text-indigo-300">
+            <Link href="/login" className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
               {t("goToLogin")}
             </Link>
           </p>

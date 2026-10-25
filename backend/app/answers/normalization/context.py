@@ -50,6 +50,65 @@ _CURRENCY_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("CHF", ("chf", "franken", "franc suisse")),
 )
 
+_PERIOD_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "monthly",
+        (
+            "monthly",
+            "per month",
+            "mensuel",
+            "mensuelle",
+            "mensuels",
+            "mensuelles",
+            "par mois",
+            "monatlich",
+            "monatliche",
+            "monatlichen",
+            "monatliches",
+            "pro monat",
+            "شهري",
+            "شهريا",
+            "شهرياً",
+        ),
+    ),
+    (
+        "yearly",
+        (
+            "yearly",
+            "annual",
+            "annually",
+            "per year",
+            "annuel",
+            "annuelle",
+            "annuels",
+            "annuelles",
+            "par an",
+            "jährlich",
+            "jährliche",
+            "jährlichen",
+            "jährliches",
+            "pro jahr",
+            "سنوي",
+            "سنويا",
+            "سنوياً",
+        ),
+    ),
+    (
+        "weekly",
+        (
+            "weekly",
+            "per week",
+            "hebdomadaire",
+            "par semaine",
+            "wöchentlich",
+            "pro woche",
+            "أسبوعي",
+            "أسبوعيا",
+            "أسبوعياً",
+        ),
+    ),
+)
+
 # Labels whose answer is a proper noun: a person, a place, or an organisation.
 # Translating or transliterating any of these corrupts the answer — "Stuttgart"
 # is "Stuttgart" on a German form regardless of the interface language.
@@ -170,6 +229,20 @@ def currency_from_label(label: str | None) -> str | None:
     return None
 
 
+def period_from_label(label: str | None) -> str | None:
+    """The recurring frequency (`monthly`, `yearly`, `weekly`) a label names, or None."""
+    if not label:
+        return None
+    lowered = label.lower()
+    for period, markers in _PERIOD_MARKERS:
+        for marker in markers:
+            if not marker.isalpha() and marker in lowered:
+                return period
+            if marker.isalpha() and _matches_word(lowered, marker):
+                return period
+    return None
+
+
 def is_proper_noun_field(label: str | None, field_type: str | None = None) -> bool:
     """Whether this field's answer must be preserved verbatim.
 
@@ -190,7 +263,8 @@ def apply_currency_context(
     label: str | None,
     original_answer: str | None = None,
 ) -> tuple[object, bool]:
-    """Reconciles a money value's currency with the evidence that exists.
+    """Reconciles a money value's currency (and label-stated period) with the
+    evidence that exists.
 
     Returns `(value, changed)`.
 
@@ -202,23 +276,73 @@ def apply_currency_context(
       nothing about currency must not silently become dollars.
     - **The answer names one but the label does not** -> left alone. The user
       wrote "1800 EUR"; that is real evidence, not an invention.
+    - **The label names a recurring period (`mensuel`/`monthly`/`annuel`)** ->
+      if `period` is present on the money dict and the user's answer did not
+      name a different period, the label's period overrides an AI-guessed
+      `"once"`.
     """
     if not isinstance(normalized, dict) or "amount" not in normalized:
         return normalized, False
 
+    corrected = dict(normalized)
+    changed = False
+
     expected = currency_from_label(label)
-    current = normalized.get("currency")
+    current = corrected.get("currency")
 
     if expected is not None:
-        if current == expected:
-            return normalized, False
-        corrected = dict(normalized)
-        corrected["currency"] = expected
-        return corrected, True
-
-    if current and currency_from_label(original_answer) is None:
-        corrected = dict(normalized)
+        if current != expected:
+            corrected["currency"] = expected
+            changed = True
+    elif current and currency_from_label(original_answer) is None:
         corrected.pop("currency", None)
-        return corrected, True
+        changed = True
 
-    return normalized, False
+    if "period" in corrected:
+        expected_period = period_from_label(label)
+        if expected_period is not None and period_from_label(original_answer) is None:
+            if corrected.get("period") != expected_period:
+                corrected["period"] = expected_period
+                changed = True
+
+    if not changed:
+        return normalized, False
+    return corrected, True
+
+
+def format_money_output(value: dict[str, object]) -> str:
+    """Formats a normalized money dict for display/output without float `.0` or
+    invented `once` period."""
+    amt = value.get("amount")
+    if isinstance(amt, float) and amt.is_integer():
+        amt = int(amt)
+    cur = value.get("currency")
+    per = value.get("period")
+    parts: list[str] = []
+    if amt is not None and amt != "":
+        parts.append(str(amt))
+    if isinstance(cur, str) and cur.strip():
+        parts.append(cur.strip())
+    if isinstance(per, str) and per.strip() and per.strip().lower() != "once":
+        parts.append(per.strip())
+    return " ".join(parts)
+
+
+def format_boolean_output(value: bool, language: str | None = None) -> str:
+    """Formats a boolean value into localized Yes/No in the target language."""
+    lang = (language or "en").lower()
+    if value is True:
+        if lang == "de":
+            return "Ja"
+        if lang == "fr":
+            return "Oui"
+        if lang == "ar":
+            return "نعم"
+        return "Yes"
+    if lang == "de":
+        return "Nein"
+    if lang == "fr":
+        return "Non"
+    if lang == "ar":
+        return "لا"
+    return "No"

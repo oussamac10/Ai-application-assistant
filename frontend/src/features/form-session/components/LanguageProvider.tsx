@@ -8,8 +8,17 @@ import en from "../../../../messages/en.json";
 import de from "../../../../messages/de.json";
 import fr from "../../../../messages/fr.json";
 import ar from "../../../../messages/ar.json";
+import { isRtlLanguage, UNIVERSAL_LANGUAGES } from "../utils/languages";
 
 const messagesMap: Record<string, any> = { en, de, fr, ar };
+const supportedLanguageCodes = new Set(UNIVERSAL_LANGUAGES.map((l) => l.code));
+const ISO_639_1_REGEX = /^[a-z]{2}$/;
+
+function isValidLocaleCode(code: string | null | undefined): code is string {
+  if (!code) return false;
+  const normalized = code.toLowerCase().trim();
+  return supportedLanguageCodes.has(normalized) || ISO_639_1_REGEX.test(normalized);
+}
 
 interface LanguageContextType {
   locale: string;
@@ -25,12 +34,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Read persisted locale from localStorage
     const savedLocale = localStorage.getItem("ui-locale");
-    if (savedLocale && ["en", "de", "fr", "ar"].includes(savedLocale)) {
-      setLocaleState(savedLocale);
+    if (isValidLocaleCode(savedLocale)) {
+      setLocaleState(savedLocale.toLowerCase().trim());
     } else {
       // Try system language
-      const sysLang = navigator.language.split("-")[0];
-      if (["en", "de", "fr", "ar"].includes(sysLang)) {
+      const sysLang = navigator.language.split("-")[0]?.toLowerCase();
+      if (isValidLocaleCode(sysLang)) {
         setLocaleState(sysLang);
       }
     }
@@ -38,9 +47,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setLocale = (newLocale: string) => {
-    if (["en", "de", "fr", "ar"].includes(newLocale)) {
-      setLocaleState(newLocale);
-      localStorage.setItem("ui-locale", newLocale);
+    const normalized = (newLocale || "").toLowerCase().trim();
+    if (isValidLocaleCode(normalized)) {
+      setLocaleState(normalized);
+      localStorage.setItem("ui-locale", normalized);
     }
   };
 
@@ -48,7 +58,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     if (!mounted) return;
     // Set document properties
     document.documentElement.lang = locale;
-    document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
+    document.documentElement.dir = isRtlLanguage(locale) ? "rtl" : "ltr";
   }, [locale, mounted]);
 
   // Before mount, render children directly or with default english provider to avoid SSR mismatch

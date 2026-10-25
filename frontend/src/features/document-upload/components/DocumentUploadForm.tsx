@@ -51,10 +51,6 @@ export default function DocumentUploadForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debugUiEnabled = isDetectionDebugUiEnabled();
 
-  /** Identifies the newest processing run. A slow first attempt that is
-   * superseded (retry, another file) must not be allowed to write state on
-   * arrival — otherwise its stale error or "processing" overwrites the newer
-   * run's success. Every state write below is gated on still being current. */
   const runIdRef = useRef(0);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -101,8 +97,6 @@ export default function DocumentUploadForm({
   };
 
   const handleRemoveFile = () => {
-    // Invalidate any run still in flight so its late result cannot repopulate
-    // a form the user has just cleared.
     runIdRef.current += 1;
     setFile(null);
     setStage("idle");
@@ -120,17 +114,6 @@ export default function DocumentUploadForm({
     router.push(`/application/session/${sessionId}`);
   };
 
-  /** Runs preparation, treating a gateway/transport failure as "still
-   * working" rather than as a failed document.
-   *
-   * Preparation is synchronous and slow, so an intermediary (or a flaky
-   * connection) can drop the response while the backend goes on to finish
-   * successfully — the user then sees a processing error for a document that
-   * actually worked. The endpoint is idempotent: a repeat call reuses the
-   * session it already created and never re-runs detection or regenerates
-   * questions, so re-asking is safe and usually returns the finished result
-   * immediately. Bounded to two extra attempts; a real application error
-   * (any 4xx, or a structured error code) is not retried at all. */
   const prepareWithRetry = async (documentId: string) => {
     const maxAttempts = 3;
     for (let attempt = 1; ; attempt += 1) {
@@ -139,8 +122,6 @@ export default function DocumentUploadForm({
       } catch (err: any) {
         const status = typeof err?.status === "number" ? err.status : 0;
         const isTransport = status === 0 || status === 502 || status === 504;
-        // A bare proxy 500 carries no application error code; a real backend
-        // failure always does (see the {code, message, stage} error shape).
         const isBareGatewayError =
           status === 500 && !err?.detail && !err?.errorCode;
         const retryable = isTransport || isBareGatewayError;
@@ -166,8 +147,6 @@ export default function DocumentUploadForm({
 
     setProcessingNextStep(result.analysis?.nextStep || null);
     setStage("processing");
-    // A previous attempt's error must not stay on screen while this run is
-    // working, and must not survive its success.
     setErrorMsg(null);
 
     try {
@@ -184,9 +163,6 @@ export default function DocumentUploadForm({
         return;
       }
 
-      // A successful result always clears whatever the screen was showing
-      // before — stale processing text or a stale error from an earlier,
-      // abandoned attempt.
       setErrorMsg(null);
 
       if (prepared.status === "needs_clarification" || !prepared.sessionId) {
@@ -228,9 +204,6 @@ export default function DocumentUploadForm({
       const result = await uploadDocument(
         file,
         currentLocale,
-        // No output language is chosen at upload time: the completed form is
-        // written in the language the form itself is in, which is detected
-        // from the document after upload.
         undefined,
         privacyAccepted,
         (percent) => {
@@ -271,13 +244,16 @@ export default function DocumentUploadForm({
 
   return (
     <div className="space-y-6">
-      {/* The dedicated failure screen renders the same message, so the inline
-          banner is only for errors that leave the form on screen — client-side
-          file validation, mainly. Showing both printed the error twice. */}
       {errorMsg &&
         !["review_required", "uncertain", "error"].includes(stage) && (
-          <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
-            {errorMsg}
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
+          >
+            <svg className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>{errorMsg}</span>
           </div>
         )}
 
@@ -285,10 +261,10 @@ export default function DocumentUploadForm({
         <form onSubmit={handleUploadSubmit} className="space-y-6">
           {/* File Picker Drag-and-Drop */}
           <div
-            className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition cursor-pointer focus-within:ring-2 focus-within:ring-indigo-500/20 ${
+            className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-indigo-500/30 ${
               dragActive
-                ? "border-indigo-500 bg-indigo-500/10"
-                : "border-slate-800 bg-slate-950/20 hover:border-slate-700 hover:bg-slate-950/40"
+                ? "border-indigo-600 bg-indigo-50/70"
+                : "border-slate-300 bg-slate-50/60 hover:border-indigo-400 hover:bg-indigo-50/30"
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -315,44 +291,47 @@ export default function DocumentUploadForm({
               onChange={handleFileChange}
             />
 
-            <svg
-              className="mx-auto h-12 w-12 text-slate-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-indigo-200 bg-white text-indigo-600 shadow-2xs">
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.75}
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+            </div>
 
             {!file ? (
               <>
-                <p className="mt-4 text-sm font-semibold text-slate-300">
+                <p className="mt-4 text-sm font-semibold text-slate-900">
                   {t("drag_and_drop_instructions") ||
-                    "Drag and drop your PDF here, or click to browse"}
+                    "Drag and drop any official PDF form here, or click to browse"}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {t("maximum_size") || "PDF up to 10MB (max 20 pages)"}
+                <p className="mt-1.5 text-xs text-slate-500">
+                  {t("maximum_size") || "PDF up to 10MB (max 20 pages) • AcroForm, Digital Text & Scanned PDFs"}
                 </p>
               </>
             ) : (
               <div className="mt-4 space-y-2">
-                <p className="text-sm font-bold text-indigo-400">
+                <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">
                   {t("selected_file") || "Selected File:"}
                 </p>
-                <p className="text-sm font-medium text-slate-200">
+                <p className="text-sm font-semibold text-slate-900">
                   {file.name}
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 tabular-nums">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>
                 <button
                   type="button"
-                  className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white"
+                  className="mt-1 inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveFile();
@@ -368,18 +347,18 @@ export default function DocumentUploadForm({
           {file && (
             <>
               {/* Privacy notice box */}
-              <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-                <h3 className="text-sm font-bold text-slate-200">
+              <div className="space-y-3 rounded-xl border border-indigo-200/80 bg-indigo-50/50 p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950">
                   {t("privacyNoticeTitle") || "Privacy Notice"}
                 </h3>
-                <p className="text-xs leading-relaxed text-slate-400">
+                <p className="text-xs leading-relaxed text-slate-700">
                   {t("privacyNoticeBody") ||
                     "Your uploaded document remains private and temporary. It will be deleted automatically after 24 hours."}
                 </p>
-                <label className="flex items-center gap-3 cursor-pointer select-none text-slate-300">
+                <label className="flex items-center gap-3 cursor-pointer select-none text-slate-900 pt-1">
                   <input
                     type="checkbox"
-                    className="h-5 w-5 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
+                    className="h-4 w-4 rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500/30 cursor-pointer"
                     checked={privacyAccepted}
                     onChange={(e) => setPrivacyAccepted(e.target.checked)}
                   />
@@ -394,7 +373,7 @@ export default function DocumentUploadForm({
               <button
                 type="submit"
                 disabled={!privacyAccepted}
-                className="w-full rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-4 text-base font-bold shadow-lg shadow-indigo-500/20 transition hover:opacity-95 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
+                className="btn-primary w-full py-3.5 text-sm font-semibold"
               >
                 {t("upload_and_analyze") || "Upload and Analyze"}
               </button>
@@ -405,39 +384,37 @@ export default function DocumentUploadForm({
 
       {/* Uploading progress screen */}
       {stage === "uploading" && (
-        <div className="flex flex-col items-center justify-center p-8 space-y-4">
-          <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-8 space-y-4">
+          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
             <div
-              className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+              className="bg-indigo-600 h-full rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm font-semibold text-slate-700 tabular-nums">
             {t("uploading") || "Uploading..."} ({uploadProgress}%)
           </p>
         </div>
       )}
 
-      {/* Analyzing loader screen — simple message only, no technical detail */}
+      {/* Analyzing loader screen */}
       {stage === "analyzing" && (
-        <div className="flex flex-col items-center justify-center p-8 space-y-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-indigo-500" />
-          <p className="text-sm text-slate-400">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-8 space-y-4">
+          <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
+          <p className="text-sm font-semibold text-slate-700">
             {t("analyzing") || "Reading the document…"}
           </p>
         </div>
       )}
 
-      {/* Automatic processing screen — covers OCR/detection/question
-          generation behind one plain-language message. Normal users never
-          see provider names, confidence numbers, or a field-review step. */}
+      {/* Automatic processing screen */}
       {stage === "processing" && (
-        <div className="flex flex-col items-center justify-center p-8 space-y-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-indigo-500" />
-          <p className="text-sm text-slate-400">{processingMessage()}</p>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-8 space-y-4">
+          <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
+          <p className="text-sm font-semibold text-slate-700">{processingMessage()}</p>
           {debugUiEnabled && pendingDocumentId && (
             <a
-              className="text-xs text-slate-600 underline hover:text-slate-400"
+              className="text-xs text-slate-500 underline hover:text-slate-800"
               href={`/application/document/${pendingDocumentId}/detect-fields`}
             >
               {t("debug_open_review") || "Open technical review (debug)"}
@@ -446,29 +423,29 @@ export default function DocumentUploadForm({
         </div>
       )}
 
-      {/* Uncertainty screen — plain language only, no raw field editor */}
+      {/* Uncertainty screen */}
       {stage === "uncertain" && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-amber-800/60 bg-amber-950/20 p-6 space-y-3 text-center">
-            <h3 className="text-lg font-bold text-amber-200">
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-6 space-y-2.5 text-center">
+            <h3 className="text-base font-bold text-amber-900">
               {t("uncertainty_title") || "One section may need confirmation"}
             </h3>
-            <p className="text-sm text-amber-300/90 leading-relaxed">
+            <p className="text-sm text-amber-800 leading-relaxed">
               {t("uncertainty_body") ||
                 "We could not confidently read one part of this form. You can continue with the questions we found."}
             </p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             <button
               type="button"
-              className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold text-white hover:opacity-95"
+              className="btn-primary flex-1 py-3 text-sm font-semibold"
               onClick={() => pendingSessionId && goToSession(pendingSessionId)}
             >
               {t("continue_with_detected") || "Continue"}
             </button>
             {debugUiEnabled && pendingDocumentId && (
               <a
-                className="flex-1 flex items-center justify-center rounded-xl bg-slate-800 py-3.5 text-sm font-bold text-slate-300 hover:bg-slate-700 hover:text-white"
+                className="btn-secondary flex-1 py-3 text-sm font-medium"
                 href={`/application/document/${pendingDocumentId}/detect-fields`}
               >
                 {t("review_uncertain_section") || "Review uncertain section"}
@@ -478,16 +455,15 @@ export default function DocumentUploadForm({
         </div>
       )}
 
-      {/* Could-not-process screen — safe, plain message; document/session
-          is preserved for retry, nothing meaningless is generated */}
+      {/* Could-not-process screen */}
       {stage === "review_required" && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 text-center space-y-3">
-            <h3 className="text-lg font-bold text-slate-200">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center space-y-2.5">
+            <h3 className="text-base font-bold text-slate-900">
               {t("could_not_process_title") ||
                 "We could not confidently process this form"}
             </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
+            <p className="text-sm text-slate-600 leading-relaxed">
               {uncertainFieldCount > 0
                 ? t("no_usable_questions_body") ||
                   "We found no usable questions in this document. You can try again or upload a different file."
@@ -495,17 +471,17 @@ export default function DocumentUploadForm({
                   "The analysis signals for this document are inconclusive."}
             </p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             <button
               type="button"
-              className="flex-1 rounded-xl bg-slate-800 py-3.5 text-sm font-bold text-slate-300 hover:bg-slate-700 hover:text-white"
+              className="btn-secondary flex-1 py-3 text-sm font-medium"
               onClick={handleRemoveFile}
             >
               {t("restart") || "Reset / Try Another"}
             </button>
             {debugUiEnabled && pendingDocumentId && (
               <a
-                className="flex-1 flex items-center justify-center rounded-xl bg-slate-800 py-3.5 text-sm font-bold text-slate-300 hover:bg-slate-700 hover:text-white"
+                className="btn-secondary flex-1 py-3 text-sm font-medium"
                 href={`/application/document/${pendingDocumentId}/detect-fields`}
               >
                 {t("debug_open_review") || "Open technical review (debug)"}
@@ -518,10 +494,10 @@ export default function DocumentUploadForm({
       {/* Error state display screen */}
       {stage === "error" && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-rose-800 bg-rose-950/20 p-6 text-center space-y-4">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-950 text-rose-400">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 shadow-2xs">
               <svg
-                className="h-6 w-6"
+                className="h-5 w-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -534,14 +510,14 @@ export default function DocumentUploadForm({
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-rose-200">
+            <h3 className="text-base font-bold text-rose-900">
               {t("upload_error_title") || "Upload or Analysis Failed"}
             </h3>
-            <p className="text-sm text-rose-300">{errorMsg}</p>
+            <p className="text-sm text-rose-800">{errorMsg}</p>
           </div>
           <button
             type="button"
-            className="w-full rounded-xl bg-slate-800 py-3.5 text-sm font-bold text-slate-300 hover:bg-slate-700 hover:text-white"
+            className="btn-secondary w-full py-3 text-sm font-medium"
             onClick={handleRemoveFile}
           >
             {t("retry") || "Retry Upload"}

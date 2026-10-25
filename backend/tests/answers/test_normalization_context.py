@@ -11,8 +11,12 @@ import pytest
 from app.answers.normalization.context import (
     apply_currency_context,
     currency_from_label,
+    format_boolean_output,
+    format_money_output,
     is_proper_noun_field,
+    period_from_label,
 )
+from app.answers.normalization.normalization import normalize_value
 
 # ---------------------------------------------------------------------------
 # Currency
@@ -207,3 +211,50 @@ def test_a_currency_the_user_typed_is_preserved() -> None:
 
     assert corrected["currency"] == "EUR"
     assert changed is False
+
+
+def test_monthly_label_overrides_invented_once_period() -> None:
+    assert period_from_label("Revenu net mensuel en euros") == "monthly"
+    corrected, changed = apply_currency_context(
+        {"amount": 2000, "currency": "EUR", "period": "once"},
+        "Revenu net mensuel en euros",
+        "2000",
+    )
+    assert changed is True
+    assert corrected == {"amount": 2000, "currency": "EUR", "period": "monthly"}
+
+
+def test_format_money_output_omits_once_and_trailing_zero() -> None:
+    assert (
+        format_money_output({"amount": 2000.0, "currency": "EUR", "period": "once"})
+        == "2000 EUR"
+    )
+    assert (
+        format_money_output({"amount": 1800, "currency": "EUR", "period": "monthly"})
+        == "1800 EUR monthly"
+    )
+
+
+def test_format_boolean_output_localizes_yes_no() -> None:
+    assert format_boolean_output(True, "en") == "Yes"
+    assert format_boolean_output(False, "en") == "No"
+    assert format_boolean_output(True, "fr") == "Oui"
+    assert format_boolean_output(False, "fr") == "Non"
+    assert format_boolean_output(True, "de") == "Ja"
+    assert format_boolean_output(False, "de") == "Nein"
+    assert format_boolean_output(True, "ar") == "نعم"
+    assert format_boolean_output(False, "ar") == "لا"
+
+
+def test_normalize_money_keeps_whole_numbers_as_int() -> None:
+    res = normalize_value(
+        "money", {"amount": "2000", "currency": "eur", "period": "ONCE"}
+    )
+    assert res == {"amount": 2000, "currency": "EUR", "period": "once"}
+    assert isinstance(res["amount"], int)
+
+    res_dec = normalize_value(
+        "money", {"amount": "2000.5", "currency": "eur", "period": "monthly"}
+    )
+    assert res_dec == {"amount": 2000.5, "currency": "EUR", "period": "monthly"}
+    assert isinstance(res_dec["amount"], float)

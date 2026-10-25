@@ -12,6 +12,8 @@ from app.answers.errors import FieldProblem, SummaryNotConfirmableError
 from app.answers.models import FormAnswer
 from app.answers.normalization.context import (
     apply_currency_context,
+    format_boolean_output,
+    format_money_output,
     is_proper_noun_field,
 )
 from app.answers.normalization.normalization import normalize_value
@@ -331,6 +333,10 @@ class AnswerService:
             session.output_language,
         )
         field_data["current_answer_status"] = ans.status if ans else None
+        field_data["original_answer"] = ans.original_answer if ans else None
+        field_data["all_field_keys"] = [
+            f.key for f in sorted(version.fields, key=lambda f: f.position)
+        ]
         field_data["progress"] = self.get_progress(session)
 
         return field_data
@@ -372,6 +378,8 @@ class AnswerService:
             session.output_language,
         )
         field_data["current_answer_status"] = ans.status if ans else None
+        field_data["original_answer"] = ans.original_answer if ans else None
+        field_data["all_field_keys"] = [f.key for f in fields]
         field_data["progress"] = self.get_progress(session)
 
         return field_data
@@ -429,6 +437,13 @@ class AnswerService:
 
         if field.field_type in _DETERMINISTIC_CHOICE_TYPES:
             self._apply_choice_answer(answer, field, original_answer)
+            self.repo.save_answer(answer)
+            return answer
+
+        if field.field_type == "boolean":
+            self._apply_boolean_answer(
+                answer, field, original_answer, session.output_language
+            )
             self.repo.save_answer(answer)
             return answer
 
@@ -518,6 +533,8 @@ class AnswerService:
             # rendered output is pinned.
             if is_proper_noun_field(_source_label(field), field.field_type):
                 answer.output_value = original_answer
+            elif field.field_type == "money" and isinstance(norm_val, dict):
+                answer.output_value = format_money_output(norm_val)
             else:
                 answer.output_value = result.output_value
             answer.requires_clarification = False
@@ -800,6 +817,38 @@ class AnswerService:
             answer.validation_status = "invalid"
             answer.status = "draft"
 
+    @staticmethod
+    def _apply_boolean_answer(
+        answer: FormAnswer,
+        field: FormField,
+        original_answer: str,
+        output_language: str,
+    ) -> None:
+        """Deterministically normalizes and validates a boolean (Yes/No or
+        declaration) answer without calling an AI provider, and formats
+        `output_value` as a human-readable Yes/No in `output_language`.
+        """
+        norm_val = normalize_value(field.field_type, original_answer)
+        is_valid, _err = validate_value(
+            field.field_type,
+            norm_val,
+            field.required,
+            field.configuration,
+            options=field.options,
+        )
+
+        answer.normalized_value = norm_val
+        answer.requires_clarification = False
+
+        if is_valid and isinstance(norm_val, bool):
+            answer.output_value = format_boolean_output(norm_val, output_language)
+            answer.validation_status = "valid"
+            answer.status = "awaiting_confirmation"
+        else:
+            answer.output_value = None
+            answer.validation_status = "invalid"
+            answer.status = "draft"
+
     def submit_clarification(
         self,
         session_id: str,
@@ -863,11 +912,8 @@ class AnswerService:
                 answer.validation_status = "valid"
                 answer.status = "awaiting_confirmation"
                 # Construct output value
-                if field.field_type == "money":
-                    amt = norm_val.get("amount")
-                    cur = norm_val.get("currency")
-                    per = norm_val.get("period")
-                    answer.output_value = f"{amt} {cur} {per}"
+                if field.field_type == "money" and isinstance(norm_val, dict):
+                    answer.output_value = format_money_output(norm_val)
                 else:
                     answer.output_value = str(norm_val)
             else:
@@ -976,6 +1022,7 @@ class AnswerService:
                 {
                     "field_id": field.id,
                     "field_key": field.key,
+                    "field_type": field.field_type,
                     "label": translated["label"],
                     "required": field.required,
                     "requiredness": field_requiredness(field),

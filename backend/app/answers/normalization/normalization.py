@@ -12,9 +12,11 @@ def normalize_value(field_type: str, raw_val: Any) -> Any:
         if isinstance(raw_val, bool):
             return raw_val
         val_str = str(raw_val).strip().lower()
-        if val_str in ("true", "1", "yes", "y", "true"):
+        if val_str in ("true", "1", "yes", "y", "oui", "ja", "نعم"):
             return True
-        return False
+        if val_str in ("false", "0", "no", "n", "non", "nein", "لا"):
+            return False
+        return raw_val
 
     elif field_type == "country":
         return str(raw_val).strip().upper()
@@ -61,7 +63,10 @@ def normalize_value(field_type: str, raw_val: Any) -> Any:
             amt = raw_val.get("amount")
             if amt is not None:
                 try:
-                    raw_val["amount"] = float(str(amt).strip())
+                    amt_float = float(str(amt).strip())
+                    raw_val["amount"] = (
+                        int(amt_float) if amt_float.is_integer() else amt_float
+                    )
                 except ValueError:
                     pass
             cur = raw_val.get("currency")

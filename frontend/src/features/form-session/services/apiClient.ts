@@ -66,6 +66,8 @@ export const CurrentFieldResponseSchema = z.object({
   placeholder: z.string().nullable().optional(),
   options: z.array(FieldOptionSchema).nullable().optional(),
   currentAnswerStatus: z.string().nullable().optional(),
+  originalAnswer: z.string().nullable().optional(),
+  allFieldKeys: z.array(z.string()).optional(),
   progress: ProgressInfoSchema.nullable().optional(),
   fieldId: z.string(),
   fieldKey: z.string(),
@@ -95,10 +97,12 @@ export type AnswerResponse = z.infer<typeof AnswerResponseSchema>;
 export const SummaryFieldSchema = z.object({
   fieldId: z.string(),
   fieldKey: z.string(),
+  fieldType: z.string().nullable().optional(),
   label: z.string(),
   required: z.boolean(),
   requiredness: z.string().optional(),
   originalAnswer: z.string().nullable(),
+  normalizedValue: z.any().nullable().optional(),
   outputValue: z.string().nullable(),
   status: z.string(),
   // What the user did: unreached | unanswered | skipped | answered | invalid.

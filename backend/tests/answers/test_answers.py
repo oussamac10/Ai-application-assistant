@@ -520,6 +520,13 @@ def test_navigation_prev_field(session_setup: dict[str, Any]) -> None:
         headers={"X-Session-Token": token},
     )
     assert res_curr.json()["position"] == 2
+    assert res_curr.json()["originalAnswer"] is None
+    assert res_curr.json()["allFieldKeys"] == [
+        "first_name",
+        "monthly_income",
+        "marital_status",
+        "request_category",
+    ]
 
     # Now move previous-field (should go back to first_name at position 1)
     res_prev2 = client.post(
@@ -529,6 +536,13 @@ def test_navigation_prev_field(session_setup: dict[str, Any]) -> None:
     assert res_prev2.status_code == 200
     assert res_prev2.json()["fieldId"] == first_name_id
     assert res_prev2.json()["position"] == 1
+    assert res_prev2.json()["originalAnswer"] == "Ahmed"
+    assert res_prev2.json()["allFieldKeys"] == [
+        "first_name",
+        "monthly_income",
+        "marital_status",
+        "request_category",
+    ]
 
 
 def test_confirm_summary_workflow(session_setup: dict[str, Any]) -> None:

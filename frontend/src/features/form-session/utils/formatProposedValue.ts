@@ -20,18 +20,90 @@ const STRUCTURED_FIELD_FORMATTERS: Record<string, (value: any) => string | null>
       : null,
   money: (value) => {
     if (!value || typeof value !== "object" || value.amount == null) return null;
-    return [String(value.amount), value.currency, value.period]
-      .filter((part) => typeof part === "string" || typeof part === "number")
+    const amtNum = Number(value.amount);
+    const amountStr = !Number.isNaN(amtNum) ? String(amtNum) : String(value.amount);
+    const period =
+      typeof value.period === "string" &&
+      value.period.trim().length > 0 &&
+      value.period.trim().toLowerCase() !== "once"
+        ? value.period.trim()
+        : null;
+    return [amountStr, value.currency, period]
+      .filter((part) => (typeof part === "string" && part.length > 0) || typeof part === "number")
       .join(" ");
   },
 };
 
+export function formatOriginalAnswer(
+  rawAnswer: string | null | undefined,
+  fieldType?: string | null,
+  options?: Array<{ value: string; label: string }> | null
+): string {
+  if (typeof rawAnswer !== "string" || rawAnswer.trim().length === 0) {
+    return "";
+  }
+  const trimmed = rawAnswer.trim();
+
+  if (
+    fieldType === "multiple_choice" ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  ) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => {
+            const strItem = String(item);
+            return options?.find((opt) => opt.value === strItem)?.label ?? strItem;
+          })
+          .join(", ");
+      }
+    } catch {
+      // Not valid JSON; fall through to raw display
+    }
+  }
+
+  if (fieldType === "single_choice" && options && options.length > 0) {
+    return options.find((opt) => opt.value === trimmed)?.label ?? rawAnswer;
+  }
+
+  if (fieldType === "boolean" || (!fieldType && (trimmed === "true" || trimmed === "false"))) {
+    const low = trimmed.toLowerCase();
+    if (low === "true" || low === "1" || low === "yes") return "Yes";
+    if (low === "false" || low === "0" || low === "no") return "No";
+  }
+
+  return rawAnswer;
+}
+
 export function formatProposedValue(
   normalizedValue: unknown,
   outputValue: string | null | undefined,
-  fieldType?: string
+  fieldType?: string | null
 ): string {
+  if (fieldType === "boolean" || typeof normalizedValue === "boolean") {
+    if (typeof outputValue === "string" && outputValue.trim().length > 0) {
+      const low = outputValue.trim().toLowerCase();
+      if (low === "true") return "Yes";
+      if (low === "false") return "No";
+      return outputValue;
+    }
+    if (normalizedValue === true) return "Yes";
+    if (normalizedValue === false) return "No";
+  }
+
+  if (fieldType === "money" && normalizedValue && typeof normalizedValue === "object") {
+    const formatted = STRUCTURED_FIELD_FORMATTERS.money(normalizedValue);
+    if (formatted) return formatted;
+  }
+
   if (typeof outputValue === "string" && outputValue.trim().length > 0) {
+    if (fieldType === "money") {
+      return outputValue
+        .replace(/\b(\d+)\.0\b/g, "$1")
+        .replace(/\s+once$/i, "")
+        .trim();
+    }
     return outputValue;
   }
 
@@ -41,8 +113,7 @@ export function formatProposedValue(
 
   if (
     typeof normalizedValue === "string" ||
-    typeof normalizedValue === "number" ||
-    typeof normalizedValue === "boolean"
+    typeof normalizedValue === "number"
   ) {
     return String(normalizedValue);
   }

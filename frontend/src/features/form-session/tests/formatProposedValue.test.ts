@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { formatProposedValue } from "../utils/formatProposedValue";
+import {
+  formatOriginalAnswer,
+  formatProposedValue,
+} from "../utils/formatProposedValue";
 
 describe("formatProposedValue", () => {
   it("prefers a non-empty outputValue", () => {
@@ -14,9 +17,12 @@ describe("formatProposedValue", () => {
     );
   });
 
-  it("renders numbers and booleans as plain strings", () => {
+  it("renders numbers as plain strings and booleans as human-readable Yes/No", () => {
     expect(formatProposedValue(42, null, "integer")).toBe("42");
-    expect(formatProposedValue(true, null, "boolean")).toBe("true");
+    expect(formatProposedValue(true, null, "boolean")).toBe("Yes");
+    expect(formatProposedValue(false, null, "boolean")).toBe("No");
+    expect(formatProposedValue(true, "True", "boolean")).toBe("Yes");
+    expect(formatProposedValue(true, "Oui", "boolean")).toBe("Oui");
   });
 
   it("joins an array normalizedValue for display", () => {
@@ -56,7 +62,7 @@ describe("formatProposedValue", () => {
     ).toBe("Jane Doe");
   });
 
-  it("formats a documented money object into a readable summary", () => {
+  it("formats a documented money object into a readable summary and omits 'once' and '.0'", () => {
     expect(
       formatProposedValue(
         { amount: 1800, currency: "EUR", period: "monthly" },
@@ -64,10 +70,33 @@ describe("formatProposedValue", () => {
         "money"
       )
     ).toBe("1800 EUR monthly");
+    expect(
+      formatProposedValue(
+        { amount: 2000.0, currency: "EUR", period: "once" },
+        "2000.0 EUR once",
+        "money"
+      )
+    ).toBe("2000 EUR");
   });
 
   it("falls back safely when a documented structured type has an unusable shape", () => {
     expect(formatProposedValue({ currency: "EUR" }, null, "money")).toBe("");
     expect(formatProposedValue({}, null, "person_name")).toBe("");
+  });
+});
+
+describe("formatOriginalAnswer", () => {
+  it("formats multiple_choice JSON arrays into comma-separated labels", () => {
+    expect(
+      formatOriginalAnswer(
+        '["Curriculum vitae","Attestation d\'inscription"]',
+        "multiple_choice"
+      )
+    ).toBe("Curriculum vitae, Attestation d'inscription");
+  });
+
+  it("formats boolean raw strings into Yes/No", () => {
+    expect(formatOriginalAnswer("true", "boolean")).toBe("Yes");
+    expect(formatOriginalAnswer("false", "boolean")).toBe("No");
   });
 });

@@ -73,6 +73,8 @@ class CurrentFieldResponse(BaseSchema):
     placeholder: str | None = None
     options: list[FieldOptionInfo] | None = None
     current_answer_status: str | None = None
+    original_answer: str | None = None
+    all_field_keys: list[str] = []
     progress: ProgressInfo | None = None
 
     @computed_field
@@ -87,6 +89,7 @@ class CurrentFieldResponse(BaseSchema):
 class SummaryFieldAnswer(BaseSchema):
     field_id: str
     field_key: str
+    field_type: str | None = None
     label: str
     required: bool
     requiredness: str = "unknown"

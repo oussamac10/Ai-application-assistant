@@ -15,6 +15,10 @@ import {
   parseRowKey,
   rowHeading,
 } from "@/features/form-session/utils/repeatedRows";
+import {
+  formatOriginalAnswer,
+  formatProposedValue,
+} from "@/features/form-session/utils/formatProposedValue";
 
 export default function SessionSummary() {
   const router = useRouter();
@@ -30,15 +34,11 @@ export default function SessionSummary() {
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // fieldKey -> reason code, from the last rejected confirmation.
   const [blockingFields, setBlockingFields] = useState<Map<string, string>>(
     new Map(),
   );
 
   useEffect(() => {
-    // No early credential check: a claimed session has no anonymous token
-    // in sessionStorage and resumes via the auth cookie alone (see the
-    // matching fix in the guided-session page).
     async function loadSummary() {
       try {
         setLoading(true);
@@ -61,10 +61,6 @@ export default function SessionSummary() {
       setLoading(true);
       setErrorMsg(null);
 
-      // Reopen is navigation, not a submission. Editing used to re-submit the
-      // field's existing answer to un-confirm it, which sent an empty string
-      // for a question that had none — so skipped and unanswered questions
-      // could not be edited at all.
       await reopenField(sessionId, fieldId);
 
       router.push(`/application/session/${sessionId}`);
@@ -81,15 +77,10 @@ export default function SessionSummary() {
       setSubmitting(true);
       setErrorMsg(null);
 
-      // Call confirm-summary endpoint
       await confirmSummary(sessionId);
 
-      // Redirect to export/complete screen
       router.push(`/application/session/${sessionId}/complete`);
     } catch (err: any) {
-      // The backend names every blocking question rather than one generic
-      // sentence, so mark them all at once instead of sending the user round
-      // the loop field by field.
       if (err instanceof ApiError && err.status === 409) {
         const blocking = [
           ...err.missingRequiredFields,
@@ -118,19 +109,15 @@ export default function SessionSummary() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 text-slate-100">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-indigo-500" />
-          <p className="text-sm font-medium text-slate-400">{tc("loading")}</p>
+      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center text-slate-900">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
+          <p className="text-sm font-medium text-slate-600">{tc("loading")}</p>
         </div>
       </main>
     );
   }
 
-  /** The three states the summary must tell apart, plus the two it already
-   * knew. Derived from `answerState` (what the user did) crossed with
-   * requiredness (what the document demanded) — never from one alone, which is
-   * how a deliberate skip came to be reported as an invalid value. */
   type RowState =
     | "confirmed"
     | "pendingManualSignature"
@@ -145,110 +132,94 @@ export default function SessionSummary() {
       f.requiredness ?? (f.required ? "required" : "unknown");
     const state = f.answerState ?? (f.status === "skipped" ? "skipped" : null);
 
-    // A deliberate completion, not an absence: the user chose to sign the
-    // printed form, and reporting that as "Skipped" would misdescribe it.
     if (state === "pending_manual_signature") return "pendingManualSignature";
     if (state === "skipped") return "skipped";
     if (state === "invalid") return "invalid";
     if (f.status === "confirmed") return "confirmed";
-    // A required question is not finished until it is confirmed — answered but
-    // unconfirmed still blocks, and the backend says so too.
     if (requiredness === "required") return "missingRequired";
     if (state === "unreached" || state === "unanswered" || !f.originalAnswer) {
-      // A form that said nothing asked for nothing, so nothing is *missing*.
       return "notAnswered";
     }
     return "pending";
   };
 
-  // Optional and unknown questions left unanswered never block. Only an
-  // explicitly required question without a confirmed answer does.
   const hasIncompleteFields = summary?.fields.some((f) => {
     const state = rowState(f);
     return state === "missingRequired" || state === "invalid";
   });
 
   const renderField = (f: Summary["fields"][number]) => {
-                      const state = rowState(f);
-                      const blocks =
-                        state === "missingRequired" ||
-                        state === "invalid" ||
-                        blockingFields.has(f.fieldKey);
-                      const isRequired =
-                        (f.requiredness ??
-                          (f.required ? "required" : "unknown")) === "required";
+    const state = rowState(f);
+    const blocks =
+      state === "missingRequired" ||
+      state === "invalid" ||
+      blockingFields.has(f.fieldKey);
+    const isRequired =
+      (f.requiredness ??
+        (f.required ? "required" : "unknown")) === "required";
 
-                      return (
-                        <tr
-                          key={f.fieldId}
-                          data-testid={`summary-row-${f.fieldKey}`}
-                          data-state={state}
-                          className={`transition ${
-                            blocks ? "bg-rose-950/10" : "hover:bg-slate-900/20"
-                          }`}
-                        >
-                          <td className="px-4 py-4 font-semibold text-slate-200">
-                            {f.label}
-                            {/* Only a real finding is marked. An unmarked
-                                question shows nothing rather than claiming
-                                the form said something it did not. */}
-                            {isRequired && (
-                              <span className="text-indigo-400 ml-1">*</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 italic text-slate-400 max-w-xs truncate">
-                            {f.originalAnswer || "-"}
-                          </td>
-                          <td className="px-4 py-4 text-slate-300 font-medium">
-                            {f.outputValue || "-"}
-                          </td>
-                          <td className="px-4 py-4">
-                            <span
-                              data-testid={`summary-status-${f.fieldKey}`}
-                              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                state === "confirmed"
-                                  ? "bg-emerald-500/10 text-emerald-400"
-                                  : blocks
-                                    ? "bg-rose-500/10 text-rose-400 animate-pulse"
-                                    : "bg-slate-800 text-slate-400"
-                              }`}
-                            >
-                              {state === "pendingManualSignature"
-                                ? ts("summaryPending")
-                                : state === "skipped"
-                                ? t("skipped")
-                                : state === "notAnswered"
-                                  ? t("notAnswered")
-                                  : state === "missingRequired"
-                                    ? t("missingRequired")
-                                    : state === "invalid"
-                                      ? t("invalidAnswer")
-                                      : f.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 text-right">
-                            {/* Every row is editable, including a skipped or
-                                never answered one. */}
-                            <button
-                              type="button"
-                              onClick={() => handleEditField(f.fieldId)}
-                              className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition"
-                            >
-                              {tc("edit")}
-                            </button>
-                          </td>
-                        </tr>
-                      );
+    return (
+      <tr
+        key={f.fieldId}
+        data-testid={`summary-row-${f.fieldKey}`}
+        data-state={state}
+        className={`transition-colors duration-150 ${
+          blocks ? "bg-rose-50" : "hover:bg-slate-50"
+        }`}
+      >
+        <td className="px-4 py-3.5 font-semibold text-slate-900">
+          {f.label}
+          {isRequired && (
+            <span className="text-rose-600 ms-1">*</span>
+          )}
+        </td>
+        <td className="px-4 py-3.5 text-slate-600 max-w-xs break-words">
+          {formatOriginalAnswer(f.originalAnswer, f.fieldType) || "-"}
+        </td>
+        <td className="px-4 py-3.5 text-slate-900 font-semibold break-words">
+          {formatProposedValue(
+            f.normalizedValue,
+            f.outputValue,
+            f.fieldType
+          ) || "-"}
+        </td>
+        <td className="px-4 py-3.5">
+          <span
+            data-testid={`summary-status-${f.fieldKey}`}
+            className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+              state === "confirmed"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : blocks
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-slate-200 bg-slate-100 text-slate-700"
+            }`}
+          >
+            {state === "pendingManualSignature"
+              ? ts("summaryPending")
+              : state === "skipped"
+              ? t("skipped")
+              : state === "notAnswered"
+                ? t("notAnswered")
+                : state === "missingRequired"
+                  ? t("missingRequired")
+                  : state === "invalid"
+                    ? t("invalidAnswer")
+                    : f.status}
+          </span>
+        </td>
+        <td className="px-4 py-3.5 text-end">
+          <button
+            type="button"
+            onClick={() => handleEditField(f.fieldId)}
+            className="rounded-md px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 transition-colors"
+          >
+            {tc("edit")}
+          </button>
+        </td>
+      </tr>
+    );
   };
 
-  /** The summary in document order, with a heading opening each repeated row.
-   *
-   * The backend emits repeated table rows as flat indexed fields
-   * (`children_1_gender`), because the guided flow asks one question at a time
-   * and has no repeated-section UI. On screen that means a child's six details
-   * read as six unrelated answers, and "männlich / weiblich" appears twice with
-   * nothing saying whose it is. Grouping is presentation only — keys are the
-   * contract with export and are never rewritten. */
   type SummaryEntry =
     | { kind: "heading"; id: string; label: string }
     | { kind: "field"; field: Summary["fields"][number] };
@@ -270,86 +241,125 @@ export default function SessionSummary() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 text-slate-100 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-2xl">
-        <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 p-6 md:p-8 shadow-2xl backdrop-blur-xl">
-          {/* Glowing decorator */}
-          <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl" />
-
-          <div className="relative z-10 space-y-6">
-            <div className="space-y-1 text-center">
-              <h1 className="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">
-                {t("title")}
-              </h1>
-              <p className="text-sm text-slate-400">{t("subtitle")}</p>
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-5xl">
+        <div className="surface-panel rounded-2xl p-6 sm:p-10 space-y-6">
+          <div className="space-y-1 text-center">
+            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+              <span className="tabular-nums">Step 3 of 4 • Final Review</span>
             </div>
+            <h1 className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+              {t("title")}
+            </h1>
+            <p className="text-sm text-slate-600">{t("subtitle")}</p>
+          </div>
 
-            {errorMsg && (
-              <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
-                {errorMsg}
+          {/* Quick Metrics Bar */}
+          {summary && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Total Form Fields
+                </span>
+                <p className="mt-1 text-2xl font-bold text-slate-900 tabular-nums">
+                  {summary.fields.length}
+                </p>
               </div>
-            )}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                  Confirmed Answers
+                </span>
+                <p className="mt-1 text-2xl font-bold text-emerald-800 tabular-nums">
+                  {summary.fields.filter((f) => f.status === "confirmed").length}
+                </p>
+              </div>
+              <div className="col-span-2 sm:col-span-1 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 text-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+                  Export Status
+                </span>
+                <p className="mt-1 text-sm font-bold text-indigo-900 flex items-center justify-center gap-1.5 pt-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                  {!hasIncompleteFields ? "Ready for Export" : "Incomplete Fields"}
+                </p>
+              </div>
+            </div>
+          )}
 
-            {/* Fields table summary */}
-            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/20">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-850 bg-slate-950/60 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      <th className="px-4 py-3">{t("fieldHeader")}</th>
-                      <th className="px-4 py-3">{t("originalHeader")}</th>
-                      <th className="px-4 py-3">{t("normalizedHeader")}</th>
-                      <th className="px-4 py-3">{t("statusHeader")}</th>
-                      <th className="px-4 py-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-850">
-                    {rowsWithHeadings.map((entry) =>
-                      entry.kind === "heading" ? (
-                        <tr
-                          key={`heading-${entry.id}`}
-                          data-testid={`row-heading-${entry.id}`}
-                          className="bg-slate-900/40"
+          {errorMsg && (
+            <div
+              role="alert"
+              className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-center gap-3"
+            >
+              <svg className="h-4 w-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Fields table summary */}
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-start border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    <th className="px-4 py-3.5 text-start">{t("fieldHeader")}</th>
+                    <th className="px-4 py-3.5 text-start">{t("originalHeader")}</th>
+                    <th className="px-4 py-3.5 text-start">{t("normalizedHeader")}</th>
+                    <th className="px-4 py-3.5 text-start">{t("statusHeader")}</th>
+                    <th className="px-4 py-3.5 text-end">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {rowsWithHeadings.map((entry) =>
+                    entry.kind === "heading" ? (
+                      <tr
+                        key={`heading-${entry.id}`}
+                        data-testid={`row-heading-${entry.id}`}
+                        className="bg-indigo-50/70 border-t border-b border-indigo-200"
+                      >
+                        <td
+                          colSpan={5}
+                          className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-indigo-800"
                         >
-                          <td
-                            colSpan={5}
-                            className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-300"
-                          >
-                            {entry.label}
-                          </td>
-                        </tr>
-                      ) : (
-                        renderField(entry.field)
-                      ),
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                          {entry.label}
+                        </td>
+                      </tr>
+                    ) : (
+                      renderField(entry.field)
+                    ),
+                  )}
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            {/* Warning block */}
-            <div className="rounded-2xl border border-amber-800 bg-amber-950/20 p-4 text-xs leading-relaxed text-amber-300/90 text-left">
-              {t("warning")}
-            </div>
+          {/* Warning block */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 text-start flex items-start gap-3">
+            <svg className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{t("warning")}</span>
+          </div>
 
-            {/* Confirm button / Restart button */}
-            <div className="flex flex-col gap-3">
-              <button
-                type="button"
-                disabled={hasIncompleteFields || submitting}
-                onClick={handleConfirmSummary}
-                className="w-full rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-4 text-base font-bold transition hover:opacity-95 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99] shadow-lg shadow-indigo-500/20"
-              >
-                {submitting ? tc("loading") : t("submitSummary")}
-              </button>
-              <button
-                type="button"
-                onClick={handleRestart}
-                className="w-full rounded-xl bg-slate-850 py-3 text-sm font-bold text-slate-400 hover:text-slate-200 transition active:scale-[0.99]"
-              >
-                {tc("restart")}
-              </button>
-            </div>
+          {/* Confirm button / Restart button */}
+          <div className="flex flex-col gap-3 pt-2">
+            <button
+              type="button"
+              disabled={hasIncompleteFields || submitting}
+              onClick={handleConfirmSummary}
+              className="btn-primary w-full py-3.5 text-sm font-semibold"
+            >
+              {submitting ? tc("loading") : t("submitSummary")}
+            </button>
+            <button
+              type="button"
+              onClick={handleRestart}
+              className="btn-secondary w-full py-3 text-sm font-medium"
+            >
+              {tc("restart")}
+            </button>
           </div>
         </div>
       </div>

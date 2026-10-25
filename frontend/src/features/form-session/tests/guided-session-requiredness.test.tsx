@@ -21,7 +21,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => (key: string, values?: Record<string, unknown>) =>
+    key === "rowFieldProgress" ? `${values?.position}/${values?.total}` : key,
 }));
 
 vi.mock("@/features/form-session/services/sessionCredentials", () => ({
@@ -156,5 +157,22 @@ describe("Guided session — three-state requiredness", () => {
 
     expect(screen.queryByTestId("requiredness")).toBeNull();
     expect(screen.getByTestId("skip-question")).toBeTruthy();
+  });
+
+  it("populates existing answer and row progress from current-field without calling getSummary", async () => {
+    await renderWith(
+      field({
+        fieldKey: "children_1_gender",
+        key: "children_1_gender",
+        currentAnswerStatus: "awaiting_confirmation",
+        originalAnswer: "weiblich",
+        allFieldKeys: ["children_1_first_name", "children_1_gender"],
+      }),
+    );
+
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.value).toBe("weiblich");
+    expect(screen.getByTestId("row-progress").textContent).toBe("2/2");
+    expect(getSummaryMock).not.toHaveBeenCalled();
   });
 });

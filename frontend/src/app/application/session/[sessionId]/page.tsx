@@ -14,7 +14,6 @@ import {
   confirmAnswer,
   previousField,
   changeAnswer,
-  getSummary,
   CurrentField,
   AnswerResponse,
 } from "@/features/form-session/services/apiClient";
@@ -33,7 +32,10 @@ import {
   SignaturePad,
   SignatureValue,
 } from "@/features/form-session/components/SignaturePad";
-import { formatProposedValue } from "@/features/form-session/utils/formatProposedValue";
+import {
+  formatOriginalAnswer,
+  formatProposedValue,
+} from "@/features/form-session/utils/formatProposedValue";
 import ClaimBanner from "@/features/applications/components/ClaimBanner";
 
 type FlowStep =
@@ -60,25 +62,10 @@ export default function GuidedSession() {
   const [inputValue, setInputValue] = useState<string>("");
   const [lastAnswer, setLastAnswer] = useState<AnswerResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  /** Whether the current error belongs to the field the user is editing.
-   *
-   * A validation problem is shown once, next to the input it concerns.
-   * Unexpected or global failures (transport, session state) get the
-   * page-level banner instead. Previously one `errorMsg` fed both, so every
-   * validation message was printed twice. */
   const [errorIsFieldLevel, setErrorIsFieldLevel] = useState<boolean>(false);
-  /** Every field key in document order, used only to say how far through a
-   * repeated row the current question is. Populated opportunistically from the
-   * summary; a failure to load it costs the row counter and nothing else. */
   const [allFieldKeys, setAllFieldKeys] = useState<string[]>([]);
-
-  // Clarification form state
   const [clarifyValues, setClarifyValues] = useState<Record<string, any>>({});
 
-  // Guards against firing /start more than once for the same session (React
-  // 18 StrictMode double-invokes effects in dev, and fetchNextQuestion's
-  // identity can change across renders since it depends on the te
-  // translator function).
   const initializedSessionRef = useRef<string | null>(null);
 
   const fetchNextQuestion = useCallback(async () => {
@@ -95,10 +82,6 @@ export default function GuidedSession() {
       );
       setCurrentFieldData(field);
 
-      // Complete when every question has been answered. Keying this off
-      // *required* fields alone stranded the user on a form that marks
-      // nothing mandatory: zero required fields meant the summary was never
-      // reached.
       const total =
         field.progress?.totalQuestions ??
         field.progress?.totalRequiredFields ??
@@ -108,28 +91,16 @@ export default function GuidedSession() {
         field.progress?.confirmedRequiredFields ??
         0;
       if (total > 0 && completed >= total) {
-        // Automatically direct user to the summary screen
         router.push(`/application/session/${sessionId}/summary`);
         return;
       }
 
-      // Populate input value if there is an existing answer in summary
-      try {
-        const summary = await getSummary(sessionId);
-        setAllFieldKeys(summary.fields.map((f) => f.fieldKey));
-        const answerInfo = summary.fields.find(
-          (f: any) => f.fieldId === field.fieldId,
-        );
-        setInputValue(
-          field.currentAnswerStatus && answerInfo
-            ? answerInfo.originalAnswer || ""
-            : "",
-        );
-      } catch {
-        // The summary is a convenience here, not a dependency: without it the
-        // question still renders, minus the row counter.
-        setInputValue("");
+      if (field.allFieldKeys) {
+        setAllFieldKeys(field.allFieldKeys);
       }
+      setInputValue(
+        field.currentAnswerStatus ? field.originalAnswer || "" : "",
+      );
 
       setStep("answering");
     } catch (err: any) {
@@ -140,11 +111,6 @@ export default function GuidedSession() {
   }, [sessionId, router, te]);
 
   useEffect(() => {
-    // No early credential check here: a claimed (authenticated-owned)
-    // session has no anonymous ownership token in sessionStorage at all and
-    // must still resume via the auth cookie alone. If access truly isn't
-    // authorized, the request below fails with a 401 and surfaces the
-    // normal error state instead of a client-side guess.
     if (initializedSessionRef.current === sessionId) return;
     initializedSessionRef.current = sessionId;
 
@@ -153,15 +119,12 @@ export default function GuidedSession() {
         setStep("loading");
         setErrorMsg(null);
 
-        // Start/resume session
         try {
           await startSession(sessionId);
         } catch (err: any) {
-          // Ignore conflict if session is already in progress
           if (err.status !== 409) throw err;
         }
 
-        // Fetch first question
         await fetchNextQuestion();
       } catch (err: any) {
         setErrorMsg(
@@ -209,7 +172,6 @@ export default function GuidedSession() {
       setErrorMsg(
         te(err.message) || "Failed to submit answer. Please try again.",
       );
-      // A rejected answer is a problem with this field, not with the page.
       setErrorIsFieldLevel(err?.status === 422 || err?.status === 400);
       setStep("answering");
     }
@@ -222,13 +184,9 @@ export default function GuidedSession() {
     } else if (ans.status === "awaiting_confirmation") {
       setStep("awaiting_confirmation");
     } else if (ans.status === "confirmed") {
-      // Confirmed, advance
       setStep("loading");
       fetchNextQuestion();
     } else if (ans.status === "draft" && ans.validationStatus === "invalid") {
-      // Deterministic validation rejected the value (e.g. an option not in
-      // the field's configured set) — surface it instead of silently
-      // resetting, so the user knows why nothing advanced.
       setErrorMsg(t("invalidAnswer"));
       setStep("answering");
     } else {
@@ -258,7 +216,7 @@ export default function GuidedSession() {
     }
   };
 
-  const handleConfirmClick = async () => {
+  const handleConfirmClick = useCallback(async () => {
     if (!lastAnswer || step === "submitting") return;
 
     try {
@@ -269,7 +227,6 @@ export default function GuidedSession() {
       await confirmAnswer(sessionId, lastAnswer.id);
       console.log("CONFIRM ANSWER SUCCESS");
 
-      // Advance to next question
       setStep("loading");
       await fetchNextQuestion();
     } catch (err: any) {
@@ -278,7 +235,7 @@ export default function GuidedSession() {
       setErrorIsFieldLevel(false);
       setStep("awaiting_confirmation");
     }
-  };
+  }, [lastAnswer, step, sessionId, fetchNextQuestion, te]);
 
   const [signatureValue, setSignatureValue] = useState<SignatureValue | null>(
     null,
@@ -309,8 +266,6 @@ export default function GuidedSession() {
     try {
       setStep("submitting");
       setErrorMsg(null);
-      // Never a skip: the user decided how the form will be signed, and the
-      // summary must say so rather than reporting the question as unanswered.
       await signAfterPrinting(sessionId, currentField.fieldId);
       setSignatureValue(null);
       setStep("loading");
@@ -323,9 +278,6 @@ export default function GuidedSession() {
 
   const handleSkipClick = async () => {
     if (!currentField || step === "submitting") return;
-    // The backend records status="skipped" with null values and advances the
-    // session. Re-fetching alone did nothing: the current-field endpoint would
-    // return the same question, because nothing had moved the position.
     try {
       setStep("submitting");
       setErrorMsg(null);
@@ -342,10 +294,27 @@ export default function GuidedSession() {
     }
   };
 
-  const handleEditClick = () => {
-    // Returns user to answering state so they can modify input text
+  const handleEditClick = useCallback(() => {
     setStep("answering");
-  };
+  }, []);
+
+  useEffect(() => {
+    if (step !== "awaiting_confirmation") return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleConfirmClick();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleEditClick();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [step, handleConfirmClick, handleEditClick]);
 
   const handleBackClick = async () => {
     if (!currentField || step === "submitting") return;
@@ -356,23 +325,12 @@ export default function GuidedSession() {
 
       const prev = await previousField(sessionId);
       setCurrentFieldData(prev);
-
-      // Populate previous values from summary
-      if (prev.currentAnswerStatus) {
-        try {
-          const summary = await getSummary(sessionId);
-          const answerInfo = summary.fields.find(
-            (f: any) => f.fieldId === prev.fieldId,
-          );
-          if (answerInfo) {
-            setInputValue(answerInfo.originalAnswer || "");
-          }
-        } catch {
-          setInputValue("");
-        }
-      } else {
-        setInputValue("");
+      if (prev.allFieldKeys) {
+        setAllFieldKeys(prev.allFieldKeys);
       }
+      setInputValue(
+        prev.currentAnswerStatus ? prev.originalAnswer || "" : "",
+      );
       setStep("answering");
     } catch (err: any) {
       setErrorMsg(te(err.message) || "Failed to navigate to previous field.");
@@ -385,32 +343,17 @@ export default function GuidedSession() {
     router.push("/application");
   };
 
-  // A repeated table row reaches the guided flow as flat indexed fields
-  // (`children_2_gender`), so without context the screen just says "Gender"
-  // twice with nothing saying whose it is. Presentation only — the key is
-  // unchanged and is still what gets submitted.
   const rowContext = currentField ? parseRowKey(currentField.fieldKey) : null;
   const rowProgress = currentField
     ? rowProgressFor(currentField.fieldKey, allFieldKeys)
     : null;
 
-  // Three states, not a boolean. A backend that has not been redeployed omits
-  // the field; the legacy boolean then answers "required" or — since it cannot
-  // distinguish "optional" from "nothing was said" — "unknown", which is the
-  // safe reading because it neither blocks the user nor invents a claim.
   const requiredness = currentField
     ? resolveRequiredness(currentField)
     : "unknown";
 
-  // Skip visibility comes from the question, not from a boolean: a compound
-  // declaration group carries no requiredness of its own, so a check that only
-  // looked at the question offered "Skip this question" over two mandatory
-  // consents.
   const skippable = currentField ? canSkipQuestion(currentField) : false;
 
-  // Progress percentage calculation
-  // Count every question, not only the mandatory ones: with evidence-based
-  // requiredness a form that marks nothing mandatory showed "Question 1 of 0".
   const total =
     currentField?.progress?.totalQuestions ??
     currentField?.progress?.totalRequiredFields ??
@@ -423,10 +366,10 @@ export default function GuidedSession() {
 
   if (step === "loading") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 text-slate-100">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-indigo-500" />
-          <p className="text-sm font-medium text-slate-400">{tc("loading")}</p>
+      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center text-slate-900">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
+          <p className="text-sm font-medium text-slate-600">{tc("loading")}</p>
         </div>
       </main>
     );
@@ -434,11 +377,11 @@ export default function GuidedSession() {
 
   if (step === "error") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 px-4 text-slate-100">
-        <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900/60 p-8 text-center shadow-2xl backdrop-blur-xl">
-          <div className="mb-4 text-rose-400">
+      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 text-slate-900">
+        <div className="surface-panel w-full max-w-md rounded-2xl p-8 text-center">
+          <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600">
             <svg
-              className="mx-auto h-12 w-12"
+              className="h-5 w-5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -451,13 +394,13 @@ export default function GuidedSession() {
               />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-slate-200">Error Occurred</h2>
-          <p className="mt-2 text-sm text-slate-400">
+          <h2 className="text-lg font-bold text-slate-900">Error Occurred</h2>
+          <p className="mt-2 text-sm text-slate-600">
             {errorMsg || "An unexpected error occurred."}
           </p>
           <button
             onClick={handleRestart}
-            className="mt-6 w-full rounded-xl bg-slate-800 py-3 text-sm font-bold text-slate-200 transition hover:bg-slate-700 active:scale-[0.99]"
+            className="btn-secondary mt-6 w-full py-3 text-sm font-semibold"
           >
             {tc("restart")}
           </button>
@@ -467,338 +410,462 @@ export default function GuidedSession() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 text-slate-100 px-4 py-8 sm:px-6 lg:px-8">
-      {/* Central guided card container */}
-      <div className="mx-auto w-full max-w-xl flex-1 flex flex-col justify-center">
-        <ClaimBanner sessionId={sessionId} />
-        {/* Progress header */}
-        {currentField && (
-          <div className="mb-6 w-full space-y-2">
-            <div className="flex justify-between text-xs font-semibold tracking-wide text-slate-400">
-              <span>
-                {t("progress", {
-                  current: completed + 1,
-                  total,
-                  percent: progressPercent,
-                })}
-              </span>
-              <span>{progressPercent}%</span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-slate-950 overflow-hidden border border-slate-850">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
-        )}
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-5xl flex-1 flex flex-col justify-center py-2">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Form Context Sidebar (desktop) */}
+          <aside className="hidden lg:flex lg:col-span-4 flex-col gap-4 sticky top-20">
+            {/* Form Info Card */}
+            <div className="surface-card rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                  Assisted Session
+                </span>
+                <span className="text-xs font-mono text-slate-500 tabular-nums">Step 2 of 4</span>
+              </div>
 
-        <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 p-6 md:p-8 shadow-2xl backdrop-blur-xl">
-          {/* Glowing orb decorative */}
-          <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <svg className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Official Form Flow
+                </h3>
+                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                  Fill in your answers sequentially. Each response is standardized and verified for the official document.
+                </p>
+              </div>
 
-          {currentField && (
-            <div className="relative z-10 space-y-6">
-              {errorMsg && !errorIsFieldLevel && (
-                <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
-                  {errorMsg}
+              <div className="border-t border-slate-200 pt-3.5 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-600">
+                  <span>Questions Completed</span>
+                  <span className="font-bold text-slate-900 tabular-nums">
+                    {completed} of {total}
+                  </span>
                 </div>
-              )}
-
-              {/* Workflow Screens Switcher */}
-
-              {/* 1. Clarification Form */}
-              {step === "needs_clarification" && lastAnswer?.clarification && (
-                <form onSubmit={handleClarifySubmit} className="space-y-6">
-                  <div className="space-y-1">
-                    <h2 className="text-xl font-bold text-slate-200">
-                      {t("clarificationTitle")}
-                    </h2>
-                    <p className="text-sm text-slate-400">
-                      {t("clarificationSubtitle")}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 space-y-2 text-left">
-                    <p className="text-xs uppercase font-semibold text-slate-500">
-                      {t("originalAnswerLabel")}
-                    </p>
-                    <p className="text-base italic text-slate-300">
-                      &ldquo;{inputValue}&rdquo;
-                    </p>
-                  </div>
-
-                  {/* Render fields for each missing attribute requested by the backend */}
-                  <div className="space-y-4">
-                    {lastAnswer.clarification.missing.map((key) => (
-                      <div key={key} className="space-y-1.5 text-left">
-                        <label className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
-                          {key.replace("_", " ")}
-                        </label>
-                        {key === "currency" ? (
-                          <select
-                            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3.5 text-base text-slate-100 outline-none transition focus:border-indigo-500"
-                            value={clarifyValues[key] || ""}
-                            onChange={(e) =>
-                              setClarifyValues({
-                                ...clarifyValues,
-                                [key]: e.target.value,
-                              })
-                            }
-                            required
-                          >
-                            <option value="" disabled>
-                              Select currency...
-                            </option>
-                            <option value="EUR">EUR (€)</option>
-                            <option value="USD">USD ($)</option>
-                            <option value="GBP">GBP (£)</option>
-                          </select>
-                        ) : key === "period" ? (
-                          <select
-                            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3.5 text-base text-slate-100 outline-none transition focus:border-indigo-500"
-                            value={clarifyValues[key] || ""}
-                            onChange={(e) =>
-                              setClarifyValues({
-                                ...clarifyValues,
-                                [key]: e.target.value,
-                              })
-                            }
-                            required
-                          >
-                            <option value="" disabled>
-                              Select frequency...
-                            </option>
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
-                            <option value="weekly">Weekly</option>
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3.5 text-base text-slate-100 outline-none transition focus:border-indigo-500"
-                            value={clarifyValues[key] || ""}
-                            onChange={(e) =>
-                              setClarifyValues({
-                                ...clarifyValues,
-                                [key]: e.target.value,
-                              })
-                            }
-                            required
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-4">
-                    <button
-                      type="button"
-                      onClick={handleEditClick}
-                      className="flex-1 rounded-xl border border-slate-700 bg-slate-950 py-3.5 text-base font-bold text-slate-300 transition hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-700 active:scale-[0.99]"
-                    >
-                      {tc("edit")}
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-base font-bold transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 active:scale-[0.99]"
-                    >
-                      {tc("submit")}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* 2. Normalization Confirmation Screen */}
-              {step === "awaiting_confirmation" && lastAnswer && (
-                <div className="space-y-6">
-                  <div className="space-y-1">
-                    <h2 className="text-xl font-bold text-slate-200">
-                      {t("confirmTitle")}
-                    </h2>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 space-y-2 text-left">
-                      <p className="text-xs uppercase font-semibold text-slate-500">
-                        {t("originalAnswerLabel")}
-                      </p>
-                      <p className="text-base italic text-slate-300">
-                        &ldquo;{inputValue}&rdquo;
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 space-y-2 text-left">
-                      <p className="text-xs uppercase font-semibold text-indigo-500">
-                        {t("proposedValueLabel")}
-                      </p>
-                      <p className="text-lg font-bold text-indigo-400">
-                        {formatProposedValue(
-                          lastAnswer.normalizedValue,
-                          lastAnswer.outputValue,
-                          currentField?.fieldType,
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <button
-                      type="button"
-                      onClick={handleEditClick}
-                      className="flex-1 rounded-xl border border-slate-700 bg-slate-950 py-3.5 text-base font-bold text-slate-300 transition hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-700 active:scale-[0.99]"
-                    >
-                      {tc("edit")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleConfirmClick}
-                      className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-base font-bold transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 active:scale-[0.99]"
-                    >
-                      {tc("confirm")}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 3. Primary Answering Flow */}
-              {(step === "answering" || step === "submitting") && (
-                <form onSubmit={handleSubmitAnswer} className="space-y-6">
-                  {/* Dynamic Question Title */}
-                  <div className="space-y-1 text-left">
-                    {rowContext && (
-                      <p
-                        data-testid="row-context"
-                        className="text-xs font-bold uppercase tracking-wider text-indigo-400"
-                      >
-                        {rowHeading(rowContext.section, rowContext.index)}
-                        {rowProgress && (
-                          <span
-                            data-testid="row-progress"
-                            className="ms-2 font-medium text-slate-400"
-                          >
-                            {t("rowFieldProgress", {
-                              position: rowProgress.position,
-                              total: rowProgress.total,
-                            })}
-                          </span>
-                        )}
-                      </p>
-                    )}
-                    <h2 className="text-xl font-bold text-slate-100">
-                      {currentField.label}
-                      {requiredness === "required" && (
-                        <span className="ms-1 text-rose-400" aria-hidden="true">
-                          *
-                        </span>
-                      )}
-                    </h2>
-                    {/* Only a finding is labelled. When the document carried
-                        no marker the backend records "unknown", and saying
-                        "Optional" there would claim something the form never
-                        said — so nothing is rendered at all. */}
-                    {requiredness !== "unknown" && (
-                      <p
-                        className="text-xs font-medium tracking-wide text-slate-400"
-                        data-testid="requiredness"
-                      >
-                        {requiredness === "required"
-                          ? t("required")
-                          : t("optional")}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* A signature is drawn, never typed — and the user must
-                      always be able to sign on paper instead. */}
-                  {currentField.fieldType === "signature" ? (
-                    <SignaturePad
-                      fieldKey={currentField.key}
-                      value={signatureValue}
-                      onChange={setSignatureValue}
-                      onSignAfterPrinting={handleSignAfterPrinting}
-                      pendingManualSignature={
-                        currentField.currentAnswerStatus ===
-                        "pending_manual_signature"
-                      }
-                      disabled={step === "submitting"}
-                      error={errorIsFieldLevel ? errorMsg || undefined : undefined}
-                    />
-                  ) : (
-                  <FieldRenderer
-                    fieldType={currentField.fieldType}
-                    fieldKey={currentField.key}
-                    required={requiredness === "required"}
-                    configuration={{}}
-                    options={currentField.options || []}
-                    value={inputValue}
-                    placeholder={currentField.placeholder || ""}
-                    helpText={currentField.helpText || ""}
-                    error={
-                      errorIsFieldLevel ? errorMsg || undefined : undefined
-                    }
-                    onChange={(val) => {
-                      setErrorMsg(null);
-                      setInputValue(val);
-                    }}
+                <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                  <div
+                    className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Multilingual Normalization Guidance Card */}
+            <div className="surface-card rounded-2xl p-5 space-y-2">
+              <div className="flex items-center gap-2 text-indigo-600">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                </svg>
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+                  Multilingual Normalization
+                </h4>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Answer in your own language. Your original wording is preserved while canonical dates, currencies, and choices are formatted for the target form.
+              </p>
+            </div>
+
+            {/* Privacy Card */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3 shadow-2xs">
+              <div className="h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div className="text-xs text-slate-600 leading-snug">
+                <span className="font-semibold text-slate-900 block">Zero-Retention Guarantee</span>
+                Your session is temporary and protected by ownership credentials.
+              </div>
+            </div>
+          </aside>
+
+          {/* Right Column: Active Guided Form Card */}
+          <div className="lg:col-span-8 flex flex-col justify-center w-full">
+            <ClaimBanner sessionId={sessionId} />
+
+            {/* Progress header */}
+            {currentField && (
+              <div className="mb-5 w-full space-y-2">
+                <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
+                  <span className="flex items-center gap-2 tabular-nums">
+                    <span className="h-2 w-2 rounded-full bg-indigo-600" />
+                    {t("progress", {
+                      current: completed + 1,
+                      total,
+                      percent: progressPercent,
+                    })}
+                  </span>
+                  <span className="rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-indigo-700 font-bold tabular-nums">
+                    {progressPercent}%
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-slate-200/80 overflow-hidden border border-slate-300/60">
+                  <div
+                    className="h-full rounded-full bg-indigo-600 transition-all duration-300 ease-out"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="surface-panel rounded-2xl p-6 sm:p-8">
+              {currentField && (
+                <div className="space-y-6">
+                  {errorMsg && !errorIsFieldLevel && (
+                    <div
+                      role="alert"
+                      className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-center gap-3"
+                    >
+                      <svg className="h-4 w-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <span>{errorMsg}</span>
+                    </div>
                   )}
 
-                  {/* Footer navigation */}
-                  <div className="flex gap-4 pt-4 border-t border-slate-800">
-                    <button
-                      type="button"
-                      disabled={
-                        currentField.position === 1 || step === "submitting"
-                      }
-                      onClick={handleBackClick}
-                      className="flex-1 rounded-xl border border-slate-800 bg-slate-950 py-3.5 text-base font-bold text-slate-400 transition hover:border-slate-700 hover:text-slate-300 disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99]"
-                    >
-                      {tc("back")}
-                    </button>
-                    {/* Optional *and* unknown can be left unanswered — only a
-                        question the form explicitly marked required blocks
-                        progress. Unknown does not mean required. A group with
-                        any required child is never skippable, whatever the
-                        group itself says. */}
-                    {skippable && (
-                      <button
-                        type="button"
-                        // Never tied to the input value: skipping is what a
-                        // user does *instead* of typing something.
-                        disabled={step === "submitting"}
-                        onClick={handleSkipClick}
-                        data-testid="skip-question"
-                        className="flex-1 rounded-xl border border-slate-800 bg-slate-950 py-3.5 text-base font-bold text-slate-400 transition hover:border-slate-700 hover:text-slate-300 disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99]"
-                      >
-                        {t("skipQuestion")}
-                      </button>
-                    )}
-                    <button
-                      type={
-                        currentField.fieldType === "signature"
-                          ? "button"
-                          : "submit"
-                      }
-                      onClick={
-                        currentField.fieldType === "signature"
-                          ? handleSignatureSubmit
-                          : undefined
-                      }
-                      disabled={
-                        currentField.fieldType === "signature"
-                          ? signatureValue === null || step === "submitting"
-                          : !inputValue.trim() || step === "submitting"
-                      }
-                      className="flex-1 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-base font-bold transition hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.99]"
-                    >
-                      {step === "submitting" ? tc("loading") : tc("continue")}
-                    </button>
-                  </div>
-                </form>
+                  {/* 1. Clarification Form */}
+                  {step === "needs_clarification" && lastAnswer?.clarification && (
+                    <form onSubmit={handleClarifySubmit} className="space-y-6">
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
+                          Clarification Needed
+                        </div>
+                        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-2">
+                          {t("clarificationTitle")}
+                        </h2>
+                        <p className="text-sm text-slate-600">
+                          {t("clarificationSubtitle")}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-1.5 text-start">
+                        <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
+                          {t("originalAnswerLabel")}
+                        </p>
+                        <p className="text-sm text-slate-900 font-medium">
+                          &ldquo;
+                          {formatOriginalAnswer(
+                            inputValue,
+                            currentField?.fieldType,
+                            currentField?.options
+                          )}
+                          &rdquo;
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        {lastAnswer.clarification.missing.map((key) => (
+                          <div key={key} className="space-y-1.5 text-start">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                              {key.replace("_", " ")}
+                            </label>
+                            {key === "currency" ? (
+                              <div className="relative">
+                                <select
+                                  className="input-field pe-10 appearance-none"
+                                  value={clarifyValues[key] || ""}
+                                  onChange={(e) =>
+                                    setClarifyValues({
+                                      ...clarifyValues,
+                                      [key]: e.target.value,
+                                    })
+                                  }
+                                  required
+                                >
+                                  <option value="" disabled className="bg-white text-slate-400">
+                                    Select currency...
+                                  </option>
+                                  <option value="EUR" className="bg-white text-slate-900">EUR (€)</option>
+                                  <option value="USD" className="bg-white text-slate-900">USD ($)</option>
+                                  <option value="GBP" className="bg-white text-slate-900">GBP (£)</option>
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
+                              </div>
+                            ) : key === "period" ? (
+                              <div className="relative">
+                                <select
+                                  className="input-field pe-10 appearance-none"
+                                  value={clarifyValues[key] || ""}
+                                  onChange={(e) =>
+                                    setClarifyValues({
+                                      ...clarifyValues,
+                                      [key]: e.target.value,
+                                    })
+                                  }
+                                  required
+                                >
+                                  <option value="" disabled className="bg-white text-slate-400">
+                                    Select frequency...
+                                  </option>
+                                  <option value="monthly" className="bg-white text-slate-900">Monthly</option>
+                                  <option value="yearly" className="bg-white text-slate-900">Yearly</option>
+                                  <option value="weekly" className="bg-white text-slate-900">Weekly</option>
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
+                              </div>
+                            ) : (
+                              <input
+                                type="text"
+                                className="input-field"
+                                value={clarifyValues[key] || ""}
+                                onChange={(e) =>
+                                  setClarifyValues({
+                                    ...clarifyValues,
+                                    [key]: e.target.value,
+                                  })
+                                }
+                                required
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={handleEditClick}
+                          className="btn-secondary flex-1 py-3.5 text-sm font-medium"
+                        >
+                          {tc("edit")}
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn-primary flex-1 py-3.5 text-sm font-semibold"
+                        >
+                          {tc("submit")}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* 2. Normalization Confirmation Screen */}
+                  {step === "awaiting_confirmation" && lastAnswer && (
+                    <div className="space-y-6">
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
+                          Value Standardized
+                        </div>
+                        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mt-2">
+                          {t("confirmTitle")}
+                        </h2>
+                        <p className="text-xs text-slate-600">
+                          Please confirm that the standardized value matches your intention
+                        </p>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-1.5 text-start">
+                          <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
+                            {t("originalAnswerLabel")}
+                          </p>
+                          <p className="text-sm text-slate-800 font-medium">
+                            &ldquo;
+                            {formatOriginalAnswer(
+                              inputValue,
+                              currentField?.fieldType,
+                              currentField?.options
+                            )}
+                            &rdquo;
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-5 space-y-2 text-start">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[11px] uppercase font-bold text-indigo-700 tracking-wider">
+                              {t("proposedValueLabel")}
+                            </p>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Ready for Form
+                            </span>
+                          </div>
+                          <p className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                            {formatProposedValue(
+                              lastAnswer.normalizedValue,
+                              lastAnswer.outputValue,
+                              currentField?.fieldType,
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={handleEditClick}
+                          className="btn-secondary flex-1 py-3.5 text-sm font-medium"
+                        >
+                          <span>{tc("edit")}</span>
+                          <kbd className="hidden sm:inline-block rounded bg-slate-100 border border-slate-300 px-1.5 py-0.5 text-[10px] font-mono text-slate-600">Esc</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleConfirmClick}
+                          className="btn-primary flex-1 py-3.5 text-sm font-semibold"
+                        >
+                          <span>{tc("confirm")}</span>
+                          <kbd className="hidden sm:inline-block rounded bg-indigo-700 border border-indigo-500 px-1.5 py-0.5 text-[10px] font-mono text-indigo-100">↵ Enter</kbd>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. Primary Answering Flow */}
+                  {(step === "answering" || step === "submitting") && (
+                    <form onSubmit={handleSubmitAnswer} className="space-y-6">
+                      <div className="space-y-2 text-start">
+                        {rowContext && (
+                          <p
+                            data-testid="row-context"
+                            className="text-xs font-bold uppercase tracking-wider text-indigo-700"
+                          >
+                            {rowHeading(rowContext.section, rowContext.index)}
+                            {rowProgress && (
+                              <span
+                                data-testid="row-progress"
+                                className="ms-2 font-medium text-slate-500 tabular-nums"
+                              >
+                                {t("rowFieldProgress", {
+                                  position: rowProgress.position,
+                                  total: rowProgress.total,
+                                })}
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        <div className="flex items-start justify-between gap-3">
+                          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
+                            {currentField.label}
+                            {requiredness === "required" && (
+                              <span className="ms-1 text-rose-600" aria-hidden="true">
+                                *
+                              </span>
+                            )}
+                          </h2>
+                          {requiredness !== "unknown" && (
+                            <span
+                              className={`shrink-0 rounded-md px-2.5 py-0.5 text-xs font-semibold ${
+                                requiredness === "required"
+                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                  : "bg-slate-100 text-slate-700 border border-slate-200"
+                              }`}
+                              data-testid="requiredness"
+                            >
+                              {requiredness === "required"
+                                ? t("required")
+                                : t("optional")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {currentField.fieldType === "signature" ? (
+                        <SignaturePad
+                          fieldKey={currentField.key}
+                          value={signatureValue}
+                          onChange={setSignatureValue}
+                          onSignAfterPrinting={handleSignAfterPrinting}
+                          pendingManualSignature={
+                            currentField.currentAnswerStatus ===
+                            "pending_manual_signature"
+                          }
+                          disabled={step === "submitting"}
+                          error={errorIsFieldLevel ? errorMsg || undefined : undefined}
+                        />
+                      ) : (
+                        <FieldRenderer
+                          fieldType={currentField.fieldType}
+                          fieldKey={currentField.key}
+                          required={requiredness === "required"}
+                          configuration={{}}
+                          options={currentField.options || []}
+                          value={inputValue}
+                          placeholder={currentField.placeholder || ""}
+                          helpText={currentField.helpText || ""}
+                          error={
+                            errorIsFieldLevel ? errorMsg || undefined : undefined
+                          }
+                          onChange={(val) => {
+                            setErrorMsg(null);
+                            setInputValue(val);
+                          }}
+                        />
+                      )}
+
+                      {/* Footer navigation */}
+                      <div className="flex gap-3 pt-4 border-t border-slate-200">
+                        <button
+                          type="button"
+                          disabled={
+                            currentField.position === 1 || step === "submitting"
+                          }
+                          onClick={handleBackClick}
+                          className="btn-secondary flex-1 py-3.5 text-sm font-medium"
+                        >
+                          <svg className="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                          <span>{tc("back")}</span>
+                        </button>
+                        {skippable && (
+                          <button
+                            type="button"
+                            disabled={step === "submitting"}
+                            onClick={handleSkipClick}
+                            data-testid="skip-question"
+                            className="btn-secondary flex-1 py-3.5 text-sm font-medium"
+                          >
+                            {t("skipQuestion")}
+                          </button>
+                        )}
+                        <button
+                          type={
+                            currentField.fieldType === "signature"
+                              ? "button"
+                              : "submit"
+                          }
+                          onClick={
+                            currentField.fieldType === "signature"
+                              ? handleSignatureSubmit
+                              : undefined
+                          }
+                          disabled={
+                            currentField.fieldType === "signature"
+                              ? signatureValue === null || step === "submitting"
+                              : !inputValue.trim() || step === "submitting"
+                          }
+                          className="btn-primary flex-1 py-3.5 text-sm font-semibold"
+                        >
+                          <span>{step === "submitting" ? tc("loading") : tc("continue")}</span>
+                          {step !== "submitting" && (
+                            <svg className="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </main>
