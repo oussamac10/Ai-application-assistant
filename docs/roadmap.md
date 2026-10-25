@@ -29,7 +29,9 @@ phase is described in `docs/claude/current-phase.md`.
 | 15 | Hybrid Provider Fallback | Choose/combine local and Azure detection; Azure instead of OCR for scanned input |
 | 16 | Administration and Content Review | Consumes the review metadata Phase 13/14 persist |
 | 17 | Dynamic PDF Mapping, Filling, Preview, and Export | Export for arbitrary unknown PDFs |
-| 18 | Security, Privacy, and Data Retention Hardening | |
+| 18 | Plain-Language Field Explanations & Submission Checklist | Completed |
+| 19 | Association & Organization Document Portals | Associations create their own space with their official documents; users browse an association's panel to pick and fill a document (`docs/association-document-portal.md`) |
+| 20 | Security, Privacy, and Data Retention Hardening | |
 | 19 | Background Jobs and Processing Queues | Makes orchestration asynchronous |
 | 20 | Object Storage and Secure Downloads | |
 | 21 | Production AI Provider Integration | |
