@@ -103,4 +103,6 @@ class FormSession(Base):
 
     @property
     def export_supported(self) -> bool:
-        return bool(self.version and self.version.pdf_template_key)
+        return bool(
+            (self.version and self.version.pdf_template_key) or self.source_document_id
+        )

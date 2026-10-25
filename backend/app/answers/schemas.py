@@ -76,6 +76,10 @@ class CurrentFieldResponse(BaseSchema):
     original_answer: str | None = None
     all_field_keys: list[str] = []
     progress: ProgressInfo | None = None
+    page_number: int | None = None
+    input_bounding_box: dict[str, float] | None = None
+    source_document_filename: str | None = None
+    source_document_page_count: int | None = None
 
     @computed_field
     def field_id(self) -> str:

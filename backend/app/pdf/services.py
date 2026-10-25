@@ -9,7 +9,13 @@ from sqlalchemy.orm import Session
 from app.answers.models import FormAnswer
 from app.answers.signatures import PENDING_MANUAL_SIGNATURE
 from app.core.config import settings
+from app.documents.models import SourceDocument
 from app.forms.models import FormVersion
+from app.pdf.dynamic_overlay import (
+    get_latest_completed_detection,
+    has_exportable_dynamic_document,
+    render_dynamic_overlay_pdf,
+)
 from app.pdf.formatting import format_field_value
 from app.pdf.models import FormExport
 from app.pdf.registry import PDFMappingError, PDFMappingLoader, PDFTemplateRegistry
@@ -88,13 +94,16 @@ class PDFExportService:
         if not version:
             raise ResourceNotFoundError("Session form version not found.")
 
-        # Only a version with an explicit PDF template mapping can be
-        # exported. Dynamically generated versions (Phase 11 confirmed-field
-        # sessions) never have one — there is no reviewed coordinate mapping
-        # for an arbitrary uploaded PDF, so filling/exporting it is
-        # explicitly out of scope (see ADR 0010). Never guess or fall back
-        # to another template's mapping.
+        # A version with an explicit PDF template mapping uses the static
+        # AcroForm renderer. Dynamically generated versions backed by an
+        # uploaded SourceDocument with detected field bounding boxes use the
+        # coordinate-overlay renderer (`app/pdf/dynamic_overlay.py`). Any
+        # unmapped session without a backing source document and detected
+        # coordinates is rejected — never guess or fall back to
+        # `settings.PDF_TEMPLATE_KEY`.
         if not version.pdf_template_key:
+            if has_exportable_dynamic_document(self.db, session):
+                return self._create_dynamic_overlay_export(session, version)
             raise ValidationError(
                 "This session's form is not associated with an exportable PDF template.",
                 "dynamic_pdf_export_not_supported",
@@ -305,6 +314,134 @@ class PDFExportService:
             self.db.commit()
             _remove_partial_export(output_path)
             # Safe raise
+            raise ValidationError(f"PDF rendering failed: {str(e)}") from e
+
+        return export
+
+    def _create_dynamic_overlay_export(
+        self, session: FormSession, version: FormVersion
+    ) -> FormExport:
+        """Creates or returns an idempotent coordinate-overlay PDF export for a
+        session backed by an uploaded SourceDocument with detected field boxes.
+        """
+        if not session.source_document_id:
+            raise ValidationError(
+                "This session's form is not associated with an exportable PDF template.",
+                "dynamic_pdf_export_not_supported",
+            )
+        source_doc = self.db.get(SourceDocument, session.source_document_id)
+        if not source_doc:
+            raise ValidationError(
+                "This session's form is not associated with an exportable PDF template.",
+                "dynamic_pdf_export_not_supported",
+            )
+        detection = get_latest_completed_detection(self.db, source_doc.id)
+        if not detection:
+            raise ValidationError(
+                "This session's form is not associated with an exportable PDF template.",
+                "dynamic_pdf_export_not_supported",
+            )
+
+        dynamic_template_key = f"dynamic-doc-{source_doc.public_id}"
+        mapping_version = int(detection.analysis_version or 1)
+
+        stmt = select(FormExport).where(
+            FormExport.session_id == session.id,
+            FormExport.template_key == dynamic_template_key,
+            FormExport.mapping_version == mapping_version,
+        )
+        existing_export = self.db.scalars(stmt).first()
+        if existing_export:
+            if existing_export.status == "completed":
+                filepath = Path(existing_export.storage_path)
+                if filepath.is_file():
+                    return existing_export
+            if existing_export.status == "processing":
+                raise StateConflictError("Export is already being processed.")
+
+        stmt_answers = select(FormAnswer).where(FormAnswer.session_id == session.id)
+        answers = self.db.scalars(stmt_answers).all()
+        answers_by_field_id = {ans.field_id: ans for ans in answers}
+
+        for field in version.fields:
+            ans = answers_by_field_id.get(field.id)
+            if field.required:
+                if ans is not None and ans.status == PENDING_MANUAL_SIGNATURE:
+                    continue
+                if not ans or ans.status != "confirmed":
+                    raise ValidationError(
+                        f"Required field '{field.key}' is not confirmed."
+                    )
+            if ans:
+                if ans.status == "needs_clarification":
+                    raise ValidationError(
+                        f"Field '{field.key}' requires clarification."
+                    )
+                if ans.validation_status == "invalid":
+                    raise ValidationError(f"Field '{field.key}' has an invalid answer.")
+
+        export_dir = Path(settings.PDF_EXPORT_DIRECTORY)
+        export_dir.mkdir(parents=True, exist_ok=True)
+        unique_id = str(uuid.uuid4())
+        filename = f"{dynamic_template_key}-{unique_id}.pdf"
+        output_path = export_dir / filename
+
+        safe_stem = Path(source_doc.sanitized_filename or "document.pdf").stem
+        download_filename = (
+            f"{safe_stem}-completed-{datetime.now().strftime('%Y-%m-%d')}.pdf"
+        )
+
+        if existing_export:
+            export = existing_export
+            export.status = "processing"
+            export.failed_at = None
+            export.failure_code = None
+            export.storage_path = str(output_path)
+        else:
+            export = FormExport(
+                session_id=session.id,
+                form_version_id=version.id,
+                template_key=dynamic_template_key,
+                mapping_version=mapping_version,
+                status="processing",
+                file_name=download_filename,
+                storage_path=str(output_path),
+                content_type="application/pdf",
+                expires_at=datetime.now(UTC)
+                + timedelta(hours=settings.FORM_SESSION_TTL_HOURS),
+            )
+            self.db.add(export)
+        self.db.commit()
+
+        try:
+            render_result = render_dynamic_overlay_pdf(
+                db=self.db,
+                session=session,
+                version=version,
+                source_doc=source_doc,
+                detection=detection,
+                answers_by_field_id=answers_by_field_id,
+                output_path=output_path,
+            )
+            checksum = self.validator.validate(output_path)
+            export.status = "completed"
+            export.file_size = render_result.file_size
+            export.checksum = checksum
+            export.completed_at = datetime.now(UTC)
+            self.db.commit()
+        except SignatureRenderError as e:
+            export.status = "failed"
+            export.failed_at = datetime.now(UTC)
+            export.failure_code = e.error_code.upper()
+            self.db.commit()
+            _remove_partial_export(output_path)
+            raise ValidationError(str(e), e.error_code) from e
+        except Exception as e:
+            export.status = "failed"
+            export.failed_at = datetime.now(UTC)
+            export.failure_code = "GENERATION_ERROR"
+            self.db.commit()
+            _remove_partial_export(output_path)
             raise ValidationError(f"PDF rendering failed: {str(e)}") from e
 
         return export

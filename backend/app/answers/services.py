@@ -41,6 +41,7 @@ from app.answers.validation.validation import validate_value
 from app.core.config import settings
 from app.forms.models import FormField
 from app.forms.repositories import FormRepository
+from app.pdf.dynamic_overlay import get_field_location_for_session
 from app.questions.resolver import QuestionResolver
 from app.sessions.services import (
     ResourceNotFoundError,
@@ -338,8 +339,25 @@ class AnswerService:
             f.key for f in sorted(version.fields, key=lambda f: f.position)
         ]
         field_data["progress"] = self.get_progress(session)
+        self._attach_location_metadata(field_data, session, current_field)
 
         return field_data
+
+    def _attach_location_metadata(
+        self, field_data: dict[str, Any], session: Any, field: FormField
+    ) -> None:
+        """Populates optional page and bounding-box location metadata when the
+        session originates from an uploaded SourceDocument.
+        """
+        location, source_doc = get_field_location_for_session(self.db, session, field)
+        if location is not None:
+            field_data["page_number"] = location.page_number
+            field_data["input_bounding_box"] = (
+                location.input_bounding_box or location.label_bounding_box
+            )
+        if source_doc is not None:
+            field_data["source_document_filename"] = source_doc.original_filename
+            field_data["source_document_page_count"] = source_doc.page_count
 
     async def previous_field(
         self, session_id: str, raw_token: str | None
@@ -381,6 +399,7 @@ class AnswerService:
         field_data["original_answer"] = ans.original_answer if ans else None
         field_data["all_field_keys"] = [f.key for f in fields]
         field_data["progress"] = self.get_progress(session)
+        self._attach_location_metadata(field_data, session, prev_field)
 
         return field_data
 

@@ -25,60 +25,52 @@ Archived under `docs/progress/`:
 
 - Eliminated redundant `getSummary` API calls on every question transition in the guided session flow (`backend/app/answers/schemas.py`, `backend/app/answers/services.py`, `frontend/src/app/application/session/[sessionId]/page.tsx`).
 - Fixed answer confirmation and summary display formatting for money amounts (`2000.0 EUR once` -> `2000 EUR`), multiple-choice arrays, and boolean Yes/No values.
+- Created `DESIGN.md` and upgraded the entire Next.js frontend to the "Warm Civic Daylight — Paper & Ink" design system, added 36-language universal support (`languages.ts`, `LanguageSelector.tsx`), and categorized manual form selection (`formCatalogMetadata.ts`).
 
 ## Current Task
 
-Conduct a comprehensive UI/UX audit, create `DESIGN.md`, establish a cohesive design token system, and upgrade all frontend components and pages to a refined, accessible, production-grade interface.
+Implement Phase 17: Dynamic Coordinate-Overlay PDF Export for Uploaded Forms ("Export Any Uploaded PDF"), Document Field Location Preview in the Guided Session, and Voice-to-Answer Dictation support.
 
 ## Goal
 
-Replace generic AI template tropes (neon purple/violet glow orbs, rainbow progress bars, excessive glassmorphism, inconsistent radii, continuous pulsing dots) with a cohesive, accessible, Linear/Vercel-inspired document-intelligence design system documented in `DESIGN.md` and implemented across `globals.css`, `tailwind.config.ts`, shared components, and all application routes while preserving 100% of existing functionality and test contracts.
+Enable users who upload arbitrary PDFs (with detected field bounding boxes) to generate and download a completed PDF with their confirmed answers overlaid at the detected coordinates using PyMuPDF (`fitz`), while providing a live visual Document Location Preview and optional speech-to-text input during the guided Q&A session.
 
 ## Acceptance Criteria
 
-- [x] Project-level `DESIGN.md` created documenting colors, typography, layout, components, accessibility, RTL rules, and motion tokens
-- [x] `frontend/src/app/globals.css` and `frontend/tailwind.config.ts` updated with structured design tokens (surfaces, borders, accents, typography scale, focus-visible rings, and `prefers-reduced-motion` support)
-- [x] Shared components (`Navbar`, `FieldRenderer`, `SignaturePad`, `DeclarationGroup`, `DocumentUploadForm`, `ApplicationCard`, `ClaimBanner`, `LoginForm`, `RegisterForm`) refined for visual hierarchy, keyboard focus, touch targets, and RTL alignment
-- [x] Core pages (`page.tsx`, `application/page.tsx`, `session/[sessionId]/page.tsx`, `session/[sessionId]/summary/page.tsx`, `session/[sessionId]/complete/page.tsx`, `applications/page.tsx`) upgraded with cohesive layout, clear step progression, and accessible contrast
-- [x] All frontend unit/component tests (`vitest`), `tsc --noEmit`, and `next lint` pass without regression
+- [x] `backend/app/pdf/dynamic_overlay.py` created to map confirmed `FormField` answers to `DetectedField` bounding boxes (`input_bounding_box`) and render text, checkmarks, and signatures onto the uploaded source PDF via PyMuPDF (`fitz`)
+- [x] `PDFExportService.create_export` supports dynamic coordinate-overlay export when a session is backed by a `SourceDocument` with detected field coordinates, while continuing to reject unmapped synthetic dynamic sessions (`dynamic_pdf_export_not_supported`)
+- [x] `FormSession.export_supported` reflects export capability for sessions backed by either a predefined `pdf_template_key` or an uploaded `source_document_id`
+- [x] `CurrentFieldResponse` exposes optional `page_number`, `input_bounding_box`, `source_document_filename`, and `source_document_page_count` metadata
+- [x] Guided Session page (`frontend/src/app/application/session/[sessionId]/page.tsx`) displays a visual Document Location Preview card showing the target page and highlighted field bounding box on the official document
+- [x] `FieldRenderer.tsx` includes an accessible Voice Dictation button for text and multiline inputs using the Web Speech API when available
+- [x] Backend unit/integration tests (`pytest`, `ruff`, `mypy`) and frontend tests (`vitest`, `tsc --noEmit`, `next lint`) pass without regressions
 
 ## Planned Steps
 
-- [x] Inspect repository, frontend stack, routes, components, styling, and tests
-- [x] Create `DESIGN.md` with complete design system specification
-- [x] Upgrade Phase 1 Foundation (`globals.css`, `tailwind.config.ts`, `layout.tsx`)
-- [x] Upgrade Phase 2 Shared Components (`Navbar`, `FieldRenderer`, `SignaturePad`, `DeclarationGroup`, `DocumentUploadForm`, `ApplicationCard`, `ClaimBanner`, `LoginForm`, `RegisterForm`)
-- [x] Upgrade Phase 3 & 4 Pages (`page.tsx`, `application/page.tsx`, `session/[sessionId]/page.tsx`, `summary/page.tsx`, `complete/page.tsx`, `applications/page.tsx`)
-- [x] Run Phase 5 Verification (`vitest`, `tsc --noEmit`, `next lint`, and visual viewport checks)
+- [x] Inspect existing PDF export, field detection, and session schemas/tests
+- [x] Create `backend/app/pdf/dynamic_overlay.py` and integrate into `backend/app/pdf/services.py` and `backend/app/sessions/models.py`
+- [x] Enrich `CurrentFieldResponse` in `backend/app/answers/schemas.py` and `backend/app/answers/services.py` with field location metadata
+- [x] Add Document Location Preview to `frontend/src/app/application/session/[sessionId]/page.tsx` and Voice Dictation button to `frontend/src/features/form-session/components/FieldRenderer.tsx`
+- [x] Add comprehensive unit tests for dynamic coordinate-overlay PDF export and run full backend + frontend verification
 
 ## Files Expected to Change
 
-- `DESIGN.md`
-- `frontend/tailwind.config.ts`
-- `frontend/src/app/globals.css`
-- `frontend/src/app/layout.tsx`
-- `frontend/src/components/Navbar.tsx`
-- `frontend/src/app/page.tsx`
-- `frontend/src/app/application/page.tsx`
+- `TODO.md`
+- `backend/app/pdf/dynamic_overlay.py`
+- `backend/app/pdf/services.py`
+- `backend/app/sessions/models.py`
+- `backend/app/answers/schemas.py`
+- `backend/app/answers/services.py`
+- `backend/tests/pdf/test_dynamic_overlay_export.py`
+- `frontend/src/features/form-session/services/apiClient.ts`
 - `frontend/src/app/application/session/[sessionId]/page.tsx`
-- `frontend/src/app/application/session/[sessionId]/summary/page.tsx`
-- `frontend/src/app/application/session/[sessionId]/complete/page.tsx`
-- `frontend/src/app/applications/page.tsx`
-- `frontend/src/app/application/document/[documentId]/detect-fields/page.tsx`
-- `frontend/src/features/document-upload/components/DocumentUploadForm.tsx`
 - `frontend/src/features/form-session/components/FieldRenderer.tsx`
-- `frontend/src/features/form-session/components/SignaturePad.tsx`
-- `frontend/src/features/form-session/components/DeclarationGroup.tsx`
-- `frontend/src/features/applications/components/ApplicationCard.tsx`
-- `frontend/src/features/applications/components/ClaimBanner.tsx`
-- `frontend/src/features/auth/components/LoginForm.tsx`
-- `frontend/src/features/auth/components/RegisterForm.tsx`
-- `frontend/src/features/auth/components/AccountMenu.tsx`
 
 ## Decisions and Assumptions
 
-- All existing `data-testid` attributes, ARIA roles/labels, translated string keys, and route contracts must remain intact so every existing unit and E2E test passes without modification.
-- Design direction: "Precision Civic Studio" — deep obsidian/slate architectural surfaces (`#090b10` / `#0f131a` / `#151b24`), crisp `1px` hairline borders, authoritative indigo/blue primary action tokens (`#4f46e5` / `#6366f1`) without neon violet/cyan gradients, tabular numerals for progress/metrics, and full LTR/RTL logical property discipline.
+- `FormVersion.pdf_template_key` remains `None` for dynamically detected versions so `test_question_bridge.py` and `test_dynamic_export_guard.py` invariants are preserved.
+- Coordinate overlay only renders fields that have an explicit `input_bounding_box` from field detection (never guessing coordinates when no input box exists).
+- OCR-sourced bounding boxes (`source == "ocr"`) are scaled from `OCRPage` pixel dimensions to PDF page point dimensions (`fitz.Page.rect`).
 
 ## Blockers
 
@@ -86,11 +78,7 @@ Replace generic AI template tropes (neon purple/violet glow orbs, rainbow progre
 
 ## Verification
 
-- [x] Frontend tests pass (`28 passed` test files, `240 passed` tests)
-- [x] Linting passes (`next lint` — 0 warnings or errors)
-- [x] Type checking passes (`tsc --noEmit` — 0 errors)
-- [x] Visual and responsive checks completed
-
-## Completed
-
-- Created `DESIGN.md` and upgraded the entire Next.js frontend to the "Precision Civic Studio" design system with zero regressions across all 240 unit and integration tests.
+- [x] Backend tests pass (`pytest` — 31 passed)
+- [x] Backend linting and type checking pass (`ruff check`, `ruff format --check`, `mypy`)
+- [x] Frontend tests pass (`vitest` — 28 passed test files, 240 passed tests)
+- [x] Frontend linting and type checking pass (`next lint`, `tsc --noEmit`)

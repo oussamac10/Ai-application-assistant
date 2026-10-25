@@ -453,6 +453,91 @@ export default function GuidedSession() {
               </div>
             </div>
 
+            {/* Live Document Field Location Preview Card */}
+            {currentField && (
+              <div
+                data-testid="document-location-preview"
+                className="surface-card rounded-2xl p-5 space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    Document Placement
+                  </span>
+                  <span className="rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-700 tabular-nums">
+                    Page {currentField.pageNumber ?? 1}
+                    {currentField.sourceDocumentPageCount
+                      ? ` / ${currentField.sourceDocumentPageCount}`
+                      : ""}
+                  </span>
+                </div>
+
+                {/* Miniature PDF Page Coordinate Map */}
+                <div className="relative mx-auto h-36 w-28 rounded-lg border border-slate-300 bg-white shadow-2xs overflow-hidden p-2">
+                  <div className="h-2 w-12 rounded-xs bg-slate-300 mb-2" />
+                  <div className="space-y-1.5">
+                    <div className="h-1 w-full rounded-xs bg-slate-100" />
+                    <div className="h-1 w-5/6 rounded-xs bg-slate-100" />
+                    <div className="h-1 w-full rounded-xs bg-slate-100" />
+                    <div className="h-1 w-4/5 rounded-xs bg-slate-100" />
+                    <div className="h-1 w-full rounded-xs bg-slate-100" />
+                    <div className="h-1 w-3/4 rounded-xs bg-slate-100" />
+                  </div>
+                  {(() => {
+                    const box = currentField.inputBoundingBox;
+                    const topPct = box
+                      ? Math.min(Math.max((box.y / 842) * 100, 14), 82)
+                      : Math.min(
+                          Math.max(
+                            18 + ((completed / Math.max(total, 1)) * 64),
+                            18,
+                          ),
+                          82,
+                        );
+                    const leftPct = box
+                      ? Math.min(Math.max((box.x / 595) * 100, 8), 65)
+                      : 10;
+                    const widthPct = box
+                      ? Math.min(Math.max((box.width / 595) * 100, 24), 82)
+                      : 80;
+                    return (
+                      <div
+                        style={{
+                          top: `${topPct}%`,
+                          left: `${leftPct}%`,
+                          width: `${widthPct}%`,
+                        }}
+                        className="absolute h-4 rounded-xs border-2 border-indigo-600 bg-indigo-500/20 flex items-center px-1 transition-all duration-300"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" />
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <p className="text-[11px] text-slate-600 leading-snug text-center">
+                  {currentField.sourceDocumentFilename ? (
+                    <>
+                      Mapped to{" "}
+                      <span className="font-semibold text-slate-800">
+                        {currentField.sourceDocumentFilename}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Active field{" "}
+                      <span className="font-mono font-semibold text-slate-800">
+                        #{completed + 1}
+                      </span>{" "}
+                      on official PDF template
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+
             {/* Multilingual Normalization Guidance Card */}
             <div className="surface-card rounded-2xl p-5 space-y-2">
               <div className="flex items-center gap-2 text-indigo-600">
@@ -798,6 +883,7 @@ export default function GuidedSession() {
                           value={inputValue}
                           placeholder={currentField.placeholder || ""}
                           helpText={currentField.helpText || ""}
+                          enableVoiceInput={true}
                           error={
                             errorIsFieldLevel ? errorMsg || undefined : undefined
                           }

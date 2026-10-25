@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 
 interface FieldRendererProps {
@@ -14,6 +14,7 @@ interface FieldRendererProps {
   error?: string;
   placeholder?: string;
   helpText?: string;
+  enableVoiceInput?: boolean;
 }
 
 export function FieldRenderer({
@@ -27,11 +28,50 @@ export function FieldRenderer({
   error,
   placeholder = "",
   helpText,
+  enableVoiceInput = false,
 }: FieldRendererProps) {
   const t = useTranslations("common");
   const inputId = `field-${fieldKey}`;
   const errorId = `error-${fieldKey}`;
   const descId = `desc-${fieldKey}`;
+  const [isListening, setIsListening] = useState(false);
+
+  const handleVoiceDictation = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const SpeechRecognitionCtor =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) return;
+
+    try {
+      const recognition = new SpeechRecognitionCtor();
+      recognition.lang = document.documentElement.lang || "en";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      setIsListening(true);
+      recognition.onresult = (event: any) => {
+        const transcript = event?.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          onChange(value ? `${value} ${transcript}` : transcript);
+        }
+        setIsListening(false);
+      };
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  }, [onChange, value]);
+
+  const voiceCapableType =
+    enableVoiceInput &&
+    (fieldType === "string" ||
+      fieldType === "person_name" ||
+      fieldType === "country" ||
+      fieldType === "address" ||
+      fieldType === "multiline_text" ||
+      fieldType === "money");
 
   const renderInput = () => {
     switch (fieldType) {
@@ -39,16 +79,41 @@ export function FieldRenderer({
       case "person_name":
       case "country":
         return (
-          <input
-            id={inputId}
-            type="text"
-            className="input-field"
-            placeholder={placeholder}
-            value={value}
-            required={required}
-            aria-describedby={`${helpText ? descId : ""} ${error ? errorId : ""}`}
-            onChange={(e) => onChange(e.target.value)}
-          />
+          <div className="relative w-full">
+            <input
+              id={inputId}
+              type="text"
+              className={`input-field ${voiceCapableType ? "pe-11" : ""}`}
+              placeholder={placeholder}
+              value={value}
+              required={required}
+              aria-describedby={`${helpText ? descId : ""} ${error ? errorId : ""}`}
+              onChange={(e) => onChange(e.target.value)}
+            />
+            {voiceCapableType && (
+              <button
+                type="button"
+                onClick={handleVoiceDictation}
+                aria-label="Voice dictation"
+                title={isListening ? "Listening..." : "Speak your answer"}
+                data-testid="voice-dictation-btn"
+                className={`absolute inset-y-1.5 end-1.5 flex items-center justify-center rounded-lg px-2.5 transition ${
+                  isListening
+                    ? "bg-rose-100 text-rose-700 border border-rose-300"
+                    : "text-slate-400 hover:bg-slate-100 hover:text-indigo-600"
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
         );
 
       case "multiline_text": {

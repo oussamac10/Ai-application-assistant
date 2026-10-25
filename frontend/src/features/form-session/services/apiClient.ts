@@ -69,6 +69,18 @@ export const CurrentFieldResponseSchema = z.object({
   originalAnswer: z.string().nullable().optional(),
   allFieldKeys: z.array(z.string()).optional(),
   progress: ProgressInfoSchema.nullable().optional(),
+  pageNumber: z.number().nullable().optional(),
+  inputBoundingBox: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+      width: z.number(),
+      height: z.number(),
+    })
+    .nullable()
+    .optional(),
+  sourceDocumentFilename: z.string().nullable().optional(),
+  sourceDocumentPageCount: z.number().nullable().optional(),
   fieldId: z.string(),
   fieldKey: z.string(),
 });
