@@ -360,3 +360,163 @@ async def test_current_field_includes_document_location_metadata(
         assert current["source_document_page_count"] == 2
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_unmatched_official_acroform_pdf_end_to_end_prepare_and_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End-to-end test for an unmatched fillable AcroForm PDF (modeled on the
+    Stuttgart Wohnungsgeberbestätigung):
+    - Uploads and analyzes as `fillable_pdf` with `next_step == "dynamic_field_detection"`
+    - `PrepareQuestionsService.prepare()` creates a guided session with humanized
+      numbered person fields (`Person 1`) and party-contextualized labels
+      (`Wohnungsgeber – Zuname, Vorname`, `Eigentümer – Zuname, Vorname`)
+    - `PDFExportService.create_export()` overlays confirmed answers and draws
+      checkmarks inside the selected checkbox widget.
+    """
+    import fitz
+
+    from app.ai.mock_provider import MockAIProvider
+    from app.core.config import settings
+    from app.documents.service import SourceDocumentService
+    from app.field_detection.orchestration import PrepareQuestionsService
+    from app.field_detection.providers.local import LocalFieldDetectionProvider
+
+    monkeypatch.setattr(settings, "PDF_EXPORT_DIRECTORY", str(tmp_path / "exports"))
+
+    form_pdf = tmp_path / "wohnungsgeber_form.pdf"
+    doc_fitz = fitz.open()
+    page = doc_fitz.new_page(width=595, height=842)
+    page.insert_text(
+        fitz.Point(70, 84),
+        "Wohnungsgeberbestätigung zur Vorlage bei der Meldebehörde",
+        fontsize=12,
+    )
+    page.insert_text(
+        fitz.Point(90, 125),
+        "Einzugsbestätigung des Wohnungsgebers",
+        fontsize=10,
+    )
+    page.insert_text(
+        fitz.Point(90, 143),
+        "Auszugsbestätigung des Wohnungsgebers",
+        fontsize=10,
+    )
+    page.insert_text(fitz.Point(70, 212), "In die Wohnung ist am", fontsize=10)
+    page.insert_text(fitz.Point(70, 255), "1.", fontsize=10)
+    page.insert_text(fitz.Point(70, 372), "Wohnungsgeber/-in", fontsize=11)
+    page.insert_text(fitz.Point(70, 390), "Zuname, Vorname", fontsize=9)
+    page.insert_text(fitz.Point(70, 515), "Eigentümer/-in der Wohnung", fontsize=11)
+    page.insert_text(fitz.Point(70, 533), "Zuname, Vorname", fontsize=9)
+
+    def _add_widget(name: str, wtype: int, rect: fitz.Rect) -> None:
+        w = fitz.Widget()
+        w.field_name = name
+        w.field_type = wtype
+        w.rect = rect
+        page.add_widget(w)
+
+    _add_widget("chkEinzug", fitz.PDF_WIDGET_TYPE_CHECKBOX, fitz.Rect(68, 115, 80, 127))
+    _add_widget("chkAuszug", fitz.PDF_WIDGET_TYPE_CHECKBOX, fitz.Rect(68, 133, 80, 145))
+    _add_widget(
+        "txtDatumEinzug", fitz.PDF_WIDGET_TYPE_TEXT, fitz.Rect(200, 200, 360, 220)
+    )
+    _add_widget("txtPerson1", fitz.PDF_WIDGET_TYPE_TEXT, fitz.Rect(90, 244, 480, 264))
+    _add_widget("txtNameGeber", fitz.PDF_WIDGET_TYPE_TEXT, fitz.Rect(70, 400, 480, 420))
+    _add_widget("txtNameEigen", fitz.PDF_WIDGET_TYPE_TEXT, fitz.Rect(70, 544, 480, 564))
+    doc_fitz.save(str(form_pdf))
+    doc_fitz.close()
+
+    db = SessionLocal()
+    try:
+        doc_service = SourceDocumentService(db)
+        src_doc, doc_token = doc_service.upload_and_analyze(
+            filename="wohnungsgeber_form.pdf",
+            content_type="application/pdf",
+            file_chunks=[form_pdf.read_bytes()],
+            privacy_accepted=True,
+            user_language="en",
+            output_language="de",
+        )
+        assert src_doc.document_type == "fillable_pdf"
+        assert src_doc.analysis_result["next_step"] == "dynamic_field_detection"
+
+        prep_service = PrepareQuestionsService(
+            db,
+            ai_provider=MockAIProvider(),
+            field_detection_provider=LocalFieldDetectionProvider(),
+        )
+        prep_res = await prep_service.prepare(src_doc.public_id, doc_token, "de", "de")
+        assert prep_res.status == "ready"
+        assert prep_res.session is not None
+        assert prep_res.ownership_token is not None
+
+        session = prep_res.session
+        sess_token = prep_res.ownership_token
+        fields_by_key = {f.key: f for f in session.version.fields}
+
+        assert "txtperson1" in fields_by_key
+        assert "txtdatumeinzug" in fields_by_key
+        assert fields_by_key["txtdatumeinzug"].field_type == "date"
+
+        labels_de = {
+            f.key: next(t.label for t in f.translations if t.language == "de")
+            for f in session.version.fields
+        }
+        assert labels_de["txtperson1"] == "Person 1"
+        assert "Wohnungsgeber" in labels_de["txtnamegeber"]
+        assert "Eigentümer" in labels_de["txtnameeigen"]
+
+        for f in session.version.fields:
+            if f.field_type in ("single_choice", "multiple_choice"):
+                val: object = ["Einzugsbestätigung des Wohnungsgebers"]
+                out_str = "Einzugsbestätigung des Wohnungsgebers"
+            elif f.key == "txtdatumeinzug":
+                val = "2026-11-01"
+                out_str = "01.11.2026"
+            elif f.key == "txtperson1":
+                val = "Max Mustermann"
+                out_str = "Max Mustermann"
+            elif f.key == "txtnamegeber":
+                val = "Anna Vermieterin"
+                out_str = "Anna Vermieterin"
+            else:
+                val = "Karl Eigentümer"
+                out_str = "Karl Eigentümer"
+
+            db.add(
+                FormAnswer(
+                    session_id=session.id,
+                    field_id=f.id,
+                    original_answer=out_str,
+                    original_language="de",
+                    normalized_value=val,
+                    output_value=out_str,
+                    status="confirmed",
+                    confirmed_by_user=True,
+                )
+            )
+        session.status = "ready_for_export"
+        db.commit()
+
+        pdf_dir = tmp_path / "fixtures" / "pdf"
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        pdf_service = PDFExportService(db, pdf_dir)
+        export = pdf_service.create_export(session.public_id, sess_token)
+        assert export.status == "completed"
+
+        export_path = Path(export.storage_path)
+        assert export_path.is_file()
+        rendered_doc = fitz.open(str(export_path))
+        try:
+            extracted_text = rendered_doc[0].get_text("text")
+        finally:
+            rendered_doc.close()
+        assert "Max Mustermann" in extracted_text
+        assert "Anna Vermieterin" in extracted_text
+        assert "Karl Eigentümer" in extracted_text
+
+        doc_service.storage.delete_file(src_doc.storage_path)
+    finally:
+        db.close()

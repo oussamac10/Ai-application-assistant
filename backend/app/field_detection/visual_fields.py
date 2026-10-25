@@ -53,9 +53,14 @@ logger = logging.getLogger(__name__)
 # write, and short rules are usually decoration.
 MIN_REGION_WIDTH = 60.0
 
-# How far below a label its underline may sit, as a multiple of the label's own
-# text height. Beyond this they are unrelated things that happen to be near.
+# How far below a label its box top edge may sit, as a multiple of the label's
+# own text height. Beyond this they are unrelated things that happen to be near.
 MAX_LABEL_GAP_RATIO = 2.2
+
+# For an underline (y0 == y1), the rule sits at the *bottom* of the 18-24pt
+# writing space rather than its top edge, so the vertical distance from a
+# caption above the line includes one line of writing height.
+MAX_UNDERLINE_LABEL_GAP_RATIO = 3.2
 
 # A box taller than this many points holds more than one line of writing.
 MULTILINE_HEIGHT = 34.0
@@ -245,7 +250,12 @@ def _label_above(
 
     nearest = max(above, key=lambda t: t.bounding_box.y + t.bounding_box.height)
     gap = box.y - (nearest.bounding_box.y + nearest.bounding_box.height)
-    if gap > max(nearest.bounding_box.height, 8.0) * MAX_LABEL_GAP_RATIO:
+    max_gap_ratio = (
+        MAX_UNDERLINE_LABEL_GAP_RATIO
+        if region.kind == "underline"
+        else MAX_LABEL_GAP_RATIO
+    )
+    if gap > max(nearest.bounding_box.height, 8.0) * max_gap_ratio:
         return None
 
     line = [

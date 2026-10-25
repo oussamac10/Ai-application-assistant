@@ -28,21 +28,11 @@ class PDFAnalyzer:
             has_any_images = False
             all_pages_scanned = True
 
-            # Check document-level AcroForm
-            catalog = reader.trailer.get("/Root")
-            if catalog:
-                catalog_obj = (
-                    catalog.get_object() if hasattr(catalog, "get_object") else catalog
-                )
-                if "/AcroForm" in catalog_obj:
-                    has_any_acroform = True
-
             # Extract fields list from document-level if available
             acroform_fields_list: list[dict[str, Any]] = []
             try:
                 fields_dict = reader.get_fields()
                 if fields_dict:
-                    has_any_acroform = True
                     for field_name, field_info in fields_dict.items():
                         field_type = field_info.get("/FT", "unknown")
                         # Field type map: /Tx = Text, /Btn = Button (Check/Radio), /Ch = Choice, /Sig = Signature
@@ -68,12 +58,14 @@ class PDFAnalyzer:
                             ft_str = "text"
 
                         required = bool(
-                            field_info.get("/Ff", 0) & 1
+                            int(field_info.get("/Ff", 0) or 0) & 1
                         )  # Required flag is bit 1
 
                         acroform_fields_list.append(
                             {"name": field_name, "type": ft_str, "required": required}
                         )
+                if acroform_fields_list:
+                    has_any_acroform = True
             except Exception:
                 pass
 
@@ -151,6 +143,19 @@ class PDFAnalyzer:
                                 else annot
                             )
                             if annot_obj and annot_obj.get("/Subtype") == "/Widget":
+                                parent_obj = annot_obj.get("/Parent")
+                                if parent_obj and hasattr(parent_obj, "get_object"):
+                                    parent_obj = parent_obj.get_object()
+                                ft = annot_obj.get("/FT") or (
+                                    parent_obj.get("/FT")
+                                    if isinstance(parent_obj, dict)
+                                    else None
+                                )
+                                ff = annot_obj.get("/Ff")
+                                if ff is None and isinstance(parent_obj, dict):
+                                    ff = parent_obj.get("/Ff")
+                                if ft == "/Btn" and (int(ff or 0) & 65536):
+                                    continue
                                 page_acroform_count += 1
                 except Exception:
                     pass

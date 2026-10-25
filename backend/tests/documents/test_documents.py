@@ -165,6 +165,7 @@ def test_upload_and_analyze_fillable_pdf(tmp_path: Path) -> None:
         assert doc.document_type == "fillable_pdf"
         assert doc.has_acroform is True
         assert len(doc.analysis_result["acroform_fields"]) == 2
+        assert doc.analysis_result["next_step"] == "dynamic_field_detection"
 
         service.storage.delete_file(doc.storage_path)
     finally:
@@ -655,6 +656,58 @@ def test_upload_official_pdf_with_javascript_print_and_reset_buttons_sanitizes_a
         # Active JavaScript triggers were scrubbed in place on disk
         sanitized_reader = pypdf.PdfReader(doc.storage_path)
         assert _has_active_pdf_content(sanitized_reader) is False
+        assert doc.analysis_result["next_step"] == "dynamic_field_detection"
+
+        service.storage.delete_file(doc.storage_path)
+    finally:
+        db.close()
+
+
+def test_upload_hybrid_pdf_with_native_text_and_logo_routes_to_dynamic_detection(
+    tmp_path: Path,
+) -> None:
+    """A digital PDF with native text and an embedded city logo/coat-of-arms
+    image (classified as hybrid_pdf with is_probably_scanned=False) must route
+    to dynamic_field_detection rather than blocking with review_required.
+    """
+    jpeg_path = tmp_path / "logo.jpg"
+    img = Image.new("RGB", (60, 60), color="red")
+    img.save(jpeg_path, "JPEG")
+
+    pdf_path = tmp_path / "hybrid_logo_form.pdf"
+    c = canvas.Canvas(str(pdf_path), pagesize=letter)
+    c.drawImage(str(jpeg_path), 480, 720, width=50, height=50)
+    c.drawString(
+        72,
+        740,
+        "Landeshauptstadt Stuttgart - Wohnungsgeberbestätigung nach § 19 Bundesmeldegesetz (BMG) zur Vorlage bei der Meldebehörde",
+    )
+    c.drawString(72, 680, "Zuname, Vorname: ___________________________")
+    c.drawString(72, 650, "Straße, Hausnummer, PLZ, Ort: ______________")
+    c.showPage()
+    c.save()
+
+    db = SessionLocal()
+    try:
+        service = SourceDocumentService(db)
+        with open(pdf_path, "rb") as f:
+            content = f.read()
+
+        doc, _token = service.upload_and_analyze(
+            filename="hybrid_logo_form.pdf",
+            content_type="application/pdf",
+            file_chunks=[content],
+            privacy_accepted=True,
+            user_language="en",
+            output_language="de",
+        )
+
+        assert doc.status == "analyzed"
+        assert doc.document_type == "hybrid_pdf"
+        assert doc.has_native_text is True
+        assert doc.has_embedded_images is True
+        assert doc.is_probably_scanned is False
+        assert doc.analysis_result["next_step"] == "dynamic_field_detection"
 
         service.storage.delete_file(doc.storage_path)
     finally:

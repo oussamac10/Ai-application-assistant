@@ -137,14 +137,21 @@ class SourceDocumentService:
         # 5. Resolve next step
         # matched predefined template -> supported_template
         # scanned PDF -> ocr_required
-        # native digital PDF without a template match -> dynamic_field_detection
-        # hybrid or unknown PDF -> review_required
+        # digital / fillable / hybrid PDF with native text or AcroForm -> dynamic_field_detection
+        # image-bearing PDF without native text -> ocr_required
+        # empty / unknown PDF -> review_required
         if matched_template:
             next_step = "supported_template"
         elif analysis.get("is_probably_scanned", False):
             next_step = "ocr_required"
-        elif analysis.get("document_type") == "digital_pdf":
+        elif (
+            analysis.get("document_type") in ("digital_pdf", "fillable_pdf")
+            or analysis.get("has_native_text", False)
+            or analysis.get("has_acroform", False)
+        ):
             next_step = "dynamic_field_detection"
+        elif analysis.get("has_embedded_images", False):
+            next_step = "ocr_required"
         else:
             next_step = "review_required"
 

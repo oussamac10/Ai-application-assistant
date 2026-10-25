@@ -263,8 +263,16 @@ def _resolve_pdf_rect(
     except (KeyError, TypeError, ValueError):
         return None
 
-    if width <= 0 or height <= 0 or x < 0 or y < 0:
+    if width <= 0 or height < 0 or x < 0 or y < 0:
         return None
+
+    # A drawn underline (RuledRegion with kind="underline") has height == 0 at
+    # the baseline of the writing area. Place a 16pt single-line box directly
+    # above the underline so overlaid text rests on the rule.
+    if height <= 2.0:
+        line_height = 16.0
+        y = max(0.0, y - line_height)
+        height = line_height
 
     if source == "ocr" and page_number in ocr_dims:
         ocr_w, ocr_h = ocr_dims[page_number]
@@ -375,6 +383,27 @@ def render_dynamic_overlay_pdf(
                     _draw_checkbox_mark(page, x, y, width, height)
                 continue
 
+            # 2b. Choice groups backed by individual checkbox/radio squares:
+            # mark the selected option square(s) directly when each option in
+            # `detected.options` maps 1-to-1 to a checkbox/radio widget inside
+            # `input_bounding_box`.
+            if (
+                form_field.field_type in ("single_choice", "multiple_choice")
+                and detected.options
+                and detected.field_type in ("radio", "multiple_choice")
+                and _try_mark_selected_choice_squares(
+                    page=page,
+                    detected=detected,
+                    normalized_value=ans.normalized_value,
+                    output_value=ans.output_value,
+                    box_x=x,
+                    box_y=y,
+                    box_w=width,
+                    box_h=height,
+                )
+            ):
+                continue
+
             # 3. Standard text / choice / date / money fields.
             formatted_val = format_field_value(
                 field_type=form_field.field_type,
@@ -405,6 +434,79 @@ def render_dynamic_overlay_pdf(
         file_size=file_size,
         output_path=output_path,
     )
+
+
+def _try_mark_selected_choice_squares(
+    *,
+    page: Any,
+    detected: DetectedField,
+    normalized_value: Any,
+    output_value: str | None,
+    box_x: float,
+    box_y: float,
+    box_w: float,
+    box_h: float,
+) -> bool:
+    """Marks the checkbox/radio widget(s) inside `(box_x, box_y, box_w, box_h)`
+    corresponding to the selected option(s) when a 1-to-1 widget mapping exists.
+    Returns True if marks were drawn, or False to fall back to text rendering.
+    """
+    import fitz
+
+    selected_values: set[str] = set()
+    if isinstance(normalized_value, str) and normalized_value.strip():
+        selected_values.add(normalized_value.strip())
+    elif isinstance(normalized_value, list):
+        for item in normalized_value:
+            if isinstance(item, str) and item.strip():
+                selected_values.add(item.strip())
+    elif isinstance(normalized_value, dict):
+        val = normalized_value.get("value")
+        if isinstance(val, str) and val.strip():
+            selected_values.add(val.strip())
+    if not selected_values and output_value and output_value.strip():
+        selected_values.add(output_value.strip())
+
+    if not selected_values:
+        return False
+
+    ordered_options = sorted(detected.options, key=lambda o: o.position)
+    selected_indices = [
+        idx
+        for idx, opt in enumerate(ordered_options)
+        if opt.value.strip() in selected_values
+    ]
+    if not selected_indices:
+        return False
+
+    group_rect = fitz.Rect(
+        box_x - 6.0, box_y - 6.0, box_x + box_w + 6.0, box_y + box_h + 6.0
+    )
+    choice_widget_types = {
+        getattr(fitz, "PDF_WIDGET_TYPE_CHECKBOX", 2),
+        getattr(fitz, "PDF_WIDGET_TYPE_RADIOBUTTON", 5),
+    }
+    matching_rects: list[tuple[float, float, float, float]] = []
+    try:
+        for w in page.widgets() or []:
+            if getattr(w, "field_type", None) not in choice_widget_types:
+                continue
+            r = w.rect
+            if r.intersects(group_rect):
+                matching_rects.append(
+                    (float(r.x0), float(r.y0), float(r.width), float(r.height))
+                )
+    except Exception:
+        matching_rects = []
+
+    matching_rects.sort(key=lambda rect: (round(rect[1] / 6.0), rect[0]))
+    if len(matching_rects) != len(ordered_options):
+        return False
+
+    for idx in selected_indices:
+        rx, ry, rw, rh = matching_rects[idx]
+        _draw_checkbox_mark(page, rx, ry, rw, rh)
+    return True
 
 
 def _draw_checkbox_mark(

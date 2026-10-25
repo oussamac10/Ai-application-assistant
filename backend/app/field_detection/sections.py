@@ -32,8 +32,13 @@ _SECTION_HEADING_PATTERN = re.compile(r"^§\s*(\d+)\s*(.*)$")
 # Ordered so the more specific "vermieter" is tried before "mieter";
 # whole-word matching also keeps "Untermieter" from matching "mieter".
 _PARTY_KEYWORDS: tuple[tuple[str, str], ...] = (
+    ("wohnungsgeber", "Wohnungsgeber"),
+    ("eigentümer", "Eigentümer"),
+    ("eigentuemer", "Eigentümer"),
     ("vermieter", "Vermieter"),
     ("mieter", "Mieter"),
+    ("antragsteller", "Antragsteller"),
+    ("arbeitgeber", "Arbeitgeber"),
 )
 
 # A party-context line is a short introducing line, not a full paragraph
@@ -87,7 +92,7 @@ def detect_context(text: str) -> SectionContext | None:
         for keyword, display in _PARTY_KEYWORDS:
             if re.search(rf"\b{keyword}\b", lowered):
                 return SectionContext(
-                    key_prefix=keyword, label_prefix=display, title=display
+                    key_prefix=_slug(keyword), label_prefix=display, title=display
                 )
 
     return None

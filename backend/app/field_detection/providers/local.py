@@ -41,6 +41,8 @@ normalization.py downgrades anything below the low-confidence threshold to
 from __future__ import annotations
 
 import logging
+import re
+from dataclasses import replace
 
 from app.field_detection.acroform_groups import (
     claimed_widgets,
@@ -182,10 +184,16 @@ _MAX_HEADING_WORDS = 8
 _MAX_OPTION_WORDS = 10
 
 _HUMANIZE_UNDERSCORE = str.maketrans("_-", "  ")
+_HUNGARIAN_PREFIX = re.compile(r"^(?:txt|chk|fld|cmb|btn|opt|rad|sig)(?=[A-Z])")
+_CAMEL_BOUNDARY = re.compile(
+    r"(?<=[a-zäöüß])(?=[A-ZÄÖÜ0-9])|(?<=[A-ZÄÖÜ])(?=[A-ZÄÖÜ][a-zäöüß])"
+)
 
 
 def _humanize_field_name(field_name: str) -> str:
-    spaced = field_name.translate(_HUMANIZE_UNDERSCORE).strip()
+    cleaned = _HUNGARIAN_PREFIX.sub("", field_name.strip())
+    cleaned = _CAMEL_BOUNDARY.sub(" ", cleaned)
+    spaced = " ".join(cleaned.translate(_HUMANIZE_UNDERSCORE).split())
     return spaced.title() if spaced else field_name
 
 
@@ -244,6 +252,16 @@ class LocalFieldDetectionProvider:
     def detect(self, document: DetectionDocumentInput) -> DetectionResult:
         if document.acroform_widgets:
             candidates = self._detect_from_acroform(document)
+            acroform_pages = {w.page_number for w in document.acroform_widgets}
+            non_acroform_pages = tuple(
+                p for p in document.pages if p.page_number not in acroform_pages
+            )
+            if non_acroform_pages:
+                candidates.extend(
+                    self._detect_from_text_lines(
+                        replace(document, pages=non_acroform_pages)
+                    )
+                )
         else:
             candidates = self._detect_from_text_lines(document)
 
@@ -378,6 +396,16 @@ class LocalFieldDetectionProvider:
                 )
             )
 
+        rtl = is_rtl_language(document.language)
+        line_groups_by_page = {
+            page.page_number: build_line_groups(page.page_number, page.tokens, rtl)
+            for page in document.pages
+        }
+        context_maps_by_page = {
+            page_num: self._build_context_map(groups)
+            for page_num, groups in line_groups_by_page.items()
+        }
+
         for index, widget in enumerate(document.acroform_widgets):
             if widget_identity(widget) in claimed:
                 # Already part of a group; emitting it again would resurrect
@@ -387,13 +415,31 @@ class LocalFieldDetectionProvider:
             nearest_label = find_nearest_label_for_box(widget.rect, page_phrases)
 
             mapped_type = _ACROFORM_TYPE_MAP.get(widget.field_type, "text")
+            humanized_widget_name = _humanize_field_name(widget.field_name)
             if nearest_label and nearest_label.text:
-                label = nearest_label.text
+                if any(ch.isalpha() for ch in nearest_label.text):
+                    label = nearest_label.text
+                elif any(ch.isalpha() for ch in humanized_widget_name):
+                    label = humanized_widget_name
+                else:
+                    label = nearest_label.text
             else:
-                label = _humanize_field_name(widget.field_name)
+                label = humanized_widget_name
+
+            page_groups = line_groups_by_page.get(widget.page_number, [])
+            page_context_map = context_maps_by_page.get(widget.page_number, {})
+            ref_y = (
+                nearest_label.bounding_box.y
+                if nearest_label is not None
+                else widget.rect.y
+            )
+            context = self._context_for_y(page_groups, page_context_map, ref_y)
+            label = _contextual_label(label, context)
 
             if mapped_type == "text":
                 mapped_type = classify_label(label)
+                if mapped_type == "text" and widget.field_name:
+                    mapped_type = classify_label(humanized_widget_name)
 
             confidence = acroform_widget_confidence(
                 mapped_type, label_found=nearest_label is not None
@@ -404,7 +450,11 @@ class LocalFieldDetectionProvider:
                     candidate_key=f"acroform-{widget.page_number}-{index}",
                     page_number=widget.page_number,
                     label=label,
-                    normalized_name=normalize_field_name(widget.field_name or label),
+                    normalized_name=(
+                        normalize_field_name(widget.field_name)
+                        if widget.field_name
+                        else _contextual_name(label, context)
+                    ),
                     field_type=mapped_type,
                     confidence=confidence,
                     source="acroform",
@@ -417,6 +467,24 @@ class LocalFieldDetectionProvider:
             )
 
         return candidates
+
+    @staticmethod
+    def _context_for_y(
+        line_groups: list[list[LinePhrase]],
+        context_map: dict[int, SectionContext | None],
+        target_y: float,
+    ) -> SectionContext | None:
+        """Returns the active SectionContext at or immediately above `target_y`."""
+        active: SectionContext | None = None
+        for index, group in enumerate(line_groups):
+            if not group:
+                continue
+            line_y = min(p.bounding_box.y for p in group)
+            if line_y <= target_y + 4.0:
+                active = context_map.get(index)
+            else:
+                break
+        return active
 
     @staticmethod
     def _build_context_map(
@@ -472,7 +540,9 @@ class LocalFieldDetectionProvider:
             # an underline under a label, a box beside one. Runs before the
             # generic text passes so a drawn region's own label wins over
             # whatever the line heuristics would have inferred.
-            candidates.extend(self._detect_visual_regions(page))
+            candidates.extend(
+                self._detect_visual_regions(page, line_groups, context_map)
+            )
 
             candidates.extend(
                 self._detect_label_above_blank_line_fields(
@@ -1088,7 +1158,10 @@ class LocalFieldDetectionProvider:
         return candidates
 
     def _detect_visual_regions(
-        self, page: DetectionPageInput
+        self,
+        page: DetectionPageInput,
+        line_groups: list[list[LinePhrase]] | None = None,
+        context_map: dict[int, SectionContext | None] | None = None,
     ) -> list[DetectedFieldCandidate]:
         """Text fields from drawn underlines and boxes.
 
@@ -1100,19 +1173,30 @@ class LocalFieldDetectionProvider:
         candidates: list[DetectedFieldCandidate] = []
 
         for order, field in enumerate(fields):
-            label = strip_requiredness_markers(field.label)
-            if classify_label(label) == "signature":
+            raw_label = strip_requiredness_markers(field.label)
+            if classify_label(raw_label) == "signature":
                 continue
+            ref_y = (
+                field.label_bounding_box.y
+                if field.label_bounding_box is not None
+                else field.input_bounding_box.y
+            )
+            context = (
+                self._context_for_y(line_groups, context_map, ref_y)
+                if line_groups is not None and context_map is not None
+                else None
+            )
+            label = _contextual_label(raw_label, context)
             candidates.append(
                 DetectedFieldCandidate(
                     candidate_key=f"visual-{page.page_number}-{order}",
                     page_number=page.page_number,
                     label=label,
-                    normalized_name=normalize_field_name(label),
+                    normalized_name=_contextual_name(raw_label, context),
                     field_type=(
                         "multiline_text"
                         if field.field_type == "multiline_text"
-                        else classify_label(label)
+                        else classify_label(raw_label)
                     ),
                     confidence=field.confidence,
                     source="native",
