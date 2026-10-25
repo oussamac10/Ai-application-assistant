@@ -774,11 +774,17 @@ export default function GuidedSession() {
                           </p>
                           <p className="text-sm text-slate-800 font-medium">
                             &ldquo;
-                            {formatOriginalAnswer(
-                              inputValue,
-                              currentField?.fieldType,
-                              currentField?.options
-                            )}
+                            {currentField?.fieldType === "signature"
+                              ? formatOriginalAnswer(
+                                  inputValue,
+                                  currentField?.fieldType,
+                                  currentField?.options
+                                ) || "Hand-drawn signature"
+                              : formatOriginalAnswer(
+                                  inputValue,
+                                  currentField?.fieldType,
+                                  currentField?.options
+                                )}
                             &rdquo;
                           </p>
                         </div>
@@ -795,13 +801,56 @@ export default function GuidedSession() {
                               Ready for Form
                             </span>
                           </div>
-                          <p className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                            {formatProposedValue(
-                              lastAnswer.normalizedValue,
-                              lastAnswer.outputValue,
-                              currentField?.fieldType,
-                            )}
-                          </p>
+                          {currentField?.fieldType === "signature" &&
+                          lastAnswer.normalizedValue &&
+                          typeof lastAnswer.normalizedValue === "object" &&
+                          Array.isArray(
+                            (lastAnswer.normalizedValue as any).strokes
+                          ) ? (
+                            <div className="space-y-2 pt-1">
+                              <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                                <svg
+                                  viewBox={`0 0 ${(lastAnswer.normalizedValue as any).width || 600} ${(lastAnswer.normalizedValue as any).height || 200}`}
+                                  className="h-24 w-full"
+                                  aria-label="Signature preview"
+                                >
+                                  {(
+                                    (lastAnswer.normalizedValue as any)
+                                      .strokes as Array<Array<[number, number]>>
+                                  ).map((stroke, idx) =>
+                                    stroke.length > 0 ? (
+                                      <polyline
+                                        key={idx}
+                                        fill="none"
+                                        stroke="#0f172a"
+                                        strokeWidth={2.75}
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        points={stroke
+                                          .map(([x, y]) => `${x},${y}`)
+                                          .join(" ")}
+                                      />
+                                    ) : null
+                                  )}
+                                </svg>
+                              </div>
+                              <p className="text-xs font-medium text-slate-600">
+                                {formatProposedValue(
+                                  lastAnswer.normalizedValue,
+                                  lastAnswer.outputValue,
+                                  currentField?.fieldType
+                                )}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                              {formatProposedValue(
+                                lastAnswer.normalizedValue,
+                                lastAnswer.outputValue,
+                                currentField?.fieldType
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
 

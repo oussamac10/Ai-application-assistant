@@ -32,6 +32,13 @@ const STRUCTURED_FIELD_FORMATTERS: Record<string, (value: any) => string | null>
       .filter((part) => (typeof part === "string" && part.length > 0) || typeof part === "number")
       .join(" ");
   },
+  signature: (value) =>
+    value &&
+    typeof value === "object" &&
+    Array.isArray(value.strokes) &&
+    value.strokes.length > 0
+      ? "Digital signature captured"
+      : null,
 };
 
 export function formatOriginalAnswer(

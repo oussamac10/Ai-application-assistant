@@ -327,7 +327,9 @@ export default function DocumentUploadForm({
                   {file.name}
                 </p>
                 <p className="text-xs text-slate-500 tabular-nums">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                  {file.size < 1024 * 1024
+                    ? `${Math.max(0.1, file.size / 1024).toFixed(1)} KB`
+                    : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
                 </p>
                 <button
                   type="button"

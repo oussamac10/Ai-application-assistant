@@ -174,7 +174,10 @@ export default function SessionSummary() {
           )}
         </td>
         <td className="px-4 py-3.5 text-slate-600 max-w-xs break-words">
-          {formatOriginalAnswer(f.originalAnswer, f.fieldType) || "-"}
+          {formatOriginalAnswer(f.originalAnswer, f.fieldType) ||
+            (f.fieldType === "signature" && state === "confirmed"
+              ? "Hand-drawn signature"
+              : "-")}
         </td>
         <td className="px-4 py-3.5 text-slate-900 font-semibold break-words">
           {formatProposedValue(

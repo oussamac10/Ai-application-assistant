@@ -475,12 +475,14 @@ def render_dynamic_overlay_pdf(
             if form_field.field_type == "signature":
                 if ans.status == PENDING_MANUAL_SIGNATURE or not ans.normalized_value:
                     continue
+                sig_h = max(height, 28.0)
+                sig_y = max(0.0, y + height - sig_h)
                 sig_box = SignatureBox(
                     page_number=detected.page_number,
                     x=x,
-                    y=y,
+                    y=sig_y,
                     width=width,
-                    height=height,
+                    height=sig_h,
                 )
                 render_signature(page, sig_box, ans.normalized_value)
                 continue
