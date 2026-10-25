@@ -79,6 +79,8 @@ export const CurrentFieldResponseSchema = z.object({
   allFieldKeys: z.array(z.string()).optional(),
   progress: ProgressInfoSchema.nullable().optional(),
   pageNumber: z.number().nullable().optional(),
+  pageWidthPt: z.number().nullable().optional(),
+  pageHeightPt: z.number().nullable().optional(),
   inputBoundingBox: z
     .object({
       x: z.number(),
@@ -319,6 +321,28 @@ export async function getCurrentField(
     sessionId,
     CurrentFieldResponseSchema,
   );
+}
+
+export async function fetchSessionPagePreviewBlob(
+  sessionId: string,
+  pageNumber: number,
+): Promise<Blob> {
+  const token = getSessionToken(sessionId);
+  const headers = new Headers();
+  if (token) {
+    headers.set("X-Session-Token", token);
+  }
+  const response = await fetch(
+    `/api/form-sessions/${sessionId}/pages/${pageNumber}/preview`,
+    {
+      method: "GET",
+      headers,
+    },
+  );
+  if (!response.ok) {
+    throw new ApiError(response.status, "Preview unavailable");
+  }
+  return response.blob();
 }
 
 /** In-flight skip requests, keyed by session + field.

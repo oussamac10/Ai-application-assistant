@@ -763,7 +763,7 @@ async def test_german_rental_contract_pdf_end_to_end_prepare_and_export(
                 out_str = "01.05.2026"
             elif f.field_type == "money":
                 val = {"amount": 1200, "currency": "EUR", "period": "monthly"}
-                out_str = "1200 EUR"
+                out_str = "1200 EUR monthly"
             elif f.key == "mietkosten_iban":
                 val = "DE89370400440532013000"
                 out_str = "DE89370400440532013000"
@@ -809,6 +809,11 @@ async def test_german_rental_contract_pdf_end_to_end_prepare_and_export(
         assert "1,200" in p2_text
         assert "DE89370400440532013000" in p2_text
         assert "EUR Euro." not in p2_text
+        assert "monthly Euro." not in p2_text
+
+        ans_service = AnswerService(db)
+        png_bytes = ans_service.get_page_preview_png(session.public_id, 1, sess_token)
+        assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
 
         doc_service.storage.delete_file(src_doc.storage_path)
     finally:

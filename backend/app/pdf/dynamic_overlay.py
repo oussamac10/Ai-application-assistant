@@ -63,6 +63,8 @@ class FieldLocationInfo:
     input_bounding_box: dict[str, float] | None
     label_bounding_box: dict[str, float] | None
     source: str
+    page_width_pt: float = 595.0
+    page_height_pt: float = 842.0
 
 
 def _sanitize_key(name: str) -> str:
@@ -196,15 +198,105 @@ def get_field_location_for_session(
         except (KeyError, TypeError, ValueError):
             return None
 
+    page_w = 595.0
+    page_h = 842.0
+    effective_in = _clean_box(detected.input_bounding_box)
+    effective_lbl = _clean_box(detected.label_bounding_box)
+
+    if source_doc.storage_path and Path(source_doc.storage_path).is_file():
+        try:
+            import fitz
+
+            doc = fitz.open(source_doc.storage_path)
+            try:
+                page_idx = detected.page_number - 1
+                if 0 <= page_idx < doc.page_count:
+                    rect = doc[page_idx].rect
+                    page_w = float(rect.width)
+                    page_h = float(rect.height)
+            finally:
+                doc.close()
+
+            ocr_dims = _load_ocr_page_dimensions(db, source_doc.id)
+            if not effective_in:
+                try:
+                    native_doc = extract_native_document_input(
+                        Path(source_doc.storage_path)
+                    )
+                    page_tokens: Sequence[Any] = ()
+                    for p in native_doc.pages:
+                        if p.page_number == detected.page_number:
+                            page_tokens = p.tokens
+                            break
+                    raw_eff = _resolve_effective_input_box(
+                        detected, field.field_type, page_tokens
+                    )
+                    effective_in = _clean_box(raw_eff)
+                except Exception:
+                    pass
+
+            if effective_in:
+                resolved = _resolve_pdf_rect(
+                    effective_in,
+                    source=detected.source,
+                    page_number=detected.page_number,
+                    pdf_page_width=page_w,
+                    pdf_page_height=page_h,
+                    ocr_dims=ocr_dims,
+                )
+                if resolved is not None:
+                    effective_in = {
+                        "x": resolved[0],
+                        "y": resolved[1],
+                        "width": resolved[2],
+                        "height": resolved[3],
+                    }
+        except Exception:
+            pass
+
     return (
         FieldLocationInfo(
             page_number=detected.page_number,
-            input_bounding_box=_clean_box(detected.input_bounding_box),
-            label_bounding_box=_clean_box(detected.label_bounding_box),
+            input_bounding_box=effective_in,
+            label_bounding_box=effective_lbl,
             source=detected.source,
+            page_width_pt=page_w,
+            page_height_pt=page_h,
         ),
         source_doc,
     )
+
+
+def render_session_page_preview_png(
+    db: Session,
+    session: FormSession,
+    page_number: int,
+) -> bytes | None:
+    """Renders 1-indexed `page_number` of the session's uploaded `SourceDocument`
+    PDF to a PNG byte buffer at 144 DPI for the live split-screen field preview.
+    """
+    if not session.source_document_id or page_number < 1:
+        return None
+
+    source_doc = db.get(SourceDocument, session.source_document_id)
+    if not source_doc or not source_doc.storage_path:
+        return None
+
+    source_path = Path(source_doc.storage_path)
+    if not source_path.is_file():
+        return None
+
+    import fitz
+
+    doc = fitz.open(source_path)
+    try:
+        if page_number > doc.page_count:
+            return None
+        page = doc[page_number - 1]
+        pix = page.get_pixmap(dpi=144, alpha=False)
+        return bytes(pix.tobytes("png"))
+    finally:
+        doc.close()
 
 
 def has_exportable_dynamic_document(db: Session, session: FormSession) -> bool:

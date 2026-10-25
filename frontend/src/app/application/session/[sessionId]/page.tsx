@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import {
   startSession,
   getCurrentField,
+  fetchSessionPagePreviewBlob,
   skipField,
   submitSignature,
   signAfterPrinting,
@@ -66,6 +67,38 @@ export default function GuidedSession() {
   const [allFieldKeys, setAllFieldKeys] = useState<string[]>([]);
   const [clarifyValues, setClarifyValues] = useState<Record<string, any>>({});
   const [showExplanation, setShowExplanation] = useState<boolean>(false);
+  const [pagePreviewUrls, setPagePreviewUrls] = useState<Record<number, string>>({});
+  const [zoomedPreviewOpen, setZoomedPreviewOpen] = useState<boolean>(false);
+  const pagePreviewUrlsRef = useRef<Record<number, string>>({});
+
+  useEffect(() => {
+    const activePage = currentField?.pageNumber ?? 1;
+    if (!currentField?.sourceDocumentFilename) return;
+    if (pagePreviewUrlsRef.current[activePage]) return;
+
+    let cancelled = false;
+    fetchSessionPagePreviewBlob(sessionId, activePage)
+      .then((blob) => {
+        if (cancelled) return;
+        const objectUrl = URL.createObjectURL(blob);
+        pagePreviewUrlsRef.current[activePage] = objectUrl;
+        setPagePreviewUrls((prev) => ({ ...prev, [activePage]: objectUrl }));
+      })
+      .catch(() => {
+        // Fallback schematic mini-map stays visible if preview is unavailable
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, currentField?.pageNumber, currentField?.sourceDocumentFilename]);
+
+  useEffect(() => {
+    const urlsRef = pagePreviewUrlsRef;
+    return () => {
+      Object.values(urlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const initializedSessionRef = useRef<string | null>(null);
 
@@ -477,35 +510,77 @@ export default function GuidedSession() {
                   </span>
                 </div>
 
-                {/* Miniature PDF Page Coordinate Map */}
-                <div className="relative mx-auto h-36 w-28 rounded-lg border border-slate-300 bg-white shadow-2xs overflow-hidden p-2">
-                  <div className="h-2 w-12 rounded-xs bg-slate-300 mb-2" />
-                  <div className="space-y-1.5">
-                    <div className="h-1 w-full rounded-xs bg-slate-100" />
-                    <div className="h-1 w-5/6 rounded-xs bg-slate-100" />
-                    <div className="h-1 w-full rounded-xs bg-slate-100" />
-                    <div className="h-1 w-4/5 rounded-xs bg-slate-100" />
-                    <div className="h-1 w-full rounded-xs bg-slate-100" />
-                    <div className="h-1 w-3/4 rounded-xs bg-slate-100" />
-                  </div>
-                  {(() => {
-                    const box = currentField.inputBoundingBox;
-                    const topPct = box
-                      ? Math.min(Math.max((box.y / 842) * 100, 14), 82)
-                      : Math.min(
-                          Math.max(
-                            18 + ((completed / Math.max(total, 1)) * 64),
-                            18,
-                          ),
-                          82,
-                        );
-                    const leftPct = box
-                      ? Math.min(Math.max((box.x / 595) * 100, 8), 65)
-                      : 10;
-                    const widthPct = box
-                      ? Math.min(Math.max((box.width / 595) * 100, 24), 82)
-                      : 80;
+                {(() => {
+                  const activePage = currentField.pageNumber ?? 1;
+                  const previewUrl = pagePreviewUrls[activePage];
+                  const pageW = currentField.pageWidthPt || 595;
+                  const pageH = currentField.pageHeightPt || 842;
+                  const box = currentField.inputBoundingBox;
+
+                  const topPct = box
+                    ? Math.min(Math.max((box.y / pageH) * 100, 1), 96)
+                    : Math.min(
+                        Math.max(18 + (completed / Math.max(total, 1)) * 64, 18),
+                        82,
+                      );
+                  const leftPct = box
+                    ? Math.min(Math.max((box.x / pageW) * 100, 1), 94)
+                    : 10;
+                  const widthPct = box
+                    ? Math.min(Math.max((box.width / pageW) * 100, 6), 96 - leftPct)
+                    : 80;
+                  const heightPct = box
+                    ? Math.min(Math.max((box.height / pageH) * 100, 2.2), 30)
+                    : 5;
+
+                  if (previewUrl) {
                     return (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          data-testid="enlarge-pdf-preview"
+                          onClick={() => setZoomedPreviewOpen(true)}
+                          className="group relative mx-auto block w-full overflow-hidden rounded-xl border border-slate-300 bg-white shadow-xs transition-all hover:border-indigo-500 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          title="Click to enlarge official PDF page"
+                        >
+                          <img
+                            src={previewUrl}
+                            alt={`Official PDF page ${activePage}`}
+                            className="block w-full h-auto select-none"
+                          />
+                          <div
+                            data-testid="pdf-field-highlight-box"
+                            style={{
+                              top: `${topPct}%`,
+                              left: `${leftPct}%`,
+                              width: `${widthPct}%`,
+                              height: `${heightPct}%`,
+                            }}
+                            className="pointer-events-none absolute rounded-xs border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_3px_rgba(79,70,229,0.28)] transition-all duration-300"
+                          >
+                            <span className="absolute -top-2 -start-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-indigo-600 text-[8px] font-bold text-white shadow-xs">
+                              •
+                            </span>
+                          </div>
+                          <span className="absolute bottom-2 end-2 rounded-md bg-slate-900/75 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                            Click to enlarge
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="relative mx-auto h-36 w-28 rounded-lg border border-slate-300 bg-white shadow-2xs overflow-hidden p-2">
+                      <div className="h-2 w-12 rounded-xs bg-slate-300 mb-2" />
+                      <div className="space-y-1.5">
+                        <div className="h-1 w-full rounded-xs bg-slate-100" />
+                        <div className="h-1 w-5/6 rounded-xs bg-slate-100" />
+                        <div className="h-1 w-full rounded-xs bg-slate-100" />
+                        <div className="h-1 w-4/5 rounded-xs bg-slate-100" />
+                        <div className="h-1 w-full rounded-xs bg-slate-100" />
+                        <div className="h-1 w-3/4 rounded-xs bg-slate-100" />
+                      </div>
                       <div
                         style={{
                           top: `${topPct}%`,
@@ -516,9 +591,9 @@ export default function GuidedSession() {
                       >
                         <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" />
                       </div>
-                    );
-                  })()}
-                </div>
+                    </div>
+                  );
+                })()}
 
                 <p className="text-[11px] text-slate-600 leading-snug text-center">
                   {currentField.sourceDocumentFilename ? (
@@ -1086,6 +1161,83 @@ export default function GuidedSession() {
           </div>
         </div>
       </div>
+
+      {/* Full-Resolution PDF Page Zoom Modal */}
+      {zoomedPreviewOpen &&
+        currentField &&
+        pagePreviewUrls[currentField.pageNumber ?? 1] && (
+          <div
+            data-testid="pdf-preview-modal"
+            onClick={() => setZoomedPreviewOpen(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
+                <div className="space-y-0.5 text-start">
+                  <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">
+                    Official Document Placement • Page {currentField.pageNumber ?? 1}
+                  </p>
+                  <p className="text-sm font-bold text-slate-900 truncate">
+                    {currentField.label}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setZoomedPreviewOpen(false)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="overflow-y-auto p-4 sm:p-6 bg-slate-100/70 flex justify-center">
+                {(() => {
+                  const activePage = currentField.pageNumber ?? 1;
+                  const previewUrl = pagePreviewUrls[activePage];
+                  const pageW = currentField.pageWidthPt || 595;
+                  const pageH = currentField.pageHeightPt || 842;
+                  const box = currentField.inputBoundingBox;
+                  const topPct = box
+                    ? Math.min(Math.max((box.y / pageH) * 100, 1), 96)
+                    : 20;
+                  const leftPct = box
+                    ? Math.min(Math.max((box.x / pageW) * 100, 1), 94)
+                    : 10;
+                  const widthPct = box
+                    ? Math.min(
+                        Math.max((box.width / pageW) * 100, 6),
+                        96 - leftPct,
+                      )
+                    : 80;
+                  const heightPct = box
+                    ? Math.min(Math.max((box.height / pageH) * 100, 2.2), 30)
+                    : 5;
+
+                  return (
+                    <div className="relative inline-block max-w-full rounded-lg border border-slate-300 bg-white shadow-md overflow-hidden">
+                      <img
+                        src={previewUrl}
+                        alt={`Official PDF page ${activePage} enlarged`}
+                        className="block max-w-full h-auto select-none"
+                      />
+                      <div
+                        style={{
+                          top: `${topPct}%`,
+                          left: `${leftPct}%`,
+                          width: `${widthPct}%`,
+                          height: `${heightPct}%`,
+                        }}
+                        className="pointer-events-none absolute rounded-xs border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_4px_rgba(79,70,229,0.28)]"
+                      />
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
     </main>
   );
 }

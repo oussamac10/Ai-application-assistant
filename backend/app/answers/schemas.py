@@ -84,6 +84,8 @@ class CurrentFieldResponse(BaseSchema):
     all_field_keys: list[str] = []
     progress: ProgressInfo | None = None
     page_number: int | None = None
+    page_width_pt: float | None = None
+    page_height_pt: float | None = None
     input_bounding_box: dict[str, float] | None = None
     source_document_filename: str | None = None
     source_document_page_count: int | None = None

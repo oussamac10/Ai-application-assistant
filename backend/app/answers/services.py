@@ -45,7 +45,10 @@ from app.answers.validation.validation import validate_value
 from app.core.config import settings
 from app.forms.models import FormField
 from app.forms.repositories import FormRepository
-from app.pdf.dynamic_overlay import get_field_location_for_session
+from app.pdf.dynamic_overlay import (
+    get_field_location_for_session,
+    render_session_page_preview_png,
+)
 from app.questions.resolver import QuestionResolver
 from app.sessions.services import (
     ResourceNotFoundError,
@@ -357,12 +360,28 @@ class AnswerService:
         location, source_doc = get_field_location_for_session(self.db, session, field)
         if location is not None:
             field_data["page_number"] = location.page_number
+            field_data["page_width_pt"] = location.page_width_pt
+            field_data["page_height_pt"] = location.page_height_pt
             field_data["input_bounding_box"] = (
                 location.input_bounding_box or location.label_bounding_box
             )
         if source_doc is not None:
             field_data["source_document_filename"] = source_doc.original_filename
             field_data["source_document_page_count"] = source_doc.page_count
+
+    def get_page_preview_png(
+        self, session_id: str, page_number: int, raw_token: str | None
+    ) -> bytes:
+        """Authorizes session ownership and renders `page_number` of the
+        session's uploaded PDF document to PNG bytes.
+        """
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
+        png_bytes = render_session_page_preview_png(self.db, session, page_number)
+        if not png_bytes:
+            raise ResourceNotFoundError("Document page preview not found.")
+        return png_bytes
 
     async def previous_field(
         self, session_id: str, raw_token: str | None

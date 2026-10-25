@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, Header, Response, status
 from sqlalchemy.orm import Session
 
 from app.ai.factory import get_ai_provider
@@ -60,6 +60,24 @@ async def get_current_field(
 ) -> Any:
     service = _make_service(db, provider, current_user)
     return await service.get_current_field(session_id, x_session_token)
+
+
+@router.get("/form-sessions/{session_id}/pages/{page_number}/preview")
+def get_session_page_preview(
+    session_id: str,
+    page_number: int,
+    x_session_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Response:
+    service = _make_service(db, provider, current_user)
+    png_bytes = service.get_page_preview_png(session_id, page_number, x_session_token)
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @router.post(
