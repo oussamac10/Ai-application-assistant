@@ -136,7 +136,17 @@ export default function GuidedSession() {
       setInputValue(
         field.currentAnswerStatus ? field.originalAnswer || "" : "",
       );
-      setSignatureValue(null);
+      if (
+        field.fieldType === "signature" &&
+        field.currentAnswerStatus &&
+        field.normalizedValue &&
+        typeof field.normalizedValue === "object" &&
+        Array.isArray((field.normalizedValue as any).strokes)
+      ) {
+        setSignatureValue(field.normalizedValue as SignatureValue);
+      } else {
+        setSignatureValue(null);
+      }
 
       setStep("answering");
     } catch (err: any) {
@@ -368,7 +378,17 @@ export default function GuidedSession() {
       setInputValue(
         prev.currentAnswerStatus ? prev.originalAnswer || "" : "",
       );
-      setSignatureValue(null);
+      if (
+        prev.fieldType === "signature" &&
+        prev.currentAnswerStatus &&
+        prev.normalizedValue &&
+        typeof prev.normalizedValue === "object" &&
+        Array.isArray((prev.normalizedValue as any).strokes)
+      ) {
+        setSignatureValue(prev.normalizedValue as SignatureValue);
+      } else {
+        setSignatureValue(null);
+      }
       setStep("answering");
     } catch (err: any) {
       setErrorMsg(te(err.message) || "Failed to navigate to previous field.");

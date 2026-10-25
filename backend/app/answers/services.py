@@ -343,6 +343,7 @@ class AnswerService:
         )
         field_data["current_answer_status"] = ans.status if ans else None
         field_data["original_answer"] = ans.original_answer if ans else None
+        field_data["normalized_value"] = ans.normalized_value if ans else None
         field_data["all_field_keys"] = [
             f.key for f in sorted(version.fields, key=lambda f: f.position)
         ]
@@ -421,6 +422,7 @@ class AnswerService:
         )
         field_data["current_answer_status"] = ans.status if ans else None
         field_data["original_answer"] = ans.original_answer if ans else None
+        field_data["normalized_value"] = ans.normalized_value if ans else None
         field_data["all_field_keys"] = [f.key for f in fields]
         field_data["progress"] = self.get_progress(session)
         self._attach_location_metadata(field_data, session, prev_field)

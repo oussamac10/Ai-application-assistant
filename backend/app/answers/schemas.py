@@ -81,6 +81,7 @@ class CurrentFieldResponse(BaseSchema):
     field_explanation: FieldExplanationInfo | None = None
     current_answer_status: str | None = None
     original_answer: str | None = None
+    normalized_value: Any = None
     all_field_keys: list[str] = []
     progress: ProgressInfo | None = None
     page_number: int | None = None

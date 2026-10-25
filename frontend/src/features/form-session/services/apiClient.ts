@@ -76,6 +76,7 @@ export const CurrentFieldResponseSchema = z.object({
   fieldExplanation: FieldExplanationSchema.nullable().optional(),
   currentAnswerStatus: z.string().nullable().optional(),
   originalAnswer: z.string().nullable().optional(),
+  normalizedValue: z.any().nullable().optional(),
   allFieldKeys: z.array(z.string()).optional(),
   progress: ProgressInfoSchema.nullable().optional(),
   pageNumber: z.number().nullable().optional(),

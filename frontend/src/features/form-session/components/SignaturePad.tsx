@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 export type Stroke = Array<[number, number]>;
@@ -63,6 +63,12 @@ export function SignaturePad({
       context.stroke();
     }
   }, []);
+
+  useEffect(() => {
+    const nextStrokes = value?.strokes ?? [];
+    setStrokes(nextStrokes);
+    redraw(nextStrokes);
+  }, [value, redraw]);
 
   const pointFrom = (
     event: React.PointerEvent<HTMLCanvasElement>
