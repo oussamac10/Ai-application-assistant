@@ -8,7 +8,7 @@ import {
   extractExportErrorCode,
   resolveExportError,
 } from "@/features/form-session/utils/resolveExportErrorMessage";
-import { createExport, downloadExportBlob, getSession, getSummary, ExportResponse, ApiError, TokenMissingError } from "@/features/form-session/services/apiClient";
+import { createExport, downloadExportBlob, getSession, getSummary, ExportResponse, SubmissionChecklistItem, ApiError, TokenMissingError } from "@/features/form-session/services/apiClient";
 
 type ExportState = "ready" | "creating_export" | "export_ready" | "downloading" | "download_failed" | "export_expired" | "token_missing";
 
@@ -27,6 +27,10 @@ export default function SessionComplete() {
   const [exportSupported, setExportSupported] = useState<boolean | null>(null);
   const [needsHandwrittenSignature, setNeedsHandwrittenSignature] =
     useState<boolean>(false);
+  const [checklistItems, setChecklistItems] = useState<
+    SubmissionChecklistItem[]
+  >([]);
+  const [checkedIds, setCheckedIds] = useState<Record<string, boolean>>({});
   const [canResign, setCanResign] = useState<boolean>(false);
   const [canRetry, setCanRetry] = useState<boolean>(true);
 
@@ -46,6 +50,9 @@ export default function SessionComplete() {
                 (f) => f.answerState === "pending_manual_signature",
               ),
             );
+            if (summary.submissionChecklist) {
+              setChecklistItems(summary.submissionChecklist);
+            }
           }
         } catch {
           // ignore
@@ -59,6 +66,10 @@ export default function SessionComplete() {
       cancelled = true;
     };
   }, [sessionId]);
+
+  const toggleChecklistItem = (id: string) => {
+    setCheckedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const handleStartNew = () => {
     removeSessionToken(sessionId);
@@ -191,6 +202,73 @@ export default function SessionComplete() {
               >
                 <p className="font-bold">{ts("reminderTitle")}</p>
                 <p className="mt-1">{ts("printReminder")}</p>
+              </div>
+            )}
+
+            {checklistItems.length > 0 && (
+              <div
+                data-testid="submission-checklist"
+                className="mt-5 w-full rounded-xl border border-slate-200 bg-white p-5 text-start space-y-3 shadow-2xs"
+              >
+                <div className="space-y-0.5">
+                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <svg
+                      className="h-4 w-4 text-indigo-600 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                      />
+                    </svg>
+                    <span>{t("checklistTitle")}</span>
+                  </h2>
+                  <p className="text-xs text-slate-600">
+                    {t("checklistSubtitle")}
+                  </p>
+                </div>
+
+                <ul className="space-y-2.5 pt-1">
+                  {checklistItems.map((item) => {
+                    const isChecked = Boolean(checkedIds[item.id]);
+                    return (
+                      <li key={item.id}>
+                        <label
+                          className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                            isChecked
+                              ? "border-emerald-200 bg-emerald-50/50"
+                              : "border-slate-200 bg-slate-50/60 hover:bg-slate-100/70"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleChecklistItem(item.id)}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
+                          />
+                          <div className="space-y-0.5 text-xs">
+                            <span
+                              className={`font-semibold block ${
+                                isChecked
+                                  ? "line-through text-slate-500"
+                                  : "text-slate-900"
+                              }`}
+                            >
+                              {item.title}
+                            </span>
+                            <span className="text-slate-600 leading-relaxed block">
+                              {item.description}
+                            </span>
+                          </div>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
 

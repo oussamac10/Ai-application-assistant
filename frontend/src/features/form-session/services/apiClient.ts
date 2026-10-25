@@ -36,6 +36,14 @@ export const FieldOptionSchema = z.object({
   label: z.string(),
 });
 
+export const FieldExplanationSchema = z.object({
+  summary: z.string(),
+  whereToFind: z.string(),
+  example: z.string(),
+});
+
+export type FieldExplanation = z.infer<typeof FieldExplanationSchema>;
+
 export const ProgressInfoSchema = z.object({
   confirmedRequiredFields: z.number(),
   totalRequiredFields: z.number(),
@@ -65,6 +73,7 @@ export const CurrentFieldResponseSchema = z.object({
   helpText: z.string().nullable().optional(),
   placeholder: z.string().nullable().optional(),
   options: z.array(FieldOptionSchema).nullable().optional(),
+  fieldExplanation: FieldExplanationSchema.nullable().optional(),
   currentAnswerStatus: z.string().nullable().optional(),
   originalAnswer: z.string().nullable().optional(),
   allFieldKeys: z.array(z.string()).optional(),
@@ -124,8 +133,21 @@ export const SummaryFieldSchema = z.object({
   signatureRequirement: z.string().nullable().optional(),
 });
 
+export const SubmissionChecklistItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  category: z.string(),
+  required: z.boolean().optional(),
+});
+
+export type SubmissionChecklistItem = z.infer<
+  typeof SubmissionChecklistItemSchema
+>;
+
 export const SummaryResponseSchema = z.object({
   fields: z.array(SummaryFieldSchema),
+  submissionChecklist: z.array(SubmissionChecklistItemSchema).optional(),
 });
 
 export type Summary = z.infer<typeof SummaryResponseSchema>;

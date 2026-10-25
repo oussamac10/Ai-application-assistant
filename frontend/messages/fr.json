@@ -32,7 +32,12 @@
     "required": "Obligatoire",
     "optional": "Facultatif",
     "skipQuestion": "Passer cette question",
-    "rowFieldProgress": "Champ {position} sur {total}"
+    "rowFieldProgress": "Champ {position} sur {total}",
+    "explainButton": "Expliquer ce champ en mots simples",
+    "hideExplainButton": "Masquer l'explication",
+    "whatThisMeans": "Ce que cela signifie",
+    "whereToFindIt": "Où le trouver",
+    "exampleAnswer": "Exemple"
   },
   "summary": {
     "title": "Résumé de la session",
@@ -69,7 +74,9 @@
     "error_signature_too_large": "La signature est trop grande. Veuillez l'effacer et signer à nouveau.",
     "error_signature_export_failed": "La signature n'a pas pu être ajoutée au PDF.",
     "error_template_mapping_invalid": "Ce formulaire ne peut pas être exporté actuellement car son mappage PDF est invalide.",
-    "returnToSignature": "Signer à nouveau"
+    "returnToSignature": "Signer à nouveau",
+    "checklistTitle": "Liste de contrôle pour l'envoi et les justificatifs",
+    "checklistSubtitle": "Cochez ces dernières étapes avant de remettre votre formulaire complété à l'organisme."
   },
   "errors": {
     "unauthorized": "Cette session est invalide ou a expiré. Veuillez démarrer une nouvelle session.",

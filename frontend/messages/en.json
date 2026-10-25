@@ -32,7 +32,12 @@
     "required": "Required",
     "optional": "Optional",
     "skipQuestion": "Skip this question",
-    "rowFieldProgress": "Field {position} of {total}"
+    "rowFieldProgress": "Field {position} of {total}",
+    "explainButton": "Explain this field in simple words",
+    "hideExplainButton": "Hide explanation",
+    "whatThisMeans": "What this means",
+    "whereToFindIt": "Where to find it",
+    "exampleAnswer": "Example"
   },
   "summary": {
     "title": "Session Summary",
@@ -69,7 +74,9 @@
     "error_signature_too_large": "The signature is too large. Please clear it and sign again.",
     "error_signature_export_failed": "The signature could not be added to the PDF.",
     "error_template_mapping_invalid": "This form cannot currently be exported because its PDF mapping is invalid.",
-    "returnToSignature": "Sign again"
+    "returnToSignature": "Sign again",
+    "checklistTitle": "Submission & Supporting Document Checklist",
+    "checklistSubtitle": "Check off these final steps before submitting your completed form to the authority."
   },
   "errors": {
     "unauthorized": "This session is invalid or has expired. Please start a new session.",

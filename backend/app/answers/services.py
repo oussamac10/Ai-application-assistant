@@ -9,6 +9,10 @@ from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.ai.schemas import ExtractionRequest, ExtractionResult
 from app.ai.text_translation import translate_text
 from app.answers.errors import FieldProblem, SummaryNotConfirmableError
+from app.answers.explanations import (
+    build_submission_checklist,
+    resolve_field_explanation,
+)
 from app.answers.models import FormAnswer
 from app.answers.normalization.context import (
     apply_currency_context,
@@ -280,6 +284,7 @@ class AnswerService:
             "help_text": help_text,
             "placeholder": placeholder,
             "options": translated_options if field.options else None,
+            "field_explanation": resolve_field_explanation(field, label, user_lang),
         }
 
     async def get_current_field(
@@ -1116,6 +1121,20 @@ class AnswerService:
             )
 
         return summary
+
+    def get_submission_checklist(
+        self, session_id: str, raw_token: str | None
+    ) -> list[dict[str, Any]]:
+        """Builds the personalized final submission & supporting document checklist."""
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
+        version = self.form_repo.get_version(session.form_version_id)
+        if not version:
+            raise ResourceNotFoundError("Form version not found.")
+
+        answers = {a.field_id: a for a in self.repo.get_answers_for_session(session.id)}
+        return build_submission_checklist(version, answers, session.user_language)
 
     @staticmethod
     def _log_confirmation_diagnostics(

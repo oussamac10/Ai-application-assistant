@@ -52,6 +52,12 @@ class FieldOptionInfo(BaseSchema):
     label: str
 
 
+class FieldExplanationInfo(BaseSchema):
+    summary: str
+    where_to_find: str
+    example: str
+
+
 class CurrentFieldResponse(BaseSchema):
     id: str
     key: str
@@ -72,6 +78,7 @@ class CurrentFieldResponse(BaseSchema):
     help_text: str | None = None
     placeholder: str | None = None
     options: list[FieldOptionInfo] | None = None
+    field_explanation: FieldExplanationInfo | None = None
     current_answer_status: str | None = None
     original_answer: str | None = None
     all_field_keys: list[str] = []
@@ -111,8 +118,17 @@ class SummaryFieldAnswer(BaseSchema):
     confirmed_by_user: bool = False
 
 
+class SubmissionChecklistItem(BaseSchema):
+    id: str
+    title: str
+    description: str
+    category: str
+    required: bool = True
+
+
 class SummaryResponse(BaseSchema):
     fields: list[SummaryFieldAnswer]
+    submission_checklist: list[SubmissionChecklistItem] = []
 
 
 class ReopenFieldResponse(BaseSchema):

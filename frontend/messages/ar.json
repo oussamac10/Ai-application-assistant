@@ -32,7 +32,12 @@
     "required": "إلزامي",
     "optional": "اختياري",
     "skipQuestion": "تخطي هذا السؤال",
-    "rowFieldProgress": "الحقل {position} من {total}"
+    "rowFieldProgress": "الحقل {position} من {total}",
+    "explainButton": "اشرح هذا الحقل بكلمات بسيطة",
+    "hideExplainButton": "إخفاء الشرح",
+    "whatThisMeans": "ماذا يعني هذا",
+    "whereToFindIt": "أين تجد هذه المعلومة",
+    "exampleAnswer": "مثال"
   },
   "summary": {
     "title": "ملخص الجلسة",
@@ -69,7 +74,9 @@
     "error_signature_too_large": "التوقيع كبير جداً. يرجى مسحه والتوقيع مرة أخرى.",
     "error_signature_export_failed": "تعذّر إضافة التوقيع إلى ملف PDF.",
     "error_template_mapping_invalid": "لا يمكن تصدير هذا النموذج حالياً لأن تعيين PDF الخاص به غير صالح.",
-    "returnToSignature": "التوقيع مرة أخرى"
+    "returnToSignature": "التوقيع مرة أخرى",
+    "checklistTitle": "قائمة التحقق للتقديم والمرفقات المطلوبة",
+    "checklistSubtitle": "تحقّق من هذه الخطوات النهائية قبل تقديم النموذج المكتمل إلى الجهة المختصة."
   },
   "errors": {
     "unauthorized": "هذه الجلسة غير صالحة أو منتهية الصلاحية. يرجى بدء جلسة جديدة.",

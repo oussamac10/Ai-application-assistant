@@ -20,70 +20,48 @@ Archived under `docs/progress/`:
 14. Azure Document Intelligence Provider
 15. Azure Translator Integration
 16. Hybrid Document Detection
-
-## Completed Tasks
-
-- Eliminated redundant `getSummary` API calls on every question transition in the guided session flow (`backend/app/answers/schemas.py`, `backend/app/answers/services.py`, `frontend/src/app/application/session/[sessionId]/page.tsx`).
-- Fixed answer confirmation and summary display formatting for money amounts (`2000.0 EUR once` -> `2000 EUR`), multiple-choice arrays, and boolean Yes/No values.
-- Created `DESIGN.md` and upgraded the entire Next.js frontend to the "Warm Civic Daylight — Paper & Ink" design system, added 36-language universal support (`languages.ts`, `LanguageSelector.tsx`), and categorized manual form selection (`formCatalogMetadata.ts`).
+17. Dynamic Coordinate-Overlay PDF Export, Document Location Preview & Voice Dictation
 
 ## Current Task
 
-Implement Phase 17: Dynamic Coordinate-Overlay PDF Export for Uploaded Forms ("Export Any Uploaded PDF"), Document Field Location Preview in the Guided Session, and Voice-to-Answer Dictation support.
+Implement Phase 18: Plain-Language "Explain This Field" Helper and Personalized Final Submission & Attachment Checklist.
 
 ## Goal
 
-Enable users who upload arbitrary PDFs (with detected field bounding boxes) to generate and download a completed PDF with their confirmed answers overlaid at the detected coordinates using PyMuPDF (`fitz`), while providing a live visual Document Location Preview and optional speech-to-text input during the guided Q&A session.
+Help users completing unfamiliar bureaucratic forms understand what each field means and where to find the required information in plain, non-legal language (in their chosen `userLanguage`), and provide a personalized, interactive Submission & Supporting Document Checklist on the final completion screen (`complete/page.tsx`) based on the form's fields, signatures, and document context.
 
 ## Acceptance Criteria
 
-- [x] `backend/app/pdf/dynamic_overlay.py` created to map confirmed `FormField` answers to `DetectedField` bounding boxes (`input_bounding_box`) and render text, checkmarks, and signatures onto the uploaded source PDF via PyMuPDF (`fitz`)
-- [x] `PDFExportService.create_export` supports dynamic coordinate-overlay export when a session is backed by a `SourceDocument` with detected field coordinates, while continuing to reject unmapped synthetic dynamic sessions (`dynamic_pdf_export_not_supported`)
-- [x] `FormSession.export_supported` reflects export capability for sessions backed by either a predefined `pdf_template_key` or an uploaded `source_document_id`
-- [x] `CurrentFieldResponse` exposes optional `page_number`, `input_bounding_box`, `source_document_filename`, and `source_document_page_count` metadata
-- [x] Guided Session page (`frontend/src/app/application/session/[sessionId]/page.tsx`) displays a visual Document Location Preview card showing the target page and highlighted field bounding box on the official document
-- [x] `FieldRenderer.tsx` includes an accessible Voice Dictation button for text and multiline inputs using the Web Speech API when available
-- [x] `validate_pdf_safety` in `backend/app/documents/validation.py` sanitizes active PDF triggers (`/JavaScript`, `/JS`, `/OpenAction`, `/AA`, `/Launch`, `/EmbeddedFiles`) in place instead of rejecting official forms with `unsupported_pdf_feature`
-- [x] Pushbutton AcroForm widgets (`Button` / `/Btn` with flag `65536`, e.g., `Drucken` and `Alle Angaben löschen`) are skipped in `backend/app/field_detection/extraction.py` and `backend/app/documents/analyzer.py`
-- [x] Route all readable PDF categories (`fillable_pdf`, `digital_pdf`, and `hybrid_pdf` with native text or AcroForm widgets) to `dynamic_field_detection` in `backend/app/documents/service.py`, and route low-text / image-bearing PDFs (`scanned_pdf`, `unknown_pdf` with images) to `ocr_required`
-- [x] Improve `PDFAnalyzer` (`backend/app/documents/analyzer.py`) so pushbutton-only `/Widget` annotations do not inflate `acroform_field_count` or misclassify flat PDFs as `fillable_pdf`
-- [x] Improve `LocalFieldDetectionProvider` (`backend/app/field_detection/providers/local.py`, `sections.py`, `visual_fields.py`) for real-world AcroForm and flat municipal PDFs: humanize camelCase/Hungarian widget names when nearby text is a bare number (`1.`, `2.`), apply party section context (`Wohnungsgeber`, `Eigentümer`, `Vermieter`, `Mieter`, `Antragsteller`, `Arbeitgeber`) to AcroForm labels, split combined `Ort, Datum, Unterschrift` lines on `txtOrtDatum*` widgets into Place/Date text + companion `signature` fields, attach `input_bounding_box` to blank-run/sibling fields in `_detect_normal_fields` and inline-blank gap boxes in `_detect_inline_blank_fields`, support label-above-underline spacing and full-width marked underlines (`Adresse complete *`, `Adresse e-mail *`, `Intitule de la formation *`), attach `input_bounding_box` to standalone option groups (`option-group-*`), and attach checkbox marker boxes to declaration/confirmation checkboxes
-- [x] Bridge detected `signature` fields with `input_bounding_box` to `FormField(field_type="signature")` in `backend/app/field_detection/question_bridge.py` so signature questions render the interactive `SignatureCanvas` / `"Sign after printing"` UI
-- [x] Fix `AnswerService.submit_clarification` (`backend/app/answers/services.py`), `normalize_value` (`backend/app/answers/normalization/normalization.py`), and the clarification form in `frontend/src/app/application/session/[sessionId]/page.tsx` so non-money clarifications combine address parts or replace gibberish inputs cleanly instead of serializing a raw Python `dict`
-- [x] Enhance `render_dynamic_overlay_pdf` (`backend/app/pdf/dynamic_overlay.py`) to draw checkmarks inside selected option checkboxes/markers (both AcroForm widgets and vector-drawn checkbox/radio markers) for `single_choice`, `multiple_choice`, and `boolean` fields without writing text over option labels, resolve effective input boxes for blank-run/inline-blank fields, preserve full-length field keys without 64-char truncation, remove interactive widget overlays on exported copies, and render single-line text cleanly above `height == 0` underline regions
-- [x] Backend unit/integration tests (`pytest`, `ruff`, `mypy`) and frontend tests (`vitest`, `tsc --noEmit`, `next lint`) pass without regressions
+- [x] Deterministic + multilingual plain-language field explanation resolver (`backend/app/answers/explanations.py`) that explains common bureaucratic concepts (housing provider confirmation / `Wohnungsgeberbestätigung`, `IBAN`/`BIC`, `Kaution`, `Grundmiete`/`Betriebskostenvorauszahlung`/`Heizkostenvorauszahlung`, `PLZ`/`Ort`, tax/registration identifiers, signatures, dates, etc.) in plain words with "What this means" and "Where to find it" guidance, strictly adhering to product boundaries (never offering legal advice or eligibility decisions)
+- [x] `CurrentFieldResponse` (`backend/app/answers/schemas.py`, `backend/app/answers/services.py`) includes structured `field_explanation` metadata (`summary`, `where_to_find`, `example`) localized to `session.user_language` (with translation fallback via `TranslationProvider` when needed)
+- [x] Guided Session UI (`frontend/src/app/application/session/[sessionId]/page.tsx`) includes an interactive *"Explain this field in simple words"* toggle button and collapsible callout card showing the plain-language explanation, where to find the value, and a concrete example
+- [x] `SummaryResponse` (`backend/app/answers/schemas.py`, `backend/app/answers/services.py`) includes a deterministic `submission_checklist` list of actionable post-completion checklist items (e.g., printing & signing deferred signatures, obtaining landlord/second-party counter-signature when `Wohnungsgeber`/`Vermieter` fields are present, attaching identity/supporting documents when referenced, verifying IBAN/account details)
+- [x] Final Completion page (`frontend/src/app/application/session/[sessionId]/complete/page.tsx`) renders the interactive **Submission & Supporting Document Checklist** so users can check off required steps and attachments before submitting their completed PDF to the authority
+- [x] Unit tests for backend explanation & checklist generation and frontend tests pass with zero regressions
 
 ## Planned Steps
 
-- [x] Inspect existing PDF export, field detection, and session schemas/tests
-- [x] Create `backend/app/pdf/dynamic_overlay.py` and integrate into `backend/app/pdf/services.py` and `backend/app/sessions/models.py`
-- [x] Enrich `CurrentFieldResponse` in `backend/app/answers/schemas.py` and `backend/app/answers/services.py` with field location metadata
-- [x] Add Document Location Preview to `frontend/src/app/application/session/[sessionId]/page.tsx` and Voice Dictation button to `frontend/src/features/form-session/components/FieldRenderer.tsx`
-- [x] Add comprehensive unit tests for dynamic coordinate-overlay PDF export and run full backend + frontend verification
+- [x] Create `backend/app/answers/explanations.py` with deterministic plain-language field explanations and submission checklist generation
+- [x] Expose `field_explanation` on `CurrentFieldResponse` and `submission_checklist` on `SummaryResponse` in `backend/app/answers/schemas.py` and `backend/app/answers/services.py`
+- [x] Update `frontend/src/features/form-session/services/apiClient.ts`, `frontend/src/app/application/session/[sessionId]/page.tsx`, and `frontend/src/app/application/session/[sessionId]/complete/page.tsx`
+- [x] Add unit tests in `backend/tests/answers/test_explanations_and_checklist.py` and verify backend (`pytest`, `ruff`, `mypy`) and frontend (`vitest`, `tsc --noEmit`)
 
 ## Files Expected to Change
 
 - `TODO.md`
-- `backend/app/documents/validation.py`
-- `backend/app/documents/service.py`
-- `backend/app/documents/analyzer.py`
-- `backend/app/field_detection/extraction.py`
-- `backend/tests/documents/test_documents.py`
-- `backend/app/pdf/dynamic_overlay.py`
-- `backend/app/pdf/services.py`
-- `backend/app/sessions/models.py`
+- `docs/progress/phase-17-dynamic-pdf-export.md`
+- `backend/app/answers/explanations.py`
 - `backend/app/answers/schemas.py`
 - `backend/app/answers/services.py`
-- `backend/tests/pdf/test_dynamic_overlay_export.py`
+- `backend/tests/answers/test_explanations_and_checklist.py`
 - `frontend/src/features/form-session/services/apiClient.ts`
 - `frontend/src/app/application/session/[sessionId]/page.tsx`
-- `frontend/src/features/form-session/components/FieldRenderer.tsx`
+- `frontend/src/app/application/session/[sessionId]/complete/page.tsx`
 
 ## Decisions and Assumptions
 
-- `FormVersion.pdf_template_key` remains `None` for dynamically detected versions so `test_question_bridge.py` and `test_dynamic_export_guard.py` invariants are preserved.
-- Coordinate overlay only renders fields that have an explicit `input_bounding_box` from field detection (never guessing coordinates when no input box exists).
-- OCR-sourced bounding boxes (`source == "ocr"`) are scaled from `OCRPage` pixel dimensions to PDF page point dimensions (`fitz.Page.rect`).
+- Plain-language explanations use a deterministic static catalog first (matching semantic field keys, label keywords, and field types in `en`, `de`, `fr`, `ar`, and fallback translation for any other `user_language`), avoiding unnecessary paid AI calls per `AGENTS.md` Section 5.5 and 6.1.
+- Explanations strictly inform the user what the form field asks for and where to find the information on official letters/contracts; they never give legal advice, financial advice, or eligibility conclusions (`AGENTS.md` Section 4).
 
 ## Blockers
 
@@ -91,7 +69,6 @@ Enable users who upload arbitrary PDFs (with detected field bounding boxes) to g
 
 ## Verification
 
-- [x] Backend tests pass (`pytest` — 31 passed)
+- [x] Backend tests pass (`pytest`)
 - [x] Backend linting and type checking pass (`ruff check`, `ruff format --check`, `mypy`)
-- [x] Frontend tests pass (`vitest` — 28 passed test files, 240 passed tests)
-- [x] Frontend linting and type checking pass (`next lint`, `tsc --noEmit`)
+- [x] Frontend tests and type checking pass (`vitest`, `tsc --noEmit`)
