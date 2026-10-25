@@ -437,30 +437,173 @@ class LocalFieldDetectionProvider:
 
             raw_label_text = label
             wname_lower = (widget.field_name or "").lower()
+            raw_lower = raw_label_text.lower()
+            has_place_kw = any(
+                re.search(rf"\b{kw}\b", raw_lower)
+                for kw in ("ort", "stadt", "place", "city", "lieu")
+            )
+            has_date_kw = any(
+                re.search(rf"\b{kw}\b", raw_lower) for kw in ("datum", "date")
+            )
+            has_sig_kw = any(
+                re.search(rf"\b{kw}\b", raw_lower)
+                for kw in ("unterschrift", "unterzeichnung", "signature")
+            )
             is_combined_place_date_sig = (
                 mapped_type == "text"
-                and any(tok in wname_lower for tok in ("ort", "datum", "place", "date"))
-                and classify_label(raw_label_text) == "signature"
-                and any(
-                    tok in raw_label_text.lower()
-                    for tok in ("ort", "datum", "place", "date", "lieu")
+                and has_sig_kw
+                and (has_place_kw or has_date_kw)
+                and (
+                    any(tok in wname_lower for tok in ("ort", "datum", "place", "date"))
+                    or (has_place_kw and has_date_kw)
                 )
             )
+
             if is_combined_place_date_sig:
-                place_date_label = re.sub(
-                    r",\s*(?:unterschrift|unterzeichnung|signature)\b",
+                party_suffix = re.sub(
+                    r"^\s*(?:(?:ort|stadt|place|city|lieu|datum|date)\s*[,/und&]+\s*)+"
+                    r"(?:unterschrift|unterzeichnung|signature)\b\s*[,:–\-]*\s*",
                     "",
                     raw_label_text,
                     count=1,
                     flags=re.IGNORECASE,
                 ).strip()
-                label = _contextual_label(place_date_label or raw_label_text, context)
-            else:
-                label = _contextual_label(label, context)
-                if mapped_type == "text":
-                    mapped_type = classify_label(label)
-                    if mapped_type == "text" and widget.field_name:
-                        mapped_type = classify_label(humanized_widget_name)
+                base_wname = (
+                    normalize_field_name(widget.field_name)
+                    if widget.field_name
+                    else _contextual_name(raw_label_text, context)
+                )
+                label_box = (
+                    nearest_label.bounding_box if nearest_label is not None else None
+                )
+
+                if has_place_kw and has_date_kw:
+                    ort_label = (
+                        f"Ort – {party_suffix}"
+                        if party_suffix
+                        else _contextual_label("Ort", context)
+                    )
+                    datum_label = (
+                        f"Datum – {party_suffix}"
+                        if party_suffix
+                        else _contextual_label("Datum", context)
+                    )
+                    ort_w = round(widget.rect.width * 0.48, 2)
+                    datum_x = round(widget.rect.x + widget.rect.width * 0.50, 2)
+                    datum_w = round(widget.rect.width * 0.50, 2)
+
+                    candidates.append(
+                        DetectedFieldCandidate(
+                            candidate_key=f"acroform-ort-{widget.page_number}-{index}",
+                            page_number=widget.page_number,
+                            label=ort_label,
+                            normalized_name=f"{base_wname}_ort",
+                            field_type="text",
+                            confidence=acroform_widget_confidence(
+                                "text", label_found=True
+                            ),
+                            source="acroform",
+                            required=widget.required,
+                            label_bounding_box=label_box,
+                            input_bounding_box=BoundingBox(
+                                x=widget.rect.x,
+                                y=widget.rect.y,
+                                width=ort_w,
+                                height=widget.rect.height,
+                            ),
+                        )
+                    )
+                    candidates.append(
+                        DetectedFieldCandidate(
+                            candidate_key=f"acroform-datum-{widget.page_number}-{index}",
+                            page_number=widget.page_number,
+                            label=datum_label,
+                            normalized_name=f"{base_wname}_datum",
+                            field_type="date",
+                            confidence=acroform_widget_confidence(
+                                "date", label_found=True
+                            ),
+                            source="acroform",
+                            required=widget.required,
+                            label_bounding_box=label_box,
+                            input_bounding_box=BoundingBox(
+                                x=datum_x,
+                                y=widget.rect.y,
+                                width=datum_w,
+                                height=widget.rect.height,
+                            ),
+                        )
+                    )
+                else:
+                    place_date_label = re.sub(
+                        r",\s*(?:unterschrift|unterzeichnung|signature)\b",
+                        "",
+                        raw_label_text,
+                        count=1,
+                        flags=re.IGNORECASE,
+                    ).strip()
+                    sub_label = _contextual_label(
+                        place_date_label or raw_label_text, context
+                    )
+                    sub_type = "date" if has_date_kw and not has_place_kw else "text"
+                    candidates.append(
+                        DetectedFieldCandidate(
+                            candidate_key=f"acroform-{widget.page_number}-{index}",
+                            page_number=widget.page_number,
+                            label=sub_label,
+                            normalized_name=base_wname,
+                            field_type=sub_type,
+                            confidence=acroform_widget_confidence(
+                                sub_type, label_found=nearest_label is not None
+                            ),
+                            source="acroform",
+                            required=widget.required,
+                            label_bounding_box=label_box,
+                            input_bounding_box=widget.rect,
+                        )
+                    )
+
+                sig_label = (
+                    f"Unterschrift {party_suffix}"
+                    if party_suffix
+                    else _contextual_label("Unterschrift", context)
+                )
+                sig_x = widget.rect.x + widget.rect.width + 8.0
+                caption_right = (
+                    nearest_label.bounding_box.x + nearest_label.bounding_box.width
+                    if nearest_label is not None
+                    else sig_x + 180.0
+                )
+                sig_w = max(caption_right - sig_x, 160.0)
+                sig_box = BoundingBox(
+                    x=sig_x,
+                    y=widget.rect.y,
+                    width=sig_w,
+                    height=max(widget.rect.height, 22.0),
+                )
+                candidates.append(
+                    DetectedFieldCandidate(
+                        candidate_key=f"acroform-sig-{widget.page_number}-{index}",
+                        page_number=widget.page_number,
+                        label=sig_label,
+                        normalized_name=f"{base_wname}_unterschrift",
+                        field_type="signature",
+                        confidence=acroform_widget_confidence(
+                            "signature", label_found=True
+                        ),
+                        source="acroform",
+                        required=widget.required,
+                        label_bounding_box=label_box,
+                        input_bounding_box=sig_box,
+                    )
+                )
+                continue
+
+            label = _contextual_label(label, context)
+            if mapped_type == "text":
+                mapped_type = classify_label(label)
+                if mapped_type == "text" and widget.field_name:
+                    mapped_type = classify_label(humanized_widget_name)
 
             confidence = acroform_widget_confidence(
                 mapped_type, label_found=nearest_label is not None
@@ -486,52 +629,6 @@ class LocalFieldDetectionProvider:
                     input_bounding_box=widget.rect,
                 )
             )
-
-            if is_combined_place_date_sig:
-                sig_label_raw = re.sub(
-                    r"^\s*(?:ort\s*,\s*datum|datum\s*,\s*ort|place\s*,\s*date)\s*,\s*",
-                    "",
-                    raw_label_text,
-                    count=1,
-                    flags=re.IGNORECASE,
-                ).strip()
-                sig_label = _contextual_label(sig_label_raw or "Unterschrift", context)
-                sig_x = widget.rect.x + widget.rect.width + 8.0
-                caption_right = (
-                    nearest_label.bounding_box.x + nearest_label.bounding_box.width
-                    if nearest_label is not None
-                    else sig_x + 180.0
-                )
-                sig_w = max(caption_right - sig_x, 140.0)
-                sig_box = BoundingBox(
-                    x=sig_x,
-                    y=widget.rect.y,
-                    width=sig_w,
-                    height=max(widget.rect.height, 22.0),
-                )
-                sig_norm_name = (
-                    f"{normalize_field_name(widget.field_name)}_unterschrift"
-                    if widget.field_name
-                    else _contextual_name(sig_label_raw or "Unterschrift", context)
-                )
-                candidates.append(
-                    DetectedFieldCandidate(
-                        candidate_key=f"acroform-sig-{widget.page_number}-{index}",
-                        page_number=widget.page_number,
-                        label=sig_label,
-                        normalized_name=sig_norm_name,
-                        field_type="signature",
-                        confidence=acroform_widget_confidence(
-                            "signature", label_found=True
-                        ),
-                        source="acroform",
-                        required=widget.required,
-                        label_bounding_box=nearest_label.bounding_box
-                        if nearest_label
-                        else None,
-                        input_bounding_box=sig_box,
-                    )
-                )
 
         return candidates
 

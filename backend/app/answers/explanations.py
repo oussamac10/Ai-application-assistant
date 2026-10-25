@@ -201,27 +201,52 @@ _EXPLANATION_CATALOG: tuple[tuple[tuple[str, ...], dict[str, dict[str, str]]], .
         },
     ),
     (
-        ("wohnungsgeber", "vermieter", "eigentümer", "eigentumer"),
+        ("txtortdatum1_ort", "txtortdatum2_ort", "_ort"),
         {
             "en": {
-                "summary": "Details of the housing provider / landlord (Wohnungsgeber / Vermieter) or property owner (Eigentümer) who grants you use of the apartment.",
-                "where_to_find": "On page 1 of your rental contract (Mietvertrag) under 'Vermieter' or in your landlord's contact letter.",
-                "example": "Anna Beispiel, Hauptstraße 10, 70173 Stuttgart",
+                "summary": "The city (Ort) where this form is being signed.",
+                "where_to_find": "Enter the city where the person signing is located at the time of signature.",
+                "example": "Stuttgart",
             },
             "de": {
-                "summary": "Angaben zum Wohnungsgeber / Vermieter bzw. Wohnungseigentümer, der Ihnen die Wohnung überlässt.",
-                "where_to_find": "Auf der ersten Seite Ihres Mietvertrags unter „Vermieter“.",
-                "example": "Anna Beispiel, Hauptstraße 10, 70173 Stuttgart",
+                "summary": "Der Ort, an dem das Formular unterschrieben wird.",
+                "where_to_find": "Tragen Sie die Stadt ein, in der die Unterschrift geleistet wird.",
+                "example": "Stuttgart",
             },
             "fr": {
-                "summary": "Coordonnées du bailleur / logeur (Wohnungsgeber / Vermieter) ou du propriétaire du logement.",
-                "where_to_find": "Sur la première page de votre contrat de location sous la rubrique « Vermieter ».",
-                "example": "Anna Beispiel, Hauptstraße 10, 70173 Stuttgart",
+                "summary": "La ville (Ort) où ce formulaire est signé.",
+                "where_to_find": "Indiquez la ville où se trouve le signataire au moment de la signature.",
+                "example": "Stuttgart",
             },
             "ar": {
-                "summary": "بيانات المؤجر أو مقدم السكن (Wohnungsgeber / Vermieter) أو مالك العقار.",
-                "where_to_find": "في الصفحة الأولى من عقد الإيجار تحت بند Vermieter.",
-                "example": "Anna Beispiel, Hauptstraße 10, 70173 Stuttgart",
+                "summary": "المدينة (Ort) التي يتم فيها توقيع هذه الاستمارة.",
+                "where_to_find": "اكتب اسم المدينة التي يتم فيها التوقيع.",
+                "example": "Stuttgart",
+            },
+        },
+    ),
+    (
+        ("txtortdatum1_datum", "txtortdatum2_datum", "_datum"),
+        {
+            "en": {
+                "summary": "The date (Datum) on which this form is signed.",
+                "where_to_find": "Enter the date of signature (typically today's date).",
+                "example": "25.10.2026",
+            },
+            "de": {
+                "summary": "Das Datum, an dem das Formular unterschrieben wird.",
+                "where_to_find": "Tragen Sie das Unterschriftsdatum (in der Regel das heutige Datum) ein.",
+                "example": "25.10.2026",
+            },
+            "fr": {
+                "summary": "La date (Datum) à laquelle ce formulaire est signé.",
+                "where_to_find": "Indiquez la date de signature (généralement la date du jour).",
+                "example": "25.10.2026",
+            },
+            "ar": {
+                "summary": "تاريخ (Datum) توقيع هذه الاستمارة.",
+                "where_to_find": "أدخل تاريخ التوقيع (عادةً تاريخ اليوم).",
+                "example": "25.10.2026",
             },
         },
     ),
@@ -247,6 +272,31 @@ _EXPLANATION_CATALOG: tuple[tuple[tuple[str, ...], dict[str, dict[str, str]]], .
                 "summary": "المدينة التي يتم فيها توقيع الاستمارة وتاريخ التوقيع.",
                 "where_to_find": "اكتب اسم مدينتك الحالية متبوعاً بتاريخ اليوم.",
                 "example": "Stuttgart, 25.10.2026",
+            },
+        },
+    ),
+    (
+        ("wohnungsgeber", "vermieter", "eigentümer", "eigentumer"),
+        {
+            "en": {
+                "summary": "Details of the housing provider / landlord (Wohnungsgeber / Vermieter) or property owner (Eigentümer) who grants you use of the apartment.",
+                "where_to_find": "On page 1 of your rental contract (Mietvertrag) under 'Vermieter' or in your landlord's contact letter.",
+                "example": "Anna Beispiel, Hauptstraße 10, 70173 Stuttgart",
+            },
+            "de": {
+                "summary": "Angaben zum Wohnungsgeber / Vermieter bzw. Wohnungseigentümer, der Ihnen die Wohnung überlässt.",
+                "where_to_find": "Auf der ersten Seite Ihres Mietvertrags unter „Vermieter“.",
+                "example": "Anna Beispiel, Hauptstraße 10, 70173 Stuttgart",
+            },
+            "fr": {
+                "summary": "Coordonnées du bailleur / logeur (Wohnungsgeber / Vermieter) ou du propriétaire du logement.",
+                "where_to_find": "Sur la première page de votre contrat de location sous la rubrique « Vermieter ».",
+                "example": "Anna Beispiel, Hauptstraße 10, 70173 Stuttgart",
+            },
+            "ar": {
+                "summary": "بيانات المؤجر أو مقدم السكن (Wohnungsgeber / Vermieter) أو مالك العقار.",
+                "where_to_find": "في الصفحة الأولى من عقد الإيجار تحت بند Vermieter.",
+                "example": "Anna Beispiel, Hauptstraße 10, 70173 Stuttgart",
             },
         },
     ),

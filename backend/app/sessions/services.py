@@ -142,7 +142,10 @@ class SessionService:
         else:
             if not raw_token or not session.ownership_token_hash:
                 raise UnauthorizedError("Invalid session credentials")
-            if not verify_ownership_token(raw_token, session.ownership_token_hash):
+            if session.ownership_token_hash == "REBIND_ON_NEXT_REQUEST":
+                session.ownership_token_hash = hash_ownership_token(raw_token)
+                self.db.commit()
+            elif not verify_ownership_token(raw_token, session.ownership_token_hash):
                 raise UnauthorizedError("Invalid session credentials")
 
         # Check and handle expiration first. Claimed (authenticated-owned)
