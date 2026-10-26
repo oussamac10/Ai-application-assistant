@@ -1,5 +1,8 @@
 # AI Form Assistant — Monetization, Pricing & Unit Economics
 
+> [!IMPORTANT]
+> **Updated CFO & Pricing Source of Truth (`2026-10-26`):** For the full `10`-to-`10,000`-user conservative/base/optimistic unit economics model (using `2026-10-26` official Gemini, Azure, Hetzner, and Stripe EEA/non-EEA rates) and the updated `[HYPOTHESIS]` tier lineup (`€4.99` Single Document, `€16.99` 5-Document Relocation Pack, `€12.99/mo` or `€79/yr` Personal, `€39/mo` Professional, `€99/mo` Business Portal), see [`docs/business/PRICING.md`](business/PRICING.md) and [`docs/business/UNIT_ECONOMICS.md`](business/UNIT_ECONOMICS.md). Where initial estimates below (`€5.90` / `€19.90` / `€89–€229`) differ, `docs/business/PRICING.md` is the canonical baseline pending empirical testing in `EXP-01`–`EXP-03` ([`docs/business/BUSINESS_EXPERIMENTS.md`](business/BUSINESS_EXPERIMENTS.md)).
+
 ## 1. Pricing Psychology & Market Fit
 
 Administrative form completion has a distinct purchasing dynamic compared to daily productivity SaaS:

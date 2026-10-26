@@ -1,5 +1,8 @@
 # AI Form Assistant — Go-To-Market (GTM) & Customer Acquisition Plan
 
+> [!NOTE]
+> **Updated Growth & Experiment Playbooks (`2026-10-26`):** See [`docs/business/GROWTH_STRATEGY.md`](business/GROWTH_STRATEGY.md), [`docs/business/CUSTOMER_RESEARCH.md`](business/CUSTOMER_RESEARCH.md), and [`docs/business/BUSINESS_EXPERIMENTS.md`](business/BUSINESS_EXPERIMENTS.md) (`EXP-01`–`EXP-08`) for updated solo-developer funnel math, `< €100/mo` acquisition tactics, Mom-Test + Van Westendorp scripts, and reconciled `[HYPOTHESIS]` pricing (`€4.99` Single / `€16.99` 5-Pack / `€12.99/mo` Personal / `€39/mo` Pro / `€99/mo` Business Portal).
+
 ## 1. Initial Beachhead Market & Ideal Customer Profile (ICP)
 
 Rather than marketing vaguely to *"anyone filling any PDF in any country"*, launch laser-focused on **one high-pain geographic corridor** where bureaucratic friction is daily, non-legal administrative forms are standardized, and word-of-mouth communities are tightly concentrated:

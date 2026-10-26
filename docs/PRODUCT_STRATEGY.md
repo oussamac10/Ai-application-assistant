@@ -3,6 +3,9 @@
 **Project:** AI Form Assistant  
 **Target Operating Model:** Privacy-First, Solo-Founder Multilingual SaaS  
 
+> [!NOTE]
+> **Expanded Business Strategy Suite (`2026-10-26`):** This document works alongside the persistent CFO/CPO business suite in [`docs/business/`](business/): [`BUSINESS_STRATEGY.md`](business/BUSINESS_STRATEGY.md) (12-feature Value-vs-Effort matrix, 16 KPIs, and `saas-business-advisor` decisions), [`PRICING.md`](business/PRICING.md) (`€4.99` / `€16.99` / `€12.99` / `€39` / `€99` `[HYPOTHESIS]` tiers), [`UNIT_ECONOMICS.md`](business/UNIT_ECONOMICS.md), [`CUSTOMER_RESEARCH.md`](business/CUSTOMER_RESEARCH.md), and [`COMPETITOR_ANALYSIS.md`](business/COMPETITOR_ANALYSIS.md).
+
 ---
 
 ## 1. Core Product Vision & Boundaries
