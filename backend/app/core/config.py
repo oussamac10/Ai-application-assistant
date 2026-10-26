@@ -9,6 +9,7 @@ _SUPPORTED_OCR_PROVIDERS = frozenset({"mock", "local"})
 _SUPPORTED_FIELD_DETECTION_PROVIDERS = frozenset({"mock", "local", "azure", "hybrid"})
 _SUPPORTED_TRANSLATION_PROVIDERS = frozenset({"mock", "ollama", "azure", "gemini"})
 _SUPPORTED_STORAGE_PROVIDERS = frozenset({"local", "s3"})
+_SUPPORTED_EMAIL_PROVIDERS = frozenset({"mock", "postmark"})
 
 
 class Settings(BaseSettings):
@@ -223,6 +224,15 @@ class Settings(BaseSettings):
     PASSWORD_MIN_LENGTH: int = 10
     ADMIN_EMAILS: str = ""
 
+    # Account Lifecycle Email & Profile Vault Encryption (Phase S2)
+    EMAIL_PROVIDER: str = "mock"
+    FRONTEND_PUBLIC_URL: str = "http://localhost:3003"
+    POSTMARK_SERVER_TOKEN: str | None = None
+    EMAIL_FROM_ADDRESS: str = "no-reply@formassistant.local"
+    EMAIL_VERIFICATION_TTL_HOURS: int = 24
+    PASSWORD_RESET_TTL_MINUTES: int = 60
+    VAULT_ENCRYPTION_KEY: str | None = None
+
     @property
     def admin_emails_set(self) -> set[str]:
         return {
@@ -279,6 +289,32 @@ class Settings(BaseSettings):
             raise ValueError("AUTH_COOKIE_SAMESITE must be one of: lax, strict, none.")
         if self.PASSWORD_MIN_LENGTH < 8:
             raise ValueError("PASSWORD_MIN_LENGTH must be at least 8.")
+        email_provider = self.EMAIL_PROVIDER.strip().lower()
+        if email_provider not in _SUPPORTED_EMAIL_PROVIDERS:
+            raise ValueError(
+                f"Unknown EMAIL_PROVIDER '{self.EMAIL_PROVIDER}'. "
+                f"Supported values: {sorted(_SUPPORTED_EMAIL_PROVIDERS)}"
+            )
+        self.EMAIL_PROVIDER = email_provider
+        if (
+            email_provider == "postmark"
+            and not (self.POSTMARK_SERVER_TOKEN or "").strip()
+        ):
+            raise ValueError(
+                "POSTMARK_SERVER_TOKEN must be set when EMAIL_PROVIDER='postmark'."
+            )
+        if self.EMAIL_VERIFICATION_TTL_HOURS <= 0:
+            raise ValueError("EMAIL_VERIFICATION_TTL_HOURS must be positive.")
+        if self.PASSWORD_RESET_TTL_MINUTES <= 0:
+            raise ValueError("PASSWORD_RESET_TTL_MINUTES must be positive.")
+        if (
+            self.is_production
+            and self.VAULT_ENCRYPTION_KEY is not None
+            and len(self.VAULT_ENCRYPTION_KEY.strip()) < 32
+        ):
+            raise ValueError(
+                "VAULT_ENCRYPTION_KEY must be at least 32 characters when set in production."
+            )
         return self
 
     @model_validator(mode="after")

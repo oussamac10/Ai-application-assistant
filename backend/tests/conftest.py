@@ -40,6 +40,7 @@ def _never_call_live_providers() -> Generator[None, None, None]:
         settings.JOB_EXECUTION_MODE,
         settings.RATE_LIMIT_ENABLED,
         settings.REDIS_URL,
+        settings.EMAIL_PROVIDER,
     )
 
     settings.TRANSLATION_PROVIDER = "mock"
@@ -54,6 +55,7 @@ def _never_call_live_providers() -> Generator[None, None, None]:
     settings.JOB_EXECUTION_MODE = "inline"
     settings.RATE_LIMIT_ENABLED = False
     settings.REDIS_URL = None
+    settings.EMAIL_PROVIDER = "mock"
 
     yield
 
@@ -68,4 +70,5 @@ def _never_call_live_providers() -> Generator[None, None, None]:
         settings.JOB_EXECUTION_MODE,
         settings.RATE_LIMIT_ENABLED,
         settings.REDIS_URL,
+        settings.EMAIL_PROVIDER,
     ) = original

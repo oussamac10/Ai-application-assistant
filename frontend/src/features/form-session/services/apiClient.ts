@@ -74,9 +74,11 @@ export const CurrentFieldResponseSchema = z.object({
   placeholder: z.string().nullable().optional(),
   options: z.array(FieldOptionSchema).nullable().optional(),
   fieldExplanation: FieldExplanationSchema.nullable().optional(),
+  currentAnswerId: z.string().nullable().optional(),
   currentAnswerStatus: z.string().nullable().optional(),
   originalAnswer: z.string().nullable().optional(),
   normalizedValue: z.any().nullable().optional(),
+  outputValue: z.string().nullable().optional(),
   allFieldKeys: z.array(z.string()).optional(),
   progress: ProgressInfoSchema.nullable().optional(),
   pageNumber: z.number().nullable().optional(),
@@ -123,6 +125,7 @@ export const SummaryFieldSchema = z.object({
   fieldKey: z.string(),
   fieldType: z.string().nullable().optional(),
   label: z.string(),
+  sourceLabel: z.string().nullable().optional(),
   required: z.boolean(),
   requiredness: z.string().optional(),
   originalAnswer: z.string().nullable(),
@@ -148,9 +151,23 @@ export type SubmissionChecklistItem = z.infer<
   typeof SubmissionChecklistItemSchema
 >;
 
+export const ConsistencyWarningSchema = z.object({
+  code: z.string(),
+  severity: z.string().optional(),
+  fieldKeys: z.array(z.string()),
+  message: z.string(),
+});
+
+export type ConsistencyWarning = z.infer<typeof ConsistencyWarningSchema>;
+
 export const SummaryResponseSchema = z.object({
   fields: z.array(SummaryFieldSchema),
   submissionChecklist: z.array(SubmissionChecklistItemSchema).optional(),
+  consistencyWarnings: z.array(ConsistencyWarningSchema).optional(),
+  sourceLanguage: z.string().nullable().optional(),
+  userLanguage: z.string().nullable().optional(),
+  outputLanguage: z.string().nullable().optional(),
+  exportSupported: z.boolean().optional(),
 });
 
 export type Summary = z.infer<typeof SummaryResponseSchema>;

@@ -118,7 +118,71 @@ class ApplicationService:
         session = self.repo.get_owned(user_id, public_id)
         if not session:
             raise ApplicationNotFoundError("Application not found.")
-        self.repo.soft_delete(session, datetime.now(UTC))
+        self.repo.hard_delete_session_and_artifacts(session)
+        self.db.commit()
+
+    def purge_all_for_user(self, user_id: str) -> None:
+        self.repo.purge_all_for_user(user_id)
+        self.db.commit()
+
+    def export_user_applications_and_documents(
+        self, user_id: str
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        sessions = self.repo.list_for_user(user_id)
+        applications_payload: list[dict[str, Any]] = []
+        for s in sessions:
+            answers = self.repo.get_answers_for_session(s.id)
+            serialized_answers: list[dict[str, Any]] = []
+            for a in sorted(
+                answers,
+                key=lambda item: getattr(item.field, "position", 0),
+            ):
+                field_type = getattr(a.field, "field_type", "string")
+                field_key = getattr(a.field, "key", a.field_id)
+                norm = a.normalized_value
+                if field_type == "signature" and norm is not None:
+                    norm = {"type": "signature", "strokesOmitted": True}
+                serialized_answers.append(
+                    {
+                        "field_key": field_key,
+                        "field_type": field_type,
+                        "original_answer": a.original_answer,
+                        "normalized_value": norm,
+                        "output_value": a.output_value,
+                        "status": a.status,
+                        "confirmed_by_user": a.confirmed_by_user,
+                        "confirmed_at": a.confirmed_at,
+                    }
+                )
+            applications_payload.append(
+                {
+                    "id": s.public_id,
+                    "title": s.title or _form_name(s),
+                    "form_name": _form_name(s),
+                    "status": s.status,
+                    "source_language": s.source_language,
+                    "user_language": s.user_language,
+                    "output_language": s.output_language,
+                    "created_at": s.created_at,
+                    "updated_at": s.updated_at,
+                    "answers": serialized_answers,
+                }
+            )
+
+        docs = self.repo.list_owned_documents(user_id)
+        documents_payload: list[dict[str, Any]] = [
+            {
+                "id": d.public_id,
+                "original_filename": d.original_filename,
+                "content_type": d.content_type,
+                "size_bytes": d.size_bytes,
+                "page_count": d.page_count,
+                "detected_source_language": d.detected_source_language,
+                "created_at": d.created_at,
+            }
+            for d in docs
+        ]
+        return applications_payload, documents_payload
 
     def claim(
         self,

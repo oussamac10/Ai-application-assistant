@@ -4,11 +4,18 @@ import { getCsrfToken } from "./csrf";
 export const UserSchema = z.object({
   id: z.string(),
   email: z.string(),
+  role: z.string().optional(),
+  emailVerified: z.boolean().optional(),
+  emailVerifiedAt: z.string().nullable().optional(),
   createdAt: z.string(),
   lastLoginAt: z.string().nullable().optional(),
 });
 
 export type AuthUser = z.infer<typeof UserSchema>;
+
+export const ActionStatusSchema = z.object({
+  status: z.string(),
+});
 
 export class AuthApiError extends Error {
   constructor(
@@ -92,6 +99,63 @@ export async function login(email: string, password: string): Promise<AuthUser> 
 
 export async function logout(): Promise<void> {
   await authRequest("/logout", { method: "POST" });
+}
+
+export async function requestEmailVerification(): Promise<{ status: string }> {
+  return authRequest(
+    "/verify-email/request",
+    { method: "POST" },
+    ActionStatusSchema
+  );
+}
+
+export async function confirmEmailVerification(
+  token: string
+): Promise<AuthUser> {
+  return authRequest(
+    "/verify-email/confirm",
+    {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    },
+    UserSchema
+  );
+}
+
+export async function requestPasswordReset(
+  email: string
+): Promise<{ status: string }> {
+  return authRequest(
+    "/password-reset/request",
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+    ActionStatusSchema
+  );
+}
+
+export async function confirmPasswordReset(
+  token: string,
+  password: string,
+  passwordConfirmation: string
+): Promise<{ status: string }> {
+  return authRequest(
+    "/password-reset/confirm",
+    {
+      method: "POST",
+      body: JSON.stringify({ token, password, passwordConfirmation }),
+    },
+    ActionStatusSchema
+  );
+}
+
+export async function exportAccountData(): Promise<Record<string, unknown>> {
+  return authRequest<Record<string, unknown>>("/me/export", { method: "GET" });
+}
+
+export async function deleteAccount(): Promise<void> {
+  await authRequest("/me", { method: "DELETE" });
 }
 
 // A 401 here is the normal logged-out state, not an application error — it

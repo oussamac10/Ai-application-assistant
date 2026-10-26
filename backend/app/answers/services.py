@@ -8,6 +8,7 @@ from app.ai.errors import AIProviderMalformedResponseError, AIProviderValidation
 from app.ai.mock_provider import AIProvider, MockAIProvider
 from app.ai.schemas import ExtractionRequest, ExtractionResult
 from app.ai.text_translation import translate_text
+from app.answers.consistency import evaluate_consistency_warnings
 from app.answers.errors import FieldProblem, SummaryNotConfirmableError
 from app.answers.explanations import (
     build_submission_checklist,
@@ -341,9 +342,11 @@ class AnswerService:
             session.source_language,
             session.output_language,
         )
+        field_data["current_answer_id"] = ans.id if ans else None
         field_data["current_answer_status"] = ans.status if ans else None
         field_data["original_answer"] = ans.original_answer if ans else None
         field_data["normalized_value"] = ans.normalized_value if ans else None
+        field_data["output_value"] = ans.output_value if ans else None
         field_data["all_field_keys"] = [
             f.key for f in sorted(version.fields, key=lambda f: f.position)
         ]
@@ -420,9 +423,11 @@ class AnswerService:
             session.source_language,
             session.output_language,
         )
+        field_data["current_answer_id"] = ans.id if ans else None
         field_data["current_answer_status"] = ans.status if ans else None
         field_data["original_answer"] = ans.original_answer if ans else None
         field_data["normalized_value"] = ans.normalized_value if ans else None
+        field_data["output_value"] = ans.output_value if ans else None
         field_data["all_field_keys"] = [f.key for f in fields]
         field_data["progress"] = self.get_progress(session)
         self._attach_location_metadata(field_data, session, prev_field)
@@ -1118,6 +1123,7 @@ class AnswerService:
                     "field_key": field.key,
                     "field_type": field.field_type,
                     "label": translated["label"],
+                    "source_label": _source_label(field) or None,
                     "required": field.required,
                     "requiredness": field_requiredness(field),
                     "original_answer": ans.original_answer if ans else None,
@@ -1156,6 +1162,27 @@ class AnswerService:
 
         answers = {a.field_id: a for a in self.repo.get_answers_for_session(session.id)}
         return build_submission_checklist(version, answers, session.user_language)
+
+    def get_summary_metadata(
+        self, session_id: str, raw_token: str | None
+    ) -> dict[str, Any]:
+        """Returns session language metadata and deterministic cross-field warnings."""
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
+        version = self.form_repo.get_version(session.form_version_id)
+        if not version:
+            raise ResourceNotFoundError("Form version not found.")
+        answers = {a.field_id: a for a in self.repo.get_answers_for_session(session.id)}
+        return {
+            "source_language": session.source_language,
+            "user_language": session.user_language,
+            "output_language": session.output_language,
+            "export_supported": session.export_supported,
+            "consistency_warnings": evaluate_consistency_warnings(
+                version, answers, session.user_language
+            ),
+        }
 
     @staticmethod
     def _log_confirmation_diagnostics(

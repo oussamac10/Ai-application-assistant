@@ -29,6 +29,12 @@ export default function AccountMenu() {
           >
             {t("myApplications")}
           </Link>
+          <Link
+            href="/account"
+            className="btn-secondary px-3 py-1.5 text-xs font-medium"
+          >
+            {t("accountSettings")}
+          </Link>
           <button
             type="button"
             onClick={handleLogout}

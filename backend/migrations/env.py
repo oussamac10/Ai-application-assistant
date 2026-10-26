@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.answers.models import FormAnswer  # noqa: F401
-from app.auth.models import AuthSession, User  # noqa: F401
+from app.auth.models import AuthActionToken, AuthSession, User  # noqa: F401
 from app.core.config import settings
 from app.database.session import Base
 from app.documents.models import SourceDocument  # noqa: F401
@@ -31,6 +31,7 @@ from app.questions.models import (  # noqa: F401
     QuestionTranslation,
 )
 from app.sessions.models import FormSession  # noqa: F401
+from app.vault.models import UserProfileEntry  # noqa: F401
 
 # This is the Alembic Config object, which provides access to the
 # values within the .ini file in use.

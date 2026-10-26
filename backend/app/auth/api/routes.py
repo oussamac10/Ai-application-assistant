@@ -1,9 +1,20 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_user, verify_csrf
 from app.auth.models import User
-from app.auth.schemas import LoginRequest, RegisterRequest, UserResponse
+from app.auth.schemas import (
+    AccountDataExportResponse,
+    ActionStatusResponse,
+    LoginRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
+    RegisterRequest,
+    TokenConfirmRequest,
+    UserResponse,
+)
 from app.auth.security import generate_csrf_token
 from app.auth.services import AuthService
 from app.core.config import settings
@@ -90,6 +101,85 @@ def logout(
 @router.get("/me", response_model=UserResponse)
 def me(user: User = Depends(require_user)) -> User:
     return user
+
+
+@router.get("/me/export", response_model=AccountDataExportResponse)
+def export_me(
+    response: Response,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    response.headers["Cache-Control"] = "no-store"
+    service = AuthService(db)
+    return service.export_account_data(user)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    response: Response,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> None:
+    service = AuthService(db)
+    service.delete_account(user)
+    _clear_auth_cookies(response)
+
+
+@router.post(
+    "/verify-email/request",
+    response_model=ActionStatusResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def request_email_verification(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+    _rate_limit: None = Depends(rate_limit_auth),
+) -> Any:
+    service = AuthService(db)
+    service.request_email_verification(user)
+    return {"status": "sent"}
+
+
+@router.post("/verify-email/confirm", response_model=UserResponse)
+def confirm_email_verification(
+    body: TokenConfirmRequest,
+    db: Session = Depends(get_db),
+    _rate_limit: None = Depends(rate_limit_auth),
+) -> User:
+    service = AuthService(db)
+    return service.confirm_email_verification(body.token)
+
+
+@router.post(
+    "/password-reset/request",
+    response_model=ActionStatusResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def request_password_reset(
+    body: PasswordResetRequest,
+    db: Session = Depends(get_db),
+    _rate_limit: None = Depends(rate_limit_auth),
+) -> Any:
+    service = AuthService(db)
+    service.request_password_reset(body.email)
+    return {"status": "accepted"}
+
+
+@router.post("/password-reset/confirm", response_model=ActionStatusResponse)
+def confirm_password_reset(
+    body: PasswordResetConfirmRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    _rate_limit: None = Depends(rate_limit_auth),
+) -> Any:
+    service = AuthService(db)
+    service.confirm_password_reset(
+        body.token, body.password, body.password_confirmation
+    )
+    _clear_auth_cookies(response)
+    return {"status": "password_reset"}
 
 
 @router.post("/refresh", response_model=UserResponse)

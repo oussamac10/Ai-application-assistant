@@ -273,7 +273,12 @@ async def get_summary(
     service = _make_service(db, provider, current_user)
     fields_list = await service.get_summary(session_id, x_session_token)
     checklist = service.get_submission_checklist(session_id, x_session_token)
-    return {"fields": fields_list, "submission_checklist": checklist}
+    metadata = service.get_summary_metadata(session_id, x_session_token)
+    return {
+        "fields": fields_list,
+        "submission_checklist": checklist,
+        **metadata,
+    }
 
 
 @router.post("/form-sessions/{session_id}/confirm-summary")

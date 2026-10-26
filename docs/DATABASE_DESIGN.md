@@ -15,7 +15,7 @@
 
 ---
 
-## 2. Verified Current Schema (17 Production Tables — Migrations `0001` through `b2c3d4e5f6a7` + Phases `S0`–`S1`)
+## 2. Verified Current Schema (19 Production Tables — Migrations `0001` through `d4e5f6a7b8c9` + Phases `S0`–`S2`)
 
 | Domain | Table | Key Columns & Constraints | Lifecycle & Cascade Rules |
 | :--- | :--- | :--- | :--- |
@@ -33,8 +33,10 @@
 | **Detection** | `field_detection_results` | `id` (PK), `document_id` (FK CASCADE), `provider` (`local` \| `azure` \| `hybrid` \| `mock`), `model_id`, `prompt_version`, `status`, `source_kind`, `detected_language`, `quality_score`, `escalated`, `review_metadata` (JSON) | Aggregate field-detection run metadata and deterministic quality routing scores. |
 | **Detection** | `detected_fields` | `id` (PK), `detection_result_id` (FK CASCADE), `field_key`, `label`, `field_type`, `page_number`, `bounding_box` (JSON `{x, y, width, height}`), `required` (bool), `required_state`, `confidence`, `source`, `options` (JSON), `configuration` (JSON), `review_state` | Normalized detected fields bridged into a `FormVersion` (`origin = 'dynamic_detection'`). |
 | **Detection** | `provider_usage_records` | `id` (PK), `operation` (`field_detection` \| `translation` \| `ai_extraction`), `provider`, `model_id`, `document_id` (FK SET NULL), `page_count`, `character_count`, `token_count`, `cache_hit`, `duration_ms`, `success`, `error_code`, `provider_request_id`, `estimated_cost_usd` | Zero-PII operational telemetry and cost accounting table. |
-| **Auth** | `users` | `id` (PK), `public_id` (UNIQUE UUID), `email` (UNIQUE normalized lowercase), `password_hash` (Argon2id), `role` (`user` \| `org_admin` \| `platform_admin`), `status` (`active` \| `disabled` \| `deleted`), `created_at`, `last_login_at` | Authenticated user accounts with RBAC role enforcement (`Phase S0`). |
-| **Auth** | `auth_sessions` | `id` (PK), `public_id` (UNIQUE UUID), `user_id` (FK `users.id` CASCADE), `token_hash` (UNIQUE HMAC-SHA256), `expires_at`, `revoked_at`, `last_seen_at` | Server-revocable cookie sessions with rotation on `/api/auth/refresh`. |
+| **Auth** | `users` | `id` (PK), `public_id` (UNIQUE UUID), `email` (UNIQUE normalized lowercase), `password_hash` (Argon2id), `role` (`user` \| `org_admin` \| `platform_admin`), `status` (`active` \| `disabled` \| `deleted`), `email_verified_at`, `created_at`, `last_login_at` | Authenticated user accounts with RBAC role enforcement (`Phase S0`) and email verification (`Phase S2`). |
+| **Auth** | `auth_sessions` | `id` (PK), `public_id` (UNIQUE UUID), `user_id` (FK `users.id` CASCADE), `token_hash` (UNIQUE HMAC-SHA256), `expires_at`, `revoked_at`, `last_seen_at` | Server-revocable cookie sessions with rotation on `/api/auth/refresh` and full revocation on password reset (`Phase S2`). |
+| **Auth** | `auth_action_tokens` | `id` (PK), `user_id` (FK `users.id` CASCADE, indexed), `purpose` (`verify_email` \| `reset_password`), `token_hash` (UNIQUE HMAC-SHA256), `expires_at`, `used_at`, `created_at` | Single-use hashed verification and password-reset tokens (`Phase S2-01`). |
+| **Vault** | `user_profile_entries` | `id` (PK), `user_id` (FK `users.id` CASCADE, indexed), `question_key`, `field_type`, `encrypted_payload` (Fernet ciphertext), `value_language`, `created_at`, `updated_at`, `UNIQUE(user_id, question_key)` | Fernet-encrypted reusable personal profile entries for 1-click session pre-fill (`Phase S2-02`; biometric signatures rejected). |
 | **Jobs** | `processing_jobs` | `id` (PK), `public_id` (UNIQUE UUID), `job_type`, `source_document_id` (FK `source_documents.id` CASCADE, indexed), `user_id` (FK `users.id` SET NULL, indexed), `status` (`queued` \| `running` \| `completed` \| `failed`), `stage`, `request_payload` (JSON), `result_payload` (JSON, transient tokens Fernet-encrypted), `error_code`, `created_at`, `started_at`, `completed_at`, `expires_at`, `INDEX(status, created_at)` | Durable async document preparation jobs (`Phase S1`, `202 Accepted` + `GET /api/jobs/{id}`). |
 
 ---

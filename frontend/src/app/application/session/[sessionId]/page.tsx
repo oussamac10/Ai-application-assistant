@@ -39,6 +39,8 @@ import {
 } from "@/features/form-session/utils/formatProposedValue";
 import { formatFieldLabel } from "@/features/form-session/utils/formatFieldLabel";
 import ClaimBanner from "@/features/applications/components/ClaimBanner";
+import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
+import { prefillSessionFromVault } from "@/features/profile-vault/services/vaultClient";
 
 type FlowStep =
   | "loading"
@@ -53,6 +55,7 @@ export default function GuidedSession() {
   const params = useParams();
   const sessionId = params.sessionId as string;
 
+  const auth = useSafeAuth();
   const t = useTranslations("workflow");
   const tc = useTranslations("common");
   const te = useTranslations("errors");
@@ -68,6 +71,8 @@ export default function GuidedSession() {
   const [allFieldKeys, setAllFieldKeys] = useState<string[]>([]);
   const [clarifyValues, setClarifyValues] = useState<Record<string, any>>({});
   const [showExplanation, setShowExplanation] = useState<boolean>(false);
+  const [prefilling, setPrefilling] = useState<boolean>(false);
+  const [vaultNotice, setVaultNotice] = useState<string | null>(null);
   const [pagePreviewUrls, setPagePreviewUrls] = useState<Record<number, string>>({});
   const [zoomedPreviewOpen, setZoomedPreviewOpen] = useState<boolean>(false);
   const pagePreviewUrlsRef = useRef<Record<number, string>>({});
@@ -143,7 +148,6 @@ export default function GuidedSession() {
 
       setStep("answering");
     } catch (err: any) {
-      console.error("FETCH NEXT QUESTION ERROR:", err.message, err.detail);
       setErrorMsg(te(err.message) || "Failed to retrieve next form question.");
       setStep("error");
     }
@@ -186,28 +190,15 @@ export default function GuidedSession() {
       setErrorMsg(null);
       setErrorIsFieldLevel(false);
 
-      console.log(
-        "SUBMITTING ANSWER FOR FIELD:",
-        currentField.fieldId,
-        "VALUE:",
-        inputValue,
-      );
       const response = await submitAnswer(
         sessionId,
         currentField.fieldId,
         inputValue,
       );
-      console.log(
-        "SUBMIT ANSWER RESPONSE STATUS:",
-        response.status,
-        "ID:",
-        response.id,
-      );
       setLastAnswer(response);
 
       handleAnswerTransitions(response);
     } catch (err: any) {
-      console.error("SUBMIT ANSWER ERROR:", err.message, err.detail);
       setErrorMsg(
         te(err.message) || "Failed to submit answer. Please try again.",
       );
@@ -262,19 +253,49 @@ export default function GuidedSession() {
       setStep("submitting");
       setErrorMsg(null);
 
-      console.log("CONFIRMING ANSWER ID:", lastAnswer.id);
       await confirmAnswer(sessionId, lastAnswer.id);
-      console.log("CONFIRM ANSWER SUCCESS");
 
       setStep("loading");
       await fetchNextQuestion();
     } catch (err: any) {
-      console.error("CONFIRM ANSWER ERROR:", err.message, err.detail);
       setErrorMsg(te(err.message) || "Failed to confirm values.");
       setErrorIsFieldLevel(false);
       setStep("awaiting_confirmation");
     }
   }, [lastAnswer, step, sessionId, fetchNextQuestion, te]);
+
+  const handlePrefillFromVault = async () => {
+    if (prefilling || step === "submitting") return;
+    try {
+      setPrefilling(true);
+      setErrorMsg(null);
+      const res = await prefillSessionFromVault(sessionId);
+      setVaultNotice(
+        res.prefilledCount > 0
+          ? t("prefilledCountNotice", { count: res.prefilledCount })
+          : t("prefilledEmptyNotice"),
+      );
+      await fetchNextQuestion();
+    } catch {
+      setErrorMsg(te("unavailable") || "Could not pre-fill from Profile Vault.");
+    } finally {
+      setPrefilling(false);
+    }
+  };
+
+  const handleConfirmPrefilled = async () => {
+    if (!currentField?.currentAnswerId || step === "submitting") return;
+    try {
+      setStep("submitting");
+      setErrorMsg(null);
+      await confirmAnswer(sessionId, currentField.currentAnswerId);
+      setStep("loading");
+      await fetchNextQuestion();
+    } catch (err: any) {
+      setErrorMsg(te(err.message) || "Failed to confirm pre-filled value.");
+      setStep("answering");
+    }
+  };
 
   const [signatureValue, setSignatureValue] = useState<SignatureValue | null>(
     null,
@@ -326,7 +347,6 @@ export default function GuidedSession() {
       setStep("loading");
       await fetchNextQuestion();
     } catch (err: any) {
-      console.error("SKIP ANSWER ERROR:", err.message, err.detail);
       setErrorMsg(te(err.message) || "Could not skip this question.");
       setErrorIsFieldLevel(false);
       setStep("answering");
@@ -659,6 +679,23 @@ export default function GuidedSession() {
           {/* Right Column: Active Guided Form Card */}
           <div className="lg:col-span-8 flex flex-col justify-center w-full">
             <ClaimBanner sessionId={sessionId} />
+
+            {auth?.user && (
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-indigo-200/80 bg-white px-4 py-3 shadow-2xs text-start">
+                <span className="text-xs font-medium text-slate-700">
+                  {vaultNotice || t("prefillFromVault")}
+                </span>
+                <button
+                  type="button"
+                  data-testid="prefill-from-vault-btn"
+                  disabled={prefilling || step === "submitting"}
+                  onClick={handlePrefillFromVault}
+                  className="btn-secondary shrink-0 px-3.5 py-1.5 text-xs font-semibold"
+                >
+                  {prefilling ? t("prefillingFromVault") : t("prefillFromVault")}
+                </button>
+              </div>
+            )}
 
             {/* Progress header */}
             {currentField && (
@@ -1112,6 +1149,37 @@ export default function GuidedSession() {
                           }}
                         />
                       )}
+
+                      {currentField.currentAnswerStatus ===
+                        "awaiting_confirmation" &&
+                        currentField.currentAnswerId &&
+                        inputValue === (currentField.originalAnswer || "") && (
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 text-start">
+                            <div className="space-y-0.5 min-w-0">
+                              <p className="text-xs font-semibold text-indigo-800">
+                                {t("prefilledReviewLabel")}
+                              </p>
+                              <p className="text-sm font-bold text-slate-900 break-words">
+                                <bdi>
+                                  {formatProposedValue(
+                                    currentField.normalizedValue,
+                                    currentField.outputValue,
+                                    currentField.fieldType,
+                                  ) || currentField.originalAnswer}
+                                </bdi>
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              data-testid="confirm-prefilled-btn"
+                              disabled={step === "submitting"}
+                              onClick={handleConfirmPrefilled}
+                              className="btn-primary shrink-0 px-4 py-2 text-xs font-semibold"
+                            >
+                              {t("confirmPrefilled")}
+                            </button>
+                          </div>
+                        )}
 
                       {/* Footer navigation */}
                       <div className="flex gap-3 pt-4 border-t border-slate-200">

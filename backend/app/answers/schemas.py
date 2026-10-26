@@ -79,9 +79,11 @@ class CurrentFieldResponse(BaseSchema):
     placeholder: str | None = None
     options: list[FieldOptionInfo] | None = None
     field_explanation: FieldExplanationInfo | None = None
+    current_answer_id: str | None = None
     current_answer_status: str | None = None
     original_answer: str | None = None
     normalized_value: Any = None
+    output_value: str | None = None
     all_field_keys: list[str] = []
     progress: ProgressInfo | None = None
     page_number: int | None = None
@@ -105,6 +107,7 @@ class SummaryFieldAnswer(BaseSchema):
     field_key: str
     field_type: str | None = None
     label: str
+    source_label: str | None = None
     required: bool
     requiredness: str = "unknown"
     original_answer: str | None = None
@@ -129,9 +132,21 @@ class SubmissionChecklistItem(BaseSchema):
     required: bool = True
 
 
+class ConsistencyWarningItem(BaseSchema):
+    code: str
+    severity: str = "warning"
+    field_keys: list[str]
+    message: str
+
+
 class SummaryResponse(BaseSchema):
     fields: list[SummaryFieldAnswer]
     submission_checklist: list[SubmissionChecklistItem] = []
+    consistency_warnings: list[ConsistencyWarningItem] = []
+    source_language: str | None = None
+    user_language: str | None = None
+    output_language: str | None = None
+    export_supported: bool = False
 
 
 class ReopenFieldResponse(BaseSchema):

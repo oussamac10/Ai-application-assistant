@@ -88,9 +88,17 @@ export default function LoginForm() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700">
-                {t("passwordLabel")}
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700">
+                  {t("passwordLabel")}
+                </label>
+                <Link
+                  href="/reset-password"
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  {t("forgotPasswordLink")}
+                </Link>
+              </div>
               <input
                 id="login-password"
                 type="password"

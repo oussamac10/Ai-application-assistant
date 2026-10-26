@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useAuth } from "@/features/auth/context/AuthProvider";
+import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { claimApplication } from "../services/applicationsClient";
 import {
   getSessionToken,
@@ -16,7 +16,9 @@ interface Props {
 
 export default function ClaimBanner({ sessionId }: Props) {
   const t = useTranslations("applications");
-  const { user, loading: authLoading } = useAuth();
+  const auth = useSafeAuth();
+  const user = auth?.user ?? null;
+  const authLoading = auth?.loading ?? false;
   const [claiming, setClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
   const [error, setError] = useState(false);

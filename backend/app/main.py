@@ -76,6 +76,8 @@ from app.sessions.services import (
 from app.sessions.services import (
     ValidationError as SessionValidationError,
 )
+from app.vault.api.routes import router as vault_router
+from app.vault.errors import VaultNotFoundError, VaultValidationError
 
 # Uvicorn configures only its own loggers, so without this every
 # `logging.getLogger(__name__)` call in `app/` is silently dropped — which
@@ -280,6 +282,23 @@ async def application_validation_handler(
     )
 
 
+@app.exception_handler(VaultNotFoundError)
+async def vault_not_found_handler(
+    request: Request, exc: VaultNotFoundError
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(VaultValidationError)
+async def vault_validation_handler(
+    request: Request, exc: VaultValidationError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc), "error_code": exc.error_code},
+    )
+
+
 @app.exception_handler(OCRNotFoundError)
 async def ocr_not_found_handler(
     request: Request, exc: OCRNotFoundError
@@ -453,3 +472,4 @@ app.include_router(documents_router, prefix="/api")
 app.include_router(ocr_router, prefix="/api")
 app.include_router(field_detection_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
+app.include_router(vault_router, prefix="/api")
