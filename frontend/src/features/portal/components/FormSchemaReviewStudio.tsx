@@ -1259,11 +1259,11 @@ export function FormSchemaReviewStudio({
                   required
                   value={newFieldLabel}
                   onChange={(e) => {
-                    setNewFieldLabel(e.target.value);
-                    if (!newFieldKey) {
-                      setNewFieldKey(
-                        e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "_")
-                      );
+                    const val = e.target.value;
+                    const oldSlug = newFieldLabel.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+                    setNewFieldLabel(val);
+                    if (!newFieldKey || newFieldKey === oldSlug) {
+                      setNewFieldKey(val.toLowerCase().replace(/[^a-z0-9]+/g, "_"));
                     }
                   }}
                   placeholder="e.g. Vorname / First Name"

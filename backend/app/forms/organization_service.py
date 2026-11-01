@@ -682,7 +682,22 @@ class OrganizationFormService:
             )
 
         if req.key is not None and req.key.strip():
-            field.key = slugify(req.key)
+            new_key = slugify(req.key)
+            existing = (
+                self.db.query(FormField)
+                .filter(
+                    FormField.form_version_id == field.form_version_id,
+                    FormField.key == new_key,
+                    FormField.id != field.id,
+                )
+                .first()
+            )
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Field key '{new_key}' is already used by another field in this form.",
+                )
+            field.key = new_key
         if req.field_type is not None:
             field.field_type = req.field_type
         if req.requiredness is not None:
@@ -789,9 +804,23 @@ class OrganizationFormService:
         else:
             field_pos = req.position
 
+        # Ensure key is unique within this form version (auto-deduplicate e.g. t -> t_2)
+        base_key = slugify(req.key) or "field"
+        final_key = base_key
+        existing_keys = {
+            row[0]
+            for row in self.db.query(FormField.key)
+            .filter(FormField.form_version_id == latest_version.id)
+            .all()
+        }
+        counter = 2
+        while final_key in existing_keys:
+            final_key = f"{base_key}_{counter}"
+            counter += 1
+
         field = FormField(
             form_version_id=latest_version.id,
-            key=slugify(req.key),
+            key=final_key,
             field_type=req.field_type,
             required=req.requiredness == "required"
             if req.requiredness
