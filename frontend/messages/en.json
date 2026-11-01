@@ -440,7 +440,7 @@
   "portal": {
     "title": "Agency Case Management",
     "subtitle": "Manage candidate cases, send multilingual intake invites, and review completed official forms.",
-    "newCase": "+ New Candidate Case",
+    "newCase": "New Candidate Case",
     "totalCases": "Total Cases",
     "inProgress": "In Progress",
     "awaitingReview": "Awaiting Review",
@@ -462,7 +462,7 @@
     "reviewInStudio": "Review in Studio",
     "downloadPdf": "Download PDF",
     "emptyCases": "No cases found in this workspace.",
-    "emptyCasesSub": "Click '+ New Candidate Case' to create your first candidate invite link.",
+    "emptyCasesSub": "Click 'New Candidate Case' to create your first candidate invite link.",
     "modalTitle": "Create New Candidate Case",
     "candidateNameLabel": "Candidate Full Name",
     "candidateNamePlaceholder": "e.g. Dr. Sarah Connor",

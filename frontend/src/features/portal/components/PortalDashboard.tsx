@@ -535,6 +535,9 @@ export function PortalDashboard() {
                     onClick={() => setIsNewCaseOpen(true)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[#6551f3] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#523ee8] transition-colors"
                   >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                    </svg>
                     <span>{t("newCase")}</span>
                   </button>
                 </div>

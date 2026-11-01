@@ -440,7 +440,7 @@
   "portal": {
     "title": "Gestion des dossiers d'agence",
     "subtitle": "Gérez les dossiers des candidats, envoyez des invitations multilingues et examinez les formulaires officiels remplis.",
-    "newCase": "+ Nouveau dossier candidat",
+    "newCase": "Nouveau dossier candidat",
     "totalCases": "Total des dossiers",
     "inProgress": "En cours",
     "awaitingReview": "En attente de révision",
@@ -462,7 +462,7 @@
     "reviewInStudio": "Examiner dans le Studio",
     "downloadPdf": "Télécharger le PDF",
     "emptyCases": "Aucun dossier trouvé dans cet espace de travail.",
-    "emptyCasesSub": "Cliquez sur '+ Nouveau dossier candidat' pour créer votre premier lien d'invitation.",
+    "emptyCasesSub": "Cliquez sur 'Nouveau dossier candidat' pour créer votre premier lien d'invitation.",
     "modalTitle": "Créer un nouveau dossier candidat",
     "candidateNameLabel": "Nom complet du candidat",
     "candidateNamePlaceholder": "par ex. Dr. Sarah Connor",

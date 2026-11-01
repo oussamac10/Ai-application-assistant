@@ -440,7 +440,7 @@
   "portal": {
     "title": "Gestión de casos de agencia",
     "subtitle": "Gestione los casos de los candidatos, envíe invitaciones multilingües y revise los formularios oficiales completados.",
-    "newCase": "+ Nuevo caso de candidato",
+    "newCase": "Nuevo caso de candidato",
     "totalCases": "Total de casos",
     "inProgress": "En curso",
     "awaitingReview": "Pendiente de revisión",
@@ -462,7 +462,7 @@
     "reviewInStudio": "Revisar en el Studio",
     "downloadPdf": "Descargar PDF",
     "emptyCases": "No se encontraron casos en este espacio de trabajo.",
-    "emptyCasesSub": "Haga clic en '+ Nuevo caso de candidato' para generar su primer enlace de invitación.",
+    "emptyCasesSub": "Haga clic en 'Nuevo caso de candidato' para generar su primer enlace de invitación.",
     "modalTitle": "Crear nuevo caso de candidato",
     "candidateNameLabel": "Nombre completo del candidato",
     "candidateNamePlaceholder": "p. ej. Dra. Sarah Connor",

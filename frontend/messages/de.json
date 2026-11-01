@@ -440,7 +440,7 @@
   "portal": {
     "title": "Agentur-Fallmanagement",
     "subtitle": "Bewerberfälle verwalten, mehrsprachige Einladungslinks versenden und ausgefüllte Originaldokumente prüfen.",
-    "newCase": "+ Neuer Fall",
+    "newCase": "Neuer Fall",
     "totalCases": "Gesamte Fälle",
     "inProgress": "In Bearbeitung",
     "awaitingReview": "Bereit zur Prüfung",
@@ -462,7 +462,7 @@
     "reviewInStudio": "Im Prüfstudio öffnen",
     "downloadPdf": "PDF herunterladen",
     "emptyCases": "Noch keine Fälle in diesem Arbeitsbereich.",
-    "emptyCasesSub": "Klicken Sie auf '+ Neuer Fall', um Ihren ersten Bewerber einzuladen.",
+    "emptyCasesSub": "Klicken Sie auf 'Neuer Fall', um Ihren ersten Bewerber einzuladen.",
     "modalTitle": "Neuen Bewerberfall anlegen",
     "candidateNameLabel": "Vollständiger Name des Bewerbers",
     "candidateNamePlaceholder": "z. B. Dr. Sarah Connor",

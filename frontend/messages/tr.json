@@ -440,7 +440,7 @@
   "portal": {
     "title": "Acente Dosya Yönetimi",
     "subtitle": "Aday dosyalarını yönetin, çok dilli başvuru bağlantıları gönderin ve doldurulmuş resmi belgeleri inceleyin.",
-    "newCase": "+ Yeni Aday Dosyası",
+    "newCase": "Yeni Aday Dosyası",
     "totalCases": "Toplam Dosya",
     "inProgress": "Devam Eden",
     "awaitingReview": "İnceleme Bekleyen",
@@ -462,7 +462,7 @@
     "reviewInStudio": "Stüdyoda İncele",
     "downloadPdf": "PDF İndir",
     "emptyCases": "Bu çalışma alanında henüz dosya bulunmuyor.",
-    "emptyCasesSub": "İlk aday davet bağlantınızı oluşturmak için '+ Yeni Aday Dosyası' butonuna tıklayın.",
+    "emptyCasesSub": "İlk aday davet bağlantınızı oluşturmak için 'Yeni Aday Dosyası' butonuna tıklayın.",
     "modalTitle": "Yeni Aday Dosyası Oluştur",
     "candidateNameLabel": "Adayın Tam Adı",
     "candidateNamePlaceholder": "örn. Dr. Sarah Connor",
