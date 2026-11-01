@@ -158,7 +158,7 @@ export default function Navbar() {
 
           <nav
             aria-label="Primary"
-            className="hidden lg:flex items-center gap-1 xl:gap-1.5"
+            className="hidden lg:flex items-center gap-1 xl:gap-2"
           >
             <Link
               href="/"
@@ -171,17 +171,19 @@ export default function Navbar() {
             >
               {tNav("home")}
             </Link>
-            <Link
-              href="/application"
-              aria-current={isActive("/application") ? "page" : undefined}
-              className={`inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-2.5 xl:px-3 text-xs xl:text-sm transition-colors ${
-                isActive("/application")
-                  ? "bg-indigo-50/90 font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/15"
-                  : "font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-              }`}
-            >
-              {tNav("newApplication")}
-            </Link>
+            {!user && (
+              <Link
+                href="/application"
+                aria-current={isActive("/application") ? "page" : undefined}
+                className={`inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-2.5 xl:px-3 text-xs xl:text-sm transition-colors ${
+                  isActive("/application")
+                    ? "bg-indigo-50/90 font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/15"
+                    : "font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+                }`}
+              >
+                {tNav("newApplication")}
+              </Link>
+            )}
             <Link
               href="/pricing"
               aria-current={isActive("/pricing") ? "page" : undefined}
@@ -204,41 +206,14 @@ export default function Navbar() {
             >
               Public Portals
             </Link>
-            <Link
-              href="/portal"
-              aria-current={isActive("/portal") ? "page" : undefined}
-              className={`inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-2.5 xl:px-3 text-xs xl:text-sm transition-colors ${
-                isActive("/portal")
-                  ? "bg-indigo-50/90 font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/15"
-                  : "font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-              }`}
-            >
-              {tNav("agencyPortal")}
-            </Link>
             {user && (
               <Link
-                href="/applications"
-                aria-current={isActive("/applications") ? "page" : undefined}
-                className={`inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-2.5 xl:px-3 text-xs xl:text-sm transition-colors ${
-                  isActive("/applications")
-                    ? "bg-indigo-50/90 font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/15"
-                    : "font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-                }`}
+                href="/portal"
+                aria-current={isActive("/portal") ? "page" : undefined}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all ml-2"
               >
-                {tAuth("myApplications")}
-              </Link>
-            )}
-            {user?.role === "platform_admin" && (
-              <Link
-                href="/admin"
-                aria-current={isActive("/admin") ? "page" : undefined}
-                className={`inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-2.5 xl:px-3 text-xs xl:text-sm transition-colors ${
-                  isActive("/admin")
-                    ? "bg-amber-50 font-semibold text-amber-800 ring-1 ring-inset ring-amber-600/20"
-                    : "font-medium text-amber-700 hover:bg-amber-50/80"
-                }`}
-              >
-                {tNav("adminConsole")}
+                <span>Go to Workspace</span>
+                <span>→</span>
               </Link>
             )}
           </nav>
