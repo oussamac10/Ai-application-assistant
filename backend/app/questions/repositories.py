@@ -80,6 +80,16 @@ class QuestionRepository:
         )
         return self.db.scalars(stmt).first()
 
+    def get_translation_by_definition_and_lang(
+        self, definition_id: str, language: str
+    ) -> QuestionTranslation | None:
+        """Retrieve a translation by definition ID and language."""
+        stmt = select(QuestionTranslation).where(
+            QuestionTranslation.question_definition_id == definition_id,
+            QuestionTranslation.language == language,
+        )
+        return self.db.scalars(stmt).first()
+
     def create_definition(
         self,
         question_key: str,
@@ -87,7 +97,10 @@ class QuestionRepository:
         purpose: str = "collect_value",
         domain: str | None = None,
     ) -> QuestionDefinition:
-        """Create a new question definition."""
+        """Create a new question definition idempotently."""
+        existing = self.get_definition(question_key)
+        if existing:
+            return existing
         definition = QuestionDefinition(
             question_key=question_key,
             field_type=field_type,
@@ -112,7 +125,25 @@ class QuestionRepository:
         model: str | None = None,
         prompt_version: str | None = None,
     ) -> QuestionTranslation:
-        """Create a new question translation."""
+        """Create or update a question translation idempotently."""
+        existing = self.get_translation_by_definition_and_lang(definition_id, language)
+        if existing:
+            # If the translation is already approved, do not downgrade it to pending_review
+            if existing.review_status != "approved" or review_status == "approved":
+                existing.text = text
+                existing.help_text = help_text
+                existing.placeholder = placeholder
+                existing.source = source
+                existing.review_status = review_status
+                existing.provider = provider
+                existing.model = model
+                existing.prompt_version = prompt_version
+                if review_status == "approved":
+                    existing.approved_at = datetime.now(UTC)
+                self.db.commit()
+                self.db.refresh(existing)
+            return existing
+
         approved_at = datetime.now(UTC) if review_status == "approved" else None
         translation = QuestionTranslation(
             question_definition_id=definition_id,

@@ -942,3 +942,103 @@ def test_select_manually_choice_field_translates_option_labels_stable_values_unc
     ]
     # Stable values are exactly the original English strings — unchanged.
     assert [o["value"] for o in data["options"]] == ["housing", "education"]
+
+
+def test_create_translation_idempotency_prevents_unique_violation() -> None:
+    """Verifies that calling create_translation multiple times for the same
+    (definition, language) pair does not crash with IntegrityError.
+    """
+    db = SessionLocal()
+    try:
+        repo = QuestionRepository(db)
+        defn = repo.create_definition(
+            question_key="test.idempotent_key",
+            field_type="string",
+            purpose="collect_value",
+        )
+        # First creation as pending_review
+        t1 = repo.create_translation(
+            definition_id=defn.id,
+            language="fr",
+            text="Texte initial",
+            review_status="pending_review",
+        )
+        assert t1.text == "Texte initial"
+        assert t1.review_status == "pending_review"
+
+        # Second creation should update cleanly rather than raise UniqueConstraint error
+        t2 = repo.create_translation(
+            definition_id=defn.id,
+            language="fr",
+            text="Texte mis à jour",
+            review_status="pending_review",
+        )
+        assert t2.id == t1.id
+        assert t2.text == "Texte mis à jour"
+
+        # Mark as approved
+        repo.approve_translation(t2.id)
+
+        # Attempting to overwrite approved with pending should NOT downgrade it
+        t3 = repo.create_translation(
+            definition_id=defn.id,
+            language="fr",
+            text="Texte non approuvé",
+            review_status="pending_review",
+        )
+        assert t3.id == t1.id
+        assert t3.review_status == "approved"
+        assert t3.text == "Texte mis à jour"
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_repeated_resolve_question_does_not_conflict() -> None:
+    """Verifies that repeatedly resolving a question that requires AI translation
+    does not hit unique constraint collisions.
+    """
+    db = SessionLocal()
+    try:
+        provider = _FakeTranslatingProvider()
+        resolver = QuestionResolver(db, provider)
+
+        # First resolution generates pending AI translation
+        res1 = await resolver.resolve_question(
+            question_key="test.repeated_resolve",
+            field_type="string",
+            user_language="fr",
+            source_language="de",
+            output_language="de",
+            field_configuration={},
+            static_translations={
+                "de": {
+                    "label": "Wiederholtes Feld",
+                    "help_text": None,
+                    "placeholder": None,
+                }
+            },
+            allow_pending=True,
+        )
+        assert res1.text == "[fr] Wiederholtes Feld"
+
+        # Second resolution should seamlessly return the pending translation
+        res2 = await resolver.resolve_question(
+            question_key="test.repeated_resolve",
+            field_type="string",
+            user_language="fr",
+            source_language="de",
+            output_language="de",
+            field_configuration={},
+            static_translations={
+                "de": {
+                    "label": "Wiederholtes Feld",
+                    "help_text": None,
+                    "placeholder": None,
+                }
+            },
+            allow_pending=True,
+        )
+        assert res2.text == "[fr] Wiederholtes Feld"
+    finally:
+        db.close()

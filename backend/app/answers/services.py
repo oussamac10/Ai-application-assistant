@@ -233,6 +233,7 @@ class AnswerService:
             output_language=output_lang,
             field_configuration=field.configuration,
             static_translations=static_translations,
+            allow_pending=True,
         )
 
         label = resolved.text
