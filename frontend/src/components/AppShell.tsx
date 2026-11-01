@@ -31,8 +31,10 @@ export default function AppShell({ children }: AppShellProps) {
     );
   }
 
-  // If user is logged in, but on the public marketing landing page or legal pages
-  const isMarketingPage = PUBLIC_MARKETING_PATHS.includes(pathname || "");
+  // If user is logged in, but on the public marketing landing page, legal pages, or public citizen portals
+  const isMarketingPage =
+    PUBLIC_MARKETING_PATHS.includes(pathname || "") ||
+    Boolean(pathname?.startsWith("/organizations"));
   if (isMarketingPage) {
     return (
       <div className="flex min-h-screen flex-col bg-[#f8fafc]">

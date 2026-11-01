@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   FolderKanban,
-  Building2,
   FilePlus,
   FileCheck,
   Settings,
@@ -99,11 +98,6 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           href: "/portal",
           label: "Triage Queue & Forms",
           icon: FolderKanban,
-        },
-        {
-          href: "/organizations",
-          label: "Public Portals",
-          icon: Building2,
         },
       ],
     },
