@@ -5,7 +5,44 @@ export interface Organization {
   billing_plan: string;
   allowed_cases_per_month: number;
   role: string;
+  verification_status: string;
+  is_verified_government: boolean;
+  verification_details?: Record<string, unknown> | null;
+  description?: string | null;
+  logo_storage_path?: string | null;
+  cover_image_storage_path?: string | null;
+  office_address?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  official_website_url?: string | null;
+  supported_languages: string[];
   created_at: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  user_id: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+export interface OrganizationProfileUpdatePayload {
+  name?: string;
+  description?: string;
+  office_address?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  official_website_url?: string;
+  supported_languages?: string[];
+}
+
+export interface OrganizationVerificationPayload {
+  authority_name: string;
+  registration_id: string;
+  official_domain: string;
+  contact_person_title: string;
+  notes?: string;
 }
 
 export type CaseStatus = "invited" | "in_progress" | "awaiting_review" | "completed";

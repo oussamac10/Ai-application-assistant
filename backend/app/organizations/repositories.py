@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.organizations.models import Organization, OrganizationCase, OrganizationMember
 
@@ -43,6 +43,11 @@ class OrganizationRepository:
         self.db.flush()
         return org
 
+    def save(self, org: Organization) -> Organization:
+        self.db.add(org)
+        self.db.flush()
+        return org
+
     def add_member(
         self, organization_id: str, user_id: str, role: str = "case_manager"
     ) -> OrganizationMember:
@@ -54,6 +59,43 @@ class OrganizationRepository:
         self.db.add(member)
         self.db.flush()
         return member
+
+    def list_members(self, organization_id: str) -> list[OrganizationMember]:
+        stmt = (
+            select(OrganizationMember)
+            .options(joinedload(OrganizationMember.user))
+            .where(OrganizationMember.organization_id == organization_id)
+            .order_by(OrganizationMember.created_at.asc())
+        )
+        return list(self.db.execute(stmt).scalars().all())
+
+    def get_member(
+        self, organization_id: str, user_id: str
+    ) -> OrganizationMember | None:
+        stmt = (
+            select(OrganizationMember)
+            .options(joinedload(OrganizationMember.user))
+            .where(
+                OrganizationMember.organization_id == organization_id,
+                OrganizationMember.user_id == user_id,
+            )
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def count_owners(self, organization_id: str) -> int:
+        stmt = select(func.count(OrganizationMember.id)).where(
+            OrganizationMember.organization_id == organization_id,
+            OrganizationMember.role == "owner",
+        )
+        return int(self.db.execute(stmt).scalar() or 0)
+
+    def remove_member(self, organization_id: str, user_id: str) -> bool:
+        member = self.get_member(organization_id, user_id)
+        if member:
+            self.db.delete(member)
+            self.db.flush()
+            return True
+        return False
 
 
 class CaseRepository:

@@ -11,12 +11,32 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 
 ## Active Roadmap & Implementation Phases
 
-### Phase G1: Multi-Tenant Organization Workspaces, Branding & Government Verification
-- [x] Multi-tenancy models (`Organization`, `OrganizationMember`, `OrganizationCase`) and migrations.
-- [ ] Government status verification workflow (`unverified`, `pending_review`, `verified_official`, `rejected`).
-- [ ] Organization profile branding (official logo, cover image, office address, contact email, website).
-- [ ] Role-based access control (`Platform Super Admin`, `Org Owner`, `Org Admin`, `Form Editor`, `Viewer`, `Citizen`).
-- [ ] Organization settings dashboard in the portal.
+## Current Task
+
+**Phase G1: Multi-Tenant Organization Workspaces, Branding & Government Verification**
+
+### 7-Line Business Decision Summary
+- **Feature:** Phase G1 — Multi-Tenant Organization Workspaces, Branding & Government Verification.
+- **Customer problem:** Municipalities, immigration authorities, and public institutions cannot adopt a generic tool; they require an official, verified organizational identity (logo, verified government badge, official contact/address) and multi-staff role permissions to trust and deploy the software.
+- **Expected value:** Establishes organizational trust, unblocks enterprise/government procurement discussions, and provides the verified branding required for public portals and printable counter QR posters.
+- **Estimated development effort:** ~1.5 build days across backend schema migrations, RBAC dependency guards, branding upload endpoints, and the frontend organization settings dashboard.
+- **Operating impact:** Minimal storage increase (logos/covers stored in existing `StorageProvider`); zero AI token usage.
+- **Monetization potential:** Foundation for selling organization subscriptions (Phase G8). Unverified free accounts can explore; verified government badges require official credentials.
+- **Recommendation:** `Build now` — Essential prerequisite for Phase G2 (form ingestion/review) and Phase G3 (public portals).
+
+### Planned Steps
+- [x] 1. Create Alembic migration `a2b3c4d5e6f7_add_organization_branding_and_verification.py`.
+- [x] 2. Update `backend/app/organizations/models.py` with branding, contact, address, and verification fields.
+- [x] 3. Add Pydantic schemas in `backend/app/organizations/schemas.py` for profile updates, verification submission, and member management.
+- [x] 4. Implement service methods in `backend/app/organizations/services.py` for branding uploads, verification requests, and RBAC member management.
+- [x] 5. Wire API routes in `backend/app/organizations/api/routes.py` with strict tenant isolation and role permissions.
+- [x] 6. Add platform super admin verification review endpoints in `backend/app/admin/api/routes.py`.
+- [x] 7. Build frontend `OrganizationSettings.tsx` with Profile Branding, Government Verification, and Team Management tabs.
+- [x] 8. Integrate Organization Settings into `/portal` dashboard navigation.
+- [x] 9. Add comprehensive backend tests in `backend/tests/organizations/test_organization_settings_and_rbac.py`.
+- [x] 10. Run full quality gate (Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest) and verify.
+
+---
 
 ### Phase G2: Form Upload, Parsing & Human Schema Review Workflow
 - [ ] Publishing workflow state machine: `Draft -> Processing -> Needs Review -> Ready -> Published -> Archived`.

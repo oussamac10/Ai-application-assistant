@@ -13,6 +13,8 @@ import {
 import { Case, CaseStatus, Organization, SubscriptionInfo } from "../types";
 import { NewCaseModal } from "./NewCaseModal";
 import { InviteSuccessModal } from "./InviteSuccessModal";
+import { OrganizationSettings } from "./OrganizationSettings";
+import { CheckCircle2, FileText, Settings, ShieldCheck } from "lucide-react";
 
 export function PortalDashboard() {
   const t = useTranslations("portal");
@@ -27,6 +29,7 @@ export function PortalDashboard() {
   const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
   const [createdCaseForInvite, setCreatedCaseForInvite] = useState<Case | null>(null);
   const [copiedCaseId, setCopiedCaseId] = useState<string | null>(null);
+  const [currentTab, setCurrentTab] = useState<"cases" | "settings">("cases");
 
   const fetchWorkspace = () => {
     setLoading(true);
@@ -175,12 +178,23 @@ export function PortalDashboard() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Workspace Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-8 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               {org?.name || t("title")}
             </h1>
+            {org?.is_verified_government && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                Verified Government
+              </span>
+            )}
+            {org?.verification_status === "pending_review" && !org?.is_verified_government && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                Verification Pending
+              </span>
+            )}
             <span className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700 uppercase">
               {(subscription?.plan_key || org?.billing_plan) === "enterprise"
                 ? "Enterprise"
@@ -193,19 +207,58 @@ export function PortalDashboard() {
             {t("subtitle")}
           </p>
         </div>
-        <div>
-          <button
-            type="button"
-            onClick={() => setIsNewCaseOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-700 active:scale-[0.99] transition-all"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-            </svg>
-            {t("newCase")}
-          </button>
-        </div>
+        {currentTab === "cases" && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setIsNewCaseOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-700 active:scale-[0.99] transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              {t("newCase")}
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Workspace Navigation Tabs */}
+      <div className="flex border-b border-slate-200 mt-2 mb-6">
+        <button
+          type="button"
+          onClick={() => setCurrentTab("cases")}
+          className={`inline-flex items-center gap-2 border-b-2 py-3 px-4 text-sm font-semibold transition-colors ${
+            currentTab === "cases"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Candidate Cases
+        </button>
+        <button
+          type="button"
+          onClick={() => setCurrentTab("settings")}
+          className={`inline-flex items-center gap-2 border-b-2 py-3 px-4 text-sm font-semibold transition-colors ${
+            currentTab === "settings"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          Organization Settings & Verification
+        </button>
+      </div>
+
+      {currentTab === "settings" ? (
+        org ? (
+          <OrganizationSettings initialOrg={org} onOrgUpdated={setOrg} />
+        ) : (
+          <div className="py-12 text-center text-slate-500">No organization details found.</div>
+        )
+      ) : (
+        <>
 
       {/* Subscription & Case Quota Banner */}
       {subscription && (
@@ -440,6 +493,8 @@ export function PortalDashboard() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Modals */}
       <NewCaseModal

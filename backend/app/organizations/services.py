@@ -1,10 +1,15 @@
 import re
 import secrets
+import tempfile
+import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth.models import User
+from app.auth.repositories import UserRepository
 from app.forms.repositories import FormRepository
 from app.organizations.errors import (
     CaseNotFoundError,
@@ -18,12 +23,17 @@ from app.organizations.schemas import (
     CaseCreateRequest,
     CaseRead,
     CaseUpdateRequest,
+    OrganizationMemberInvite,
+    OrganizationMemberRead,
+    OrganizationMemberRoleUpdate,
+    OrganizationProfileUpdate,
     OrganizationRead,
+    OrganizationVerificationRequest,
 )
-from app.sessions.models import FormSession
 from app.sessions.repositories import SessionRepository
 from app.sessions.security import generate_ownership_token, hash_ownership_token
 from app.sessions.services import compute_session_progress_percentage
+from app.storage.factory import get_storage_provider
 
 SLUG_CLEAN_REGEX = re.compile(r"[^a-z0-9]+")
 
@@ -35,6 +45,7 @@ class OrganizationService:
         self.case_repo = CaseRepository(db)
         self.form_repo = FormRepository(db)
         self.session_repo = SessionRepository(db)
+        self.user_repo = UserRepository(db)
 
     def ensure_default_organization(
         self, user: User
@@ -70,17 +81,252 @@ class OrganizationService:
         BillingService(self.db).get_or_create_subscription(org.id)
         return org, member
 
-    def get_user_organization(self, user: User) -> OrganizationRead:
-        org, member = self.ensure_default_organization(user)
+    def _to_org_read(self, org: Organization, member_role: str) -> OrganizationRead:
         return OrganizationRead(
             id=org.id,
             name=org.name,
             slug=org.slug,
             billing_plan=org.billing_plan,
             allowed_cases_per_month=org.allowed_cases_per_month,
-            role=member.role,
+            role=member_role,
+            verification_status=org.verification_status,
+            is_verified_government=org.is_verified_government,
+            verification_details=org.verification_details,
+            description=org.description,
+            logo_storage_path=org.logo_storage_path,
+            cover_image_storage_path=org.cover_image_storage_path,
+            office_address=org.office_address,
+            contact_email=org.contact_email,
+            contact_phone=org.contact_phone,
+            official_website_url=org.official_website_url,
+            supported_languages=org.supported_languages or ["de", "en"],
             created_at=org.created_at,
         )
+
+    def get_user_organization(self, user: User) -> OrganizationRead:
+        org, member = self.ensure_default_organization(user)
+        return self._to_org_read(org, member.role)
+
+    def update_profile(
+        self, user: User, updates: OrganizationProfileUpdate
+    ) -> OrganizationRead:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ("owner", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization owners and administrators can edit workspace settings.",
+            )
+
+        if updates.name is not None and updates.name.strip():
+            org.name = updates.name.strip()
+        if updates.description is not None:
+            org.description = updates.description.strip() or None
+        if updates.office_address is not None:
+            org.office_address = updates.office_address.strip() or None
+        if updates.contact_email is not None:
+            org.contact_email = str(updates.contact_email).lower()
+        if updates.contact_phone is not None:
+            org.contact_phone = updates.contact_phone.strip() or None
+        if updates.official_website_url is not None:
+            org.official_website_url = updates.official_website_url.strip() or None
+        if updates.supported_languages is not None:
+            org.supported_languages = updates.supported_languages
+
+        self.org_repo.save(org)
+        self.db.commit()
+        return self._to_org_read(org, member.role)
+
+    def submit_verification(
+        self, user: User, req: OrganizationVerificationRequest
+    ) -> OrganizationRead:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ("owner", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization owners and administrators can submit verification requests.",
+            )
+
+        org.verification_status = "pending_review"
+        org.verification_details = req.model_dump()
+        self.org_repo.save(org)
+        self.db.commit()
+        return self._to_org_read(org, member.role)
+
+    def upload_branding_image(
+        self, user: User, file_bytes: bytes, filename: str, image_type: str
+    ) -> OrganizationRead:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ("owner", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization owners and administrators can upload branding assets.",
+            )
+
+        if len(file_bytes) > 5 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Image exceeds maximum size limit of 5MB.",
+            )
+
+        ext = "png"
+        lower_name = filename.lower()
+        if lower_name.endswith((".jpg", ".jpeg")):
+            ext = "jpg"
+        elif lower_name.endswith(".webp"):
+            ext = "webp"
+        elif lower_name.endswith(".svg"):
+            ext = "svg"
+
+        content_type = "image/png"
+        if ext == "jpg":
+            content_type = "image/jpeg"
+        elif ext == "webp":
+            content_type = "image/webp"
+        elif ext == "svg":
+            content_type = "image/svg+xml"
+
+        storage = get_storage_provider()
+        with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = Path(tmp.name)
+
+        try:
+            stored_filename = f"{image_type}-{uuid.uuid4().hex[:8]}.{ext}"
+            ref = storage.save_file(
+                "documents",
+                stored_filename,
+                tmp_path,
+                content_type=content_type,
+            )
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+        if image_type == "logo":
+            org.logo_storage_path = ref
+        else:
+            org.cover_image_storage_path = ref
+
+        self.org_repo.save(org)
+        self.db.commit()
+        return self._to_org_read(org, member.role)
+
+    def list_members(self, user: User) -> list[OrganizationMemberRead]:
+        org, _ = self.ensure_default_organization(user)
+        members = self.org_repo.list_members(org.id)
+        return [
+            OrganizationMemberRead(
+                id=m.id,
+                user_id=m.user_id,
+                email=m.user.email if m.user else "user@workspace",
+                role=m.role,
+                created_at=m.created_at,
+            )
+            for m in members
+        ]
+
+    def invite_member(
+        self, user: User, req: OrganizationMemberInvite
+    ) -> OrganizationMemberRead:
+        org, current_member = self.ensure_default_organization(user)
+        if current_member.role not in ("owner", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization owners and administrators can invite team members.",
+            )
+
+        norm_email = str(req.email).lower()
+        target_user = self.user_repo.get_by_normalized_email(norm_email)
+        if not target_user:
+            from app.auth.security import hash_password
+
+            temp_password = secrets.token_urlsafe(16)
+            target_user = self.user_repo.create_user(
+                email=str(req.email),
+                normalized_email=norm_email,
+                password_hash=hash_password(temp_password),
+                role="user",
+            )
+
+        existing = self.org_repo.get_member(org.id, target_user.id)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already a member of this organization workspace.",
+            )
+
+        new_member = self.org_repo.add_member(
+            organization_id=org.id,
+            user_id=target_user.id,
+            role=req.role,
+        )
+        self.db.commit()
+        return OrganizationMemberRead(
+            id=new_member.id,
+            user_id=target_user.id,
+            email=target_user.email,
+            role=new_member.role,
+            created_at=new_member.created_at,
+        )
+
+    def update_member_role(
+        self, user: User, target_user_id: str, req: OrganizationMemberRoleUpdate
+    ) -> OrganizationMemberRead:
+        org, current_member = self.ensure_default_organization(user)
+        if current_member.role not in ("owner", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization owners and administrators can change member roles.",
+            )
+
+        target_member = self.org_repo.get_member(org.id, target_user_id)
+        if not target_member:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Organization member not found.",
+            )
+
+        # Cannot demote the last owner
+        if target_member.role == "owner" and req.role != "owner":
+            if self.org_repo.count_owners(org.id) <= 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot change role of the sole organization owner. Assign another owner first.",
+                )
+
+        target_member.role = req.role
+        self.db.commit()
+        return OrganizationMemberRead(
+            id=target_member.id,
+            user_id=target_member.user_id,
+            email=target_member.user.email if target_member.user else "user@workspace",
+            role=target_member.role,
+            created_at=target_member.created_at,
+        )
+
+    def remove_member(self, user: User, target_user_id: str) -> None:
+        org, current_member = self.ensure_default_organization(user)
+        if current_member.role not in ("owner", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization owners and administrators can remove members.",
+            )
+
+        target_member = self.org_repo.get_member(org.id, target_user_id)
+        if not target_member:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Organization member not found.",
+            )
+
+        if target_member.role == "owner" and self.org_repo.count_owners(org.id) <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot remove the sole organization owner.",
+            )
+
+        self.org_repo.remove_member(org.id, target_user_id)
+        self.db.commit()
 
     def create_case(
         self,
@@ -112,7 +358,6 @@ class OrganizationService:
         raw_invite_token = generate_ownership_token()
         token_hash = hash_ownership_token(raw_invite_token)
 
-        # 4. Determine output language
         output_lang = (
             version.supported_output_languages[0]
             if version.supported_output_languages
@@ -120,9 +365,9 @@ class OrganizationService:
         )
         total_required = sum(1 for f in version.fields if f.required)
 
-        # 5. Create underlying candidate FormSession
+        # 4. Create underlying candidate FormSession
         expires_at = datetime.now(UTC) + timedelta(days=30)
-        session = self.session_repo.create_session(
+        form_session = self.session_repo.create_session(
             form_version_id=version.id,
             user_language=request.user_language,
             source_language=version.source_language,
@@ -130,110 +375,54 @@ class OrganizationService:
             total_required_fields=total_required,
             expires_at=expires_at,
             ownership_token_hash=token_hash,
-            user_id=None,  # Anonymous candidate session bound by invite token
+            user_id=None,
         )
-        session.title = f"{request.candidate_name} - {form_name}"
 
-        # 6. Create Case
         case = self.case_repo.create(
             organization_id=org.id,
             created_by_user_id=user.id,
             form_version_id=version.id,
             candidate_name=request.candidate_name,
-            candidate_email=request.candidate_email,
-            form_session_id=session.id,
+            candidate_email=str(request.candidate_email),
+            form_session_id=form_session.id,
             invite_token_hash=token_hash,
-            invite_expires_at=expires_at,
+            invite_expires_at=datetime.now(UTC) + timedelta(days=14),
             notes=request.notes,
         )
         self.db.commit()
 
-        case_dto = self._map_case_to_dto(case, session, form_name, raw_invite_token)
+        case_dto = self._enrich_case(case, version_title=form_name)
+        case_dto.invite_token = raw_invite_token
         return case_dto, raw_invite_token
 
     def list_cases(self, user: User) -> list[CaseRead]:
         org, _ = self.ensure_default_organization(user)
         cases = self.case_repo.list_by_organization(org.id)
+        return [self._enrich_case(c) for c in cases]
 
-        result: list[CaseRead] = []
-        for case in cases:
-            session = (
-                self.session_repo.get_session_by_id(case.form_session_id)
-                if case.form_session_id
-                else None
-            )
-            form_title = (
-                session.version.template.name
-                if session and session.version and session.version.template
-                else None
-            )
-            # Update case status if session is completed / awaiting final confirmation
-            if session:
-                if (
-                    session.status in ("ready_for_export", "completed")
-                    and case.status != "completed"
-                ):
-                    case.status = "completed"
-                    self.case_repo.save(case)
-                elif (
-                    session.status == "awaiting_final_confirmation"
-                    and case.status == "in_progress"
-                ):
-                    case.status = "awaiting_review"
-                    self.case_repo.save(case)
-            result.append(self._map_case_to_dto(case, session, form_title))
-        self.db.commit()
-        return result
-
-    def get_case(self, user: User, case_public_id: str) -> CaseRead:
+    def get_case(self, user: User, public_id: str) -> CaseRead:
         org, _ = self.ensure_default_organization(user)
-        case = self.case_repo.get_by_public_id(case_public_id)
+        case = self.case_repo.get_by_public_id(public_id)
         if not case or case.organization_id != org.id:
-            raise CaseNotFoundError(
-                f"Case with public ID '{case_public_id}' not found."
-            )
-
-        session = (
-            self.session_repo.get_session_by_id(case.form_session_id)
-            if case.form_session_id
-            else None
-        )
-        form_title = (
-            session.version.template.name
-            if session and session.version and session.version.template
-            else None
-        )
-        return self._map_case_to_dto(case, session, form_title)
+            raise CaseNotFoundError(f"Case with ID '{public_id}' not found.")
+        return self._enrich_case(case)
 
     def update_case(
-        self, user: User, case_public_id: str, request: CaseUpdateRequest
+        self, user: User, public_id: str, updates: CaseUpdateRequest
     ) -> CaseRead:
         org, _ = self.ensure_default_organization(user)
-        case = self.case_repo.get_by_public_id(case_public_id)
+        case = self.case_repo.get_by_public_id(public_id)
         if not case or case.organization_id != org.id:
-            raise CaseNotFoundError(
-                f"Case with public ID '{case_public_id}' not found."
-            )
+            raise CaseNotFoundError(f"Case with ID '{public_id}' not found.")
 
-        if request.status is not None:
-            case.status = request.status
-        if request.notes is not None:
-            case.notes = request.notes
+        if updates.status is not None:
+            case.status = updates.status
+        if updates.notes is not None:
+            case.notes = updates.notes
 
         self.case_repo.save(case)
         self.db.commit()
-
-        session = (
-            self.session_repo.get_session_by_id(case.form_session_id)
-            if case.form_session_id
-            else None
-        )
-        form_title = (
-            session.version.template.name
-            if session and session.version and session.version.template
-            else None
-        )
-        return self._map_case_to_dto(case, session, form_title)
+        return self._enrich_case(case)
 
     def redeem_candidate_invite(
         self, raw_token: str
@@ -244,31 +433,22 @@ class OrganizationService:
             raise InvalidInviteTokenError("Invalid or expired candidate invite link.")
 
         if case.invite_expires_at and case.invite_expires_at < datetime.now(UTC):
-            raise InvalidInviteTokenError(
-                "This candidate invite link has expired. Please contact your case manager."
-            )
+            raise InvalidInviteTokenError("This invitation link has expired.")
 
-        if not case.form_session_id:
-            raise InvalidInviteTokenError(
-                "No active form session attached to this case."
-            )
-
-        session = self.session_repo.get_session_by_id(case.form_session_id)
+        session = self.session_repo.get_session_by_id(case.form_session_id or "")
         if not session:
-            raise InvalidInviteTokenError(
-                "Form session attached to this case was not found."
-            )
+            raise InvalidInviteTokenError("Associated form session is not available.")
 
-        # Update case status to in_progress if still invited
         if case.status == "invited":
             case.status = "in_progress"
             self.case_repo.save(case)
             self.db.commit()
 
-        form_title = (
-            session.version.template.name
-            if session.version and session.version.template
-            else "Official Application"
+        version = self.form_repo.get_version(case.form_version_id)
+        title = (
+            version.template.name
+            if version and version.template
+            else "Official Administrative Form"
         )
 
         return CandidateInviteRedemptionResponse(
@@ -277,35 +457,39 @@ class OrganizationService:
             case_public_id=case.public_id,
             candidate_name=case.candidate_name,
             candidate_email=case.candidate_email,
-            form_title=form_title,
-            form_version_id=session.form_version_id,
+            form_title=title,
+            form_version_id=case.form_version_id,
             user_language=session.user_language,
             source_language=session.source_language,
             status=case.status,
         )
 
-    def _map_case_to_dto(
-        self,
-        case: OrganizationCase,
-        session: FormSession | None,
-        form_title: str | None,
-        raw_invite_token: str | None = None,
+    def _enrich_case(
+        self, case: OrganizationCase, version_title: str | None = None
     ) -> CaseRead:
+        title = version_title
+        version = None
+        if not title:
+            version = self.form_repo.get_version(case.form_version_id)
+            title = (
+                version.template.name
+                if version and version.template
+                else "Application Form"
+            )
+
+        progress = 0
         total_fields = 0
         answered_fields = 0
-        progress_percent = 0
         session_public_id = None
-
-        if session:
-            session_public_id = session.public_id
-            total_fields = len(session.version.fields) if session.version else 0
-            dealt_with = {
-                a.field_id
-                for a in session.answers
-                if a.status in ("confirmed", "skipped")
-            }
-            answered_fields = len(dealt_with)
-            progress_percent = compute_session_progress_percentage(session)
+        if case.form_session_id:
+            session = self.session_repo.get_session_by_id(case.form_session_id)
+            if session:
+                session_public_id = session.public_id
+                progress = compute_session_progress_percentage(session)
+                answered_fields = len(session.answers)
+                if not version:
+                    version = self.form_repo.get_version(case.form_version_id)
+                total_fields = len(version.fields) if version else 0
 
         return CaseRead(
             id=case.id,
@@ -315,14 +499,13 @@ class OrganizationService:
             candidate_email=case.candidate_email,
             status=case.status,
             form_version_id=case.form_version_id,
-            form_title=form_title,
+            form_title=title,
             form_session_id=case.form_session_id,
             session_public_id=session_public_id,
             notes=case.notes,
             created_at=case.created_at,
             updated_at=case.updated_at,
-            invite_token=raw_invite_token,
             total_fields=total_fields,
             answered_fields=answered_fields,
-            progress_percent=progress_percent,
+            progress_percent=progress,
         )

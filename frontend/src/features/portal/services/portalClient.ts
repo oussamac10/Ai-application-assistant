@@ -5,6 +5,9 @@ import {
   CaseCreatePayload,
   CaseUpdatePayload,
   Organization,
+  OrganizationMember,
+  OrganizationProfileUpdatePayload,
+  OrganizationVerificationPayload,
 } from "../types";
 
 export async function getCurrentOrganization(): Promise<Organization> {
@@ -18,6 +21,136 @@ export async function getCurrentOrganization(): Promise<Organization> {
     throw new Error(err.detail || "Failed to fetch organization workspace.");
   }
   return res.json();
+}
+
+export async function updateOrganizationProfile(
+  payload: OrganizationProfileUpdatePayload
+): Promise<Organization> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations/current", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update organization profile.");
+  }
+  return res.json();
+}
+
+export async function submitOrganizationVerification(
+  payload: OrganizationVerificationPayload
+): Promise<Organization> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations/current/verification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to submit verification request.");
+  }
+  return res.json();
+}
+
+export async function uploadOrganizationLogo(file: File): Promise<Organization> {
+  const csrf = getCsrfToken();
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch("/api/organizations/current/logo", {
+    method: "POST",
+    headers: {
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to upload organization logo.");
+  }
+  return res.json();
+}
+
+export async function listOrganizationMembers(): Promise<OrganizationMember[]> {
+  const res = await fetch("/api/organizations/current/members", {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to list organization members.");
+  }
+  return res.json();
+}
+
+export async function inviteOrganizationMember(
+  email: string,
+  role: string
+): Promise<OrganizationMember> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations/current/members", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify({ email, role }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to invite organization member.");
+  }
+  return res.json();
+}
+
+export async function updateMemberRole(
+  userId: string,
+  role: string
+): Promise<OrganizationMember> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/members/${userId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify({ role }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update member role.");
+  }
+  return res.json();
+}
+
+export async function removeMember(userId: string): Promise<void> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/members/${userId}`, {
+    method: "DELETE",
+    headers: {
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to remove member.");
+  }
 }
 
 export async function listCases(): Promise<Case[]> {

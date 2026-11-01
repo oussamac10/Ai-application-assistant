@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_user, verify_csrf
@@ -11,7 +11,12 @@ from app.organizations.schemas import (
     CaseCreateRequest,
     CaseRead,
     CaseUpdateRequest,
+    OrganizationMemberInvite,
+    OrganizationMemberRead,
+    OrganizationMemberRoleUpdate,
+    OrganizationProfileUpdate,
     OrganizationRead,
+    OrganizationVerificationRequest,
 )
 from app.organizations.services import OrganizationService
 
@@ -25,6 +30,111 @@ def get_current_organization(
 ) -> Any:
     service = OrganizationService(db)
     return service.get_user_organization(user)
+
+
+@router.patch("/organizations/current", response_model=OrganizationRead)
+def update_current_organization(
+    body: OrganizationProfileUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    return service.update_profile(user, body)
+
+
+@router.post("/organizations/current/verification", response_model=OrganizationRead)
+def submit_organization_verification(
+    body: OrganizationVerificationRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    return service.submit_verification(user, body)
+
+
+@router.post("/organizations/current/logo", response_model=OrganizationRead)
+async def upload_organization_logo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    file_bytes = await file.read()
+    service = OrganizationService(db)
+    return service.upload_branding_image(
+        user, file_bytes, file.filename or "logo.png", image_type="logo"
+    )
+
+
+@router.post("/organizations/current/cover", response_model=OrganizationRead)
+async def upload_organization_cover(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    file_bytes = await file.read()
+    service = OrganizationService(db)
+    return service.upload_branding_image(
+        user, file_bytes, file.filename or "cover.png", image_type="cover"
+    )
+
+
+@router.get(
+    "/organizations/current/members", response_model=list[OrganizationMemberRead]
+)
+def list_organization_members(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    service = OrganizationService(db)
+    return service.list_members(user)
+
+
+@router.post(
+    "/organizations/current/members",
+    response_model=OrganizationMemberRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def invite_organization_member(
+    body: OrganizationMemberInvite,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    return service.invite_member(user, body)
+
+
+@router.patch(
+    "/organizations/current/members/{target_user_id}",
+    response_model=OrganizationMemberRead,
+)
+def update_organization_member_role(
+    target_user_id: str,
+    body: OrganizationMemberRoleUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    return service.update_member_role(user, target_user_id, body)
+
+
+@router.delete(
+    "/organizations/current/members/{target_user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_organization_member(
+    target_user_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> None:
+    service = OrganizationService(db)
+    service.remove_member(user, target_user_id)
 
 
 @router.get("/cases", response_model=list[CaseRead])

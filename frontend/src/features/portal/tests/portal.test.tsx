@@ -33,6 +33,9 @@ const mockOrg: Organization = {
   allowed_cases_per_month: 50,
   role: "owner",
   created_at: "2026-11-01T00:00:00Z",
+  verification_status: "verified_official",
+  is_verified_government: true,
+  supported_languages: ["en", "de"],
 };
 
 const mockCases: Case[] = [

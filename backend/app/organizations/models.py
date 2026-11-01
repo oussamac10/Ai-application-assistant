@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
+    JSON,
+    Boolean,
     DateTime,
     ForeignKey,
     Integer,
@@ -16,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.session import Base
 
 if TYPE_CHECKING:
-    pass
+    from app.auth.models import User
 
 
 class Organization(Base):
@@ -38,6 +40,32 @@ class Organization(Base):
     allowed_cases_per_month: Mapped[int] = mapped_column(
         Integer, default=50, nullable=False
     )
+
+    # Government / Official Status & Verification
+    verification_status: Mapped[str] = mapped_column(
+        String(30), default="unverified", nullable=False
+    )  # unverified, pending_review, verified_official, rejected
+    is_verified_government: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    verification_details: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )
+
+    # Profile & Public Branding
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    logo_storage_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    cover_image_storage_path: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    office_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    official_website_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    supported_languages: Mapped[list[str]] = mapped_column(
+        JSON, default=lambda: ["de", "en"], nullable=False
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -81,7 +109,7 @@ class OrganizationMember(Base):
     )
     role: Mapped[str] = mapped_column(
         String(30), default="case_manager", nullable=False
-    )  # owner, admin, case_manager
+    )  # owner, admin, form_editor, viewer, case_manager
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -95,6 +123,7 @@ class OrganizationMember(Base):
     organization: Mapped["Organization"] = relationship(
         "Organization", back_populates="members"
     )
+    user: Mapped["User"] = relationship("User")
 
     __table_args__ = (
         UniqueConstraint(

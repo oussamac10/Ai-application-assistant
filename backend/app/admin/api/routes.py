@@ -2,11 +2,11 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_admin
+from app.auth.dependencies import require_admin, verify_csrf
 from app.auth.models import User
 from app.billing.models import AIUsageEvent, OrganizationSubscription
 from app.core.config import settings
@@ -68,6 +68,8 @@ def get_admin_overview(
                 "plan_key": sub.plan_key if sub else "agency_sandbox",
                 "monthly_case_limit": sub.monthly_case_limit if sub else 3,
                 "status": sub.status if sub else "active",
+                "verification_status": org.verification_status,
+                "is_verified_government": org.is_verified_government,
             }
         )
 
@@ -87,4 +89,81 @@ def get_admin_overview(
             "field_detection_provider": settings.FIELD_DETECTION_PROVIDER,
         },
         "organizations": org_list,
+    }
+
+
+@router.get("/verifications")
+def list_pending_verifications(
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """List organizations that have submitted verification requests."""
+    orgs = (
+        db.query(Organization)
+        .filter(Organization.verification_status == "pending_review")
+        .order_by(Organization.updated_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": org.id,
+            "name": org.name,
+            "slug": org.slug,
+            "verification_status": org.verification_status,
+            "verification_details": org.verification_details,
+            "contact_email": org.contact_email,
+            "official_website_url": org.official_website_url,
+            "updated_at": org.updated_at.isoformat() if org.updated_at else None,
+        }
+        for org in orgs
+    ]
+
+
+@router.post("/verifications/{organization_id}/approve")
+def approve_organization_verification(
+    organization_id: str,
+    _admin: User = Depends(require_admin),
+    _csrf: None = Depends(verify_csrf),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Approve official government verification for an organization."""
+    org = db.query(Organization).filter(Organization.id == organization_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found."
+        )
+
+    org.verification_status = "verified_official"
+    org.is_verified_government = True
+    db.commit()
+    return {
+        "status": "success",
+        "organization_id": org.id,
+        "verification_status": org.verification_status,
+        "is_verified_government": org.is_verified_government,
+    }
+
+
+@router.post("/verifications/{organization_id}/reject")
+def reject_organization_verification(
+    organization_id: str,
+    _admin: User = Depends(require_admin),
+    _csrf: None = Depends(verify_csrf),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Reject verification for an organization."""
+    org = db.query(Organization).filter(Organization.id == organization_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found."
+        )
+
+    org.verification_status = "rejected"
+    org.is_verified_government = False
+    db.commit()
+    return {
+        "status": "rejected",
+        "organization_id": org.id,
+        "verification_status": org.verification_status,
+        "is_verified_government": org.is_verified_government,
     }
