@@ -173,7 +173,9 @@ class FormService:
             field_type=field_data.field_type,
             required=required,
             requiredness=requiredness,
-            position=field_data.position,
+            position=field_data.position
+            if field_data.position is not None
+            else len(version.fields),
             configuration=field_data.configuration,
             question_key=field_data.question_key,
         )

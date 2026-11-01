@@ -95,6 +95,8 @@ export function FormSchemaReviewStudio({
 
   // New field modal state
   const [showAddField, setShowAddField] = useState(false);
+  const [addingField, setAddingField] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [newFieldKey, setNewFieldKey] = useState("");
   const [newFieldLabel, setNewFieldLabel] = useState("");
   const [newFieldType, setNewFieldType] = useState("string");
@@ -277,16 +279,25 @@ export function FormSchemaReviewStudio({
     e.preventDefault();
     if (!newFieldLabel.trim()) return;
     try {
+      setAddingField(true);
+      setModalError(null);
       const created = await addFormField(templateId, {
         key: newFieldKey.trim() || newFieldLabel.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
         label: newFieldLabel.trim(),
         fieldType: newFieldType,
         requiredness: newFieldRequired ? "required" : "optional",
+        position: fields.length,
         questionKey: newFieldQuestionKey || null,
         configuration: {
           bbox: newFieldBbox || null,
           page: newFieldPage || activePage,
         },
+        translations: [
+          {
+            language: review?.sourceLanguage || "de",
+            label: newFieldLabel.trim(),
+          },
+        ],
       });
       setFields((prev) => [...prev, created]);
       setShowAddField(false);
@@ -297,9 +308,13 @@ export function FormSchemaReviewStudio({
       setNewFieldQuestionKey("");
       setNewFieldBbox(null);
       setHighlightedFieldId(created.id);
+      setSuccessMessage(`Field "${newFieldLabel.trim()}" added to schema.`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to add new field";
+      setModalError(msg);
       setError(msg);
+    } finally {
+      setAddingField(false);
     }
   };
 
@@ -1045,6 +1060,13 @@ export function FormSchemaReviewStudio({
               </div>
             )}
 
+            {modalError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{modalError}</span>
+              </div>
+            )}
+
             <form onSubmit={handleCreateField} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1133,19 +1155,29 @@ export function FormSchemaReviewStudio({
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={addingField}
                   onClick={() => {
                     setShowAddField(false);
                     setNewFieldBbox(null);
+                    setModalError(null);
                   }}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800 font-medium"
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800 font-medium disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                  disabled={addingField || !newFieldLabel.trim()}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50"
                 >
-                  Add Field
+                  {addingField ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Adding Field...
+                    </>
+                  ) : (
+                    "Add Field"
+                  )}
                 </button>
               </div>
             </form>

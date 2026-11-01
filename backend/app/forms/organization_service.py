@@ -779,6 +779,16 @@ class OrganizationFormService:
                 status_code=status.HTTP_404_NOT_FOUND, detail="Version not found."
             )
 
+        if req.position is None:
+            max_pos = (
+                self.db.query(func.max(FormField.position))
+                .filter(FormField.form_version_id == latest_version.id)
+                .scalar()
+            )
+            field_pos = (max_pos + 1) if max_pos is not None else 0
+        else:
+            field_pos = req.position
+
         field = FormField(
             form_version_id=latest_version.id,
             key=slugify(req.key),
@@ -788,24 +798,35 @@ class OrganizationFormService:
             else req.required,
             requiredness=req.requiredness
             or ("required" if req.required else "optional"),
-            position=req.position,
+            position=field_pos,
             question_key=req.question_key.strip() if req.question_key else None,
             configuration=req.configuration or {},
         )
         self.db.add(field)
         self.db.flush()
 
-        for t_in in req.translations:
+        if req.translations:
+            for t_in in req.translations:
+                trans = FormFieldTranslation(
+                    form_field_id=field.id,
+                    language=t_in.language,
+                    label=t_in.label,
+                    help_text=t_in.help_text,
+                    placeholder=t_in.placeholder,
+                )
+                self.db.add(trans)
+        elif req.label:
             trans = FormFieldTranslation(
                 form_field_id=field.id,
-                language=t_in.language,
-                label=t_in.label,
-                help_text=t_in.help_text,
-                placeholder=t_in.placeholder,
+                language=latest_version.source_language or "de",
+                label=req.label,
+                help_text="",
+                placeholder="",
             )
             self.db.add(trans)
 
         self.db.commit()
+        self.db.refresh(field)
 
         translations = [
             TranslationSchema(

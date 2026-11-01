@@ -48,7 +48,8 @@ class FieldCreate(BaseSchema):
     # hand-authored template field.
     required: bool = True
     requiredness: str | None = None
-    position: int
+    position: int | None = None
+    label: str | None = None
     configuration: dict[str, Any] = Field(default_factory=dict)
     question_key: str | None = None
     translations: list[TranslationSchema] = Field(default_factory=list)

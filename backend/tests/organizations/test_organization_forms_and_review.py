@@ -182,6 +182,22 @@ def test_organization_form_upload_review_and_publish_flow(
     assert new_field_res.status_code == 201
     custom_field_id = new_field_res.json()["id"]
 
+    # 6b. Add another field with minimal payload (no explicit position or translations)
+    minimal_field_res = client.post(
+        f"/api/organizations/current/forms/{template_id}/fields",
+        json={
+            "key": "t",
+            "label": "test",
+            "fieldType": "string",
+            "requiredness": "optional",
+        },
+    )
+    assert minimal_field_res.status_code == 201
+    minimal_data = minimal_field_res.json()
+    assert minimal_data["key"] == "t"
+    assert minimal_data["translations"][0]["label"] == "test"
+    assert minimal_data["position"] > 0
+
     # 7. Reorder fields
     all_fids = [f["id"] for f in detail["fields"]] + [custom_field_id]
     reversed_fids = list(reversed(all_fids))
