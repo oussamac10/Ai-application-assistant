@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   ChevronDown,
+  FolderKanban,
   LogOut,
   Settings,
   ShieldCheck,
@@ -204,16 +205,6 @@ export default function Navbar() {
             >
               Public Portals
             </Link>
-            {user && (
-              <Link
-                href="/portal"
-                aria-current={isActive("/portal") ? "page" : undefined}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all ml-2"
-              >
-                <span>Go to Workspace</span>
-                <span>→</span>
-              </Link>
-            )}
           </nav>
         </div>
 
@@ -458,8 +449,17 @@ export default function Navbar() {
                         </div>
                       </div>
 
-                      {/* Management Links */}
+                      {/* Workspace & Management Links */}
                       <div className="py-1 text-start">
+                        <Link
+                          href="/portal"
+                          role="menuitem"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800 transition-colors"
+                        >
+                          <FolderKanban className="h-4 w-4 text-indigo-600 shrink-0" />
+                          <span>Workspace</span>
+                        </Link>
                         <Link
                           href="/account"
                           role="menuitem"
