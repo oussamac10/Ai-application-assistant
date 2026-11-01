@@ -415,9 +415,19 @@ def render_session_page_preview_png(
 
 
 def has_exportable_dynamic_document(db: Session, session: FormSession) -> bool:
-    """Returns True when `session` is linked to a SourceDocument in storage that has
-    at least one confirmed/usable detected field with an `input_bounding_box`.
+    """Returns True when `session` is linked to an exportable dynamic or uploaded PDF.
+    This includes:
+    1. FormVersion with source_pdf_storage_path and field bounding boxes.
+    2. Uploaded SourceDocument in storage with at least one confirmed/usable detected field.
     """
+    if session.version and session.version.source_pdf_storage_path:
+        storage_provider = storage_factory.get_storage_provider()
+        if storage_provider.exists(session.version.source_pdf_storage_path):
+            return any(
+                bool((f.configuration or {}).get("bbox"))
+                for f in session.version.fields
+            )
+
     if not session.source_document_id:
         return False
 
@@ -1023,4 +1033,125 @@ def _draw_text_in_box(
         text=text,
         multiline=multiline,
         mask_dots=mask_dots,
+    )
+
+
+def render_form_version_overlay_pdf(
+    *,
+    session: FormSession,
+    version: FormVersion,
+    answers_by_field_id: dict[str, FormAnswer],
+    output_path: Path,
+    include_unconfirmed_preview: bool = False,
+) -> PDFRenderResult:
+    """Copies `version.source_pdf_storage_path` to `output_path` and overlays answers
+    directly onto the bounding box coordinates stored in each field's configuration.
+    """
+    import fitz
+
+    storage_provider = storage_factory.get_storage_provider()
+    if not version.source_pdf_storage_path or not storage_provider.exists(
+        version.source_pdf_storage_path
+    ):
+        raise ValueError("Form template PDF file is no longer available in storage.")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with storage_provider.local_path(version.source_pdf_storage_path) as source_path:
+        shutil.copyfile(source_path, output_path)
+
+    allowed_statuses = (
+        ("confirmed", "awaiting_confirmation", "draft", PENDING_MANUAL_SIGNATURE)
+        if include_unconfirmed_preview
+        else ("confirmed", PENDING_MANUAL_SIGNATURE)
+    )
+
+    document = fitz.open(output_path)
+    try:
+        page_count = document.page_count
+        for form_field in sorted(version.fields, key=lambda f: f.position):
+            ans = answers_by_field_id.get(form_field.id)
+            if not ans or ans.status not in allowed_statuses:
+                continue
+            if include_unconfirmed_preview and ans.validation_status == "invalid":
+                continue
+
+            cfg = form_field.configuration or {}
+            bbox = cfg.get("bbox")
+            page_num = int(cfg.get("page", 1))
+            if not bbox or len(bbox) != 4:
+                continue
+
+            page_idx = page_num - 1
+            if not (0 <= page_idx < page_count):
+                continue
+
+            page = document[page_idx]
+            x0, y0, x1, y1 = (
+                float(bbox[0]),
+                float(bbox[1]),
+                float(bbox[2]),
+                float(bbox[3]),
+            )
+            x = x0
+            y = y0
+            width = max(x1 - x0, 10.0)
+            height = max(y1 - y0, 10.0)
+
+            if form_field.field_type == "signature":
+                if ans.status == PENDING_MANUAL_SIGNATURE or not ans.normalized_value:
+                    continue
+                sig_h = max(height, 28.0)
+                sig_y = max(0.0, y + height - sig_h)
+                sig_box = SignatureBox(
+                    page_number=page_num,
+                    x=x,
+                    y=sig_y,
+                    width=width,
+                    height=sig_h,
+                )
+                render_signature(page, sig_box, ans.normalized_value)
+                continue
+
+            if form_field.field_type == "boolean":
+                raw_bool: object = ans.normalized_value
+                if raw_bool is True:
+                    _draw_checkbox_mark(page, x, y, min(width, 16.0), min(height, 16.0))
+                continue
+
+            formatted_val = format_field_value(
+                field_type=form_field.field_type,
+                normalized_value=ans.normalized_value,
+                output_value=ans.output_value,
+                output_language=session.output_language,
+            )
+            formatted_val = formatted_val.strip() if formatted_val else ""
+            if not formatted_val:
+                continue
+
+            _draw_text_in_box(
+                page,
+                x=x,
+                y=y,
+                width=width,
+                height=height,
+                text=formatted_val,
+                multiline=(form_field.field_type == "textarea" or height > 36.0),
+            )
+
+        for page_idx in range(page_count):
+            pg = document[page_idx]
+            try:
+                for w in list(pg.widgets() or []):
+                    pg.delete_widget(w)
+            except Exception:
+                pass
+
+        document.saveIncr()
+    finally:
+        document.close()
+
+    return PDFRenderResult(
+        output_path=output_path,
+        file_size=output_path.stat().st_size,
+        page_count=page_count,
     )

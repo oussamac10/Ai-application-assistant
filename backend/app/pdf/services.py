@@ -16,6 +16,7 @@ from app.pdf.dynamic_overlay import (
     get_latest_completed_detection,
     has_exportable_dynamic_document,
     render_dynamic_overlay_pdf,
+    render_form_version_overlay_pdf,
 )
 from app.pdf.font_support import apply_preview_watermark
 from app.pdf.formatting import format_field_value
@@ -337,28 +338,36 @@ class PDFExportService:
         self, session: FormSession, version: FormVersion
     ) -> FormExport:
         """Creates or returns an idempotent coordinate-overlay PDF export for a
-        session backed by an uploaded SourceDocument with detected field boxes.
+        session backed by an uploaded SourceDocument with detected field boxes,
+        or an organization form template with an uploaded source PDF.
         """
-        if not session.source_document_id:
-            raise ValidationError(
-                "This session's form is not associated with an exportable PDF template.",
-                "dynamic_pdf_export_not_supported",
-            )
-        source_doc = self.db.get(SourceDocument, session.source_document_id)
-        if not source_doc:
-            raise ValidationError(
-                "This session's form is not associated with an exportable PDF template.",
-                "dynamic_pdf_export_not_supported",
-            )
-        detection = get_latest_completed_detection(self.db, source_doc.id)
-        if not detection:
-            raise ValidationError(
-                "This session's form is not associated with an exportable PDF template.",
-                "dynamic_pdf_export_not_supported",
-            )
-
-        dynamic_template_key = f"dynamic-doc-{source_doc.public_id}"
-        mapping_version = int(detection.analysis_version or 1)
+        if version.source_pdf_storage_path:
+            dynamic_template_key = f"org-form-{version.id[:8]}"
+            mapping_version = int(version.version_number or 1)
+            safe_stem = Path(version.source_pdf_storage_path).stem
+            source_doc = None
+            detection = None
+        else:
+            if not session.source_document_id:
+                raise ValidationError(
+                    "This session's form is not associated with an exportable PDF template.",
+                    "dynamic_pdf_export_not_supported",
+                )
+            source_doc = self.db.get(SourceDocument, session.source_document_id)
+            if not source_doc:
+                raise ValidationError(
+                    "This session's form is not associated with an exportable PDF template.",
+                    "dynamic_pdf_export_not_supported",
+                )
+            detection = get_latest_completed_detection(self.db, source_doc.id)
+            if not detection:
+                raise ValidationError(
+                    "This session's form is not associated with an exportable PDF template.",
+                    "dynamic_pdf_export_not_supported",
+                )
+            dynamic_template_key = f"dynamic-doc-{source_doc.public_id}"
+            mapping_version = int(detection.analysis_version or 1)
+            safe_stem = Path(source_doc.sanitized_filename or "document.pdf").stem
 
         stmt = select(FormExport).where(
             FormExport.session_id == session.id,
@@ -402,7 +411,6 @@ class PDFExportService:
         filename = f"{dynamic_template_key}-{unique_id}.pdf"
         output_path = export_dir / filename
 
-        safe_stem = Path(source_doc.sanitized_filename or "document.pdf").stem
         download_filename = (
             f"{safe_stem}-completed-{datetime.now().strftime('%Y-%m-%d')}.pdf"
         )
@@ -430,15 +438,24 @@ class PDFExportService:
         self.db.commit()
 
         try:
-            render_result = render_dynamic_overlay_pdf(
-                db=self.db,
-                session=session,
-                version=version,
-                source_doc=source_doc,
-                detection=detection,
-                answers_by_field_id=answers_by_field_id,
-                output_path=output_path,
-            )
+            if version.source_pdf_storage_path:
+                render_result = render_form_version_overlay_pdf(
+                    session=session,
+                    version=version,
+                    answers_by_field_id=answers_by_field_id,
+                    output_path=output_path,
+                )
+            else:
+                assert source_doc is not None and detection is not None
+                render_result = render_dynamic_overlay_pdf(
+                    db=self.db,
+                    session=session,
+                    version=version,
+                    source_doc=source_doc,
+                    detection=detection,
+                    answers_by_field_id=answers_by_field_id,
+                    output_path=output_path,
+                )
             checksum = self.validator.validate(output_path)
             storage_ref = storage_provider.save_file(
                 namespace="exports",
@@ -509,33 +526,46 @@ class PDFExportService:
                         "This session's form is not associated with an exportable PDF template.",
                         "dynamic_pdf_export_not_supported",
                     )
-                source_doc = (
-                    self.db.get(SourceDocument, session.source_document_id)
-                    if session.source_document_id
-                    else None
-                )
-                detection = (
-                    get_latest_completed_detection(self.db, source_doc.id)
-                    if source_doc
-                    else None
-                )
-                if not source_doc or not detection:
-                    raise ValidationError(
-                        "This session's form is not associated with an exportable PDF template.",
-                        "dynamic_pdf_export_not_supported",
+                if version.source_pdf_storage_path:
+                    render_form_version_overlay_pdf(
+                        session=session,
+                        version=version,
+                        answers_by_field_id=answers_by_field_id,
+                        output_path=preview_path,
+                        include_unconfirmed_preview=True,
                     )
-                render_dynamic_overlay_pdf(
-                    db=self.db,
-                    session=session,
-                    version=version,
-                    source_doc=source_doc,
-                    detection=detection,
-                    answers_by_field_id=answers_by_field_id,
-                    output_path=preview_path,
-                    include_unconfirmed_preview=True,
-                )
-                safe_stem = Path(source_doc.sanitized_filename or "document.pdf").stem
-                preview_name = f"{safe_stem}-preview.pdf"
+                    safe_stem = Path(version.source_pdf_storage_path).stem
+                    preview_name = f"{safe_stem}-preview.pdf"
+                else:
+                    source_doc = (
+                        self.db.get(SourceDocument, session.source_document_id)
+                        if session.source_document_id
+                        else None
+                    )
+                    detection = (
+                        get_latest_completed_detection(self.db, source_doc.id)
+                        if source_doc
+                        else None
+                    )
+                    if not source_doc or not detection:
+                        raise ValidationError(
+                            "This session's form is not associated with an exportable PDF template.",
+                            "dynamic_pdf_export_not_supported",
+                        )
+                    render_dynamic_overlay_pdf(
+                        db=self.db,
+                        session=session,
+                        version=version,
+                        source_doc=source_doc,
+                        detection=detection,
+                        answers_by_field_id=answers_by_field_id,
+                        output_path=preview_path,
+                        include_unconfirmed_preview=True,
+                    )
+                    safe_stem = Path(
+                        source_doc.sanitized_filename or "document.pdf"
+                    ).stem
+                    preview_name = f"{safe_stem}-preview.pdf"
             else:
                 pdf_template_key = version.pdf_template_key
                 try:

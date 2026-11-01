@@ -147,8 +147,10 @@ export default function SessionSummary() {
         }
       }, 60_000);
     } catch (err: unknown) {
-      const code = err instanceof Error ? err.message : "unavailable";
-      setErrorMsg(te(code) || t("previewPdfError"));
+      const code = err instanceof Error ? err.message : "previewPdfError";
+      setErrorMsg(
+        code !== "preview_failed" && te(code) ? te(code) : t("previewPdfError"),
+      );
     } finally {
       setPreviewLoading(false);
     }
@@ -173,8 +175,10 @@ export default function SessionSummary() {
       setInlinePreviewUrl(objectUrl);
       setInlinePreviewOpen(true);
     } catch (err: unknown) {
-      const code = err instanceof Error ? err.message : "unavailable";
-      setErrorMsg(te(code) || t("previewPdfError"));
+      const code = err instanceof Error ? err.message : "previewPdfError";
+      setErrorMsg(
+        code !== "preview_failed" && te(code) ? te(code) : t("previewPdfError"),
+      );
     } finally {
       setPreviewLoading(false);
     }
@@ -552,27 +556,29 @@ export default function SessionSummary() {
                 {submitting ? tc("loading") : t("submitSummary")}
               </button>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  disabled={previewLoading || submitting}
-                  onClick={handlePreviewPdf}
-                  className="btn-secondary w-full py-3 text-sm font-semibold"
-                >
-                  {previewLoading ? t("previewPdfLoading") : t("previewPdf")}
-                </button>
-                <button
-                  type="button"
-                  data-testid="toggle-inline-preview"
-                  disabled={previewLoading || submitting}
-                  onClick={handleToggleInlinePreview}
-                  className="btn-secondary w-full py-3 text-sm font-semibold"
-                >
-                  {inlinePreviewOpen
-                    ? t("hideInlinePreview")
-                    : t("showInlinePreview")}
-                </button>
-              </div>
+              {summary?.exportSupported !== false && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    disabled={previewLoading || submitting}
+                    onClick={handlePreviewPdf}
+                    className="btn-secondary w-full py-3 text-sm font-semibold"
+                  >
+                    {previewLoading ? t("previewPdfLoading") : t("previewPdf")}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="toggle-inline-preview"
+                    disabled={previewLoading || submitting}
+                    onClick={handleToggleInlinePreview}
+                    className="btn-secondary w-full py-3 text-sm font-semibold"
+                  >
+                    {inlinePreviewOpen
+                      ? t("hideInlinePreview")
+                      : t("showInlinePreview")}
+                  </button>
+                </div>
+              )}
 
               {auth?.user && (
                 <button

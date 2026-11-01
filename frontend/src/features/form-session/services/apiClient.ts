@@ -380,7 +380,14 @@ export async function fetchWatermarkedPreviewPdfBlob(
     },
   );
   if (!response.ok) {
-    throw new ApiError(response.status, "unavailable");
+    let errorCode = "preview_failed";
+    try {
+      const data = await response.json();
+      errorCode = data.error_code || data.detail || "preview_failed";
+    } catch {
+      // not json
+    }
+    throw new ApiError(response.status, errorCode);
   }
   return response.blob();
 }
