@@ -6,10 +6,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth.models import User
 from app.auth.repositories import UserRepository
+from app.forms.models import FormTemplate, FormVersion
 from app.forms.repositories import FormRepository
 from app.organizations.errors import (
     CaseNotFoundError,
@@ -29,6 +31,9 @@ from app.organizations.schemas import (
     OrganizationProfileUpdate,
     OrganizationRead,
     OrganizationVerificationRequest,
+    PublicOrganizationDetail,
+    PublicOrganizationSummary,
+    PublicPublishedFormItem,
 )
 from app.sessions.repositories import SessionRepository
 from app.sessions.security import generate_ownership_token, hash_ownership_token
@@ -603,3 +608,110 @@ class OrganizationService:
             answered_fields=answered_fields,
             progress_percent=progress,
         )
+
+    # Public Portals & Citizen Discovery (Phase G3)
+    def list_public_organizations(
+        self, search: str | None = None, organization_type: str | None = None
+    ) -> list[PublicOrganizationSummary]:
+        orgs = self.org_repo.list_public(
+            search=search, organization_type=organization_type
+        )
+        results: list[PublicOrganizationSummary] = []
+        for org in orgs:
+            stmt = (
+                select(func.count(FormTemplate.id))
+                .join(FormVersion, FormVersion.form_template_id == FormTemplate.id)
+                .where(
+                    FormTemplate.organization_id == org.id,
+                    FormVersion.status == "published",
+                )
+            )
+            count = int(self.db.execute(stmt).scalar() or 0)
+            results.append(
+                PublicOrganizationSummary(
+                    id=org.id,
+                    name=org.name,
+                    slug=org.slug,
+                    organization_type=org.organization_type,
+                    verification_status=org.verification_status,
+                    is_verified_government=org.is_verified_government,
+                    description=org.description,
+                    office_address=org.office_address,
+                    official_website_url=org.official_website_url,
+                    has_logo=bool(org.logo_storage_path),
+                    published_forms_count=count,
+                    supported_languages=org.supported_languages or ["de", "en"],
+                )
+            )
+        return results
+
+    def get_public_organization_by_slug(self, slug: str) -> PublicOrganizationDetail:
+        org = self.org_repo.get_by_slug(slug)
+        if not org:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Organization with slug '{slug}' was not found.",
+            )
+
+        stmt = (
+            select(FormTemplate, FormVersion)
+            .join(FormVersion, FormVersion.form_template_id == FormTemplate.id)
+            .where(
+                FormTemplate.organization_id == org.id,
+                FormVersion.status == "published",
+            )
+            .order_by(FormTemplate.name.asc())
+        )
+        rows = self.db.execute(stmt).all()
+        published_forms: list[PublicPublishedFormItem] = []
+        for template, version in rows:
+            fields_count = len(version.fields) if version.fields else 0
+            published_forms.append(
+                PublicPublishedFormItem(
+                    id=template.id,
+                    key=template.key,
+                    name=template.name,
+                    description=template.description,
+                    category=template.category,
+                    submission_method=template.submission_method,
+                    instructions=template.instructions,
+                    required_documents=template.required_documents or [],
+                    active_version_id=version.id,
+                    version_number=version.version_number,
+                    source_language=version.source_language,
+                    supported_output_languages=version.supported_output_languages
+                    or ["en", "de"],
+                    fields_count=fields_count,
+                    has_pdf=bool(
+                        version.source_pdf_storage_path or version.pdf_template_key
+                    ),
+                )
+            )
+
+        return PublicOrganizationDetail(
+            id=org.id,
+            name=org.name,
+            slug=org.slug,
+            organization_type=org.organization_type,
+            verification_status=org.verification_status,
+            is_verified_government=org.is_verified_government,
+            description=org.description,
+            office_address=org.office_address,
+            official_website_url=org.official_website_url,
+            has_logo=bool(org.logo_storage_path),
+            published_forms_count=len(published_forms),
+            supported_languages=org.supported_languages or ["de", "en"],
+            contact_email=org.contact_email,
+            contact_phone=org.contact_phone,
+            cover_image_storage_path=org.cover_image_storage_path,
+            published_forms=published_forms,
+        )
+
+    def get_organization_logo_bytes(self, slug: str) -> tuple[bytes, str]:
+        org = self.org_repo.get_by_slug(slug)
+        if not org:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Organization with slug '{slug}' was not found.",
+            )
+        return self.get_branding_image(org.id, "logo")

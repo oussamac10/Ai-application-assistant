@@ -199,3 +199,43 @@ export interface FormReviewUpdatePayload {
   reviewNotes?: string;
 }
 
+export interface PublicPublishedFormItem {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  category: string;
+  submission_method: string;
+  instructions?: string | null;
+  required_documents: string[];
+  active_version_id: string;
+  version_number: number;
+  source_language: string;
+  supported_output_languages: string[];
+  fields_count: number;
+  has_pdf: boolean;
+}
+
+export interface PublicOrganizationSummary {
+  id: string;
+  name: string;
+  slug: string;
+  organization_type: string;
+  verification_status: string;
+  is_verified_government: boolean;
+  description?: string | null;
+  office_address?: string | null;
+  official_website_url?: string | null;
+  has_logo: boolean;
+  published_forms_count: number;
+  supported_languages: string[];
+}
+
+export interface PublicOrganizationDetail extends PublicOrganizationSummary {
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  cover_image_storage_path?: string | null;
+  published_forms: PublicPublishedFormItem[];
+}
+
+

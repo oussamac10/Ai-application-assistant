@@ -12,6 +12,8 @@ import {
   OrganizationMember,
   OrganizationProfileUpdatePayload,
   OrganizationVerificationPayload,
+  PublicOrganizationDetail,
+  PublicOrganizationSummary,
 } from "../types";
 
 export async function getCurrentOrganization(): Promise<Organization> {
@@ -503,6 +505,41 @@ export async function archiveForm(templateId: string): Promise<FormReviewDetail>
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to archive form.");
+  }
+  return res.json();
+}
+
+// Public Citizen Discovery & Portals (Phase G3)
+export async function listPublicOrganizations(params?: {
+  search?: string;
+  type?: string;
+}): Promise<PublicOrganizationSummary[]> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.type) query.set("type", params.type);
+
+  const qs = query.toString() ? `?${query.toString()}` : "";
+  const res = await fetch(`/api/public/organizations${qs}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to fetch public organizations.");
+  }
+  return res.json();
+}
+
+export async function getPublicOrganizationBySlug(
+  slug: string
+): Promise<PublicOrganizationDetail> {
+  const res = await fetch(`/api/public/organizations/${slug}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Organization portal not found.");
   }
   return res.json();
 }

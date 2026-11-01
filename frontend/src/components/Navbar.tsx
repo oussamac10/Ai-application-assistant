@@ -194,6 +194,17 @@ export default function Navbar() {
               {tNav("pricing")}
             </Link>
             <Link
+              href="/organizations"
+              aria-current={isActive("/organizations") ? "page" : undefined}
+              className={`inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-2.5 xl:px-3 text-xs xl:text-sm transition-colors ${
+                isActive("/organizations")
+                  ? "bg-indigo-50/90 font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/15"
+                  : "font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+              }`}
+            >
+              Public Portals
+            </Link>
+            <Link
               href="/portal"
               aria-current={isActive("/portal") ? "page" : undefined}
               className={`inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-2.5 xl:px-3 text-xs xl:text-sm transition-colors ${
@@ -627,6 +638,18 @@ export default function Navbar() {
             }`}
           >
             {tNav("pricing")}
+          </Link>
+          <Link
+            href="/organizations"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-current={isActive("/organizations") ? "page" : undefined}
+            className={`block rounded-lg px-3 py-2 text-sm font-medium ${
+              isActive("/organizations")
+                ? "bg-indigo-50 font-semibold text-indigo-700"
+                : "text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            Public Portals
           </Link>
           <Link
             href="/portal"

@@ -18,6 +18,28 @@ class OrganizationRepository:
         stmt = select(Organization).where(Organization.slug == slug)
         return self.db.execute(stmt).scalar_one_or_none()
 
+    def list_public(
+        self,
+        search: str | None = None,
+        organization_type: str | None = None,
+        limit: int = 50,
+    ) -> list[Organization]:
+        stmt = select(Organization)
+        if organization_type:
+            stmt = stmt.where(Organization.organization_type == organization_type)
+        if search and search.strip():
+            term = f"%{search.strip().lower()}%"
+            stmt = stmt.where(
+                func.lower(Organization.name).like(term)
+                | func.lower(Organization.slug).like(term)
+                | func.lower(func.coalesce(Organization.office_address, "")).like(term)
+            )
+        stmt = stmt.order_by(
+            Organization.is_verified_government.desc(),
+            Organization.name.asc(),
+        ).limit(limit)
+        return list(self.db.execute(stmt).scalars().all())
+
     def get_user_membership(self, user_id: str) -> OrganizationMember | None:
         stmt = (
             select(OrganizationMember)

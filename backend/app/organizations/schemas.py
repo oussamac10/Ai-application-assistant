@@ -123,3 +123,43 @@ class OrganizationCreateRequest(BaseModel):
         default="government", pattern="^(government|business)$"
     )
     official_website_url: str | None = Field(default=None, max_length=500)
+
+
+# Public Portal & Directory Schemas (Phase G3)
+class PublicPublishedFormItem(BaseModel):
+    id: str
+    key: str
+    name: str
+    description: str | None = None
+    category: str = "general"
+    submission_method: str = "print_and_sign"
+    instructions: str | None = None
+    required_documents: list[str] = Field(default_factory=list)
+    active_version_id: str
+    version_number: int = 1
+    source_language: str = "de"
+    supported_output_languages: list[str] = Field(default_factory=list)
+    fields_count: int = 0
+    has_pdf: bool = False
+
+
+class PublicOrganizationSummary(BaseModel):
+    id: str
+    name: str
+    slug: str
+    organization_type: str = "government"
+    verification_status: str = "unverified"
+    is_verified_government: bool = False
+    description: str | None = None
+    office_address: str | None = None
+    official_website_url: str | None = None
+    has_logo: bool = False
+    published_forms_count: int = 0
+    supported_languages: list[str] = Field(default_factory=lambda: ["de", "en"])
+
+
+class PublicOrganizationDetail(PublicOrganizationSummary):
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    cover_image_storage_path: str | None = None
+    published_forms: list[PublicPublishedFormItem] = Field(default_factory=list)

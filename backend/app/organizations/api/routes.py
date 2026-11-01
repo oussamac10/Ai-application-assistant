@@ -28,6 +28,8 @@ from app.organizations.schemas import (
     OrganizationProfileUpdate,
     OrganizationRead,
     OrganizationVerificationRequest,
+    PublicOrganizationDetail,
+    PublicOrganizationSummary,
 )
 from app.organizations.services import OrganizationService
 
@@ -433,4 +435,37 @@ def get_source_pdf(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+# Public Citizen Portals & Directory Routes (Phase G3)
+@router.get("/public/organizations", response_model=list[PublicOrganizationSummary])
+def list_public_organizations(
+    search: str | None = None,
+    type: str | None = None,
+    db: Session = Depends(get_db),
+) -> Any:
+    service = OrganizationService(db)
+    return service.list_public_organizations(search=search, organization_type=type)
+
+
+@router.get("/public/organizations/{slug}", response_model=PublicOrganizationDetail)
+def get_public_organization(
+    slug: str,
+    db: Session = Depends(get_db),
+) -> Any:
+    service = OrganizationService(db)
+    return service.get_public_organization_by_slug(slug)
+
+
+@router.get("/public/organizations/{slug}/logo")
+def get_public_organization_logo(
+    slug: str,
+    db: Session = Depends(get_db),
+) -> Response:
+    service = OrganizationService(db)
+    content, media_type = service.get_organization_logo_bytes(slug)
+    return Response(
+        content=content,
+        media_type=media_type,
     )

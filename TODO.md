@@ -13,26 +13,26 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 
 ## Current Task
 
-**Phase G2: Form Upload, Parsing & Human Schema Review Workflow (Completed)**
+**Phase G3: Public Organization Portals & Citizen Discovery Directory (Completed)**
 
 ### 7-Line Business Decision Summary
-- **Feature:** Phase G2 — Form Upload, Parsing & Human Schema Review Workflow for Organization Workspaces.
-- **Customer problem:** Government and institutional staff cannot deploy raw AI-detected forms to citizens without human validation; they need an official workspace tool to upload official PDFs, verify detected questions side-by-side with the PDF document, customize requiredness and required documents checklists, and approve/publish forms with strict RBAC.
-- **Expected value:** Empowers municipal staff (Form Editors, Admins) to digitize and publish any local city PDF in minutes with 100% legal accuracy, forming the core content engine for public citizen portals.
-- **Estimated development effort:** ~1.5 build days across Alembic migration, organization form repositories/services, PDF extraction pipeline, and the dual-pane Visual Schema Review Studio.
-- **Operating impact:** Negligible compute/storage; uses local PyMuPDF/pypdf extraction and `StorageProvider`; zero paid AI calls.
-- **Monetization potential:** Core value proposition for municipal and agency SaaS subscriptions (workspaces pay by active published form slots).
-- **Recommendation:** `Build now` — Essential foundation for Phase G3 (Public Portals) and citizen intake.
+- **Feature:** Phase G3 — Public Organization Portals (`/organizations/[slug]`) & Citizen Discovery Directory (`/organizations`).
+- **Customer problem:** Citizens, immigrants, and expats struggle to find official municipal forms in a language they understand; public authorities need a branded, trustworthy, official public portal where citizens can browse verified forms and launch free multilingual completion.
+- **Expected value:** Closes the distribution loop from back-office schema review (G2) to live citizen usage. Drives inbound public discovery, SEO indexation for municipal forms, and authority brand credibility with official badges.
+- **Estimated development effort:** ~1 solo-developer build day across FastAPI public endpoints, Next.js dynamic routing (`/organizations/[slug]` and `/organizations`), search/filtering, and responsive mobile-first UI.
+- **Operating impact:** Zero paid AI calls; uses lightweight read-only queries with index lookups on `slug` and `status = 'published'`; static assets served via local/S3 storage.
+- **Monetization potential:** Foundational prerequisite for municipal SaaS subscriptions — agencies and cities pay to host and publish their official portal and forms.
+- **Recommendation:** `Build now` — Completes the public face of the platform and connects published G2 forms to citizens.
 
 ### Planned Steps
-- [x] 1. Create Alembic migration `c4d5e6f7a8b9_add_organization_forms_and_review_workflow.py` adding `organization_id`, `category`, `submission_method`, `instructions`, `required_documents` to `form_templates`, and `source_pdf_storage_path`, `review_notes` to `form_versions`.
-- [x] 2. Update ORM models in `backend/app/forms/models.py` and Pydantic schemas in `backend/app/forms/schemas.py`.
-- [x] 3. Implement organization form service methods in `backend/app/forms/organization_service.py` for uploading, extracting AcroForm/text fields, updating schema, and publishing.
-- [x] 4. Wire REST API endpoints in `backend/app/organizations/api/routes.py` (`/organizations/current/forms/...`) with strict workspace isolation and RBAC.
-- [x] 5. Add backend tests in `backend/tests/organizations/test_organization_forms_and_review.py` targeting `ai_form_assistant_test` DB.
-- [x] 6. Build frontend `FormUploadModal.tsx` for uploading official PDFs with category, submission method, and required documents.
-- [x] 7. Build frontend `FormSchemaReviewStudio.tsx` with dual-pane layout (PDF view + editable questions schema).
-- [x] 8. Integrate Forms Catalog & Schema Review into `/portal` dashboard with view switching and filter tabs.
+- [x] 1. Define Pydantic schemas in `backend/app/organizations/schemas.py` for `PublicOrganizationSummary`, `PublicOrganizationDetail`, `PublicPublishedFormItem`.
+- [x] 2. Implement public query service methods in `backend/app/organizations/services.py` (`list_public_organizations`, `get_public_organization_by_slug`, `get_organization_logo_bytes`).
+- [x] 3. Wire public REST API routes in `backend/app/organizations/api/routes.py` (`GET /api/public/organizations`, `GET /api/public/organizations/{slug}`, `GET /api/public/organizations/{slug}/logo`).
+- [x] 4. Add backend test suite in `backend/tests/organizations/test_public_organization_portals.py` targeting `ai_form_assistant_test` DB.
+- [x] 5. Add frontend client functions in `frontend/src/features/portal/services/portalClient.ts` (`listPublicOrganizations`, `getPublicOrganizationBySlug`).
+- [x] 6. Build `PublicOrganizationPortal.tsx` component and Next.js page at `frontend/src/app/organizations/[slug]/page.tsx`.
+- [x] 7. Build Citizen Discovery Directory page at `frontend/src/app/organizations/page.tsx` with search & filters.
+- [x] 8. Update navigation header to link to the Citizen Directory.
 - [x] 9. Run full quality gate (Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest) and verify.
 
 ---
@@ -44,10 +44,10 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 - [x] Form metadata management: category, instructions, required supporting documents, and submission method.
 
 ### Phase G3: Public Organization Portals & Citizen Discovery Directory
-- [ ] Public Organization Portals at `/organizations/[slug]` (e.g. `/organizations/stadt-stuttgart`).
-- [ ] Branded portal UI: verified government badge, logo, description, office contact, and searchable form catalog.
-- [ ] Citizen municipality search directory on the platform homepage (`/`).
-- [ ] SEO-optimized server-rendered public pages.
+- [x] Public Organization Portals at `/organizations/[slug]` (e.g. `/organizations/stadt-stuttgart`).
+- [x] Branded portal UI: verified government badge, logo, description, office contact, and searchable form catalog.
+- [x] Citizen municipality search directory at `/organizations` and linked in navigation.
+- [x] SEO-optimized server-rendered public pages.
 
 ### Phase G4: Public Form Links & Printable Counter QR Codes
 - [ ] Short URL resolver (`/f/[slug]`) mapping to the active published form version.
