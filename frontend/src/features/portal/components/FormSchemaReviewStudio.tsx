@@ -106,14 +106,26 @@ export function FormSchemaReviewStudio({
   // Visual PDF inspection and placement states
   const [activePage, setActivePage] = useState(1);
   const [highlightedFieldId, setHighlightedFieldId] = useState<string | null>(null);
-  const [isPlacingMode, setIsPlacingMode] = useState(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
-  const [dragCurrent, setDragCurrent] = useState<{ x: number; y: number } | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [newFieldBbox, setNewFieldBbox] = useState<[number, number, number, number] | null>(null);
   const [newFieldPage, setNewFieldPage] = useState<number>(1);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const pdfImgRef = useRef<HTMLImageElement>(null);
+
+  // Active interaction: drawing a new box, moving an existing box, or resizing an existing box
+  type InteractionType = "draw" | "move" | "resize";
+  type ResizeHandle = "nw" | "ne" | "se" | "sw" | "e" | "s";
+
+  const [interaction, setInteraction] = useState<{
+    type: InteractionType;
+    fieldId?: string;
+    handle?: ResizeHandle;
+    initialBbox?: [number, number, number, number];
+    startClientX: number;
+    startClientY: number;
+    currentClientX: number;
+    currentClientY: number;
+  } | null>(null);
 
   const loadReview = React.useCallback(async () => {
     try {
@@ -224,55 +236,158 @@ export function FormSchemaReviewStudio({
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isPlacingMode || !pdfImgRef.current) return;
-    const rect = pdfImgRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setDragStart({ x, y });
-    setDragCurrent({ x, y });
-  };
+  // Window-level listener for live dragging (moving existing box, resizing, or drawing new box)
+  useEffect(() => {
+    if (!interaction) return;
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isPlacingMode || !dragStart || !pdfImgRef.current) return;
-    const rect = pdfImgRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-    const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
-    setDragCurrent({ x, y });
-  };
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (!pdfImgRef.current || !review) return;
+      const rect = pdfImgRef.current.getBoundingClientRect();
+      const curPageDims = review.pageDimensions?.find((p) => p.page === activePage) || {
+        width: 595,
+        height: 842,
+      };
+      const scaleX = curPageDims.width / rect.width;
+      const scaleY = curPageDims.height / rect.height;
 
-  const handleMouseUp = () => {
-    if (!isPlacingMode || !dragStart || !dragCurrent || !pdfImgRef.current) return;
-    const rect = pdfImgRef.current.getBoundingClientRect();
-    const imgW = rect.width;
-    const imgH = rect.height;
+      const deltaXPt = (e.clientX - interaction.startClientX) * scaleX;
+      const deltaYPt = (e.clientY - interaction.startClientY) * scaleY;
 
-    let dispX0 = Math.min(dragStart.x, dragCurrent.x);
-    let dispY0 = Math.min(dragStart.y, dragCurrent.y);
-    let dispX1 = Math.max(dragStart.x, dragCurrent.x);
-    let dispY1 = Math.max(dragStart.y, dragCurrent.y);
+      if (interaction.type === "draw") {
+        setInteraction((prev) =>
+          prev ? { ...prev, currentClientX: e.clientX, currentClientY: e.clientY } : null
+        );
+      } else if (interaction.type === "move" && interaction.fieldId && interaction.initialBbox) {
+        const [x0, y0, x1, y1] = interaction.initialBbox;
+        const w = x1 - x0;
+        const h = y1 - y0;
+        const newX0 = Math.max(0, Math.min(curPageDims.width - w, x0 + deltaXPt));
+        const newY0 = Math.max(0, Math.min(curPageDims.height - h, y0 + deltaYPt));
+        const newBbox: [number, number, number, number] = [
+          Math.round(newX0 * 10) / 10,
+          Math.round(newY0 * 10) / 10,
+          Math.round((newX0 + w) * 10) / 10,
+          Math.round((newY0 + h) * 10) / 10,
+        ];
+        handleFieldChange(interaction.fieldId, {
+          configuration: {
+            ...(fields.find((f) => f.id === interaction.fieldId)?.configuration || {}),
+            page: activePage,
+            bbox: newBbox,
+          },
+        });
+      } else if (interaction.type === "resize" && interaction.fieldId && interaction.initialBbox) {
+        const [x0, y0, x1, y1] = interaction.initialBbox;
+        let newX0 = x0;
+        let newY0 = y0;
+        let newX1 = x1;
+        let newY1 = y1;
 
-    // If single click (less than 10px), provide a standard fillable box
-    if (Math.abs(dispX1 - dispX0) < 10 && Math.abs(dispY1 - dispY0) < 10) {
-      dispX1 = Math.min(imgW - 10, dispX0 + Math.min(320, imgW * 0.7));
-      dispY1 = dispY0 + 26;
-    }
+        if (interaction.handle === "se" || interaction.handle === "e") {
+          newX1 = Math.max(x0 + 20, Math.min(curPageDims.width, x1 + deltaXPt));
+        }
+        if (interaction.handle === "se" || interaction.handle === "s") {
+          newY1 = Math.max(y0 + 10, Math.min(curPageDims.height, y1 + deltaYPt));
+        }
+        if (interaction.handle === "nw") {
+          newX0 = Math.max(0, Math.min(x1 - 20, x0 + deltaXPt));
+          newY0 = Math.max(0, Math.min(y1 - 10, y0 + deltaYPt));
+        }
+        if (interaction.handle === "ne") {
+          newX1 = Math.max(x0 + 20, Math.min(curPageDims.width, x1 + deltaXPt));
+          newY0 = Math.max(0, Math.min(y1 - 10, y0 + deltaYPt));
+        }
+        if (interaction.handle === "sw") {
+          newX0 = Math.max(0, Math.min(x1 - 20, x0 + deltaXPt));
+          newY1 = Math.max(y0 + 10, Math.min(curPageDims.height, y1 + deltaYPt));
+        }
 
-    const curPageDims = review?.pageDimensions?.find((p) => p.page === activePage) || {
-      width: 595,
-      height: 842,
+        const newBbox: [number, number, number, number] = [
+          Math.round(newX0 * 10) / 10,
+          Math.round(newY0 * 10) / 10,
+          Math.round(newX1 * 10) / 10,
+          Math.round(newY1 * 10) / 10,
+        ];
+        handleFieldChange(interaction.fieldId, {
+          configuration: {
+            ...(fields.find((f) => f.id === interaction.fieldId)?.configuration || {}),
+            page: activePage,
+            bbox: newBbox,
+          },
+        });
+      }
     };
-    const pdfX0 = Math.round((dispX0 / imgW) * curPageDims.width);
-    const pdfY0 = Math.round((dispY0 / imgH) * curPageDims.height);
-    const pdfX1 = Math.round((dispX1 / imgW) * curPageDims.width);
-    const pdfY1 = Math.round((dispY1 / imgH) * curPageDims.height);
 
-    setNewFieldBbox([pdfX0, pdfY0, pdfX1, pdfY1]);
-    setNewFieldPage(activePage);
-    setDragStart(null);
-    setDragCurrent(null);
-    setIsPlacingMode(false);
-    setShowAddField(true);
+    const handleWindowMouseUp = (e: MouseEvent) => {
+      if (!pdfImgRef.current || !review) {
+        setInteraction(null);
+        return;
+      }
+      const rect = pdfImgRef.current.getBoundingClientRect();
+      const curPageDims = review.pageDimensions?.find((p) => p.page === activePage) || {
+        width: 595,
+        height: 842,
+      };
+      const scaleX = curPageDims.width / rect.width;
+      const scaleY = curPageDims.height / rect.height;
+
+      if (interaction.type === "draw") {
+        const dispX0 = Math.min(interaction.startClientX, e.clientX) - rect.left;
+        const dispY0 = Math.min(interaction.startClientY, e.clientY) - rect.top;
+        const dispX1 = Math.max(interaction.startClientX, e.clientX) - rect.left;
+        const dispY1 = Math.max(interaction.startClientY, e.clientY) - rect.top;
+
+        const widthPx = dispX1 - dispX0;
+        const heightPx = dispY1 - dispY0;
+
+        if (widthPx > 15 && heightPx > 10) {
+          const ptX0 = Math.round(Math.max(0, dispX0 * scaleX) * 10) / 10;
+          const ptY0 = Math.round(Math.max(0, dispY0 * scaleY) * 10) / 10;
+          const ptX1 = Math.round(Math.min(curPageDims.width, dispX1 * scaleX) * 10) / 10;
+          const ptY1 = Math.round(Math.min(curPageDims.height, dispY1 * scaleY) * 10) / 10;
+
+          setNewFieldBbox([ptX0, ptY0, ptX1, ptY1]);
+          setNewFieldPage(activePage);
+          setShowAddField(true);
+        }
+      } else if (
+        (interaction.type === "move" || interaction.type === "resize") &&
+        interaction.fieldId
+      ) {
+        const f = fields.find((f) => f.id === interaction.fieldId);
+        if (f && f.configuration) {
+          updateFormField(templateId, f.id, {
+            key: f.key,
+            fieldType: f.fieldType,
+            requiredness: f.requiredness,
+            questionKey: f.questionKey || null,
+            configuration: f.configuration,
+          }).catch((err) => {
+            console.error("Failed to auto-save field coordinates:", err);
+          });
+        }
+      }
+      setInteraction(null);
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+    };
+  }, [interaction, activePage, fields, review, templateId]);
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!canEdit) return;
+    setInteraction({
+      type: "draw",
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      currentClientX: e.clientX,
+      currentClientY: e.clientY,
+    });
   };
 
   const handleCreateField = async (e: React.FormEvent) => {
@@ -517,26 +632,11 @@ export function FormSchemaReviewStudio({
               </div>
             </div>
 
-            {/* Middle: Place Field on PDF */}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPlacingMode(!isPlacingMode);
-                  setDragStart(null);
-                  setDragCurrent(null);
-                }}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  isPlacingMode
-                    ? "bg-[#6551f3] text-white shadow-md ring-2 ring-indigo-400"
-                    : "bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600"
-                }`}
-                title="Click and drag on the PDF to place an input box"
-              >
-                <Crosshair className="w-3.5 h-3.5" />
-                <span>{isPlacingMode ? "Drawing Active (Click PDF)" : "+ Place Field on PDF"}</span>
-              </button>
-            )}
+            {/* Middle: Canvas interaction hint */}
+            <div className="hidden lg:flex items-center gap-2 text-xs text-slate-300 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Canvas Ready: Drag empty space to create • Drag boxes to move or resize</span>
+            </div>
 
             {/* Right: Zoom & Open PDF */}
             <div className="flex items-center gap-2">
@@ -571,44 +671,19 @@ export function FormSchemaReviewStudio({
             </div>
           </div>
 
-          {/* Interactive Mode Guidance Banner */}
-          {isPlacingMode && (
-            <div className="px-4 py-1.5 bg-[#6551f3] text-white text-[11px] font-semibold flex items-center justify-between shrink-0 shadow-inner">
-              <span className="flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 animate-pulse" />
-                Click and drag directly over any missing input box on the PDF below.
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPlacingMode(false);
-                  setDragStart(null);
-                  setDragCurrent(null);
-                }}
-                className="underline hover:no-underline text-[10px] font-bold"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-
           {/* Canvas Viewport */}
           <div
             ref={pdfContainerRef}
-            className="flex-1 overflow-auto p-4 flex items-start justify-center bg-slate-900"
+            className="flex-1 overflow-auto p-4 flex items-start justify-center bg-slate-900 select-none"
           >
             <div
-              className={`relative bg-white rounded shadow-2xl transition-transform origin-top ${
-                isPlacingMode ? "cursor-crosshair ring-2 ring-[#6551f3]" : "cursor-default"
-              }`}
+              className="relative bg-white rounded shadow-2xl transition-transform origin-top cursor-crosshair select-none"
               style={{
                 transform: `scale(${zoomScale})`,
                 width: "100%",
                 maxWidth: "600px",
               }}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
+              onMouseDown={handleCanvasMouseDown}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -641,17 +716,31 @@ export function FormSchemaReviewStudio({
                   const widthPct = ((bbox[2] - bbox[0]) / curPageDims.width) * 100;
                   const heightPct = ((bbox[3] - bbox[1]) / curPageDims.height) * 100;
                   const isHighlighted = highlightedFieldId === field.id;
+                  const isCurrentlyMoving =
+                    interaction?.type === "move" && interaction?.fieldId === field.id;
                   const primaryLabel = field.translations?.[0]?.label || field.key;
 
                   return (
                     <div
                       key={field.id}
-                      onClick={(e) => {
+                      onMouseDown={(e) => {
+                        if (!canEdit) return;
                         e.stopPropagation();
                         setHighlightedFieldId(field.id);
                         document
                           .getElementById(`field-card-${field.id}`)
                           ?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+                        const initial = [...bbox] as [number, number, number, number];
+                        setInteraction({
+                          type: "move",
+                          fieldId: field.id,
+                          initialBbox: initial,
+                          startClientX: e.clientX,
+                          startClientY: e.clientY,
+                          currentClientX: e.clientX,
+                          currentClientY: e.clientY,
+                        });
                       }}
                       style={{
                         top: `${topPct}%`,
@@ -659,15 +748,17 @@ export function FormSchemaReviewStudio({
                         width: `${widthPct}%`,
                         height: `${heightPct}%`,
                       }}
-                      className={`absolute rounded border-2 transition-all cursor-pointer flex items-start p-0.5 group ${
-                        isHighlighted
-                          ? "border-[#6551f3] bg-[#6551f3]/25 shadow-[0_0_0_3px_rgba(101,81,243,0.35)] z-20"
-                          : "border-indigo-500/80 bg-indigo-500/15 hover:border-indigo-600 hover:bg-indigo-500/25 z-10"
+                      className={`absolute rounded border-2 transition-colors flex items-start p-0.5 group select-none ${
+                        isCurrentlyMoving
+                          ? "border-[#6551f3] bg-[#6551f3]/35 shadow-lg z-30 cursor-grabbing"
+                          : isHighlighted
+                          ? "border-[#6551f3] bg-[#6551f3]/25 shadow-[0_0_0_3px_rgba(101,81,243,0.35)] z-20 cursor-grab"
+                          : "border-indigo-500/80 bg-indigo-500/15 hover:border-indigo-600 hover:bg-indigo-500/25 z-10 cursor-grab"
                       }`}
-                      title={`[${idx + 1}] ${primaryLabel} (Click to inspect in editor)`}
+                      title={`[${idx + 1}] ${primaryLabel} (Drag to move, use handles to resize)`}
                     >
                       <span
-                        className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-[130px] leading-tight ${
+                        className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-[130px] leading-tight select-none pointer-events-none ${
                           isHighlighted
                             ? "bg-[#6551f3] text-white"
                             : "bg-indigo-900/80 text-white group-hover:bg-indigo-600"
@@ -675,26 +766,154 @@ export function FormSchemaReviewStudio({
                       >
                         [{idx + 1}] {primaryLabel}
                       </span>
+
+                      {/* Resize handles shown when field is highlighted */}
+                      {isHighlighted && canEdit && (
+                        <>
+                          {/* Bottom-right handle */}
+                          <div
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              const initial = [...bbox] as [number, number, number, number];
+                              setInteraction({
+                                type: "resize",
+                                fieldId: field.id,
+                                handle: "se",
+                                initialBbox: initial,
+                                startClientX: e.clientX,
+                                startClientY: e.clientY,
+                                currentClientX: e.clientX,
+                                currentClientY: e.clientY,
+                              });
+                            }}
+                            className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-se-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            title="Drag to resize width and height"
+                          />
+                          {/* Right edge handle */}
+                          <div
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              const initial = [...bbox] as [number, number, number, number];
+                              setInteraction({
+                                type: "resize",
+                                fieldId: field.id,
+                                handle: "e",
+                                initialBbox: initial,
+                                startClientX: e.clientX,
+                                startClientY: e.clientY,
+                                currentClientX: e.clientX,
+                                currentClientY: e.clientY,
+                              });
+                            }}
+                            className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-2 h-4 bg-white border-2 border-[#6551f3] rounded-xs cursor-ew-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            title="Drag to adjust width"
+                          />
+                          {/* Bottom edge handle */}
+                          <div
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              const initial = [...bbox] as [number, number, number, number];
+                              setInteraction({
+                                type: "resize",
+                                fieldId: field.id,
+                                handle: "s",
+                                initialBbox: initial,
+                                startClientX: e.clientX,
+                                startClientY: e.clientY,
+                                currentClientX: e.clientX,
+                                currentClientY: e.clientY,
+                              });
+                            }}
+                            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border-2 border-[#6551f3] rounded-xs cursor-ns-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            title="Drag to adjust height"
+                          />
+                          {/* Top-left handle */}
+                          <div
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              const initial = [...bbox] as [number, number, number, number];
+                              setInteraction({
+                                type: "resize",
+                                fieldId: field.id,
+                                handle: "nw",
+                                initialBbox: initial,
+                                startClientX: e.clientX,
+                                startClientY: e.clientY,
+                                currentClientX: e.clientX,
+                                currentClientY: e.clientY,
+                              });
+                            }}
+                            className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-nw-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            title="Drag to resize"
+                          />
+                          {/* Top-right handle */}
+                          <div
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              const initial = [...bbox] as [number, number, number, number];
+                              setInteraction({
+                                type: "resize",
+                                fieldId: field.id,
+                                handle: "ne",
+                                initialBbox: initial,
+                                startClientX: e.clientX,
+                                startClientY: e.clientY,
+                                currentClientX: e.clientX,
+                                currentClientY: e.clientY,
+                              });
+                            }}
+                            className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-ne-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            title="Drag to resize"
+                          />
+                          {/* Bottom-left handle */}
+                          <div
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              const initial = [...bbox] as [number, number, number, number];
+                              setInteraction({
+                                type: "resize",
+                                fieldId: field.id,
+                                handle: "sw",
+                                initialBbox: initial,
+                                startClientX: e.clientX,
+                                startClientY: e.clientY,
+                                currentClientX: e.clientX,
+                                currentClientY: e.clientY,
+                              });
+                            }}
+                            className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-sw-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            title="Drag to resize"
+                          />
+                        </>
+                      )}
                     </div>
                   );
                 })}
 
               {/* Active Drawing Dragging Box Indicator */}
-              {isPlacingMode && dragStart && dragCurrent && (
-                <div
-                  style={{
-                    top: `${Math.min(dragStart.y, dragCurrent.y)}px`,
-                    left: `${Math.min(dragStart.x, dragCurrent.x)}px`,
-                    width: `${Math.abs(dragCurrent.x - dragStart.x)}px`,
-                    height: `${Math.abs(dragCurrent.y - dragStart.y)}px`,
-                  }}
-                  className="absolute border-2 border-dashed border-[#6551f3] bg-[#6551f3]/25 pointer-events-none z-30 flex items-center justify-center"
-                >
-                  <span className="bg-[#6551f3] text-white text-[9px] font-mono font-bold px-1 py-0.5 rounded shadow">
-                    Placing New Input Box
-                  </span>
-                </div>
-              )}
+              {interaction?.type === "draw" && pdfImgRef.current && (() => {
+                const rect = pdfImgRef.current.getBoundingClientRect();
+                const leftPx = Math.min(interaction.startClientX, interaction.currentClientX) - rect.left;
+                const topPx = Math.min(interaction.startClientY, interaction.currentClientY) - rect.top;
+                const widthPx = Math.abs(interaction.currentClientX - interaction.startClientX);
+                const heightPx = Math.abs(interaction.currentClientY - interaction.startClientY);
+
+                return (
+                  <div
+                    style={{
+                      top: `${topPx}px`,
+                      left: `${leftPx}px`,
+                      width: `${widthPx}px`,
+                      height: `${heightPx}px`,
+                    }}
+                    className="absolute border-2 border-dashed border-[#6551f3] bg-[#6551f3]/25 pointer-events-none z-30 flex items-center justify-center"
+                  >
+                    <span className="bg-[#6551f3] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
+                      New Input Box
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
