@@ -8,7 +8,6 @@ import {
   Briefcase,
   Building2,
   CheckCircle2,
-  ExternalLink,
   Landmark,
   Plus,
   ShieldCheck,
@@ -440,18 +439,6 @@ export default function AccountSettingsPage() {
             )}
           </p>
         </div>
-
-        {org && (
-          <div className="shrink-0 self-start sm:self-center">
-            <Link
-              href="/portal"
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 whitespace-nowrap active:scale-[0.99] transition-all"
-            >
-              <span>Open Form Portal</span>
-              <ExternalLink className="w-4 h-4 shrink-0" />
-            </Link>
-          </div>
-        )}
       </header>
 
       {/* Tabs Switcher for Organization Accounts */}

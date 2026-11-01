@@ -25,7 +25,6 @@ import { FormSchemaReviewStudio } from "./FormSchemaReviewStudio";
 import {
   CheckCircle2,
   FileText,
-  Settings,
   ShieldCheck,
   UploadCloud,
   Layers,
@@ -282,13 +281,6 @@ export function PortalDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <Link
-            href="/account"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
-          >
-            <Settings className="w-3.5 h-3.5 text-slate-500" />
-            <span>Workspace Settings</span>
-          </Link>
           {activeTab === "cases" ? (
             <button
               type="button"
@@ -592,23 +584,38 @@ export function PortalDashboard() {
       {/* TAB 2: FORMS & HUMAN SCHEMA REVIEW STUDIO */}
       {activeTab === "forms" && (
         <div className="mt-6 space-y-6">
-          {/* Header Card */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Official Agency Forms & Question Catalog
-              </h2>
-              <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-                Upload official blank PDF documents from your municipality or institution. AcroForm widgets are extracted automatically and paired with the Dual-Pane Verification Studio so your team can verify question keys, vault pre-fills, and publish directly to citizens.
-              </p>
+          {/* Forms Metric Cards */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs">
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Total Official Forms
+              </div>
+              <div className="mt-2 text-3xl font-extrabold text-slate-900">{forms.length}</div>
             </div>
-            <button
-              onClick={() => setIsUploadFormOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs shrink-0 transition-all"
-            >
-              <UploadCloud className="w-4 h-4" />
-              Upload & Ingest Form
-            </button>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5 shadow-2xs">
+              <div className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">
+                Live in Portal
+              </div>
+              <div className="mt-2 text-3xl font-extrabold text-emerald-900">
+                {forms.filter((f) => f.status === "published").length}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-5 shadow-2xs">
+              <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider">
+                Needs Review
+              </div>
+              <div className="mt-2 text-3xl font-extrabold text-amber-900">
+                {formsNeedingReviewCount}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5 shadow-2xs">
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Archived
+              </div>
+              <div className="mt-2 text-3xl font-extrabold text-slate-700">
+                {forms.filter((f) => f.status === "archived").length}
+              </div>
+            </div>
           </div>
 
           {/* Forms Filter & Search */}
