@@ -1304,7 +1304,7 @@ export function FormSchemaReviewStudio({
                     disabled={!canEdit}
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
-                    placeholder="e.g. Verified by Form Officer Marcus Weber against official Baden-Württemberg 2026 guidelines."
+                    placeholder="e.g. Verified by Review Officer against official guidelines."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -1382,7 +1382,7 @@ export function FormSchemaReviewStudio({
                       setNewFieldKey(val.toLowerCase().replace(/[^a-z0-9]+/g, "_"));
                     }
                   }}
-                  placeholder="e.g. Vorname / First Name"
+                  placeholder="e.g. First Name / Given Name"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>

@@ -358,7 +358,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   onChange={(e) => setDescription(e.target.value)}
                   disabled={!isOwnerOrAdmin}
                   rows={3}
-                  placeholder="e.g. Municipal migration and residence authority for Stuttgart and surrounding administrative districts."
+                  placeholder="e.g. Municipal migration and residence authority for administrative districts."
                   className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                 />
               </div>
@@ -372,7 +372,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     value={officeAddress}
                     onChange={(e) => setOfficeAddress(e.target.value)}
                     disabled={!isOwnerOrAdmin}
-                    placeholder="e.g. Marktplatz 1, 70173 Stuttgart"
+                    placeholder="e.g. 100 City Hall Plaza, Suite 400"
                     className="w-full rounded-xl border border-slate-300 pl-9 pr-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                   />
                 </div>
@@ -387,7 +387,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     value={websiteUrl}
                     onChange={(e) => setWebsiteUrl(e.target.value)}
                     disabled={!isOwnerOrAdmin}
-                    placeholder="https://www.stuttgart.de"
+                    placeholder="https://www.citygov.example.org"
                     className="w-full rounded-xl border border-slate-300 pl-9 pr-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                   />
                 </div>
@@ -402,7 +402,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
                     disabled={!isOwnerOrAdmin}
-                    placeholder="buergerservice@stuttgart.de"
+                    placeholder="citizenservices@citygov.example.org"
                     className="w-full rounded-xl border border-slate-300 pl-9 pr-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                   />
                 </div>
@@ -584,7 +584,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     type="text"
                     value={officialDomain}
                     onChange={(e) => setOfficialDomain(e.target.value)}
-                    placeholder="e.g. stuttgart.de or bund.de"
+                    placeholder="e.g. agency.gov or city.gov"
                     required
                     className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                   />

@@ -29,12 +29,10 @@ export function FormUploadModal({
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [key, setKey] = useState("");
-  const [category, setCategory] = useState("buergeramt");
+  const [category, setCategory] = useState("general");
   const [submissionMethod, setSubmissionMethod] = useState("print_and_sign");
   const [instructions, setInstructions] = useState("");
-  const [requiredDocs, setRequiredDocs] = useState<string[]>([
-    "Gültiger Personalausweis oder Reisepass",
-  ]);
+  const [requiredDocs, setRequiredDocs] = useState<string[]>([]);
   const [newDocInput, setNewDocInput] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -228,7 +226,7 @@ export function FormUploadModal({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Wohnungsgeberbestätigung"
+                placeholder="e.g. Residence Registration Form"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
               />
             </div>
@@ -240,7 +238,7 @@ export function FormUploadModal({
                 type="text"
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                placeholder="e.g. wohnungsgeber-stuttgart"
+                placeholder="e.g. residence-registration-form"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono text-xs"
               />
             </div>
@@ -255,7 +253,7 @@ export function FormUploadModal({
               rows={2}
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
-              placeholder="e.g. Bitte beachten Sie, dass die Anmeldung innerhalb von zwei Wochen nach Einzug erfolgen muss."
+              placeholder="e.g. Please ensure all personal and address information matches your official passport or identification."
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
             />
           </div>
@@ -281,7 +279,7 @@ export function FormUploadModal({
                     handleAddDoc();
                   }
                 }}
-                placeholder="e.g. Wohnungsgeberbestätigung nach § 19 BMG"
+                placeholder="e.g. Valid Passport, Identity Card, or Proof of Address"
                 className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
               />
               <button
