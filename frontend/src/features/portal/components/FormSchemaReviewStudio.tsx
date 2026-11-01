@@ -1146,20 +1146,6 @@ export function FormSchemaReviewStudio({
                               </button>
                             )}
                             {canEdit && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActivePage(fPage);
-                                  setPickingFieldForLocation(field.id);
-                                }}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                                title="Click or drag on the PDF to place or reposition this field"
-                              >
-                                <Crosshair className="w-3 h-3" /> {hasBbox ? "Reposition" : "Place on PDF"}
-                              </button>
-                            )}
-                            {canEdit && (
                               <>
                                 <button
                                   type="button"
