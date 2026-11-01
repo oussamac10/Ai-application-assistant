@@ -97,12 +97,12 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       items: [
         {
           href: "/portal",
-          label: "Cases & Forms Review",
+          label: "Triage Queue & Forms",
           icon: FolderKanban,
         },
         {
           href: "/organizations",
-          label: "Public Portals Directory",
+          label: "Public Portals",
           icon: Building2,
         },
       ],
@@ -123,7 +123,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       ],
     },
     {
-      group: "MANAGEMENT",
+      group: "SETTINGS",
       items: [
         {
           href: "/account",
@@ -290,25 +290,16 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
           {/* User Menu Dropdown */}
           {userMenuOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-[#1F2937] bg-[#111827] p-1.5 shadow-xl text-xs space-y-1 z-50">
-              <Link
-                href="/account"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-200 hover:bg-[#1F2937] hover:text-white transition-colors"
-              >
-                <Settings className="w-3.5 h-3.5 text-slate-400" />
-                <span>Account & Profile Vault</span>
-              </Link>
-              <Link
-                href="/portal"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-200 hover:bg-[#1F2937] hover:text-white transition-colors"
-              >
-                <FolderKanban className="w-3.5 h-3.5 text-slate-400" />
-                <span>Workspace Dashboard</span>
-              </Link>
-              <div className="border-t border-[#1F2937] my-1" />
+            <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-[#1F2937] bg-[#111827] p-2 shadow-xl text-xs space-y-2 z-50">
+              <div className="px-1.5 py-1">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Signed in as</p>
+                <p className="font-semibold text-white truncate text-xs mt-0.5">{user?.email}</p>
+              </div>
+              <div className="border-t border-[#1F2937]" />
               <button
+                type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors text-left"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors text-left font-medium"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Log out</span>

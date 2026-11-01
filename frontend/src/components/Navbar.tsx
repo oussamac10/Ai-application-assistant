@@ -5,9 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  Building2,
   ChevronDown,
-  FileText,
   LogOut,
   Settings,
   ShieldCheck,
@@ -460,28 +458,8 @@ export default function Navbar() {
                         </div>
                       </div>
 
-                      {/* Navigation & Management Links */}
+                      {/* Management Links */}
                       <div className="py-1 text-start">
-                        {user.accountType && user.accountType !== "individual" && (
-                          <Link
-                            href="/portal"
-                            role="menuitem"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors"
-                          >
-                            <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
-                            <span>{tNav("agencyPortal")}</span>
-                          </Link>
-                        )}
-                        <Link
-                          href="/applications"
-                          role="menuitem"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors"
-                        >
-                          <FileText className="h-4 w-4 text-slate-400 shrink-0" />
-                          <span>{tAuth("myApplications")}</span>
-                        </Link>
                         <Link
                           href="/account"
                           role="menuitem"
@@ -626,46 +604,16 @@ export default function Navbar() {
           >
             Public Portals
           </Link>
-          <Link
-            href="/portal"
-            onClick={() => setMobileMenuOpen(false)}
-            aria-current={isActive("/portal") ? "page" : undefined}
-            className={`block rounded-lg px-3 py-2 text-sm font-medium ${
-              isActive("/portal")
-                ? "bg-indigo-50 font-semibold text-indigo-700"
-                : "text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            {tNav("agencyPortal")}
-          </Link>
           {user ? (
             <>
               <Link
-                href="/applications"
+                href="/portal"
                 onClick={() => setMobileMenuOpen(false)}
-                aria-current={isActive("/applications") ? "page" : undefined}
-                className={`block rounded-lg px-3 py-2 text-sm font-medium ${
-                  isActive("/applications")
-                    ? "bg-indigo-50 font-semibold text-indigo-700"
-                    : "text-slate-700 hover:bg-slate-100"
-                }`}
+                aria-current={isActive("/portal") ? "page" : undefined}
+                className="block rounded-lg px-3 py-2 text-sm font-bold bg-indigo-600 text-white"
               >
-                {tAuth("myApplications")}
+                Go to Workspace →
               </Link>
-              {user.role === "platform_admin" && (
-                <Link
-                  href="/admin"
-                  onClick={() => setMobileMenuOpen(false)}
-                  aria-current={isActive("/admin") ? "page" : undefined}
-                  className={`block rounded-lg px-3 py-2 text-sm font-medium ${
-                    isActive("/admin")
-                      ? "bg-amber-50 font-semibold text-amber-800"
-                      : "text-amber-700 hover:bg-amber-50"
-                  }`}
-                >
-                  {tNav("adminConsole")}
-                </Link>
-              )}
               <Link
                 href="/account"
                 onClick={() => setMobileMenuOpen(false)}
@@ -678,6 +626,16 @@ export default function Navbar() {
               >
                 {tAuth("accountSettings")}
               </Link>
+              {user.role === "platform_admin" && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-current={isActive("/admin") ? "page" : undefined}
+                  className="block rounded-lg px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+                >
+                  {tNav("adminConsole")}
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => {
