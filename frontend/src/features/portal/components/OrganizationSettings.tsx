@@ -631,16 +631,22 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
           <div className="space-y-6 text-start">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Workspace Staff & Roles</h3>
-                <p className="text-xs text-slate-500">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900">Workspace Staff & Roles</h3>
+                  <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
+                    {members.length} {members.length === 1 ? "Member" : "Members"}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
                   Assign administrative, form editor, or case management permissions to your team.
                 </p>
               </div>
 
               {isOwnerOrAdmin && (
                 <button
+                  type="button"
                   onClick={() => setIsInviteModalOpen(true)}
-                  className="btn-primary py-2 px-3.5 text-xs font-bold inline-flex items-center gap-2"
+                  className="btn-primary py-2 px-4 text-xs font-bold inline-flex items-center gap-2 shadow-xs"
                 >
                   <UserPlus className="w-4 h-4" />
                   Invite Colleague
@@ -648,51 +654,78 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
               )}
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <div className="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-2xs">
               <table className="w-full text-xs text-start">
-                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                <thead className="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
                   <tr>
-                    <th className="py-3 px-4">Member Email</th>
-                    <th className="py-3 px-4">Assigned Role</th>
-                    <th className="py-3 px-4">Joined Date</th>
-                    {isOwnerOrAdmin && <th className="py-3 px-4 text-end">Actions</th>}
+                    <th scope="col" className="py-3.5 px-5 text-start w-5/12">Member</th>
+                    <th scope="col" className="py-3.5 px-5 text-start w-3/12">Assigned Role</th>
+                    <th scope="col" className="py-3.5 px-5 text-start w-2/12">Joined Date</th>
+                    {isOwnerOrAdmin && (
+                      <th scope="col" className="py-3.5 px-5 text-end w-2/12">Actions</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {members.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50/60">
-                      <td className="py-3.5 px-4 font-semibold text-slate-900">{m.email}</td>
-                      <td className="py-3.5 px-4">
+                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-4 px-5">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-indigo-50 to-indigo-100 border border-indigo-200 font-mono text-xs font-bold text-indigo-700">
+                            {m.email.charAt(0).toUpperCase()}
+                          </span>
+                          <div>
+                            <div className="font-semibold text-slate-900">{m.email}</div>
+                            {m.role === "owner" && (
+                              <span className="text-[10px] font-semibold text-indigo-600">
+                                Workspace Creator
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-5">
                         {isOwnerOrAdmin && m.role !== "owner" ? (
                           <select
                             value={m.role}
                             onChange={(e) => handleRoleChange(m.user_id, e.target.value)}
-                            className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-medium text-slate-700"
+                            className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
                           >
                             <option value="admin">Administrator</option>
                             <option value="form_editor">Form Editor</option>
                             <option value="case_manager">Case Manager</option>
-                            <option value="viewer">Viewer</option>
+                            <option value="viewer">Viewer (Read-only)</option>
                           </select>
                         ) : (
-                          <span className="capitalize font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full text-[11px]">
-                            {m.role.replace("_", " ")}
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-200 px-3 py-1 text-xs font-bold text-indigo-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
+                            Owner
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-500">
-                        {new Date(m.created_at).toLocaleDateString()}
+                      <td className="py-4 px-5 text-slate-500 font-mono text-[11px]">
+                        {new Date(m.created_at).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
                       </td>
                       {isOwnerOrAdmin && (
-                        <td className="py-3.5 px-4 text-end">
-                          {m.role !== "owner" && (
+                        <td className="py-4 px-5 text-end">
+                          {m.role !== "owner" ? (
                             <button
+                              type="button"
                               onClick={() => handleRemoveMember(m.user_id)}
-                              className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
-                              title="Remove member"
+                              className="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors font-medium"
+                              title="Remove member from workspace"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Remove</span>
                             </button>
+                          ) : (
+                            <span className="text-[11px] font-medium text-slate-400 italic">
+                              Primary Owner
+                            </span>
                           )}
                         </td>
                       )}
@@ -700,7 +733,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   ))}
                   {members.length === 0 && !loadingMembers && (
                     <tr>
-                      <td colSpan={4} className="py-6 text-center text-slate-400">
+                      <td colSpan={4} className="py-8 text-center text-slate-400">
                         No team members registered.
                       </td>
                     </tr>
