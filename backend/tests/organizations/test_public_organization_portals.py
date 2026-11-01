@@ -180,6 +180,22 @@ def test_public_organization_directory_and_portal(db_session: Session) -> None:
     # Verify draft template is NOT in the public forms list
     assert not any(f["key"] == "stuttgart-draft-internal" for f in forms)
 
-    # 5. Test non-existent slug returns 404
+    # 5. Test citizen session creation for published organization form
+    # Test with origin="organization_template"
+    published_ver.origin = "organization_template"
+    db_session.commit()
+
+    res_session = client.post(
+        f"/api/form-versions/{published_ver.id}/sessions",
+        json={"user_language": "tr", "output_language": "de"},
+    )
+    assert res_session.status_code == 201
+    session_data = res_session.json()
+    assert session_data["publicId"] is not None
+    assert session_data["userLanguage"] == "tr"
+    assert session_data["outputLanguage"] == "de"
+    assert session_data["ownershipToken"] is not None
+
+    # 6. Test non-existent slug returns 404
     res_404 = client.get("/api/public/organizations/nonexistent-municipality-xyz")
     assert res_404.status_code == 404

@@ -266,7 +266,7 @@ async function apiRequest<T>(
     } else if (response.status >= 500) {
       throw new ApiError(503, "unavailable", detail);
     }
-    throw new ApiError(response.status, "unknown", detail);
+    throw new ApiError(response.status, detail || "unknown", detail);
   }
 
   const data = await response.json();

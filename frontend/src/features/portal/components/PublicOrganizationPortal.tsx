@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { getPublicOrganizationBySlug } from "../services/portalClient";
 import { PublicOrganizationDetail, PublicPublishedFormItem } from "../types";
-import { createSession } from "@/features/form-session/services/apiClient";
+import { createSession, ApiError } from "@/features/form-session/services/apiClient";
 import { setSessionToken } from "@/features/form-session/services/sessionCredentials";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
 import { useLanguage } from "@/features/form-session/components/LanguageProvider";
@@ -106,7 +106,15 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
       // Navigate directly into the guided question intake
       router.push(`/application/session/${session.publicId}`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to start form session";
+      let msg = "Failed to start form session";
+      if (err instanceof ApiError && err.detail) {
+        msg = err.detail;
+      } else if (err instanceof Error) {
+        msg =
+          err.message === "unknown"
+            ? "Failed to start form session. Please try again."
+            : err.message;
+      }
       setStartError(msg);
       setStartingFormId(null);
     }
@@ -366,29 +374,55 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                   </div>
 
                   {/* Action Button */}
-                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
                     <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Free Citizen Intake
                     </span>
 
-                    <button
-                      type="button"
-                      disabled={isStarting}
-                      onClick={() => handleStartForm(form)}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50"
-                    >
-                      {isStarting ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Preparing Questions...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Start in {UNIVERSAL_LANGUAGES.find((l) => l.code === citizenLanguage)?.nativeName || citizenLanguage.toUpperCase()}</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </>
-                      )}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Language Selector on Form Card */}
+                      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                        <Globe className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <select
+                          value={citizenLanguage}
+                          onChange={(e) => {
+                            setCitizenLanguage(e.target.value);
+                            setLocale(e.target.value);
+                          }}
+                          className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer pr-1"
+                          aria-label="Select assistance language"
+                        >
+                          {UNIVERSAL_LANGUAGES.map((lang) => (
+                            <option key={lang.code} value={lang.code}>
+                              {lang.nativeName} ({lang.code.toUpperCase()})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isStarting}
+                        onClick={() => handleStartForm(form)}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                      >
+                        {isStarting ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Preparing Questions...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>
+                              Start in{" "}
+                              {UNIVERSAL_LANGUAGES.find((l) => l.code === citizenLanguage)?.nativeName ||
+                                citizenLanguage.toUpperCase()}
+                            </span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

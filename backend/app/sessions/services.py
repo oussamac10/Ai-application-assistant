@@ -113,7 +113,10 @@ class SessionService:
             raise ResourceNotFoundError(
                 f"Form version with ID '{form_version_id}' not found."
             )
-        if version.origin != "predefined_template" and source_document_id is None:
+        if (
+            version.origin not in ("predefined_template", "organization_template")
+            and source_document_id is None
+        ):
             raise ResourceNotFoundError(
                 f"Form version with ID '{form_version_id}' not found."
             )
@@ -129,7 +132,10 @@ class SessionService:
             raise ValidationError(f"Invalid user language code '{user_language}'.")
 
         # 4. Validate output language is supported by form version
-        if output_language not in version.supported_output_languages:
+        valid_outputs = set(version.supported_output_languages or [])
+        if version.source_language:
+            valid_outputs.add(version.source_language)
+        if output_language not in valid_outputs:
             raise ValidationError(
                 f"Output language '{output_language}' "
                 "is not supported by this form version."
