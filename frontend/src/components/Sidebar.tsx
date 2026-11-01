@@ -144,12 +144,12 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   ];
 
   const sidebarContent = (
-    <div className="flex h-full flex-col justify-between bg-slate-900 text-slate-200">
+    <div className="flex h-full flex-col justify-between bg-[#0B0F19] text-slate-200 border-e border-[#161F30]">
       {/* Top Header: Brand & Workspace */}
       <div>
-        <div className="flex h-16 items-center justify-between px-5 border-b border-slate-800">
+        <div className="flex h-16 items-center justify-between px-5 border-b border-[#161F30]">
           <Link href="/portal" className="flex items-center gap-2.5 group">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs group-hover:bg-indigo-500 transition-colors">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#6551f3] text-white shadow-xs group-hover:bg-[#523ee8] transition-colors">
               <svg
                 className="h-4 w-4"
                 fill="none"
@@ -169,7 +169,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <span className="text-sm font-extrabold text-white tracking-tight">
                   FormFlow
                 </span>
-                <span className="rounded bg-indigo-950 border border-indigo-700/50 px-1 py-0.2 font-mono text-[9px] font-bold text-indigo-300">
+                <span className="rounded bg-[#131B2E] border border-[#212E4A] px-1 py-0.2 font-mono text-[9px] font-bold text-[#A397F8]">
                   SYSTEM
                 </span>
               </div>
@@ -179,20 +179,20 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           {/* Close button for mobile drawer */}
           <button
             onClick={onMobileClose}
-            className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+            className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#131B2E]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Workspace Quick Tag */}
-        <div className="px-5 py-3 border-b border-slate-800/80 bg-slate-950/40">
+        <div className="px-5 py-3 border-b border-[#161F30] bg-[#070A12]/60">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 text-slate-300 font-semibold truncate max-w-[170px]">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <ShieldCheck className="w-3.5 h-3.5 text-[#00c07d] shrink-0" />
               <span className="truncate">Official Agency Workspace</span>
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950 px-1.5 py-0.5 rounded border border-indigo-800/50">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#A397F8] bg-[#131B2E] px-1.5 py-0.5 rounded border border-[#212E4A]">
               Live
             </span>
           </div>
@@ -216,8 +216,8 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                       href={item.href}
                       className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
                         active
-                          ? "bg-indigo-600 text-white shadow-xs font-bold"
-                          : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                          ? "bg-[#6551f3] text-white shadow-xs font-bold"
+                          : "text-slate-300 hover:bg-[#131B2E] hover:text-white"
                       }`}
                     >
                       <Icon
@@ -234,10 +234,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           ))}
 
           {/* Quick link to public landing page */}
-          <div className="pt-2 border-t border-slate-800/80">
+          <div className="pt-2 border-t border-[#161F30]">
             <Link
               href="/"
-              className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+              className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-[#131B2E] hover:text-slate-200 transition-colors"
             >
               <Home className="w-4 h-4 shrink-0" />
               <span>Public Landing Page</span>
@@ -247,17 +247,17 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       </div>
 
       {/* Bottom Footer: Language & User Profile */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/60 space-y-2">
+      <div className="p-3 border-t border-[#161F30] bg-[#070A12]/80 space-y-2">
         {/* Language selector pill */}
         <button
           onClick={() => setLangModalOpen(true)}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/70 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-medium transition-colors"
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#131B2E]/70 hover:bg-[#131B2E] text-slate-300 hover:text-white text-xs font-medium transition-colors"
         >
           <span className="flex items-center gap-2">
-            <Globe className="w-3.5 h-3.5 text-indigo-400" />
+            <Globe className="w-3.5 h-3.5 text-[#A397F8]" />
             <span>{activeLanguage.nativeName}</span>
           </span>
-          <span className="font-mono text-[10px] font-bold text-slate-400 uppercase bg-slate-900 px-1.5 py-0.5 rounded">
+          <span className="font-mono text-[10px] font-bold text-slate-400 uppercase bg-[#0B0F19] px-1.5 py-0.5 rounded border border-[#161F30]">
             {activeLanguage.code}
           </span>
         </button>
@@ -266,17 +266,17 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-800 text-left transition-colors group"
+            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#131B2E] text-left transition-colors group"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-full bg-[#6551f3] text-white font-bold text-xs flex items-center justify-center shrink-0">
                 {userInitial}
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-white truncate">
                   {userDisplayHandle}
                 </p>
-                <p className="text-[10px] text-indigo-300 font-medium capitalize truncate">
+                <p className="text-[10px] text-[#A397F8] font-medium capitalize truncate">
                   {roleDisplay}
                 </p>
               </div>
@@ -290,22 +290,22 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
           {/* User Menu Dropdown */}
           {userMenuOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-slate-700 bg-slate-800 p-1.5 shadow-xl text-xs space-y-1 z-50">
+            <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-[#1F2937] bg-[#111827] p-1.5 shadow-xl text-xs space-y-1 z-50">
               <Link
                 href="/account"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-200 hover:bg-slate-700 hover:text-white transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-200 hover:bg-[#1F2937] hover:text-white transition-colors"
               >
                 <Settings className="w-3.5 h-3.5 text-slate-400" />
                 <span>Account & Profile Vault</span>
               </Link>
               <Link
                 href="/portal"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-200 hover:bg-slate-700 hover:text-white transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-200 hover:bg-[#1F2937] hover:text-white transition-colors"
               >
                 <FolderKanban className="w-3.5 h-3.5 text-slate-400" />
                 <span>Workspace Dashboard</span>
               </Link>
-              <div className="border-t border-slate-700 my-1" />
+              <div className="border-t border-[#1F2937] my-1" />
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors text-left"
