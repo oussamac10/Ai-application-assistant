@@ -316,3 +316,38 @@ def test_organization_form_rbac_and_tenant_isolation(
     assert v_preview.headers["content-type"] == "image/png"
     assert len(v_preview.content) > 100
     assert v_preview.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_organization_image_upload_and_normalization(
+    client: TestClient, db_session: Session
+) -> None:
+    from PIL import Image
+
+    # 1. Register owner
+    _register_and_auth(client, "admin@cityofboston.gov")
+
+    # 2. Create in-memory PNG image
+    img_buf = BytesIO()
+    img = Image.new("RGB", (600, 800), color=(255, 255, 255))
+    img.save(img_buf, format="PNG")
+    png_bytes = img_buf.getvalue()
+
+    # 3. Upload PNG image
+    upload_res = client.post(
+        "/api/organizations/current/forms/upload",
+        files={"file": ("scanned_application.png", BytesIO(png_bytes), "image/png")},
+        data={"name": "Scanned Permit Form"},
+    )
+    assert upload_res.status_code == 201
+    detail = upload_res.json()
+    assert detail["name"] == "Scanned Permit Form"
+    assert detail["status"] == "needs_review"
+    template_id = detail["templateId"]
+
+    # 4. Preview page 1 rendered from the normalized A4 PDF
+    preview_res = client.get(
+        f"/api/organizations/current/forms/{template_id}/pages/1/preview"
+    )
+    assert preview_res.status_code == 200
+    assert preview_res.headers["content-type"] == "image/png"
+    assert preview_res.content[:8] == b"\x89PNG\r\n\x1a\n"

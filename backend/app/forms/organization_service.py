@@ -23,6 +23,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth.models import User
+from app.core.config import settings
+from app.documents.errors import DocumentValidationError
+from app.documents.image_normalizer import (
+    detect_upload_media_kind,
+    normalize_image_file_to_a4_pdf,
+)
 from app.forms.models import (
     FormField,
     FormFieldOption,
@@ -374,20 +380,33 @@ class OrganizationFormService:
     ) -> FormReviewDetailResponse:
         org, _ = self._require_org_editor(user)
 
-        # 1. Validate PDF magic bytes
-        if not pdf_bytes.startswith(b"%PDF-"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Uploaded file must be a valid PDF document.",
-            )
-
-        # 2. Save PDF in storage
+        # 1. Inspect magic bytes and normalize image if needed (JPG, PNG, WebP -> A4 PDF)
         doc_uuid = str(uuid.uuid4())
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        ext = Path(filename).suffix.lower() if filename else ".pdf"
+        if ext not in (".pdf", ".jpg", ".jpeg", ".png", ".webp"):
+            ext = ".bin"
+
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
             tmp.write(pdf_bytes)
             tmp_path = Path(tmp.name)
 
         try:
+            source_media_type = detect_upload_media_kind(str(tmp_path))
+            if source_media_type == "application/pdf":
+                if not pdf_bytes.startswith(b"%PDF-"):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Uploaded file must be a valid PDF document.",
+                    )
+            else:
+                # Camera scan or image upload: normalize EXIF orientation and composite onto ISO A4 PDF
+                normalize_image_file_to_a4_pdf(
+                    str(tmp_path),
+                    settings.DOCUMENT_UPLOAD_MAX_IMAGE_PIXELS,
+                    source_media_type,
+                )
+                pdf_bytes = tmp_path.read_bytes()
+
             stored_filename = f"org-form-{doc_uuid[:8]}.pdf"
             storage_path = self.storage.save_file(
                 "documents",
@@ -395,6 +414,11 @@ class OrganizationFormService:
                 tmp_path,
                 content_type="application/pdf",
             )
+        except DocumentValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()
