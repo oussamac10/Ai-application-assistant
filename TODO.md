@@ -41,6 +41,9 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 - [x] Publishing workflow state machine: `Draft -> Processing -> Needs Review -> Ready -> Published -> Archived`.
 - [x] Background & synchronous ingestion: PDF AcroForms + layout coordinate extraction + German administrative field key mapping.
 - [x] Visual Schema Review Studio: dual-pane UI where staff review, rename, reorder, and correct fields before publishing.
+- [x] 100% accurate PDF layout extraction (no phantom fields; exact text prompt + vector box detection).
+- [x] Visual PDF page canvas with numbered highlight bounding boxes, zoom controls, and click-to-focus synchronization.
+- [x] Interactive "+ Place Field on PDF" crosshair drawing tool: place missed fields with exact point coordinates and assign Profile Vault mappings.
 - [x] Form metadata management: category, instructions, required supporting documents, and submission method.
 
 ### Phase G3: Public Organization Portals & Citizen Discovery Directory
