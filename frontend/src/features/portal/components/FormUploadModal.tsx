@@ -192,7 +192,12 @@ export function FormUploadModal({
                   <div className="text-left">
                     <p className="text-sm font-semibold text-slate-800">{file.name}</p>
                     <p className="text-xs text-slate-500">
-                      {(file.size / (1024 * 1024)).toFixed(2)} MB • Ready for field extraction
+                      {file.size < 1024
+                        ? `${file.size} B`
+                        : file.size < 1024 * 1024
+                        ? `${(file.size / 1024).toFixed(1)} KB`
+                        : `${(file.size / (1024 * 1024)).toFixed(2)} MB`}{" "}
+                      • Ready for field extraction
                     </p>
                   </div>
                   <span className="ml-auto inline-flex items-center text-xs font-medium text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
