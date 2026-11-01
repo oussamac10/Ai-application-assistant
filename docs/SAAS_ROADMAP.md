@@ -1,53 +1,78 @@
-# SaaS Master Roadmap & Task Checklist
+# Multilingual Government Forms SaaS Platform — Master Roadmap
 
-**Baseline Verified in Code:** Core Phases 1–18 implemented (`878+` backend tests, `225` frontend unit tests, `59` Playwright E2E specs).  
-**Forward Objective:** Transform the repository into a secure, EU-hosted, revenue-generating SaaS for individual newcomers and B2B2C Relocation Agencies / Migrant Associations.
+**Core Vision:** Transform AI Form Assistant into a scalable, secure, multilingual, multi-tenant SaaS platform for government agencies, municipalities, immigration offices, universities, and public institutions.
 
-> [!IMPORTANT]
-> Only items marked **`Completed (Verified)`** exist in the codebase today. Planned SaaS tasks remain **`Todo`** or **`In Progress`** until implemented and verified by automated tests. Before starting major roadmap features (`S3`–`S7`), apply [`.agents/skills/saas-business-advisor/SKILL.md`](../.agents/skills/saas-business-advisor/SKILL.md) and consult [`docs/business/BUSINESS_STRATEGY.md`](business/BUSINESS_STRATEGY.md), [`PRICING.md`](business/PRICING.md), and [`BUSINESS_EXPERIMENTS.md`](business/BUSINESS_EXPERIMENTS.md) (e.g., `Phase S4` reconciles `[HYPOTHESIS]` pricing at `€4.99` / `€16.99` / `€12.99` / `€39` / `€99`, and `Phase S5` is gated on `EXP-03` agency pilot validation).
+- **Primary Business Model**: Organizations pay according to the **number of active published form templates** in their subscription.
+- **Citizen Access**: Citizens fill out published official forms for **100% free**. No per-user, per-completion, per-link, or per-QR-code charges.
+- **Implementation Strategy**: **Payments and subscriptions are deferred to Phase G8**. The primary focus is establishing the core operational platform first (workspaces, verification, schema review, public portals, QR codes, private invitations, and citizen guided intake).
 
 ---
 
-## 1. SaaS Implementation Phases (`Phase S0` -> `Phase S7`)
+## Strategic Roadmap Phases (G1 -> G9)
 
-### Phase S0 — P0 Security, Privacy & Production Blockers Remediation (`3 Days` | `P0`)
-- **Objectives:** Close all critical vulnerabilities (`FLAW-01`–`FLAW-07` subset in auth/catalog/logging/cleanup) before public exposure.
+### Phase G1 — Multi-Tenant Organization Workspaces & Government Verification (`Active`)
+- **Objectives:** Allow municipalities and institutions to manage their verified workspace, configure branding, and manage staff roles.
 - **Scope:**
-  - `S0-01`: Filter `GET /api/published-forms` to `origin == "predefined_template"` (hiding `signature-demo` in prod) and guard `forms` + `questions` admin endpoints with `require_admin` RBAC (`users.role = "platform_admin"`) + CSRF.
-  - `S0-02`: Move `GEMINI_API_KEY` from URL query string to `x-goog-api-key` HTTP header, separate `systemInstruction`, and set `httpx`/`httpcore` loggers to `WARNING`.
-  - `S0-03`: Fail fast at startup in `production` when `AUTH_SECRET`, `SESSION_TOKEN_SECRET`, or `AUTH_COOKIE_SECURE=True` are unset; remove `REBIND_ON_NEXT_REQUEST` bypass; add constant-time dummy Argon2 check on unknown-email login.
-  - `S0-04`: Restrict `cleanup_expired_exports.py` `SourceDocument` deletion to `user_id IS NULL`, clear `doc.expires_at` on `ApplicationService.claim`, fix multi-page `PypdfRenderer`, fix `/applications` progress %, and strip `console.log` from `[sessionId]/page.tsx`.
+  - `Organization` profile schema: logo, cover image, office address, contact details, official website, supported languages.
+  - Government status verification workflow: `unverified` -> `pending_review` -> `verified_official` -> `rejected`.
+  - Role-Based Access Control (RBAC): `Platform Super Admin`, `Org Owner`, `Org Admin`, `Form Editor`, `Viewer`, `Citizen`.
+  - Organization settings UI in the portal.
 
-### Phase S1 — Storage Provider, Async Preparation, Camera Scan & Unicode PDF (`6 Days` | `P0`)
-- **Objectives:** Replace `/tmp` with durable private EU S3 storage, support phone camera photos of paper forms, fix scanned foreign-language OCR, eliminate 180s synchronous HTTP timeouts, and support Arabic/Cyrillic/Turkish PDF export fonts.
-- **Scope:** `StorageProvider` (`Local` + `S3/R2`), `JPG/PNG/WebP -> A4 PDF` upload normalization (EXIF stripped), multi-script Tesseract (`deu+eng+fra+ara+tur+ukr+spa`), Redis + ARQ background worker (`202 Accepted` + `/api/jobs/{id}`) + API rate limiting, embedded `NotoSans` + `NotoSansArabic` TTF fonts + watermarked PDF preview.
-
-### Phase S2 — Complete Account Lifecycle, GDPR Controls, Profile Vault & Verification Studio (`5 Days` | `P1`)
-- **Objectives:** Maximize retention via 1-click Reusable Profile Pre-Fill and close GDPR Art. 17/20 requirements.
-- **Scope:** Email verification & password reset (`Postmark`/`Scaleway TEM`), hard-delete cascade (`DELETE /api/applications/{id}`, `DELETE /api/auth/me`) + data export (`GET /api/auth/me/export`), Fernet-encrypted `user_profile_entries` vault (`personal.*`, `contact.*`, `address.*`, `finance.iban`), Dual-Pane Verification Studio + deterministic cross-field consistency warnings.
-
-### Phase S3 — UX Polish, 8 Full UI Languages, Curated Top-10 Library & Private Beta (`5 Days` | `P1`)
-- **Objectives:** Ship a calm, conversion-ready multilingual product across 8 full UI languages (`en, de, fr, ar, tr, uk, es, ru`) and run a 5-day pricing smoke test + 15-user private beta.
-- **Scope:** Replace developer homepage (including **zero-signup 1-click sample forms** so mobile visitors reach Question 1 in `< 20s`), localize all hardcoded English strings, modularize `[sessionId]/page.tsx`, publish German *Impressum* / *Datenschutz* / *AGB* + strict non-legal *RDG* disclaimers, curate Top 10 everyday German templates **with `PDFFingerprintRegistry` hashes (`€0.00` API cost on matched uploads)**, and run Mom-Test discovery + pricing smoke test (`EXP-01`–`EXP-03`).
-
-### Phase S4 — SaaS Monetization, Token Metering & Stripe Checkout (`5 Days` | `P1`)
-- **Objectives:** Collect automated self-serve revenue with strict free-tier sandboxing, per-session AI cost guardrails, anti-chargeback protections, and German consumer-law compliance.
+### Phase G2 — Form Upload, Parsing & Human Schema Review Workflow
+- **Objectives:** Replace unreviewed dynamic uploads with an official government publishing state machine: `Draft -> Processing -> Needs Review -> Ready -> Published -> Archived`.
 - **Scope:**
-  - `S4-01` (**Cost & Privacy Firewall**): Deterministic Python bypass (`email`, `phone`, `iban`, `integer`, `date`), fix default model routing (`gemini-2.5-flash-lite` structured / Flash fallback), **anonymous free-tier sandbox (`<= 5` pages, local OCR only — `€0` Azure cost)**, sliding-window rate limit on `submit_answer`, and `ai_usage_events` token/cost ledger + **`EUR 0.25/session` hard cap**.
-  - `S4-02` (**Payments, Upsells & Chargeback Shield**): Stripe Checkout + Stripe Tax (`19%` MwSt) + Customer Portal (`EUR 4.99` Single, **default-highlighted `EUR 16.99` 5-Doc Relocation Pack + Vault auto-fill**, `EUR 12.99/mo` & `EUR 79/yr` Personal, `EUR 39/mo` Solo Pro with `client_ref` isolation, explicit `15/50/200` doc & page caps), idempotent `credit_ledger` webhooks, **7-day free typo re-exports + automatic `+1` credit refund on failed export**, **14-day `+EUR 12` Single-to-Pack upgrade banner**, and mandatory German **§ 312k BGB 2-click cancellation button (*Kündigungsbutton*)**.
+  - Background ARQ job parses uploaded PDF (AcroForms, OCR, Azure layout).
+  - Visual Schema Review Studio: interactive dual-pane UI where staff review, rename, reorder, and correct fields before publishing.
+  - Form metadata: category, instructions, required supporting documents, submission instructions.
 
-### Phase S4B — Founder Platform Admin & Cost/Operations Control Center (`2.5 Days` | `P1`)
-- **Objectives:** Give the solo founder complete operational, margin, template, and support control over the live platform (`/admin`, guarded by `require_admin` + `verify_csrf`) **without** exposing private user PII/documents or building bloated BI charts prematurely.
+### Phase G3 — Public Organization Portals & Citizen Discovery Directory
+- **Objectives:** Give every verified organization an SEO-optimized public portal (`/organizations/[slug]`) and provide a central search directory on the platform homepage.
 - **Scope:**
-  - `S4B-01` (**Emergency Cost & Runtime Kill-Switches**): Toggle paid `Azure Document Intelligence` escalation, adjust global daily AI spend circuit breaker (auto-fallback to deterministic/template-only mode), pause anonymous uploads during bot spikes, and inspect/retry failed ARQ jobs & PDF exports — with every admin mutation logged to `AuditEvent`.
-  - `S4B-02` (**Founder `/admin` Control Console**): Zero-PII daily margin & system pulse (today/30d AI & Azure spend, escalation `%`, net credits, failed jobs), user lookup by email + 1-click goodwill/refund credit adjustment (`credit_ledger`) + abusive account suspension, and visual UI wired to existing `forms` & `questions` admin APIs (`pending_review` -> `approved` question catalog + official template publishing). *Strict GDPR rule: `platform_admin` can never view private applicant answers, IBANs, or uploaded user PDFs.*
+  - Public directory endpoint: search organizations by municipality, city, or name.
+  - Public Organization Portal: branded landing page with verified badge, office hours, contact details, and searchable form list.
+  - Zero-friction citizen access: no registration required for public forms.
 
-### Phase S5 — Organization / Association Portals (`5 Days` | `P1` — *Gated on `EXP-03` Validation*)
-- **Objectives:** Unlock recurring `EUR 99/mo` B2B2C MRR for relocation agencies, recruiters, and migrant associations (per [`docs/association-document-portal.md`](association-document-portal.md)) once `>= 2` pilot commitments are confirmed.
-- **Scope:** `organizations`, `organization_members`, `organization_portal_forms`, org admin verification workspace (`/org/[slug]/admin`), and branded public client portal (`/p/[orgSlug]` with subtle `"Powered by"` viral footer) billed against organization quota (`200` docs/mo).
+### Phase G4 — Public Form Links & Printable Counter QR Codes
+- **Objectives:** Enable offices to generate unlimited links and printable physical collateral for counters and waiting areas.
+- **Scope:**
+  - Short URL resolver `/f/{short_code}` resolving to the active published form version.
+  - Dynamic QR code generation (SVG and high-resolution PNG with organization branding).
+  - Printable A4 counter poster generator ("Scan to fill out in your native language" for municipal counters).
 
-### Phase S6 — Production EU Deployment, Paid EU AI Adapters, CI/CD & Backups (`4.5 Days` | `P0`)
-- **Objectives:** Launch hardened EU infrastructure (`Hetzner Cloud Germany` + `Caddy` + **paid EEA-compliant `VertexAIProvider` (`europe-west3` Frankfurt)** + `Azure Germany West Central`).
+### Phase G5 — Private Invitations & Email Verification
+- **Objectives:** Allow case managers to invite specific citizens to fill out private administrative forms with strict identity protection.
+- **Scope:**
+  - Private invitation engine with cryptographically secure tokens, expiration dates, and revocation.
+  - Email verification challenge (magic link or one-time 6-digit code) before unlocking form questions.
+  - Audit logging of access attempts and completion timestamps.
+
+### Phase G6 — Multilingual Citizen Guided Intake & Official PDF Export
+- **Objectives:** Empower citizens to complete forms in their preferred language while producing an official, structurally accurate completed PDF in the required authority language.
+- **Scope:**
+  - 3-language model (`sourceLanguage`, `userLanguage`, `outputLanguage`) across 8 full UI languages (`en, de, fr, ar, tr, uk, es, ru`).
+  - Strict deterministic validation (dates, IBAN, names) and Unicode font overlay rendering.
+  - Multi-method submission instructions (Download & print, email, or physical delivery).
+
+### Phase G7 — Organization Analytics Dashboard & AI Cost Firewall
+- **Objectives:** Give organizations operational visibility into form performance while enforcing tenant-level AI spend guardrails.
+- **Scope:**
+  - Aggregated zero-PII metrics: form opens, QR scans, completions, average duration, popular languages.
+  - Strict privacy: zero citizen answers or PII stored in analytics tables.
+  - Per-tenant API token spend monitor and circuit breaker.
+
+### Phase G8 — Document-Based SaaS Subscriptions (Stripe Integration — Deferred)
+- **Objectives:** Activate commercial billing based on active published form templates once operational core is running smoothly.
+- **Scope:**
+  - Stripe Checkout and Customer Portal configured for active published form slots (e.g., Starter: 5 forms, Pro: 25 forms, Business: 100 forms).
+  - Slot enforcement: publishing a new form checks against active plan limits; drafts and archived forms do not count.
+  - Invoicing, billing history, and upgrade/downgrade workflows.
+
+### Phase G9 — Platform Super Admin, Audit Trails & Pilot Launch
+- **Objectives:** Equip platform operators to verify government credentials, monitor system health, and deploy to EU sovereign infrastructure.
+- **Scope:**
+  - Super admin verification queue for reviewing official municipal credentials.
+  - Comprehensive audit logs for municipal compliance.
+  - Production deployment to EU sovereign hosting.
 - **Scope:** Paid EU `VertexAIProvider` adapter (preventing EEA-prohibited free-tier usage), non-root multi-stage Dockerfiles (`output: "standalone"`), GitHub Actions CI with PostgreSQL 16 + Alembic + `next build` + Playwright smoke tests, automated 6-hourly `age`-encrypted DB backups + monthly restore drill, Sentry EU + uptime/spend alerts.
 
 ### Phase S7 — Go-To-Market, Programmatic Form SEO, Credit Referrals & Iteration (`Ongoing` | `P1`)

@@ -1,31 +1,66 @@
-# Project TODO
+# Project TODO — Multilingual Government Forms SaaS Platform
 
-## Completed Phases
+## Current Vision & Operating Model
+Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform for government agencies, municipalities, immigration offices, universities, and public institutions.
 
-Archived under `docs/progress/`:
-
-1–18. Core MVP & Hybrid Multilingual Pipeline (`phase-1` through `phase-18-explanations-and-checklist.md`)
-- **SaaS Phase S0**: P0 Security, RBAC, Dynamic-Form Isolation, Credential Hardening & Retention (`docs/progress/phase-s0-security-and-hardening.md`)
-- **SaaS Phase S1**: Storage Provider, Smartphone Camera Scan Normalization, Multi-Script OCR + Async Jobs & Rate Limiting, Scanned Box Detection, and Embedded Unicode/RTL PDF + Watermarked Preview (`docs/progress/phase-s1-storage-camera-async-unicode.md`)
-- **SaaS Phase S2**: Account Lifecycle, GDPR Art. 17/20 Self-Service Controls, Encrypted Reusable Profile Vault (1-Click Pre-Fill), and Dual-Pane Verification Studio (`docs/progress/phase-s2-accounts-gdpr-vault-studio.md`)
-- **Business-Driven SaaS Partner Upgrade (Stage A & B)**: Vetted SaaS marketing/pricing/research skills, permanent `saas-business-advisor` Co-Founder skill, `10`–`10,000` user CFO unit economics & 7-doc `docs/business/` suite (`docs/progress/stage-b-saas-business-partner-upgrade.md`)
-- **SaaS Phase S3 (`S3-02` & `S3-03`) + 2D Vector-Grid Field Detection & Test Consolidation**: 8 Full Static UI Languages (`en, de, fr, ar, tr, uk, es, ru`), Conversion Homepage + 1-Click Top-10 Fingerprinted German Templates, German Legal Pages (`/impressum`, `/datenschutz`, `/agb`), General 2D Vector-Grid Field Detection, and Test Suite Consolidation (`docs/progress/phase-s3-ux-i18n-legal-german-templates.md`)
-- **Visual Row-Band Reading Order & Zero-Indexed First-Question Back-Button Guard**: (`docs/progress/phase-s3-row-band-sorting.md`)
-- **Universal Worldwide B2B & B2G Platform Pivot**: Multi-tenant Agency/Enterprise Portal (`/portal`), dynamic candidate magic-link invitations, destination-agnostic intake (`/portal/invite/[token]`), worldwide templates (`eu-schengen-visa`, `us-immigration-intake`, `uk-visas-intake`), and complete 8-locale copy modernization (`en, de, fr, ar, tr, uk, es, ru`) with 100% test parity.
-- **Phase S4: B2B/B2G Billing, Quotas, Admin Tower & Standalone Pricing**: Full Stripe Checkout & Customer Portal integration, Organization subscriptions (`agency_sandbox`, `agency_pro`, `enterprise`), token usage ledger & €0.25 circuit breaker, Founder Admin Console (`/admin` & `GET /api/admin/overview`), dedicated B2B/B2G Pricing page (`/pricing`), and dual-port (`3000` & `3003`) host connectivity.
+- **Business Principle**: Organizations pay according to the **number of active published form templates** in their workspace.
+- **Citizen Experience**: Citizens access and fill forms for **100% free**. No per-user, per-completion, per-link, or per-QR-code charges.
+- **Sequencing**: Payments and Stripe subscriptions are **deferred** until after the core operational pillars (workspaces, schema review, public portals, QR codes, private invitations, and citizen guided intake) are fully established and running.
 
 ---
 
-## Current Task
+## Active Roadmap & Implementation Phases
 
-**System Readiness & Smoke Test (`S3-01` / Worldwide End-to-End Operational Smoke Test)**
+### Phase G1: Multi-Tenant Organization Workspaces, Branding & Government Verification
+- [x] Multi-tenancy models (`Organization`, `OrganizationMember`, `OrganizationCase`) and migrations.
+- [ ] Government status verification workflow (`unverified`, `pending_review`, `verified_official`, `rejected`).
+- [ ] Organization profile branding (official logo, cover image, office address, contact email, website).
+- [ ] Role-based access control (`Platform Super Admin`, `Org Owner`, `Org Admin`, `Form Editor`, `Viewer`, `Citizen`).
+- [ ] Organization settings dashboard in the portal.
 
-### Status
-- Docker containers healthy: `frontend` (:3000 & :3003), `backend` (:8000), `postgres` (:5432), `redis` (:6379), `worker` (ARQ).
-- Founder Admin Console live at `/admin` (`admin@example.com` granted platform_admin in dev).
-- Agency Studio live at `/portal` with candidate magic links and quota monitors.
-- Standalone Pricing page live at `/pricing`.
-- All backend (Ruff, mypy, Pytest) and frontend (TypeScript, ESLint, Vitest, 8-locale parity) tests passing with 0 errors.
+### Phase G2: Form Upload, Parsing & Human Schema Review Workflow
+- [ ] Publishing workflow state machine: `Draft -> Processing -> Needs Review -> Ready -> Published -> Archived`.
+- [ ] Background ARQ ingestion job: PDF AcroForms + OCR + Azure layout extraction.
+- [ ] Visual Schema Review Studio: dual-pane UI where staff review, rename, reorder, and correct fields before publishing.
+- [ ] Form metadata management: category, instructions, required supporting documents, and submission method.
+
+### Phase G3: Public Organization Portals & Citizen Discovery Directory
+- [ ] Public Organization Portals at `/organizations/[slug]` (e.g. `/organizations/stadt-stuttgart`).
+- [ ] Branded portal UI: verified government badge, logo, description, office contact, and searchable form catalog.
+- [ ] Citizen municipality search directory on the platform homepage (`/`).
+- [ ] SEO-optimized server-rendered public pages.
+
+### Phase G4: Public Form Links & Printable Counter QR Codes
+- [ ] Short URL resolver (`/f/[slug]`) mapping to the active published form version.
+- [ ] High-resolution SVG and PNG QR code generation with organization branding.
+- [ ] Printable A4 counter poster generator ("Scan to fill out in your native language" for municipal counters).
+- [ ] Share modal with 1-click link copying and embed snippets.
+
+### Phase G5: Private & Invitation-Only Intake with Email Verification
+- [ ] Private invitation engine with cryptographically secure tokens and expiration timestamps.
+- [ ] Recipient email verification gate (magic link or one-time 6-digit code) before unlocking questions.
+- [ ] Invitation management dashboard for case managers: revocation, resend, and audit trail.
+
+### Phase G6: Multilingual Citizen Guided Intake & Official PDF Export
+- [x] 3-language model (`sourceLanguage`, `userLanguage`, `outputLanguage`) and 8 UI languages (`en, de, fr, ar, tr, uk, es, ru`).
+- [x] AcroForm widget auto-filling and PyMuPDF coordinate overlays with Unicode & Arabic font shaping.
+- [ ] Form-specific submission instructions (Download & print, email, or physical delivery).
+- [ ] Required documents checklist presentation prior to starting the form.
+
+### Phase G7: Organization Analytics Dashboard & AI Cost Firewall
+- [ ] Aggregated zero-PII metrics: form opens, QR scans, completions, average duration, popular languages.
+- [ ] Tenant-level AI spend monitor and hard per-session circuit breaker.
+- [ ] Organization analytics tab in the portal.
+
+### Phase G8: Document-Based SaaS Subscriptions (Stripe Integration - Deferred)
+- [ ] Stripe Checkout and Customer Portal configured for active published form slots (e.g. 5, 25, 100 forms).
+- [ ] Slot enforcement: publishing a new form checks against active plan limits; drafts and archived forms do not count.
+- [ ] Billing history and invoice management.
+
+### Phase G9: Platform Super Admin, Audit Trails & Pilot Launch
+- [x] Founder Admin Console (`/admin` and `GET /api/admin/overview`).
+- [ ] Organization verification review queue for platform administrators.
+- [ ] Comprehensive audit logs for municipal compliance.
 
 ### 7-Line Business Decision Summary
 - **Feature:** Phase S4 — B2B & B2G Subscription Billing, Case Quotas & Token Cost Firewall.
