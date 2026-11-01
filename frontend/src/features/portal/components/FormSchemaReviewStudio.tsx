@@ -109,8 +109,36 @@ export function FormSchemaReviewStudio({
   const [zoomScale, setZoomScale] = useState(1);
   const [newFieldBbox, setNewFieldBbox] = useState<[number, number, number, number] | null>(null);
   const [newFieldPage, setNewFieldPage] = useState<number>(1);
+  const [pickingFieldForLocation, setPickingFieldForLocation] = useState<"new" | string | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const pdfImgRef = useRef<HTMLImageElement>(null);
+
+  // Calculates a smart default box on the PDF page (below existing fields or centered)
+  const computeDefaultBbox = (
+    allFields: FormFieldItem[],
+    page: number,
+    dims: { width: number; height: number }
+  ): [number, number, number, number] => {
+    const pageFields = allFields.filter((f) => {
+      const fPage = typeof f.configuration?.page === "number" ? f.configuration.page : 1;
+      return fPage === page && Array.isArray(f.configuration?.bbox);
+    });
+
+    if (pageFields.length > 0) {
+      const maxY1 = Math.max(
+        ...pageFields.map((f) => (f.configuration.bbox as [number, number, number, number])[3])
+      );
+      const nextY0 = Math.min(dims.height - 45, maxY1 + 18);
+      const nextY1 = Math.min(dims.height - 15, nextY0 + 26);
+      return [
+        55,
+        Math.round(nextY0 * 10) / 10,
+        Math.round((dims.width - 55) * 10) / 10,
+        Math.round(nextY1 * 10) / 10,
+      ];
+    }
+    return [55, 120, Math.round((dims.width - 55) * 10) / 10, 146];
+  };
 
   // Active interaction: drawing a new box, moving an existing box, or resizing an existing box
   type InteractionType = "draw" | "move" | "resize";
@@ -332,23 +360,60 @@ export function FormSchemaReviewStudio({
       const scaleY = curPageDims.height / rect.height;
 
       if (interaction.type === "draw") {
-        const dispX0 = Math.min(interaction.startClientX, e.clientX) - rect.left;
-        const dispY0 = Math.min(interaction.startClientY, e.clientY) - rect.top;
-        const dispX1 = Math.max(interaction.startClientX, e.clientX) - rect.left;
-        const dispY1 = Math.max(interaction.startClientY, e.clientY) - rect.top;
+        let dispX0 = Math.min(interaction.startClientX, e.clientX) - rect.left;
+        let dispY0 = Math.min(interaction.startClientY, e.clientY) - rect.top;
+        let dispX1 = Math.max(interaction.startClientX, e.clientX) - rect.left;
+        let dispY1 = Math.max(interaction.startClientY, e.clientY) - rect.top;
 
         const widthPx = dispX1 - dispX0;
         const heightPx = dispY1 - dispY0;
 
-        if (widthPx > 15 && heightPx > 10) {
+        // If in explicit pick mode and just clicked (less than 15px drag), provide a comfortable standard box at click point
+        if (pickingFieldForLocation && (widthPx < 15 || heightPx < 10)) {
+          dispX1 = Math.min(rect.width - 10, dispX0 + Math.min(360, rect.width * 0.75));
+          dispY1 = dispY0 + 26;
+        }
+
+        const effectiveW = dispX1 - dispX0;
+        const effectiveH = dispY1 - dispY0;
+
+        if (effectiveW > 12 && effectiveH > 8) {
           const ptX0 = Math.round(Math.max(0, dispX0 * scaleX) * 10) / 10;
           const ptY0 = Math.round(Math.max(0, dispY0 * scaleY) * 10) / 10;
           const ptX1 = Math.round(Math.min(curPageDims.width, dispX1 * scaleX) * 10) / 10;
           const ptY1 = Math.round(Math.min(curPageDims.height, dispY1 * scaleY) * 10) / 10;
+          const chosenBbox: [number, number, number, number] = [ptX0, ptY0, ptX1, ptY1];
 
-          setNewFieldBbox([ptX0, ptY0, ptX1, ptY1]);
-          setNewFieldPage(activePage);
-          setShowAddField(true);
+          if (pickingFieldForLocation === "new") {
+            setNewFieldBbox(chosenBbox);
+            setNewFieldPage(activePage);
+            setPickingFieldForLocation(null);
+            setShowAddField(true);
+          } else if (pickingFieldForLocation) {
+            const fId = pickingFieldForLocation;
+            setPickingFieldForLocation(null);
+            const targetF = fields.find((f) => f.id === fId);
+            const newConfig = {
+              ...(targetF?.configuration || {}),
+              page: activePage,
+              bbox: chosenBbox,
+            };
+            handleFieldChange(fId, { configuration: newConfig });
+            setHighlightedFieldId(fId);
+            if (targetF) {
+              updateFormField(templateId, fId, {
+                key: targetF.key,
+                fieldType: targetF.fieldType,
+                requiredness: targetF.requiredness,
+                questionKey: targetF.questionKey || null,
+                configuration: newConfig,
+              }).catch((err) => console.error("Reposition save failed:", err));
+            }
+          } else {
+            setNewFieldBbox(chosenBbox);
+            setNewFieldPage(activePage);
+            setShowAddField(true);
+          }
         }
       } else if (
         (interaction.type === "move" || interaction.type === "resize") &&
@@ -377,7 +442,7 @@ export function FormSchemaReviewStudio({
       window.removeEventListener("mousemove", handleWindowMouseMove);
       window.removeEventListener("mouseup", handleWindowMouseUp);
     };
-  }, [interaction, activePage, fields, review, templateId]);
+  }, [interaction, activePage, fields, review, templateId, pickingFieldForLocation]);
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!canEdit) return;
@@ -671,6 +736,30 @@ export function FormSchemaReviewStudio({
             </div>
           </div>
 
+          {/* Explicit Pick Location Guidance Banner */}
+          {pickingFieldForLocation && (
+            <div className="px-4 py-2 bg-[#6551f3] text-white text-xs font-semibold flex items-center justify-between shrink-0 shadow-md">
+              <span className="flex items-center gap-2">
+                <Target className="w-4 h-4 animate-spin text-white" />
+                {pickingFieldForLocation === "new"
+                  ? "Click or drag directly on the PDF to choose the place for the new field."
+                  : `Click or drag directly on the PDF to set the position for "${fields.find((f) => f.id === pickingFieldForLocation)?.translations?.[0]?.label || "field"}"`}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (pickingFieldForLocation === "new") {
+                    setShowAddField(true);
+                  }
+                  setPickingFieldForLocation(null);
+                }}
+                className="text-xs bg-indigo-700 hover:bg-indigo-800 text-white px-2.5 py-1 rounded underline font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           {/* Canvas Viewport */}
           <div
             ref={pdfContainerRef}
@@ -947,7 +1036,18 @@ export function FormSchemaReviewStudio({
 
             {activeTab === "fields" && canEdit && (
               <button
-                onClick={() => setShowAddField(true)}
+                onClick={() => {
+                  const curPageDims = review?.pageDimensions?.find((p) => p.page === activePage) || {
+                    width: 595,
+                    height: 842,
+                  };
+                  if (!newFieldBbox) {
+                    setNewFieldBbox(computeDefaultBbox(fields, activePage, curPageDims));
+                    setNewFieldPage(activePage);
+                  }
+                  setModalError(null);
+                  setShowAddField(true);
+                }}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Field
@@ -1043,6 +1143,20 @@ export function FormSchemaReviewStudio({
                                 title="Focus this box on the PDF canvas"
                               >
                                 <Target className="w-3 h-3" /> Focus Box
+                              </button>
+                            )}
+                            {canEdit && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActivePage(fPage);
+                                  setPickingFieldForLocation(field.id);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                title="Click or drag on the PDF to place or reposition this field"
+                              >
+                                <Crosshair className="w-3 h-3" /> {hasBbox ? "Reposition" : "Place on PDF"}
                               </button>
                             )}
                             {canEdit && (
@@ -1227,20 +1341,36 @@ export function FormSchemaReviewStudio({
               )}
             </div>
 
-            {newFieldBbox && (
-              <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-indigo-900 text-xs flex items-center justify-between">
-                <span className="font-medium text-[11px]">
-                  Coordinates: [X: {Math.round(newFieldBbox[0])}, Y: {Math.round(newFieldBbox[1])}, W: {Math.round(newFieldBbox[2] - newFieldBbox[0])}, H: {Math.round(newFieldBbox[3] - newFieldBbox[1])}] pt
+            {/* PDF Placement Card */}
+            <div className="p-3 rounded-xl bg-indigo-50/80 border border-indigo-100 text-indigo-900 text-xs flex items-center justify-between">
+              <div>
+                <span className="font-semibold text-xs flex items-center gap-1.5 text-indigo-900">
+                  <Target className="w-3.5 h-3.5 text-indigo-600" />
+                  PDF Position: Page {newFieldPage}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setNewFieldBbox(null)}
-                  className="text-[10px] text-indigo-600 hover:text-indigo-800 underline font-medium"
-                >
-                  Clear Box
-                </button>
+                {newFieldBbox ? (
+                  <p className="text-[11px] text-indigo-600 font-mono mt-0.5">
+                    X: {Math.round(newFieldBbox[0])}, Y: {Math.round(newFieldBbox[1])}, W: {Math.round(newFieldBbox[2] - newFieldBbox[0])}, H: {Math.round(newFieldBbox[3] - newFieldBbox[1])} pt
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-indigo-500 mt-0.5">
+                    Click &apos;Pick on PDF&apos; to choose where this field goes.
+                  </p>
+                )}
               </div>
-            )}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddField(false);
+                  setPickingFieldForLocation("new");
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0 ml-2"
+                title="Click or drag directly on the PDF to choose where this field goes"
+              >
+                <Crosshair className="w-3.5 h-3.5" />
+                {newFieldBbox ? "Change on PDF" : "Pick on PDF"}
+              </button>
+            </div>
 
             {modalError && (
               <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
