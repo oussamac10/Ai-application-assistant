@@ -963,43 +963,6 @@ export function FormSchemaReviewStudio({
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Responsible Department
-                    </label>
-                    <select
-                      disabled={!canEdit}
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="buergeramt">Bürgeramt / Meldebehörde</option>
-                      <option value="auslaenderbehoerde">Ausländerbehörde</option>
-                      <option value="standesamt">Standesamt</option>
-                      <option value="gewerbeamt">Gewerbeamt</option>
-                      <option value="finanzamt">Finanzamt</option>
-                      <option value="general">Allgemeine Verwaltung</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Citizen Submission Method
-                    </label>
-                    <select
-                      disabled={!canEdit}
-                      value={submissionMethod}
-                      onChange={(e) => setSubmissionMethod(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="print_and_sign">Print & Sign</option>
-                      <option value="online_upload">Direct Digital Intake</option>
-                      <option value="in_person_appointment">In-Person Appointment</option>
-                      <option value="postal_mail">Postal Submission</option>
-                    </select>
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Official Guidance & Instructions for Citizen

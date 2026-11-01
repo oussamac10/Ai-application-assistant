@@ -41,7 +41,6 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
   const [citizenLanguage, setCitizenLanguage] = useState("en");
 
   // Starting session state
@@ -61,18 +60,9 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
       .finally(() => setLoading(false));
   }, [slug]);
 
-  const categories = useMemo(() => {
-    if (!org) return [];
-    const set = new Set(org.published_forms.map((f) => f.category));
-    return Array.from(set);
-  }, [org]);
-
   const filteredForms = useMemo(() => {
     if (!org) return [];
     return org.published_forms.filter((f) => {
-      if (categoryFilter !== "all" && f.category !== categoryFilter) {
-        return false;
-      }
       if (searchQuery.trim().length > 0) {
         const q = searchQuery.toLowerCase();
         const matchesName = f.name.toLowerCase().includes(q);
@@ -82,7 +72,7 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
       }
       return true;
     });
-  }, [org, categoryFilter, searchQuery]);
+  }, [org, searchQuery]);
 
   const handleStartForm = async (form: PublicPublishedFormItem) => {
     try {
@@ -306,32 +296,6 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
               className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/15"
             />
           </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-            <button
-              onClick={() => setCategoryFilter("all")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                categoryFilter === "all"
-                  ? "bg-slate-900 text-white shadow-2xs"
-                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-              }`}
-            >
-              All Categories ({org.published_forms.length})
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
-                  categoryFilter === cat
-                    ? "bg-slate-900 text-white shadow-2xs"
-                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-                }`}
-              >
-                {cat.replace(/_/g, " ")}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Forms Catalog Grid */}
@@ -340,7 +304,7 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
             <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <h3 className="text-base font-bold text-slate-800">No Forms Found</h3>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              No published forms match your current search query. Try clearing filters or searching for a different keyword.
+              No published forms match your current search query. Try searching for a different keyword.
             </p>
           </div>
         ) : (
@@ -355,14 +319,11 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                 >
                   <div>
                     {/* Tags row */}
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-100">
-                        {form.category.replace(/_/g, " ")}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        Official Form
                       </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
-                        Method: {form.submission_method.replace(/_/g, " ")}
-                      </span>
-                      <span className="text-[11px] font-mono text-slate-400 ml-auto">
+                      <span className="text-[11px] font-mono text-slate-400">
                         {form.fields_count} Questions
                       </span>
                     </div>

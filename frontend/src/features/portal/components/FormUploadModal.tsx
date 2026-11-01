@@ -21,23 +21,6 @@ interface FormUploadModalProps {
   onFormUploaded: (review: FormReviewDetail) => void;
 }
 
-const CATEGORY_OPTIONS = [
-  { value: "buergeramt", label: "Bürgeramt / Meldebehörde (Registration & Passports)" },
-  { value: "auslaenderbehoerde", label: "Ausländerbehörde (Immigration, Visa & Residence)" },
-  { value: "standesamt", label: "Standesamt (Vital Records & Marriages)" },
-  { value: "gewerbeamt", label: "Gewerbeamt / Wirtschaftsförderung (Business)" },
-  { value: "finanzamt", label: "Finanzamt (Tax & Municipal Levies)" },
-  { value: "social_welfare", label: "Sozialamt / Wohngeld (Social & Housing Benefits)" },
-  { value: "general", label: "Allgemeine Verwaltung (General Administration)" },
-];
-
-const SUBMISSION_METHODS = [
-  { value: "print_and_sign", label: "Print & Sign (Drucken & Handschriftlich unterschreiben)" },
-  { value: "online_upload", label: "Direct Digital Intake / Online Upload" },
-  { value: "in_person_appointment", label: "In-Person Appointment (Persönliche Vorsprache)" },
-  { value: "postal_mail", label: "Postal Submission (Postalischer Versand)" },
-];
-
 export function FormUploadModal({
   isOpen,
   onClose,
@@ -260,42 +243,6 @@ export function FormUploadModal({
                 placeholder="e.g. wohnungsgeber-stuttgart"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono text-xs"
               />
-            </div>
-          </div>
-
-          {/* Department & Submission Method */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Responsible Department / Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-800"
-              >
-                {CATEGORY_OPTIONS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Citizen Submission Method
-              </label>
-              <select
-                value={submissionMethod}
-                onChange={(e) => setSubmissionMethod(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-800"
-              >
-                {SUBMISSION_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 

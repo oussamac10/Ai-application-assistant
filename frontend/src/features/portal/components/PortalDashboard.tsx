@@ -705,18 +705,6 @@ export function PortalDashboard() {
 
                     <div className="mt-3 space-y-1 text-xs text-[#737283]">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span>Department:</span>
-                        <span className="font-semibold text-slate-700 capitalize">
-                          {f.category.replace(/_/g, " ")}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span>Method:</span>
-                        <span className="font-semibold text-slate-700 capitalize">
-                          {f.submissionMethod.replace(/_/g, " ")}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px]">
                         <span>Fields Detected:</span>
                         <span className="font-mono font-bold text-[#6551f3]">{f.fieldsCount}</span>
                       </div>
