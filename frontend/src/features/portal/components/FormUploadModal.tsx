@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   UploadCloud,
   FileText,
-  Image as ImageIcon,
   X,
   Plus,
   Trash2,
@@ -42,33 +41,14 @@ export function FormUploadModal({
 
   if (!isOpen) return null;
 
-  const isImageFile = (f: File | null) => {
-    if (!f) return false;
-    const lower = f.name.toLowerCase();
-    return (
-      f.type.startsWith("image/") ||
-      lower.endsWith(".jpg") ||
-      lower.endsWith(".jpeg") ||
-      lower.endsWith(".png") ||
-      lower.endsWith(".webp")
-    );
-  };
-
   const handleFileChange = (selectedFile: File) => {
     const lowerName = selectedFile.name.toLowerCase();
-    const allowedExt = [".pdf", ".jpg", ".jpeg", ".png", ".webp"].some((ext) =>
-      lowerName.endsWith(ext)
-    );
-    const allowedMime = [
-      "application/pdf",
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/webp",
-    ].includes(selectedFile.type.toLowerCase());
+    const isPdf =
+      lowerName.endsWith(".pdf") ||
+      selectedFile.type.toLowerCase() === "application/pdf";
 
-    if (!allowedExt && !allowedMime) {
-      setError("Only PDF, JPG, PNG, and WebP files are supported.");
+    if (!isPdf) {
+      setError("Only official PDF documents (.pdf) are supported.");
       return;
     }
     if (selectedFile.size > 25 * 1024 * 1024) {
@@ -111,7 +91,7 @@ export function FormUploadModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
-      setError("Please upload an official form document (PDF or image).");
+      setError("Please upload an official blank form PDF.");
       return;
     }
     if (!name.trim()) {
@@ -180,7 +160,7 @@ export function FormUploadModal({
           {/* Form Document Drag & Drop Zone */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-              Official Blank Document *
+              Official Blank PDF Document *
             </label>
             <div
               onDragOver={(e) => {
@@ -207,7 +187,7 @@ export function FormUploadModal({
               <input
                 id="form-doc-input"
                 type="file"
-                accept=".pdf,application/pdf,.jpg,.jpeg,image/jpeg,.png,image/png,.webp,image/webp"
+                accept=".pdf,application/pdf"
                 className="hidden"
                 onChange={(e) => {
                   if (e.target.files?.[0]) handleFileChange(e.target.files[0]);
@@ -215,11 +195,7 @@ export function FormUploadModal({
               />
               {file ? (
                 <div className="flex items-center justify-center gap-3">
-                  {isImageFile(file) ? (
-                    <ImageIcon className="w-8 h-8 text-blue-600 shrink-0" />
-                  ) : (
-                    <FileText className="w-8 h-8 text-emerald-600 shrink-0" />
-                  )}
+                  <FileText className="w-8 h-8 text-emerald-600 shrink-0" />
                   <div className="text-left">
                     <p className="text-sm font-semibold text-slate-800">{file.name}</p>
                     <p className="text-xs text-slate-500">
@@ -231,15 +207,9 @@ export function FormUploadModal({
                       • Ready for field extraction
                     </p>
                   </div>
-                  <span
-                    className={`ml-auto inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full ${
-                      isImageFile(file)
-                        ? "text-blue-700 bg-blue-100"
-                        : "text-emerald-700 bg-emerald-100"
-                    }`}
-                  >
+                  <span className="ml-auto inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full text-emerald-700 bg-emerald-100">
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                    {isImageFile(file) ? "Image Attached" : "PDF Attached"}
+                    PDF Attached
                   </span>
                 </div>
               ) : (
@@ -248,10 +218,10 @@ export function FormUploadModal({
                     <UploadCloud className="w-6 h-6" />
                   </div>
                   <p className="text-sm font-semibold text-slate-700">
-                    Click to browse or drag and drop official form (PDF or image)
+                    Click to browse or drag and drop official form PDF
                   </p>
                   <p className="text-xs text-slate-400">
-                    PDF document or scanned image (JPG, PNG, WebP, max 25MB)
+                    A4 standard municipal or institutional PDF (Max 25MB)
                   </p>
                 </div>
               )}

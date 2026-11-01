@@ -319,46 +319,26 @@ def test_organization_form_rbac_and_tenant_isolation(
     assert v_preview.content[:8] == b"\x89PNG\r\n\x1a\n"
 
 
-def test_organization_image_upload_and_normalization(
+def test_organization_upload_strictly_rejects_non_pdf(
     client: TestClient, db_session: Session
 ) -> None:
-    from PIL import Image
-
     # 1. Register owner
     _register_and_auth(client, "admin@cityofboston.gov")
 
-    # 2. Create in-memory PNG image
-    img_buf = BytesIO()
-    img = Image.new("RGB", (600, 800), color=(255, 255, 255))
-    img.save(img_buf, format="PNG")
-    png_bytes = img_buf.getvalue()
-
-    # 3. Upload PNG image
+    # 2. Upload non-PDF (image or raw text without %PDF- magic bytes)
     upload_res = client.post(
         "/api/organizations/current/forms/upload",
-        files={"file": ("scanned_application.png", BytesIO(png_bytes), "image/png")},
+        files={
+            "file": (
+                "scanned_application.png",
+                BytesIO(b"fake image bytes"),
+                "image/png",
+            )
+        },
         data={"name": "Scanned Permit Form"},
     )
-    assert upload_res.status_code == 201
-    detail = upload_res.json()
-    assert detail["name"] == "Scanned Permit Form"
-    assert detail["status"] == "needs_review"
-    assert len(detail["fields"]) == 0  # starts empty by default
-    template_id = detail["templateId"]
-
-    # 4. Auto-detect fields on demand
-    detect_res = client.post(
-        f"/api/organizations/current/forms/{template_id}/auto-detect"
-    )
-    assert detect_res.status_code == 200
-
-    # 5. Preview page 1 rendered from the normalized A4 PDF
-    preview_res = client.get(
-        f"/api/organizations/current/forms/{template_id}/pages/1/preview"
-    )
-    assert preview_res.status_code == 200
-    assert preview_res.headers["content-type"] == "image/png"
-    assert preview_res.content[:8] == b"\x89PNG\r\n\x1a\n"
+    assert upload_res.status_code == 400
+    assert "Uploaded file must be a valid PDF document." in upload_res.json()["detail"]
 
 
 def test_organization_delete_form_and_clear_fields(

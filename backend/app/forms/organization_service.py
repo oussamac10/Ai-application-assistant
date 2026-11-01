@@ -23,12 +23,6 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth.models import User
-from app.core.config import settings
-from app.documents.errors import DocumentValidationError
-from app.documents.image_normalizer import (
-    detect_upload_media_kind,
-    normalize_image_file_to_a4_pdf,
-)
 from app.forms.models import (
     FormField,
     FormFieldOption,
@@ -321,6 +315,35 @@ class OrganizationFormService:
         org, membership = OrganizationService(self.db).ensure_default_organization(user)
         return org, membership
 
+    def _get_form_template_and_version(
+        self, org_id: str, template_id: str
+    ) -> tuple[FormTemplate, FormVersion]:
+        """Helper to fetch a form template and its latest version scoped to an organization."""
+        template = (
+            self.db.query(FormTemplate)
+            .filter(
+                FormTemplate.id == template_id, FormTemplate.organization_id == org_id
+            )
+            .first()
+        )
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
+            )
+
+        latest_version = (
+            self.db.query(FormVersion)
+            .filter(FormVersion.form_template_id == template.id)
+            .order_by(FormVersion.version_number.desc())
+            .first()
+        )
+        if not latest_version:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Form version not found."
+            )
+
+        return template, latest_version
+
     def list_organization_forms(self, user: User) -> list[OrganizationFormSummary]:
         org, _ = self._require_org_viewer(user)
 
@@ -391,33 +414,19 @@ class OrganizationFormService:
     ) -> FormReviewDetailResponse:
         org, _ = self._require_org_editor(user)
 
-        # 1. Inspect magic bytes and normalize image if needed (JPG, PNG, WebP -> A4 PDF)
-        doc_uuid = str(uuid.uuid4())
-        ext = Path(filename).suffix.lower() if filename else ".pdf"
-        if ext not in (".pdf", ".jpg", ".jpeg", ".png", ".webp"):
-            ext = ".bin"
+        # 1. Enforce strict PDF document contract (magic bytes + filename)
+        if not pdf_bytes.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded file must be a valid PDF document.",
+            )
 
-        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        doc_uuid = str(uuid.uuid4())
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             tmp.write(pdf_bytes)
             tmp_path = Path(tmp.name)
 
         try:
-            source_media_type = detect_upload_media_kind(str(tmp_path))
-            if source_media_type == "application/pdf":
-                if not pdf_bytes.startswith(b"%PDF-"):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Uploaded file must be a valid PDF document.",
-                    )
-            else:
-                # Camera scan or image upload: normalize EXIF orientation and composite onto ISO A4 PDF
-                normalize_image_file_to_a4_pdf(
-                    str(tmp_path),
-                    settings.DOCUMENT_UPLOAD_MAX_IMAGE_PIXELS,
-                    source_media_type,
-                )
-                pdf_bytes = tmp_path.read_bytes()
-
             stored_filename = f"org-form-{doc_uuid[:8]}.pdf"
             storage_path = self.storage.save_file(
                 "documents",
@@ -425,11 +434,6 @@ class OrganizationFormService:
                 tmp_path,
                 content_type="application/pdf",
             )
-        except DocumentValidationError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc),
-            ) from exc
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()
@@ -585,28 +589,9 @@ class OrganizationFormService:
     ) -> FormReviewDetailResponse:
         """On-demand scan and extraction of fields from the attached form document."""
         org, _ = self._require_org_editor(user)
-        template = (
-            self.db.query(FormTemplate)
-            .filter(
-                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
-            )
-            .first()
+        template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
         )
-        if not template:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
-            )
-
-        latest_version = (
-            self.db.query(FormVersion)
-            .filter(FormVersion.form_template_id == template.id)
-            .order_by(FormVersion.version_number.desc())
-            .first()
-        )
-        if not latest_version:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form version not found."
-            )
 
         if not latest_version.source_pdf_storage_path:
             raise HTTPException(
@@ -620,10 +605,6 @@ class OrganizationFormService:
         self.db.commit()
 
         return self.get_form_review(user, template_id)
-
-        self.db.commit()
-
-        return self.get_form_review(user, template.id)
 
     def get_form_review(self, user: User, template_id: str) -> FormReviewDetailResponse:
         org, _ = self._require_org_viewer(user)
@@ -739,29 +720,9 @@ class OrganizationFormService:
         self, user: User, template_id: str, req: FormReviewUpdateRequest
     ) -> FormReviewDetailResponse:
         org, _ = self._require_org_editor(user)
-
-        template = (
-            self.db.query(FormTemplate)
-            .filter(
-                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
-            )
-            .first()
+        template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
         )
-        if not template:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
-            )
-
-        latest_version = (
-            self.db.query(FormVersion)
-            .filter(FormVersion.form_template_id == template.id)
-            .order_by(FormVersion.version_number.desc())
-            .first()
-        )
-        if not latest_version:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form version not found."
-            )
 
         if req.name is not None and req.name.strip():
             template.name = req.name.strip()
@@ -1013,28 +974,9 @@ class OrganizationFormService:
     ) -> FormReviewDetailResponse:
         """Deletes all fields from the latest version of the form template."""
         org, _ = self._require_org_editor(user)
-        template = (
-            self.db.query(FormTemplate)
-            .filter(
-                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
-            )
-            .first()
+        template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
         )
-        if not template:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
-            )
-
-        latest_version = (
-            self.db.query(FormVersion)
-            .filter(FormVersion.form_template_id == template.id)
-            .order_by(FormVersion.version_number.desc())
-            .first()
-        )
-        if not latest_version:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form version not found."
-            )
 
         fields = (
             self.db.query(FormField)
@@ -1123,29 +1065,9 @@ class OrganizationFormService:
 
     def publish_form(self, user: User, template_id: str) -> FormReviewDetailResponse:
         org, _ = self._require_org_editor(user)
-
-        template = (
-            self.db.query(FormTemplate)
-            .filter(
-                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
-            )
-            .first()
+        template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
         )
-        if not template:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
-            )
-
-        latest_version = (
-            self.db.query(FormVersion)
-            .filter(FormVersion.form_template_id == template.id)
-            .order_by(FormVersion.version_number.desc())
-            .first()
-        )
-        if not latest_version:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form version not found."
-            )
 
         field_count = (
             self.db.query(func.count(FormField.id))
@@ -1166,29 +1088,9 @@ class OrganizationFormService:
 
     def archive_form(self, user: User, template_id: str) -> FormReviewDetailResponse:
         org, _ = self._require_org_editor(user)
-
-        template = (
-            self.db.query(FormTemplate)
-            .filter(
-                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
-            )
-            .first()
+        template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
         )
-        if not template:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
-            )
-
-        latest_version = (
-            self.db.query(FormVersion)
-            .filter(FormVersion.form_template_id == template.id)
-            .order_by(FormVersion.version_number.desc())
-            .first()
-        )
-        if not latest_version:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form version not found."
-            )
 
         latest_version.status = "archived"
         self.db.commit()
@@ -1197,26 +1099,10 @@ class OrganizationFormService:
 
     def get_source_pdf_bytes(self, user: User, template_id: str) -> tuple[bytes, str]:
         org, _ = self._require_org_viewer(user)
-
-        template = (
-            self.db.query(FormTemplate)
-            .filter(
-                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
-            )
-            .first()
+        template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
         )
-        if not template:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
-            )
-
-        latest_version = (
-            self.db.query(FormVersion)
-            .filter(FormVersion.form_template_id == template.id)
-            .order_by(FormVersion.version_number.desc())
-            .first()
-        )
-        if not latest_version or not latest_version.source_pdf_storage_path:
+        if not latest_version.source_pdf_storage_path:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Source PDF document not found for this form.",
@@ -1229,26 +1115,10 @@ class OrganizationFormService:
         self, user: User, template_id: str, page_number: int = 1
     ) -> bytes:
         org, _ = self._require_org_viewer(user)
-
-        template = (
-            self.db.query(FormTemplate)
-            .filter(
-                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
-            )
-            .first()
+        template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
         )
-        if not template:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
-            )
-
-        latest_version = (
-            self.db.query(FormVersion)
-            .filter(FormVersion.form_template_id == template.id)
-            .order_by(FormVersion.version_number.desc())
-            .first()
-        )
-        if not latest_version or not latest_version.source_pdf_storage_path:
+        if not latest_version.source_pdf_storage_path:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Source PDF document not found for this form.",
