@@ -35,6 +35,7 @@ export function FormUploadModal({
   const [instructions, setInstructions] = useState("");
   const [requiredDocs, setRequiredDocs] = useState<string[]>([]);
   const [newDocInput, setNewDocInput] = useState("");
+  const [autoExtract, setAutoExtract] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -130,6 +131,7 @@ export function FormUploadModal({
       formData.append("submission_method", submissionMethod);
       if (instructions.trim()) formData.append("instructions", instructions.trim());
       formData.append("required_documents", JSON.stringify(requiredDocs));
+      formData.append("auto_extract", String(autoExtract));
 
       const review = await uploadOrganizationForm(formData);
       onFormUploaded(review);
@@ -153,7 +155,7 @@ export function FormUploadModal({
             <div>
               <h2 className="text-lg font-bold text-slate-900">Upload & Ingest Official Form</h2>
               <p className="text-xs text-slate-500">
-                AI and AcroForm extraction will parse fields, extract coordinates, and build the multilingual review schema.
+                Upload your blank official form document to review and place fields in the Studio.
               </p>
             </div>
           </div>
@@ -253,6 +255,25 @@ export function FormUploadModal({
                   </p>
                 </div>
               )}
+            </div>
+
+            {/* Auto-Extract Option */}
+            <div className="mt-3 flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/70">
+              <input
+                id="auto-extract-toggle"
+                type="checkbox"
+                checked={autoExtract}
+                onChange={(e) => setAutoExtract(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="auto-extract-toggle" className="text-xs cursor-pointer select-none">
+                <span className="font-semibold text-slate-800">
+                  Automatically detect form fields from document
+                </span>
+                <p className="text-slate-500 text-[11px] mt-0.5">
+                  Leave unchecked to start with a blank form and place fields manually on the canvas.
+                </p>
+              </label>
             </div>
           </div>
 
@@ -379,12 +400,12 @@ export function FormUploadModal({
               {isUploading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Extracting Fields & Building Schema...
+                  Uploading & Initializing Studio...
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  Parse & Launch Review Studio
+                  Upload & Open Studio
                 </>
               )}
             </button>

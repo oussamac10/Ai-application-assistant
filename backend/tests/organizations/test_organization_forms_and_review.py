@@ -111,6 +111,7 @@ def test_organization_form_upload_review_and_publish_flow(
         "required_documents": json.dumps(
             ["Personalausweis oder Reisepass", "Wohnungsgeberbestätigung"]
         ),
+        "auto_extract": "true",
     }
 
     upload_res = client.post(
@@ -342,9 +343,16 @@ def test_organization_image_upload_and_normalization(
     detail = upload_res.json()
     assert detail["name"] == "Scanned Permit Form"
     assert detail["status"] == "needs_review"
+    assert len(detail["fields"]) == 0  # starts empty by default
     template_id = detail["templateId"]
 
-    # 4. Preview page 1 rendered from the normalized A4 PDF
+    # 4. Auto-detect fields on demand
+    detect_res = client.post(
+        f"/api/organizations/current/forms/{template_id}/auto-detect"
+    )
+    assert detect_res.status_code == 200
+
+    # 5. Preview page 1 rendered from the normalized A4 PDF
     preview_res = client.get(
         f"/api/organizations/current/forms/{template_id}/pages/1/preview"
     )

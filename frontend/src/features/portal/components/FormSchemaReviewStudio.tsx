@@ -32,6 +32,7 @@ import {
   addFormField,
   deleteFormField,
   reorderFormFields,
+  autoDetectFormFields,
   publishForm,
   archiveForm,
   getFormPagePreviewUrl,
@@ -82,6 +83,7 @@ export function FormSchemaReviewStudio({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [autoDetecting, setAutoDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -192,6 +194,26 @@ export function FormSchemaReviewStudio({
 
   const handleRemoveDoc = (index: number) => {
     setRequiredDocs(requiredDocs.filter((_, idx) => idx !== index));
+  };
+
+  const handleAutoDetect = async () => {
+    try {
+      setAutoDetecting(true);
+      setError(null);
+      const updated = await autoDetectFormFields(templateId);
+      setReview(updated);
+      setFields(updated.fields || []);
+      setSuccessMessage(
+        updated.fields?.length
+          ? `Successfully detected ${updated.fields.length} fields from document.`
+          : "No interactive fields detected. You can place fields manually on the canvas."
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to auto-detect fields";
+      setError(msg);
+    } finally {
+      setAutoDetecting(false);
+    }
   };
 
   const handleFieldChange = (
@@ -1051,23 +1073,39 @@ export function FormSchemaReviewStudio({
             </div>
 
             {activeTab === "fields" && canEdit && (
-              <button
-                onClick={() => {
-                  const curPageDims = review?.pageDimensions?.find((p) => p.page === activePage) || {
-                    width: 595,
-                    height: 842,
-                  };
-                  if (!newFieldBbox) {
-                    setNewFieldBbox(computeDefaultBbox(fields, activePage, curPageDims));
-                    setNewFieldPage(activePage);
-                  }
-                  setModalError(null);
-                  setShowAddField(true);
-                }}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Field
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAutoDetect}
+                  disabled={autoDetecting}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Scan PDF layout to auto-detect input boxes"
+                >
+                  {autoDetecting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  )}
+                  Auto-Detect Fields
+                </button>
+                <button
+                  onClick={() => {
+                    const curPageDims = review?.pageDimensions?.find((p) => p.page === activePage) || {
+                      width: 595,
+                      height: 842,
+                    };
+                    if (!newFieldBbox) {
+                      setNewFieldBbox(computeDefaultBbox(fields, activePage, curPageDims));
+                      setNewFieldPage(activePage);
+                    }
+                    setModalError(null);
+                    setShowAddField(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Field
+                </button>
+              </div>
             )}
           </div>
 
@@ -1093,12 +1131,39 @@ export function FormSchemaReviewStudio({
                       Add questions manually to configure this form.
                     </p>
                     {canEdit && (
-                      <button
-                        onClick={() => setShowAddField(true)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold"
-                      >
-                        <Plus className="w-4 h-4" /> Add First Field
-                      </button>
+                      <div className="flex items-center justify-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const curPageDims = review?.pageDimensions?.find((p) => p.page === activePage) || {
+                              width: 595,
+                              height: 842,
+                            };
+                            if (!newFieldBbox) {
+                              setNewFieldBbox(computeDefaultBbox(fields, activePage, curPageDims));
+                              setNewFieldPage(activePage);
+                            }
+                            setModalError(null);
+                            setShowAddField(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" /> Add Field Manually
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAutoDetect}
+                          disabled={autoDetecting}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer disabled:opacity-50"
+                        >
+                          {autoDetecting ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-blue-600" />
+                          )}
+                          Scan & Auto-Detect
+                        </button>
+                      </div>
                     )}
                   </div>
                 ) : (

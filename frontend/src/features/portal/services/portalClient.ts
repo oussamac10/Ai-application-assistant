@@ -395,6 +395,25 @@ export async function updateFormReview(
   return res.json();
 }
 
+export async function autoDetectFormFields(
+  templateId: string
+): Promise<FormReviewDetail> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/auto-detect`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to auto-detect form fields.");
+  }
+  return res.json();
+}
+
 export async function updateFormField(
   templateId: string,
   fieldId: string,

@@ -278,6 +278,7 @@ async def upload_organization_form(
     submission_method: str = Form("print_and_sign"),
     instructions: str | None = Form(None),
     required_documents: str | None = Form(None),
+    auto_extract: bool = Form(False),
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
     _csrf: None = Depends(verify_csrf),
@@ -302,7 +303,22 @@ async def upload_organization_form(
         submission_method=submission_method,
         instructions=instructions,
         required_documents=docs_list,
+        auto_extract=auto_extract,
     )
+
+
+@router.post(
+    "/organizations/current/forms/{template_id}/auto-detect",
+    response_model=FormReviewDetailResponse,
+)
+def auto_detect_form_fields(
+    template_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.auto_detect_fields(user, template_id)
 
 
 @router.get(

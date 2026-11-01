@@ -377,6 +377,7 @@ class OrganizationFormService:
         submission_method: str = "print_and_sign",
         instructions: str | None = None,
         required_documents: list[str] | None = None,
+        auto_extract: bool = False,
     ) -> FormReviewDetailResponse:
         org, _ = self._require_org_editor(user)
 
@@ -454,7 +455,16 @@ class OrganizationFormService:
         self.db.add(version)
         self.db.flush()
 
-        # 5. Extract fields from PDF
+        # 5. Extract fields from PDF only if explicitly requested
+        if auto_extract:
+            extracted_fields = self._extract_fields_from_pdf_bytes(pdf_bytes)
+            self._insert_extracted_fields(version.id, extracted_fields)
+
+        self.db.commit()
+        return self.get_form_review(user, template.id)
+
+    def _extract_fields_from_pdf_bytes(self, pdf_bytes: bytes) -> list[dict[str, Any]]:
+        """Extracts candidate fields from interactive AcroForms or layout text."""
         extracted_fields: list[dict[str, Any]] = []
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -502,15 +512,41 @@ class OrganizationFormService:
             except Exception as e:
                 logger.warning("PyMuPDF layout-based field extraction error: %s", e)
 
-        # 6. Populate FormField, FormFieldTranslation, and FormFieldOption records
+        return extracted_fields
+
+    def _insert_extracted_fields(
+        self, version_id: str, extracted_fields: list[dict[str, Any]]
+    ) -> None:
+        """Inserts extracted fields into database with unique keys and source translation."""
+        current_max_pos = (
+            self.db.query(func.max(FormField.position))
+            .filter(FormField.form_version_id == version_id)
+            .scalar()
+            or 0
+        )
+        existing_keys = {
+            f.key
+            for f in self.db.query(FormField.key)
+            .filter(FormField.form_version_id == version_id)
+            .all()
+        }
+
         for idx, f in enumerate(extracted_fields):
+            base_key = f["key"]
+            candidate_key = base_key
+            suffix = 2
+            while candidate_key in existing_keys:
+                candidate_key = f"{base_key}_{suffix}"
+                suffix += 1
+            existing_keys.add(candidate_key)
+
             form_field = FormField(
-                form_version_id=version.id,
-                key=f["key"],
+                form_version_id=version_id,
+                key=candidate_key,
                 field_type=f["field_type"],
                 required=f["requiredness"] == "required",
                 requiredness=f["requiredness"],
-                position=idx + 1,
+                position=current_max_pos + idx + 1,
                 question_key=f["question_key"],
                 configuration={"bbox": f.get("bbox"), "page": f.get("page", 1)},
             )
@@ -533,6 +569,47 @@ class OrganizationFormService:
                     position=opt_idx + 1,
                 )
                 self.db.add(opt)
+
+    def auto_detect_fields(
+        self, user: User, template_id: str
+    ) -> FormReviewDetailResponse:
+        """On-demand scan and extraction of fields from the attached form document."""
+        org, _ = self._require_org_editor(user)
+        template = (
+            self.db.query(FormTemplate)
+            .filter(
+                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
+            )
+            .first()
+        )
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
+            )
+
+        latest_version = (
+            self.db.query(FormVersion)
+            .filter(FormVersion.form_template_id == template.id)
+            .order_by(FormVersion.version_number.desc())
+            .first()
+        )
+        if not latest_version:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Form version not found."
+            )
+
+        if not latest_version.source_pdf_storage_path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No source PDF attached to this form version.",
+            )
+
+        pdf_bytes = self.storage.get_bytes(latest_version.source_pdf_storage_path)
+        extracted_fields = self._extract_fields_from_pdf_bytes(pdf_bytes)
+        self._insert_extracted_fields(latest_version.id, extracted_fields)
+        self.db.commit()
+
+        return self.get_form_review(user, template_id)
 
         self.db.commit()
 
