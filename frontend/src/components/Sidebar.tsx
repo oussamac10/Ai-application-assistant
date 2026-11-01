@@ -13,7 +13,6 @@ import {
   LogOut,
   ChevronDown,
   Globe,
-  Home,
   User,
   ShieldCheck,
   X,
@@ -142,7 +141,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {/* Top Header: Brand & Workspace */}
       <div>
         <div className="flex h-16 items-center justify-between px-5 border-b border-[#161F30]">
-          <Link href="/portal" className="flex items-center gap-2.5 group">
+          <Link href="/" className="flex items-center gap-2.5 group" title="Return to Home">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#6551f3] text-white shadow-xs group-hover:bg-[#523ee8] transition-colors">
               <svg
                 className="h-4 w-4"
@@ -226,17 +225,6 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               </div>
             </div>
           ))}
-
-          {/* Quick link to public landing page */}
-          <div className="pt-2 border-t border-[#161F30]">
-            <Link
-              href="/"
-              className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-[#131B2E] hover:text-slate-200 transition-colors"
-            >
-              <Home className="w-4 h-4 shrink-0" />
-              <span>Public Landing Page</span>
-            </Link>
-          </div>
         </nav>
       </div>
 

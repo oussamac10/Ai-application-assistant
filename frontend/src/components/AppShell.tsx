@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -67,12 +68,12 @@ export default function AppShell({ children }: AppShellProps) {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <span className="text-sm font-bold tracking-tight text-white">FormFlow</span>
             <span className="rounded bg-[#131B2E] border border-[#212E4A] px-1 py-0.2 font-mono text-[9px] font-bold text-[#A397F8]">
               SYSTEM
             </span>
-          </div>
+          </Link>
           <div className="w-7 h-7 rounded-full bg-[#6551f3] text-white text-xs font-bold flex items-center justify-center">
             {user.email.charAt(0).toUpperCase()}
           </div>
