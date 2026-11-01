@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_user, verify_csrf
@@ -70,6 +70,35 @@ def submit_organization_verification(
 ) -> Any:
     service = OrganizationService(db)
     return service.submit_verification(user, body)
+
+
+@router.get("/organizations/current/logo")
+def get_current_organization_logo(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Response:
+    service = OrganizationService(db)
+    org, _ = service.ensure_default_organization(user)
+    file_bytes, content_type = service.get_branding_image(org.id, image_type="logo")
+    return Response(
+        content=file_bytes,
+        media_type=content_type,
+        headers={"Cache-Control": "no-cache, private"},
+    )
+
+
+@router.get("/organizations/{org_id}/logo")
+def get_organization_logo(
+    org_id: str,
+    db: Session = Depends(get_db),
+) -> Response:
+    service = OrganizationService(db)
+    file_bytes, content_type = service.get_branding_image(org_id, image_type="logo")
+    return Response(
+        content=file_bytes,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @router.post("/organizations/current/logo", response_model=OrganizationRead)

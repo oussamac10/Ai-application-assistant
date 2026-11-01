@@ -161,6 +161,28 @@ def test_logo_branding_upload(client: TestClient, db_session: Session) -> None:
     assert data["logo_storage_path"] is not None
     assert "logo-" in data["logo_storage_path"]
 
+    # Test GET logo serving
+    get_res = client.get("/api/organizations/current/logo")
+    assert get_res.status_code == 200
+    assert get_res.headers["content-type"] == "image/png"
+    assert get_res.content.startswith(b"\x89PNG")
+
+    # Upload SVG logo
+    fake_svg = BytesIO(
+        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40'/></svg>"
+    )
+    upload_svg = client.post(
+        "/api/organizations/current/logo",
+        files={"file": ("stuttgart-seal.svg", fake_svg, "image/svg+xml")},
+    )
+    assert upload_svg.status_code == 200
+    assert upload_svg.json()["logo_storage_path"].endswith(".svg")
+
+    get_svg = client.get("/api/organizations/current/logo")
+    assert get_svg.status_code == 200
+    assert "image/svg+xml" in get_svg.headers["content-type"]
+    assert b"<svg" in get_svg.content
+
 
 def test_registration_account_types_and_organization_division(
     client: TestClient, db_session: Session

@@ -68,6 +68,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
   // Logo upload state
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoVersion, setLogoVersion] = useState(Date.now());
 
   // Verification Form state
   const [authorityName, setAuthorityName] = useState(initialOrg.name);
@@ -143,6 +144,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
       const updated = await uploadOrganizationLogo(file);
       setOrg(updated);
       onOrgUpdated(updated);
+      setLogoVersion(Date.now());
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Failed to upload logo.");
     } finally {
@@ -289,23 +291,29 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             {/* Logo & Header Info */}
             <div className="flex flex-col sm:flex-row items-start gap-6 pb-6 border-b border-slate-100">
               <div className="relative group shrink-0">
-                <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center overflow-hidden">
+                <div className="w-24 h-24 rounded-2xl border-2 border-slate-200 bg-white flex flex-col items-center justify-center overflow-hidden shadow-2xs p-1.5">
                   {org.logo_storage_path ? (
-                    <div className="w-full h-full flex items-center justify-center bg-indigo-50 text-indigo-700 font-bold text-lg">
-                      {org.name.slice(0, 2).toUpperCase()}
-                    </div>
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={`/api/organizations/${org.id}/logo?v=${logoVersion}`}
+                      alt={`${org.name} logo`}
+                      className="w-full h-full object-contain"
+                    />
                   ) : (
-                    <Building className="w-8 h-8 text-slate-400" />
+                    <div className="w-full h-full rounded-xl bg-slate-50 flex flex-col items-center justify-center text-slate-400">
+                      <Building className="w-8 h-8 text-slate-400" />
+                      <span className="text-[10px] font-semibold mt-1">No Logo</span>
+                    </div>
                   )}
                 </div>
                 {isOwnerOrAdmin && (
                   <label className="mt-2 block text-center cursor-pointer">
-                    <span className="text-[11px] font-semibold text-indigo-600 hover:underline">
-                      {uploadingLogo ? "Uploading..." : "Change Logo"}
+                    <span className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+                      {uploadingLogo ? "Uploading..." : "Upload Logo (SVG / PNG)"}
                     </span>
                     <input
                       type="file"
-                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      accept=".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp"
                       onChange={handleLogoUpload}
                       disabled={uploadingLogo}
                       className="hidden"

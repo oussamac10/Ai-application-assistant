@@ -207,22 +207,24 @@ class OrganizationService:
                 detail="Image exceeds maximum size limit of 5MB.",
             )
 
-        ext = "png"
         lower_name = filename.lower()
-        if lower_name.endswith((".jpg", ".jpeg")):
+        is_svg = (
+            lower_name.endswith(".svg")
+            or file_bytes.lstrip().startswith(b"<svg")
+            or file_bytes.lstrip().startswith(b"<?xml")
+        )
+        if is_svg:
+            ext = "svg"
+            content_type = "image/svg+xml"
+        elif lower_name.endswith((".jpg", ".jpeg")):
             ext = "jpg"
+            content_type = "image/jpeg"
         elif lower_name.endswith(".webp"):
             ext = "webp"
-        elif lower_name.endswith(".svg"):
-            ext = "svg"
-
-        content_type = "image/png"
-        if ext == "jpg":
-            content_type = "image/jpeg"
-        elif ext == "webp":
             content_type = "image/webp"
-        elif ext == "svg":
-            content_type = "image/svg+xml"
+        else:
+            ext = "png"
+            content_type = "image/png"
 
         storage = get_storage_provider()
         with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
@@ -249,6 +251,47 @@ class OrganizationService:
         self.org_repo.save(org)
         self.db.commit()
         return self._to_org_read(org, member.role)
+
+    def get_branding_image(
+        self, organization_id: str, image_type: str = "logo"
+    ) -> tuple[bytes, str]:
+        org = self.org_repo.get(organization_id)
+        if not org:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Organization not found.",
+            )
+
+        ref = (
+            org.logo_storage_path
+            if image_type == "logo"
+            else org.cover_image_storage_path
+        )
+        if not ref:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Organization {image_type} not set.",
+            )
+
+        storage = get_storage_provider()
+        if not storage.exists(ref):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Stored {image_type} file missing on disk.",
+            )
+
+        file_bytes = storage.get_bytes(ref)
+        lower_ref = ref.lower()
+        if lower_ref.endswith(".svg") or file_bytes.lstrip().startswith((b"<svg", b"<?xml")):
+            content_type = "image/svg+xml"
+        elif lower_ref.endswith((".jpg", ".jpeg")):
+            content_type = "image/jpeg"
+        elif lower_ref.endswith(".webp"):
+            content_type = "image/webp"
+        else:
+            content_type = "image/png"
+
+        return file_bytes, content_type
 
     def list_members(self, user: User) -> list[OrganizationMemberRead]:
         org, _ = self.ensure_default_organization(user)
