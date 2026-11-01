@@ -528,6 +528,37 @@ export async function archiveForm(templateId: string): Promise<FormReviewDetail>
   return res.json();
 }
 
+export async function deleteForm(templateId: string): Promise<void> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}`, {
+    method: "DELETE",
+    headers: {
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to delete form.");
+  }
+}
+
+export async function clearFormFields(templateId: string): Promise<FormReviewDetail> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/fields`, {
+    method: "DELETE",
+    headers: {
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to clear form fields.");
+  }
+  return res.json();
+}
+
 // Public Citizen Discovery & Portals (Phase G3)
 export async function listPublicOrganizations(params?: {
   search?: string;

@@ -447,6 +447,34 @@ def archive_form(
     return service.archive_form(user, template_id)
 
 
+@router.delete(
+    "/organizations/current/forms/{template_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_organization_form(
+    template_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> None:
+    service = OrganizationFormService(db)
+    service.delete_form_template(user, template_id)
+
+
+@router.delete(
+    "/organizations/current/forms/{template_id}/fields",
+    response_model=FormReviewDetailResponse,
+)
+def clear_organization_form_fields(
+    template_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.clear_form_fields(user, template_id)
+
+
 @router.get("/organizations/current/forms/{template_id}/source-pdf")
 def get_source_pdf(
     template_id: str,

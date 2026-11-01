@@ -47,7 +47,10 @@ from app.forms.schemas import (
     OrganizationFormSummary,
     TranslationSchema,
 )
+from app.organizations.models import OrganizationCase
 from app.organizations.repositories import OrganizationRepository
+from app.pdf.models import FormExport
+from app.sessions.models import FormSession
 from app.storage.factory import get_storage_provider
 
 logger = logging.getLogger(__name__)
@@ -1003,6 +1006,107 @@ class OrganizationFormService:
             )
 
         self.db.delete(field)
+        self.db.commit()
+
+    def clear_form_fields(
+        self, user: User, template_id: str
+    ) -> FormReviewDetailResponse:
+        """Deletes all fields from the latest version of the form template."""
+        org, _ = self._require_org_editor(user)
+        template = (
+            self.db.query(FormTemplate)
+            .filter(
+                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
+            )
+            .first()
+        )
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
+            )
+
+        latest_version = (
+            self.db.query(FormVersion)
+            .filter(FormVersion.form_template_id == template.id)
+            .order_by(FormVersion.version_number.desc())
+            .first()
+        )
+        if not latest_version:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Form version not found."
+            )
+
+        fields = (
+            self.db.query(FormField)
+            .filter(FormField.form_version_id == latest_version.id)
+            .all()
+        )
+        for f in fields:
+            self.db.delete(f)
+        self.db.commit()
+
+        return self.get_form_review(user, template_id)
+
+    def delete_form_template(self, user: User, template_id: str) -> None:
+        """Deletes a form template and cascades its versions, fields, translations, and options."""
+        org, _ = self._require_org_editor(user)
+        template = (
+            self.db.query(FormTemplate)
+            .filter(
+                FormTemplate.id == template_id, FormTemplate.organization_id == org.id
+            )
+            .first()
+        )
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
+            )
+
+        versions = (
+            self.db.query(FormVersion)
+            .filter(FormVersion.form_template_id == template.id)
+            .all()
+        )
+        version_ids = [v.id for v in versions]
+        if version_ids:
+            has_cases = (
+                self.db.query(OrganizationCase)
+                .filter(OrganizationCase.form_version_id.in_(version_ids))
+                .first()
+            )
+            if has_cases:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot delete form template with submitted citizen cases. Archive it instead.",
+                )
+
+            has_sessions = (
+                self.db.query(FormSession)
+                .filter(FormSession.form_version_id.in_(version_ids))
+                .first()
+            )
+            if has_sessions:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot delete form template with active citizen sessions. Archive it instead.",
+                )
+
+            has_exports = (
+                self.db.query(FormExport)
+                .filter(FormExport.form_version_id.in_(version_ids))
+                .first()
+            )
+            if has_exports:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot delete form template with generated form exports. Archive it instead.",
+                )
+
+            # Delete versions
+            for v in versions:
+                self.db.delete(v)
+
+        self.db.delete(template)
         self.db.commit()
 
     def reorder_fields(

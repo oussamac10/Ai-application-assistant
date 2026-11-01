@@ -7,6 +7,7 @@ import {
   getCurrentOrganization,
   listCases,
   listOrganizationForms,
+  deleteForm,
 } from "../services/portalClient";
 import {
   Case,
@@ -27,6 +28,7 @@ import {
   ArrowRight,
   ExternalLink,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 
 export function PortalDashboard() {
@@ -76,6 +78,18 @@ export function PortalDashboard() {
       .then((data) => setForms(data))
       .catch((err) => console.error("Forms load error:", err))
       .finally(() => setLoadingForms(false));
+  };
+
+  const handleDeleteForm = async (templateId: string, formName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete "${formName}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteForm(templateId);
+      setForms((prev) => prev.filter((f) => f.id !== templateId));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete form");
+    }
   };
 
   useEffect(() => {
@@ -715,14 +729,24 @@ export function PortalDashboard() {
                     <span className="text-[10px] font-mono text-[#737283]">
                       Updated {new Date(f.updatedAt).toLocaleDateString()}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTemplateIdForReview(f.id)}
-                      className="inline-flex items-center gap-1 rounded-full bg-[#f7f6fe] border border-[#e0dcfd] px-2.5 py-1 text-[11px] font-bold text-[#6551f3] hover:bg-[#e0dcfd] transition-colors"
-                    >
-                      <span>Review Schema & PDF</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTemplateIdForReview(f.id)}
+                        className="inline-flex items-center gap-1 rounded-full bg-[#f7f6fe] border border-[#e0dcfd] px-2.5 py-1 text-[11px] font-bold text-[#6551f3] hover:bg-[#e0dcfd] transition-colors cursor-pointer"
+                      >
+                        <span>Review Schema & PDF</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteForm(f.id, f.name)}
+                        className="p-1 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        title="Delete Form"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

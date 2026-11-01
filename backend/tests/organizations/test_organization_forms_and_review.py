@@ -359,3 +359,48 @@ def test_organization_image_upload_and_normalization(
     assert preview_res.status_code == 200
     assert preview_res.headers["content-type"] == "image/png"
     assert preview_res.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_organization_delete_form_and_clear_fields(
+    client: TestClient, db_session: Session
+) -> None:
+    # 1. Register owner
+    _register_and_auth(client, "admin@deletetest.org")
+
+    sample_pdf = _create_sample_pdf()
+    upload_res = client.post(
+        "/api/organizations/current/forms/upload",
+        files={"file": ("to_delete.pdf", BytesIO(sample_pdf), "application/pdf")},
+        data={"name": "Form To Delete"},
+    )
+    assert upload_res.status_code == 201
+    template_id = upload_res.json()["templateId"]
+
+    # Auto-detect fields so there are fields
+    detect_res = client.post(
+        f"/api/organizations/current/forms/{template_id}/auto-detect"
+    )
+    assert detect_res.status_code == 200
+    assert len(detect_res.json()["fields"]) > 0
+
+    # 2. Clear all fields
+    clear_res = client.delete(f"/api/organizations/current/forms/{template_id}/fields")
+    assert clear_res.status_code == 200
+    assert len(clear_res.json()["fields"]) == 0
+
+    # Review endpoint should show 0 fields
+    review_res = client.get(f"/api/organizations/current/forms/{template_id}/review")
+    assert review_res.status_code == 200
+    assert len(review_res.json()["fields"]) == 0
+
+    # 3. Delete form template completely
+    del_res = client.delete(f"/api/organizations/current/forms/{template_id}")
+    assert del_res.status_code == 204
+
+    # 4. Form should no longer exist (404)
+    review_after = client.get(f"/api/organizations/current/forms/{template_id}/review")
+    assert review_after.status_code == 404
+
+    list_res = client.get("/api/organizations/current/forms")
+    assert list_res.status_code == 200
+    assert not any(f["id"] == template_id for f in list_res.json())
