@@ -47,6 +47,43 @@ class OrganizationService:
         self.session_repo = SessionRepository(db)
         self.user_repo = UserRepository(db)
 
+    def create_organization_for_user(
+        self,
+        user: User,
+        name: str,
+        organization_type: str = "government",
+        official_website_url: str | None = None,
+    ) -> tuple[Organization, OrganizationMember]:
+        clean_name = name.strip() if name and name.strip() else (
+            "Official Public Administration" if organization_type == "government" else "Private Consulting Partners"
+        )
+        local_slug = SLUG_CLEAN_REGEX.sub("-", clean_name.lower()).strip("-") or "org"
+        unique_slug = f"{local_slug}-{secrets.token_hex(3)}"
+
+        billing_plan = "enterprise" if organization_type == "government" else "agency_pro"
+        allowed_cases = 100 if organization_type == "government" else 50
+        org = self.org_repo.create(
+            name=clean_name,
+            slug=unique_slug,
+            billing_plan=billing_plan,
+            allowed_cases_per_month=allowed_cases,
+            organization_type=organization_type,
+            official_website_url=official_website_url.strip() if official_website_url else None,
+        )
+        member = self.org_repo.add_member(
+            organization_id=org.id,
+            user_id=user.id,
+            role="owner",
+        )
+        self.db.commit()
+
+        from app.billing.services import BillingService
+
+        billing_service = BillingService(self.db)
+        billing_service.get_or_create_subscription(org.id)
+
+        return org, member
+
     def ensure_default_organization(
         self, user: User
     ) -> tuple[Organization, OrganizationMember]:
@@ -61,12 +98,13 @@ class OrganizationService:
         clean_slug = SLUG_CLEAN_REGEX.sub("-", local_part).strip("-") or "workspace"
         unique_slug = f"{clean_slug}-{secrets.token_hex(3)}"
 
-        company_name = f"{local_part.capitalize()} Immigration & Relocation"
+        company_name = f"{local_part.capitalize()} Administration"
         org = self.org_repo.create(
             name=company_name,
             slug=unique_slug,
             billing_plan="agency_sandbox",
             allowed_cases_per_month=3,
+            organization_type="government",
         )
         member = self.org_repo.add_member(
             organization_id=org.id,
@@ -89,6 +127,7 @@ class OrganizationService:
             billing_plan=org.billing_plan,
             allowed_cases_per_month=org.allowed_cases_per_month,
             role=member_role,
+            organization_type=getattr(org, "organization_type", "government"),
             verification_status=org.verification_status,
             is_verified_government=org.is_verified_government,
             verification_details=org.verification_details,

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Briefcase, Landmark, User } from "lucide-react";
 import { useAuth } from "../context/AuthProvider";
 import { AuthApiError } from "../services/authClient";
 
@@ -21,6 +22,9 @@ export default function RegisterForm() {
   const router = useRouter();
   const { register } = useAuth();
 
+  const [accountType, setAccountType] = useState<"individual" | "government" | "business">("individual");
+  const [organizationName, setOrganizationName] = useState("");
+  const [officialWebsiteUrl, setOfficialWebsiteUrl] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
@@ -33,8 +37,16 @@ export default function RegisterForm() {
     setSubmitting(true);
     setErrorKey(null);
     try {
-      await register(email, password, passwordConfirmation);
-      router.push("/applications");
+      await register(email, password, passwordConfirmation, {
+        accountType,
+        organizationName: organizationName.trim() || undefined,
+        officialWebsiteUrl: officialWebsiteUrl.trim() || undefined,
+      });
+      if (accountType === "individual") {
+        router.push("/applications");
+      } else {
+        router.push("/portal");
+      }
     } catch (err) {
       setErrorKey(errorKeyFor(err));
     } finally {
@@ -44,8 +56,8 @@ export default function RegisterForm() {
 
   return (
     <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-12 text-slate-900">
-      <div className="w-full max-w-md">
-        <div className="surface-panel rounded-2xl p-8 sm:p-10">
+      <div className="w-full max-w-xl">
+        <div className="surface-panel rounded-2xl p-8 sm:p-10 shadow-xs border border-slate-200/80 bg-white">
           <div className="text-center">
             <div className="mx-auto mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -56,7 +68,7 @@ export default function RegisterForm() {
               {t("registerTitle")}
             </h1>
             <p className="mt-1.5 text-xs text-slate-600">
-              Create your account to claim and manage applications
+              Create your account to complete forms or publish verified multilingual services
             </p>
           </div>
 
@@ -73,9 +85,124 @@ export default function RegisterForm() {
               </div>
             )}
 
+            {/* Account Type Selector */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Select Account Type
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAccountType("individual")}
+                  className={`flex flex-col items-start p-3 rounded-xl border text-start transition-all ${
+                    accountType === "individual"
+                      ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-600/20"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                    <User className={`w-4 h-4 ${accountType === "individual" ? "text-indigo-600" : "text-slate-500"}`} />
+                    Citizen
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500 leading-tight">
+                    Individual citizen. Complete forms for free.
+                  </p>
+                  <span className="mt-2 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    100% Free
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAccountType("government")}
+                  className={`flex flex-col items-start p-3 rounded-xl border text-start transition-all ${
+                    accountType === "government"
+                      ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-600/20"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                    <Landmark className={`w-4 h-4 ${accountType === "government" ? "text-indigo-600" : "text-slate-500"}`} />
+                    Government
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500 leading-tight">
+                    Bürgeramt, Ausländerbehörde, Universities.
+                  </p>
+                  <span className="mt-2 text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                    Official Portal
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAccountType("business")}
+                  className={`flex flex-col items-start p-3 rounded-xl border text-start transition-all ${
+                    accountType === "business"
+                      ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-600/20"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                    <Briefcase className={`w-4 h-4 ${accountType === "business" ? "text-indigo-600" : "text-slate-500"}`} />
+                    Business
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500 leading-tight">
+                    Relocation firms, law practices, HR teams.
+                  </p>
+                  <span className="mt-2 text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                    Client Pipeline
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Organization Specific Fields */}
+            {accountType !== "individual" && (
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="organization-name" className="block text-xs font-semibold text-slate-700">
+                    {accountType === "government" ? "Authority / Municipality Name" : "Company / Firm Name"}
+                    <span className="text-rose-500 ms-1">*</span>
+                  </label>
+                  <input
+                    id="organization-name"
+                    type="text"
+                    required
+                    value={organizationName}
+                    onChange={(e) => setOrganizationName(e.target.value)}
+                    placeholder={
+                      accountType === "government"
+                        ? "e.g. Stadtverwaltung Freiburg"
+                        : "e.g. ReloCare Immigration GmbH"
+                    }
+                    className="input-field bg-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="official-website" className="block text-xs font-semibold text-slate-700">
+                    {accountType === "government" ? "Official Website" : "Company Website"}
+                    <span className="text-slate-400 font-normal ms-1">(optional)</span>
+                  </label>
+                  <input
+                    id="official-website"
+                    type="url"
+                    value={officialWebsiteUrl}
+                    onChange={(e) => setOfficialWebsiteUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="input-field bg-white"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label htmlFor="register-email" className="block text-xs font-semibold text-slate-700">
-                {t("emailLabel")}
+                {accountType === "government"
+                  ? "Official Authority Email"
+                  : accountType === "business"
+                  ? "Business Email"
+                  : t("emailLabel")}
               </label>
               <input
                 id="register-email"
@@ -84,9 +211,21 @@ export default function RegisterForm() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder={
+                  accountType === "government"
+                    ? "name@rathaus.freiburg.de"
+                    : accountType === "business"
+                    ? "partner@relocare.de"
+                    : "name@example.com"
+                }
                 className="input-field"
                 suppressHydrationWarning
               />
+              {accountType === "government" && (
+                <p className="text-[11px] text-slate-500">
+                  Using an official municipal or institutional email expedites official verification.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -131,7 +270,13 @@ export default function RegisterForm() {
               disabled={submitting}
               className="btn-primary w-full py-3 text-sm font-semibold"
             >
-              {submitting ? t("registerSubmitting") : t("registerButton")}
+              {submitting
+                ? t("registerSubmitting")
+                : accountType === "government"
+                ? "Register Official Government Account"
+                : accountType === "business"
+                ? "Register Business Account"
+                : t("registerButton")}
             </button>
           </form>
 

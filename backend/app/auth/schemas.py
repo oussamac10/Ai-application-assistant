@@ -17,6 +17,9 @@ class RegisterRequest(BaseSchema):
     email: EmailStr
     password: str
     password_confirmation: str
+    account_type: str = "individual"
+    organization_name: str | None = None
+    official_website_url: str | None = None
 
 
 class LoginRequest(BaseSchema):
@@ -50,6 +53,9 @@ class UserResponse(BaseSchema):
     email_verified_at: datetime | None = None
     created_at: datetime
     last_login_at: datetime | None = None
+    account_type: str = "individual"
+    organization_id: str | None = None
+    organization_role: str | None = None
 
 
 class ExportedAccountInfo(BaseSchema):

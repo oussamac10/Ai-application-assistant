@@ -7,6 +7,7 @@ import {
   login as loginRequest,
   logout as logoutRequest,
   register as registerRequest,
+  RegisterOptions,
 } from "../services/authClient";
 
 interface AuthContextType {
@@ -16,7 +17,8 @@ interface AuthContextType {
   register: (
     email: string,
     password: string,
-    passwordConfirmation: string
+    passwordConfirmation: string,
+    options?: RegisterOptions
   ) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -54,8 +56,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const register = useCallback(
-    async (email: string, password: string, passwordConfirmation: string) => {
-      const created = await registerRequest(email, password, passwordConfirmation);
+    async (
+      email: string,
+      password: string,
+      passwordConfirmation: string,
+      options?: RegisterOptions
+    ) => {
+      const created = await registerRequest(
+        email,
+        password,
+        passwordConfirmation,
+        options
+      );
       setUser(created);
       return created;
     },

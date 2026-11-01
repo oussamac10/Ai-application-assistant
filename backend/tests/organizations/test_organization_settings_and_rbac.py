@@ -160,3 +160,67 @@ def test_logo_branding_upload(client: TestClient, db_session: Session) -> None:
     data = upload_res.json()
     assert data["logo_storage_path"] is not None
     assert "logo-" in data["logo_storage_path"]
+
+
+def test_registration_account_types_and_organization_division(
+    client: TestClient, db_session: Session
+) -> None:
+    # 1. Register as Government Agency
+    res_gov = client.post(
+        "/api/auth/register",
+        json={
+            "email": "stadt@freiburg.de",
+            "password": "SecurePassword123!",
+            "passwordConfirmation": "SecurePassword123!",
+            "accountType": "government",
+            "organizationName": "Stadtverwaltung Freiburg",
+            "officialWebsiteUrl": "https://freiburg.de",
+        },
+    )
+    assert res_gov.status_code == 201
+    gov_data = res_gov.json()
+    assert gov_data.get("accountType") == "government" or gov_data.get("account_type") == "government"
+    assert gov_data.get("organizationRole") == "owner" or gov_data.get("organization_role") == "owner"
+    assert (gov_data.get("organizationId") or gov_data.get("organization_id")) is not None
+
+    gov_org = client.get("/api/organizations/current").json()
+    assert gov_org["organization_type"] == "government"
+    assert gov_org["name"] == "Stadtverwaltung Freiburg"
+
+    # 2. Register as Private Business
+    client_biz = TestClient(app)
+    res_biz = client_biz.post(
+        "/api/auth/register",
+        json={
+            "email": "info@relocare.de",
+            "password": "SecurePassword123!",
+            "passwordConfirmation": "SecurePassword123!",
+            "accountType": "business",
+            "organizationName": "ReloCare Immigration GmbH",
+            "officialWebsiteUrl": "https://relocare.de",
+        },
+    )
+    assert res_biz.status_code == 201
+    biz_data = res_biz.json()
+    assert biz_data.get("accountType") == "business" or biz_data.get("account_type") == "business"
+    assert biz_data.get("organizationRole") == "owner" or biz_data.get("organization_role") == "owner"
+
+    biz_org = client_biz.get("/api/organizations/current").json()
+    assert biz_org["organization_type"] == "business"
+    assert biz_org["name"] == "ReloCare Immigration GmbH"
+
+    # 3. Register as Individual Citizen
+    client_ind = TestClient(app)
+    res_ind = client_ind.post(
+        "/api/auth/register",
+        json={
+            "email": "citizen@example.com",
+            "password": "SecurePassword123!",
+            "passwordConfirmation": "SecurePassword123!",
+            "accountType": "individual",
+        },
+    )
+    assert res_ind.status_code == 201
+    ind_data = res_ind.json()
+    assert ind_data.get("accountType") == "individual" or ind_data.get("account_type") == "individual"
+

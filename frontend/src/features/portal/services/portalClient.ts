@@ -23,6 +23,28 @@ export async function getCurrentOrganization(): Promise<Organization> {
   return res.json();
 }
 
+export async function createOrganization(payload: {
+  name: string;
+  organization_type?: "government" | "business";
+  official_website_url?: string;
+}): Promise<Organization> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create organization workspace.");
+  }
+  return res.json();
+}
+
 export async function updateOrganizationProfile(
   payload: OrganizationProfileUpdatePayload
 ): Promise<Organization> {

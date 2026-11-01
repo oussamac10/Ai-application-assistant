@@ -11,6 +11,7 @@ from app.organizations.schemas import (
     CaseCreateRequest,
     CaseRead,
     CaseUpdateRequest,
+    OrganizationCreateRequest,
     OrganizationMemberInvite,
     OrganizationMemberRead,
     OrganizationMemberRoleUpdate,
@@ -29,6 +30,23 @@ def get_current_organization(
     user: User = Depends(require_user),
 ) -> Any:
     service = OrganizationService(db)
+    return service.get_user_organization(user)
+
+
+@router.post("/organizations", response_model=OrganizationRead, status_code=status.HTTP_201_CREATED)
+def create_organization(
+    body: OrganizationCreateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    service.create_organization_for_user(
+        user=user,
+        name=body.name,
+        organization_type=body.organization_type,
+        official_website_url=body.official_website_url,
+    )
     return service.get_user_organization(user)
 
 

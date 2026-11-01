@@ -41,6 +41,11 @@ class Organization(Base):
         Integer, default=50, nullable=False
     )
 
+    # Type: "government" (Authority, City, University, Consulate) vs "business" (Relocation agency, Law firm)
+    organization_type: Mapped[str] = mapped_column(
+        String(50), default="government", server_default="government", nullable=False
+    )
+
     # Government / Official Status & Verification
     verification_status: Mapped[str] = mapped_column(
         String(30), default="unverified", nullable=False

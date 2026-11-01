@@ -9,6 +9,9 @@ export const UserSchema = z.object({
   emailVerifiedAt: z.string().nullable().optional(),
   createdAt: z.string(),
   lastLoginAt: z.string().nullable().optional(),
+  accountType: z.enum(["individual", "government", "business"]).default("individual").optional(),
+  organizationId: z.string().nullable().optional(),
+  organizationRole: z.string().nullable().optional(),
 });
 
 export type AuthUser = z.infer<typeof UserSchema>;
@@ -74,16 +77,30 @@ async function authRequest<T>(
   return schema ? schema.parse(data) : (data as T);
 }
 
+export interface RegisterOptions {
+  accountType?: "individual" | "government" | "business";
+  organizationName?: string;
+  officialWebsiteUrl?: string;
+}
+
 export async function register(
   email: string,
   password: string,
-  passwordConfirmation: string
+  passwordConfirmation: string,
+  options?: RegisterOptions
 ): Promise<AuthUser> {
   return authRequest(
     "/register",
     {
       method: "POST",
-      body: JSON.stringify({ email, password, passwordConfirmation }),
+      body: JSON.stringify({
+        email,
+        password,
+        passwordConfirmation,
+        accountType: options?.accountType || "individual",
+        organizationName: options?.organizationName,
+        officialWebsiteUrl: options?.officialWebsiteUrl,
+      }),
     },
     UserSchema
   );

@@ -5,6 +5,7 @@ export interface Organization {
   billing_plan: string;
   allowed_cases_per_month: number;
   role: string;
+  organization_type?: "government" | "business";
   verification_status: string;
   is_verified_government: boolean;
   verification_details?: Record<string, unknown> | null;

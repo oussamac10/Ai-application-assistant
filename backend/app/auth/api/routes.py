@@ -63,12 +63,30 @@ def register(
     response: Response,
     db: Session = Depends(get_db),
     _rate_limit: None = Depends(rate_limit_auth),
-) -> User:
+) -> UserResponse:
     service = AuthService(db)
     user = service.register(body.email, body.password, body.password_confirmation)
     _, raw_token = service.login(body.email, body.password)
     _set_auth_cookies(response, raw_token)
-    return user
+
+    resp = UserResponse.model_validate(user)
+    if body.account_type in ("government", "business"):
+        from app.organizations.services import OrganizationService
+
+        org_service = OrganizationService(db)
+        org, member = org_service.create_organization_for_user(
+            user=user,
+            name=body.organization_name or "",
+            organization_type=body.account_type,
+            official_website_url=body.official_website_url,
+        )
+        resp.account_type = org.organization_type
+        resp.organization_id = org.id
+        resp.organization_role = member.role
+    else:
+        resp.account_type = "individual"
+
+    return resp
 
 
 @router.post("/login", response_model=UserResponse)
@@ -77,11 +95,26 @@ def login(
     response: Response,
     db: Session = Depends(get_db),
     _rate_limit: None = Depends(rate_limit_auth),
-) -> User:
+) -> UserResponse:
     service = AuthService(db)
     user, raw_token = service.login(body.email, body.password)
     _set_auth_cookies(response, raw_token)
-    return user
+
+    from app.organizations.repositories import OrganizationRepository
+
+    org_repo = OrganizationRepository(db)
+    membership = org_repo.get_user_membership(user.id)
+    org = org_repo.get(membership.organization_id) if membership else None
+
+    resp = UserResponse.model_validate(user)
+    if org and membership:
+        resp.account_type = getattr(org, "organization_type", "government")
+        resp.organization_id = org.id
+        resp.organization_role = membership.role
+    else:
+        resp.account_type = "individual"
+
+    return resp
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -99,8 +132,25 @@ def logout(
 
 
 @router.get("/me", response_model=UserResponse)
-def me(user: User = Depends(require_user)) -> User:
-    return user
+def me(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> UserResponse:
+    from app.organizations.repositories import OrganizationRepository
+
+    org_repo = OrganizationRepository(db)
+    membership = org_repo.get_user_membership(user.id)
+    org = org_repo.get(membership.organization_id) if membership else None
+
+    resp = UserResponse.model_validate(user)
+    if org and membership:
+        resp.account_type = getattr(org, "organization_type", "government")
+        resp.organization_id = org.id
+        resp.organization_role = membership.role
+    else:
+        resp.account_type = "individual"
+
+    return resp
 
 
 @router.get("/me/export", response_model=AccountDataExportResponse)

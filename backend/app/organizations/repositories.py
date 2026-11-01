@@ -32,12 +32,16 @@ class OrganizationRepository:
         slug: str,
         billing_plan: str = "agency_pro",
         allowed_cases_per_month: int = 50,
+        organization_type: str = "government",
+        official_website_url: str | None = None,
     ) -> Organization:
         org = Organization(
             name=name,
             slug=slug,
             billing_plan=billing_plan,
             allowed_cases_per_month=allowed_cases_per_month,
+            organization_type=organization_type,
+            official_website_url=official_website_url,
         )
         self.db.add(org)
         self.db.flush()

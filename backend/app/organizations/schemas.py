@@ -13,6 +13,7 @@ class OrganizationRead(BaseModel):
     billing_plan: str
     allowed_cases_per_month: int
     role: str = "case_manager"
+    organization_type: str = "government"
     verification_status: str = "unverified"
     is_verified_government: bool = False
     verification_details: dict[str, Any] | None = None
@@ -114,3 +115,10 @@ class CandidateInviteRedemptionResponse(BaseModel):
     user_language: str
     source_language: str
     status: str
+
+
+class OrganizationCreateRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=255)
+    organization_type: str = Field(default="government", pattern="^(government|business)$")
+    official_website_url: str | None = Field(default=None, max_length=500)
+
