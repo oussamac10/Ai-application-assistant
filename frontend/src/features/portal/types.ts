@@ -186,6 +186,8 @@ export interface FormReviewDetail {
   sourceLanguage: string;
   sourcePdfStoragePath?: string | null;
   reviewNotes?: string | null;
+  pageCount?: number;
+  pageDimensions?: Array<{ page: number; width: number; height: number }>;
   fields: FormFieldItem[];
 }
 

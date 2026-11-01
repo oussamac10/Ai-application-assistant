@@ -291,3 +291,12 @@ def test_organization_form_rbac_and_tenant_isolation(
         f"/api/organizations/current/forms/{stuttgart_form_id}/publish"
     )
     assert v_publish.status_code == 403
+
+    # Viewer CAN fetch page 1 preview PNG
+    v_preview = client_viewer.get(
+        f"/api/organizations/current/forms/{stuttgart_form_id}/pages/1/preview"
+    )
+    assert v_preview.status_code == 200
+    assert v_preview.headers["content-type"] == "image/png"
+    assert len(v_preview.content) > 100
+    assert v_preview.content[:8] == b"\x89PNG\r\n\x1a\n"

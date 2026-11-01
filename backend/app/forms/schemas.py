@@ -160,6 +160,8 @@ class FormReviewDetailResponse(BaseSchema):
     source_language: str = "de"
     source_pdf_storage_path: str | None = None
     review_notes: str | None = None
+    page_count: int = 1
+    page_dimensions: list[dict[str, Any]] = Field(default_factory=list)
     fields: list[FieldResponse] = Field(default_factory=list)
 
 

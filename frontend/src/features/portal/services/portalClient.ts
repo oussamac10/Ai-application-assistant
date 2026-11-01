@@ -543,3 +543,7 @@ export async function getPublicOrganizationBySlug(
   }
   return res.json();
 }
+
+export function getFormPagePreviewUrl(templateId: string, pageNumber: number): string {
+  return `/api/organizations/current/forms/${templateId}/pages/${pageNumber}/preview`;
+}

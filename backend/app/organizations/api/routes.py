@@ -438,6 +438,18 @@ def get_source_pdf(
     )
 
 
+@router.get("/organizations/current/forms/{template_id}/pages/{page_number}/preview")
+def get_form_page_preview(
+    template_id: str,
+    page_number: int = 1,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Response:
+    service = OrganizationFormService(db)
+    png_bytes = service.get_form_page_preview_png(user, template_id, page_number)
+    return Response(content=png_bytes, media_type="image/png")
+
+
 # Public Citizen Portals & Directory Routes (Phase G3)
 @router.get("/public/organizations", response_model=list[PublicOrganizationSummary])
 def list_public_organizations(

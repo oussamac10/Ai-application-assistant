@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft,
   CheckCircle,
@@ -10,6 +10,8 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   AlertCircle,
   Sparkles,
   ExternalLink,
@@ -17,8 +19,11 @@ import {
   Loader2,
   FolderArchive,
   Layers,
-  HelpCircle,
   Check,
+  Crosshair,
+  ZoomIn,
+  ZoomOut,
+  Target,
 } from "lucide-react";
 import {
   getFormReview,
@@ -29,6 +34,7 @@ import {
   reorderFormFields,
   publishForm,
   archiveForm,
+  getFormPagePreviewUrl,
 } from "../services/portalClient";
 import { FormReviewDetail, FormFieldItem } from "../types";
 
@@ -45,20 +51,24 @@ const FIELD_TYPE_OPTIONS = [
   { value: "choice", label: "Choice / Dropdown / Radio" },
   { value: "number", label: "Number / Currency" },
   { value: "boolean", label: "Checkbox / Boolean" },
+  { value: "signature", label: "Signature / Biometric Pad" },
 ];
 
 const CANONICAL_VAULT_KEYS = [
   { key: "personal.first_name", label: "First Name (personal.first_name)" },
   { key: "personal.last_name", label: "Last Name (personal.last_name)" },
   { key: "personal.date_of_birth", label: "Date of Birth (personal.date_of_birth)" },
+  { key: "personal.place_of_birth", label: "Place of Birth (personal.place_of_birth)" },
   { key: "personal.nationality", label: "Nationality (personal.nationality)" },
   { key: "contact.email", label: "Email Address (contact.email)" },
   { key: "contact.phone", label: "Phone Number (contact.phone)" },
-  { key: "residence.street_and_number", label: "Street & Number (residence.street_and_number)" },
+  { key: "residence.street_and_number", label: "Street & Number / Anschrift (residence.street_and_number)" },
   { key: "residence.postal_code", label: "Postal Code (residence.postal_code)" },
   { key: "residence.city", label: "City (residence.city)" },
   { key: "residence.country", label: "Country (residence.country)" },
   { key: "financial.iban", label: "IBAN (financial.iban)" },
+  { key: "residence.move_in_date", label: "Move-in Date (residence.move_in_date)" },
+  { key: "signature.applicant", label: "Applicant Signature (signature.applicant)" },
 ];
 
 export function FormSchemaReviewStudio({
@@ -90,6 +100,18 @@ export function FormSchemaReviewStudio({
   const [newFieldType, setNewFieldType] = useState("string");
   const [newFieldRequired, setNewFieldRequired] = useState(true);
   const [newFieldQuestionKey, setNewFieldQuestionKey] = useState("");
+
+  // Visual PDF inspection and placement states
+  const [activePage, setActivePage] = useState(1);
+  const [highlightedFieldId, setHighlightedFieldId] = useState<string | null>(null);
+  const [isPlacingMode, setIsPlacingMode] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [dragCurrent, setDragCurrent] = useState<{ x: number; y: number } | null>(null);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [newFieldBbox, setNewFieldBbox] = useState<[number, number, number, number] | null>(null);
+  const [newFieldPage, setNewFieldPage] = useState<number>(1);
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
+  const pdfImgRef = useRef<HTMLImageElement>(null);
 
   const loadReview = React.useCallback(async () => {
     try {
@@ -200,6 +222,57 @@ export function FormSchemaReviewStudio({
     }
   };
 
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPlacingMode || !pdfImgRef.current) return;
+    const rect = pdfImgRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setDragStart({ x, y });
+    setDragCurrent({ x, y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPlacingMode || !dragStart || !pdfImgRef.current) return;
+    const rect = pdfImgRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+    setDragCurrent({ x, y });
+  };
+
+  const handleMouseUp = () => {
+    if (!isPlacingMode || !dragStart || !dragCurrent || !pdfImgRef.current) return;
+    const rect = pdfImgRef.current.getBoundingClientRect();
+    const imgW = rect.width;
+    const imgH = rect.height;
+
+    let dispX0 = Math.min(dragStart.x, dragCurrent.x);
+    let dispY0 = Math.min(dragStart.y, dragCurrent.y);
+    let dispX1 = Math.max(dragStart.x, dragCurrent.x);
+    let dispY1 = Math.max(dragStart.y, dragCurrent.y);
+
+    // If single click (less than 10px), provide a standard fillable box
+    if (Math.abs(dispX1 - dispX0) < 10 && Math.abs(dispY1 - dispY0) < 10) {
+      dispX1 = Math.min(imgW - 10, dispX0 + Math.min(320, imgW * 0.7));
+      dispY1 = dispY0 + 26;
+    }
+
+    const curPageDims = review?.pageDimensions?.find((p) => p.page === activePage) || {
+      width: 595,
+      height: 842,
+    };
+    const pdfX0 = Math.round((dispX0 / imgW) * curPageDims.width);
+    const pdfY0 = Math.round((dispY0 / imgH) * curPageDims.height);
+    const pdfX1 = Math.round((dispX1 / imgW) * curPageDims.width);
+    const pdfY1 = Math.round((dispY1 / imgH) * curPageDims.height);
+
+    setNewFieldBbox([pdfX0, pdfY0, pdfX1, pdfY1]);
+    setNewFieldPage(activePage);
+    setDragStart(null);
+    setDragCurrent(null);
+    setIsPlacingMode(false);
+    setShowAddField(true);
+  };
+
   const handleCreateField = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFieldLabel.trim()) return;
@@ -210,6 +283,10 @@ export function FormSchemaReviewStudio({
         fieldType: newFieldType,
         requiredness: newFieldRequired ? "required" : "optional",
         questionKey: newFieldQuestionKey || null,
+        configuration: {
+          bbox: newFieldBbox || null,
+          page: newFieldPage || activePage,
+        },
       });
       setFields((prev) => [...prev, created]);
       setShowAddField(false);
@@ -218,6 +295,8 @@ export function FormSchemaReviewStudio({
       setNewFieldType("string");
       setNewFieldRequired(true);
       setNewFieldQuestionKey("");
+      setNewFieldBbox(null);
+      setHighlightedFieldId(created.id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to add new field";
       setError(msg);
@@ -391,28 +470,217 @@ export function FormSchemaReviewStudio({
 
       {/* Main Dual-Pane Studio Body */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Pane: Visual PDF Document Viewer */}
-        <div className="w-1/2 border-r border-slate-200 bg-slate-100 flex flex-col">
-          <div className="px-4 py-2.5 bg-slate-200/70 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600 font-medium">
-            <span className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-slate-500" />
-              Source PDF Inspection
-            </span>
-            <a
-              href={pdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
-            >
-              Open in New Window <ExternalLink className="w-3 h-3" />
-            </a>
+        {/* Left Pane: Interactive Visual PDF Canvas & Placement Studio */}
+        <div className="w-1/2 border-r border-slate-200 bg-slate-900 flex flex-col overflow-hidden">
+          {/* Top Controls Toolbar */}
+          <div className="px-4 py-2 bg-slate-800 border-b border-slate-700 flex items-center justify-between text-xs text-slate-300 font-medium shrink-0">
+            {/* Page navigation */}
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-white">Page</span>
+              <div className="inline-flex items-center rounded-lg bg-slate-700 p-0.5 border border-slate-600">
+                <button
+                  type="button"
+                  disabled={activePage <= 1}
+                  onClick={() => setActivePage((p) => Math.max(1, p - 1))}
+                  className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-600 disabled:opacity-30"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-2 text-xs font-mono font-bold text-white">
+                  {activePage} / {review.pageCount || 1}
+                </span>
+                <button
+                  type="button"
+                  disabled={activePage >= (review.pageCount || 1)}
+                  onClick={() => setActivePage((p) => Math.min(review.pageCount || 1, p + 1))}
+                  className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-600 disabled:opacity-30"
+                  title="Next Page"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Middle: Place Field on PDF */}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPlacingMode(!isPlacingMode);
+                  setDragStart(null);
+                  setDragCurrent(null);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  isPlacingMode
+                    ? "bg-[#6551f3] text-white shadow-md ring-2 ring-indigo-400"
+                    : "bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600"
+                }`}
+                title="Click and drag on the PDF to place an input box"
+              >
+                <Crosshair className="w-3.5 h-3.5" />
+                <span>{isPlacingMode ? "Drawing Active (Click PDF)" : "+ Place Field on PDF"}</span>
+              </button>
+            )}
+
+            {/* Right: Zoom & Open PDF */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setZoomScale((z) => Math.max(0.7, Math.round((z - 0.15) * 100) / 100))}
+                className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <span className="font-mono text-[11px] text-slate-400 w-10 text-center">
+                {Math.round(zoomScale * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => setZoomScale((z) => Math.min(1.8, Math.round((z + 0.15) * 100) / 100))}
+                className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white ml-1"
+                title="Open PDF in New Window"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
-          <div className="flex-1 bg-slate-800 p-2 overflow-hidden flex items-center justify-center">
-            <iframe
-              src={pdfUrl}
-              title="Official Form PDF"
-              className="w-full h-full rounded border border-slate-700 shadow-inner bg-white"
-            />
+
+          {/* Interactive Mode Guidance Banner */}
+          {isPlacingMode && (
+            <div className="px-4 py-1.5 bg-[#6551f3] text-white text-[11px] font-semibold flex items-center justify-between shrink-0 shadow-inner">
+              <span className="flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 animate-pulse" />
+                Click and drag directly over any missing input box on the PDF below.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPlacingMode(false);
+                  setDragStart(null);
+                  setDragCurrent(null);
+                }}
+                className="underline hover:no-underline text-[10px] font-bold"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {/* Canvas Viewport */}
+          <div
+            ref={pdfContainerRef}
+            className="flex-1 overflow-auto p-4 flex items-start justify-center bg-slate-900"
+          >
+            <div
+              className={`relative bg-white rounded shadow-2xl transition-transform origin-top ${
+                isPlacingMode ? "cursor-crosshair ring-2 ring-[#6551f3]" : "cursor-default"
+              }`}
+              style={{
+                transform: `scale(${zoomScale})`,
+                width: "100%",
+                maxWidth: "600px",
+              }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={pdfImgRef}
+                src={getFormPagePreviewUrl(templateId, activePage)}
+                alt={`Official PDF Page ${activePage}`}
+                className="w-full h-auto block select-none pointer-events-none"
+                draggable={false}
+              />
+
+              {/* Render field bounding boxes for active page */}
+              {fields
+                .map((field, idx) => ({ field, idx }))
+                .filter(({ field }) => {
+                  const fPage =
+                    typeof field.configuration?.page === "number"
+                      ? field.configuration.page
+                      : 1;
+                  return fPage === activePage && Array.isArray(field.configuration?.bbox);
+                })
+                .map(({ field, idx }) => {
+                  const bbox = field.configuration.bbox as [number, number, number, number];
+                  const curPageDims =
+                    review.pageDimensions?.find((p) => p.page === activePage) || {
+                      width: 595,
+                      height: 842,
+                    };
+                  const topPct = (bbox[1] / curPageDims.height) * 100;
+                  const leftPct = (bbox[0] / curPageDims.width) * 100;
+                  const widthPct = ((bbox[2] - bbox[0]) / curPageDims.width) * 100;
+                  const heightPct = ((bbox[3] - bbox[1]) / curPageDims.height) * 100;
+                  const isHighlighted = highlightedFieldId === field.id;
+                  const primaryLabel = field.translations?.[0]?.label || field.key;
+
+                  return (
+                    <div
+                      key={field.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHighlightedFieldId(field.id);
+                        document
+                          .getElementById(`field-card-${field.id}`)
+                          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}
+                      style={{
+                        top: `${topPct}%`,
+                        left: `${leftPct}%`,
+                        width: `${widthPct}%`,
+                        height: `${heightPct}%`,
+                      }}
+                      className={`absolute rounded border-2 transition-all cursor-pointer flex items-start p-0.5 group ${
+                        isHighlighted
+                          ? "border-[#6551f3] bg-[#6551f3]/25 shadow-[0_0_0_3px_rgba(101,81,243,0.35)] z-20"
+                          : "border-indigo-500/80 bg-indigo-500/15 hover:border-indigo-600 hover:bg-indigo-500/25 z-10"
+                      }`}
+                      title={`[${idx + 1}] ${primaryLabel} (Click to inspect in editor)`}
+                    >
+                      <span
+                        className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-[130px] leading-tight ${
+                          isHighlighted
+                            ? "bg-[#6551f3] text-white"
+                            : "bg-indigo-900/80 text-white group-hover:bg-indigo-600"
+                        }`}
+                      >
+                        [{idx + 1}] {primaryLabel}
+                      </span>
+                    </div>
+                  );
+                })}
+
+              {/* Active Drawing Dragging Box Indicator */}
+              {isPlacingMode && dragStart && dragCurrent && (
+                <div
+                  style={{
+                    top: `${Math.min(dragStart.y, dragCurrent.y)}px`,
+                    left: `${Math.min(dragStart.x, dragCurrent.x)}px`,
+                    width: `${Math.abs(dragCurrent.x - dragStart.x)}px`,
+                    height: `${Math.abs(dragCurrent.y - dragStart.y)}px`,
+                  }}
+                  className="absolute border-2 border-dashed border-[#6551f3] bg-[#6551f3]/25 pointer-events-none z-30 flex items-center justify-center"
+                >
+                  <span className="bg-[#6551f3] text-white text-[9px] font-mono font-bold px-1 py-0.5 rounded shadow">
+                    Placing New Input Box
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -488,15 +756,33 @@ export function FormSchemaReviewStudio({
                     const primaryLabel =
                       field.translations?.[0]?.label || field.key;
                     const isRequired = field.requiredness === "required" || field.required;
+                    const isHighlighted = highlightedFieldId === field.id;
+                    const fPage =
+                      typeof field.configuration?.page === "number"
+                        ? field.configuration.page
+                        : 1;
+                    const hasBbox = Array.isArray(field.configuration?.bbox);
 
                     return (
                       <div
                         key={field.id}
-                        className="p-4 rounded-xl border border-slate-200 hover:border-blue-300 bg-white transition-all shadow-xs group"
+                        id={`field-card-${field.id}`}
+                        onClick={() => setHighlightedFieldId(field.id)}
+                        className={`p-4 rounded-xl border transition-all shadow-xs group ${
+                          isHighlighted
+                            ? "border-[#6551f3] bg-indigo-50/20 ring-2 ring-[#6551f3]/30"
+                            : "border-slate-200 hover:border-blue-300 bg-white"
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center">
+                            <span
+                              className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center ${
+                                isHighlighted
+                                  ? "bg-[#6551f3] text-white"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
                               {idx + 1}
                             </span>
                             <input
@@ -511,13 +797,30 @@ export function FormSchemaReviewStudio({
                           </div>
 
                           <div className="flex items-center gap-1">
+                            {hasBbox && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActivePage(fPage);
+                                  setHighlightedFieldId(field.id);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                                title="Focus this box on the PDF canvas"
+                              >
+                                <Target className="w-3 h-3" /> Focus Box
+                              </button>
+                            )}
                             {canEdit && (
                               <>
                                 <button
                                   type="button"
                                   disabled={idx === 0}
-                                  onClick={() => handleMoveField(idx, "up")}
-                                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-20"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMoveField(idx, "up");
+                                  }}
+                                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-20 ml-1"
                                   title="Move Up"
                                 >
                                   <ChevronUp className="w-4 h-4" />
@@ -525,7 +828,10 @@ export function FormSchemaReviewStudio({
                                 <button
                                   type="button"
                                   disabled={idx === fields.length - 1}
-                                  onClick={() => handleMoveField(idx, "down")}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMoveField(idx, "down");
+                                  }}
                                   className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-20"
                                   title="Move Down"
                                 >
@@ -533,7 +839,10 @@ export function FormSchemaReviewStudio({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteField(field.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteField(field.id);
+                                  }}
                                   className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 ml-1"
                                   title="Delete Field"
                                 >
@@ -616,13 +925,7 @@ export function FormSchemaReviewStudio({
                         {/* Internal Technical Key */}
                         <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 font-mono">
                           <span>AcroForm Key: {field.key}</span>
-                          {field.configuration &&
-                            typeof field.configuration === "object" &&
-                            "page" in field.configuration && (
-                              <span>
-                                Page {(field.configuration as { page: number }).page + 1}
-                              </span>
-                            )}
+                          <span>Page {fPage}</span>
                         </div>
                       </div>
                     );
@@ -718,7 +1021,30 @@ export function FormSchemaReviewStudio({
       {showAddField && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Add Field to Form Schema</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Add Field to Form Schema</h3>
+              {newFieldBbox && (
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-mono font-semibold flex items-center gap-1">
+                  <Target className="w-3 h-3 text-indigo-600" /> Page {newFieldPage} Box Placed
+                </span>
+              )}
+            </div>
+
+            {newFieldBbox && (
+              <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-indigo-900 text-xs flex items-center justify-between">
+                <span className="font-medium text-[11px]">
+                  Coordinates: [X: {Math.round(newFieldBbox[0])}, Y: {Math.round(newFieldBbox[1])}, W: {Math.round(newFieldBbox[2] - newFieldBbox[0])}, H: {Math.round(newFieldBbox[3] - newFieldBbox[1])}] pt
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setNewFieldBbox(null)}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 underline font-medium"
+                >
+                  Clear Box
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleCreateField} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -807,7 +1133,10 @@ export function FormSchemaReviewStudio({
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowAddField(false)}
+                  onClick={() => {
+                    setShowAddField(false);
+                    setNewFieldBbox(null);
+                  }}
                   className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800 font-medium"
                 >
                   Cancel
