@@ -384,6 +384,14 @@ def delete_field(
     "/organizations/current/forms/{template_id}/reorder",
     response_model=list[str],
 )
+@router.put(
+    "/organizations/current/forms/{template_id}/fields/reorder",
+    response_model=list[str],
+)
+@router.post(
+    "/organizations/current/forms/{template_id}/fields/reorder",
+    response_model=list[str],
+)
 def reorder_fields(
     template_id: str,
     field_ids: list[str],

@@ -461,8 +461,8 @@ export async function reorderFormFields(
   fieldIds: string[]
 ): Promise<string[]> {
   const csrf = getCsrfToken();
-  const res = await fetch(`/api/organizations/current/forms/${templateId}/fields/reorder`, {
-    method: "PUT",
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/reorder`, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(csrf ? { "x-csrf-token": csrf } : {}),
