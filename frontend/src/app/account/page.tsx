@@ -369,20 +369,10 @@ export default function AccountSettingsPage() {
     <main className="mx-auto max-w-4xl space-y-6 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
       <header className="border-b border-slate-200 pb-5 text-start flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-start sm:items-center gap-3">
-            {org?.logo_storage_path && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={`/api/organizations/${org.id}/logo`}
-                alt={org.name}
-                className="h-11 w-11 shrink-0 rounded-xl border border-slate-200 bg-white p-1 object-contain shadow-2xs mt-0.5 sm:mt-0"
-              />
-            )}
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                  {org ? org.name : tAuth("accountSettings")}
-                </h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              {org ? org.name : tAuth("accountSettings")}
+            </h1>
             {org ? (
               org.organization_type === "government" ? (
                 org.is_verified_government ? (
@@ -417,8 +407,6 @@ export default function AccountSettingsPage() {
               </span>
             )}
           </p>
-          </div>
-        </div>
         </div>
 
         {org && (
