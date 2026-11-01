@@ -215,8 +215,15 @@ def extract_fields_from_pdf_layout(doc: fitz.Document) -> list[dict[str, Any]]:
             ):
                 rect_boxes.append(r)
 
-        # 2. Inspect text blocks
+        # 2. Inspect text blocks (or fallback to OCR for scanned documents / raster images)
         blocks = page.get_text("blocks")
+        if not blocks:
+            try:
+                tp = page.get_textpage_ocr(language="eng+deu+fra+spa", dpi=150)
+                blocks = tp.extractBLOCKS()
+            except Exception as e:
+                logger.warning("OCR fallback on page %d failed: %s", page_idx, e)
+                blocks = []
         for b in blocks:
             if b[6] != 0:  # text block only
                 continue
