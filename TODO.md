@@ -13,36 +13,35 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 
 ## Current Task
 
-**Phase G1: Multi-Tenant Organization Workspaces, Branding & Government Verification**
+**Phase G2: Form Upload, Parsing & Human Schema Review Workflow (Completed)**
 
 ### 7-Line Business Decision Summary
-- **Feature:** Phase G1 — Multi-Tenant Organization Workspaces, Branding & Government Verification.
-- **Customer problem:** Municipalities, immigration authorities, and public institutions cannot adopt a generic tool; they require an official, verified organizational identity (logo, verified government badge, official contact/address) and multi-staff role permissions to trust and deploy the software.
-- **Expected value:** Establishes organizational trust, unblocks enterprise/government procurement discussions, and provides the verified branding required for public portals and printable counter QR posters.
-- **Estimated development effort:** ~1.5 build days across backend schema migrations, RBAC dependency guards, branding upload endpoints, and the frontend organization settings dashboard.
-- **Operating impact:** Minimal storage increase (logos/covers stored in existing `StorageProvider`); zero AI token usage.
-- **Monetization potential:** Foundation for selling organization subscriptions (Phase G8). Unverified free accounts can explore; verified government badges require official credentials.
-- **Recommendation:** `Build now` — Essential prerequisite for Phase G2 (form ingestion/review) and Phase G3 (public portals).
+- **Feature:** Phase G2 — Form Upload, Parsing & Human Schema Review Workflow for Organization Workspaces.
+- **Customer problem:** Government and institutional staff cannot deploy raw AI-detected forms to citizens without human validation; they need an official workspace tool to upload official PDFs, verify detected questions side-by-side with the PDF document, customize requiredness and required documents checklists, and approve/publish forms with strict RBAC.
+- **Expected value:** Empowers municipal staff (Form Editors, Admins) to digitize and publish any local city PDF in minutes with 100% legal accuracy, forming the core content engine for public citizen portals.
+- **Estimated development effort:** ~1.5 build days across Alembic migration, organization form repositories/services, PDF extraction pipeline, and the dual-pane Visual Schema Review Studio.
+- **Operating impact:** Negligible compute/storage; uses local PyMuPDF/pypdf extraction and `StorageProvider`; zero paid AI calls.
+- **Monetization potential:** Core value proposition for municipal and agency SaaS subscriptions (workspaces pay by active published form slots).
+- **Recommendation:** `Build now` — Essential foundation for Phase G3 (Public Portals) and citizen intake.
 
 ### Planned Steps
-- [x] 1. Create Alembic migration `a2b3c4d5e6f7_add_organization_branding_and_verification.py`.
-- [x] 2. Update `backend/app/organizations/models.py` with branding, contact, address, and verification fields.
-- [x] 3. Add Pydantic schemas in `backend/app/organizations/schemas.py` for profile updates, verification submission, and member management.
-- [x] 4. Implement service methods in `backend/app/organizations/services.py` for branding uploads, verification requests, and RBAC member management.
-- [x] 5. Wire API routes in `backend/app/organizations/api/routes.py` with strict tenant isolation and role permissions.
-- [x] 6. Add platform super admin verification review endpoints in `backend/app/admin/api/routes.py`.
-- [x] 7. Build frontend `OrganizationSettings.tsx` with Profile Branding, Government Verification, and Team Management tabs.
-- [x] 8. Integrate Organization Settings into `/portal` dashboard navigation.
-- [x] 9. Add comprehensive backend tests in `backend/tests/organizations/test_organization_settings_and_rbac.py`.
-- [x] 10. Run full quality gate (Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest) and verify.
+- [x] 1. Create Alembic migration `c4d5e6f7a8b9_add_organization_forms_and_review_workflow.py` adding `organization_id`, `category`, `submission_method`, `instructions`, `required_documents` to `form_templates`, and `source_pdf_storage_path`, `review_notes` to `form_versions`.
+- [x] 2. Update ORM models in `backend/app/forms/models.py` and Pydantic schemas in `backend/app/forms/schemas.py`.
+- [x] 3. Implement organization form service methods in `backend/app/forms/organization_service.py` for uploading, extracting AcroForm/text fields, updating schema, and publishing.
+- [x] 4. Wire REST API endpoints in `backend/app/organizations/api/routes.py` (`/organizations/current/forms/...`) with strict workspace isolation and RBAC.
+- [x] 5. Add backend tests in `backend/tests/organizations/test_organization_forms_and_review.py` targeting `ai_form_assistant_test` DB.
+- [x] 6. Build frontend `FormUploadModal.tsx` for uploading official PDFs with category, submission method, and required documents.
+- [x] 7. Build frontend `FormSchemaReviewStudio.tsx` with dual-pane layout (PDF view + editable questions schema).
+- [x] 8. Integrate Forms Catalog & Schema Review into `/portal` dashboard with view switching and filter tabs.
+- [x] 9. Run full quality gate (Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest) and verify.
 
 ---
 
 ### Phase G2: Form Upload, Parsing & Human Schema Review Workflow
-- [ ] Publishing workflow state machine: `Draft -> Processing -> Needs Review -> Ready -> Published -> Archived`.
-- [ ] Background ARQ ingestion job: PDF AcroForms + OCR + Azure layout extraction.
-- [ ] Visual Schema Review Studio: dual-pane UI where staff review, rename, reorder, and correct fields before publishing.
-- [ ] Form metadata management: category, instructions, required supporting documents, and submission method.
+- [x] Publishing workflow state machine: `Draft -> Processing -> Needs Review -> Ready -> Published -> Archived`.
+- [x] Background & synchronous ingestion: PDF AcroForms + layout coordinate extraction + German administrative field key mapping.
+- [x] Visual Schema Review Studio: dual-pane UI where staff review, rename, reorder, and correct fields before publishing.
+- [x] Form metadata management: category, instructions, required supporting documents, and submission method.
 
 ### Phase G3: Public Organization Portals & Citizen Discovery Directory
 - [ ] Public Organization Portals at `/organizations/[slug]` (e.g. `/organizations/stadt-stuttgart`).

@@ -4,7 +4,11 @@ import {
   Case,
   CaseCreatePayload,
   CaseUpdatePayload,
+  FormFieldItem,
+  FormReviewDetail,
+  FormReviewUpdatePayload,
   Organization,
+  OrganizationFormSummary,
   OrganizationMember,
   OrganizationProfileUpdatePayload,
   OrganizationVerificationPayload,
@@ -321,6 +325,184 @@ export async function createPortalSession(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to open billing portal.");
+  }
+  return res.json();
+}
+
+export async function listOrganizationForms(): Promise<OrganizationFormSummary[]> {
+  const res = await fetch("/api/organizations/current/forms", {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to fetch organization forms.");
+  }
+  return res.json();
+}
+
+export async function uploadOrganizationForm(formData: FormData): Promise<FormReviewDetail> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations/current/forms/upload", {
+    method: "POST",
+    headers: {
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to upload and parse form.");
+  }
+  return res.json();
+}
+
+export async function getFormReview(templateId: string): Promise<FormReviewDetail> {
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/review`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to load form review schema.");
+  }
+  return res.json();
+}
+
+export async function updateFormReview(
+  templateId: string,
+  payload: FormReviewUpdatePayload
+): Promise<FormReviewDetail> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/review`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update form details.");
+  }
+  return res.json();
+}
+
+export async function updateFormField(
+  templateId: string,
+  fieldId: string,
+  payload: Record<string, unknown>
+): Promise<FormFieldItem> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/fields/${fieldId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update form field.");
+  }
+  return res.json();
+}
+
+export async function addFormField(
+  templateId: string,
+  payload: Record<string, unknown>
+): Promise<FormFieldItem> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/fields`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to add field to form schema.");
+  }
+  return res.json();
+}
+
+export async function deleteFormField(
+  templateId: string,
+  fieldId: string
+): Promise<void> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/fields/${fieldId}`, {
+    method: "DELETE",
+    headers: {
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to delete field.");
+  }
+}
+
+export async function reorderFormFields(
+  templateId: string,
+  fieldIds: string[]
+): Promise<string[]> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/fields/reorder`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(fieldIds),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to save field order.");
+  }
+  return res.json();
+}
+
+export async function publishForm(templateId: string): Promise<FormReviewDetail> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/publish`, {
+    method: "POST",
+    headers: {
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to publish form.");
+  }
+  return res.json();
+}
+
+export async function archiveForm(templateId: string): Promise<FormReviewDetail> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/archive`, {
+    method: "POST",
+    headers: {
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to archive form.");
   }
   return res.json();
 }

@@ -18,11 +18,34 @@ class FormTemplate(Base):
         default=lambda: str(uuid.uuid4()),
         index=True,
     )
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     key: Mapped[str] = mapped_column(
         String(100), unique=True, nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str] = mapped_column(
+        String(100),
+        default="general",
+        server_default="general",
+        nullable=False,
+        index=True,
+    )
+    submission_method: Mapped[str] = mapped_column(
+        String(50),
+        default="print_and_sign",
+        server_default="print_and_sign",
+        nullable=False,
+    )
+    instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    required_documents: Mapped[list[str]] = mapped_column(
+        JSONB, default=list, server_default="[]", nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -38,6 +61,7 @@ class FormTemplate(Base):
         passive_deletes="all",
         # Protect template deletion from silently cascading to versions
     )
+    organization: Mapped[Any | None] = relationship("Organization")
 
 
 class FormVersion(Base):
@@ -85,6 +109,10 @@ class FormVersion(Base):
     # (e.g. "basic-registration-v1"). None means this version has no PDF
     # export available — PDFExportService must never guess one.
     pdf_template_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    source_pdf_storage_path: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
         UniqueConstraint(

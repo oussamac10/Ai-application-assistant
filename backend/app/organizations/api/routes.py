@@ -1,11 +1,21 @@
+import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_user, verify_csrf
 from app.auth.models import User
 from app.database.session import get_db
+from app.forms.organization_service import OrganizationFormService
+from app.forms.schemas import (
+    FieldCreate,
+    FieldResponse,
+    FieldUpdate,
+    FormReviewDetailResponse,
+    FormReviewUpdateRequest,
+    OrganizationFormSummary,
+)
 from app.organizations.schemas import (
     CandidateInviteRedemptionResponse,
     CaseCreateRequest,
@@ -33,7 +43,11 @@ def get_current_organization(
     return service.get_user_organization(user)
 
 
-@router.post("/organizations", response_model=OrganizationRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/organizations",
+    response_model=OrganizationRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_organization(
     body: OrganizationCreateRequest,
     db: Session = Depends(get_db),
@@ -236,3 +250,187 @@ def redeem_candidate_invite(
 ) -> Any:
     service = OrganizationService(db)
     return service.redeem_candidate_invite(raw_token)
+
+
+# Organization Forms & Schema Review Routes (Phase G2)
+@router.get(
+    "/organizations/current/forms", response_model=list[OrganizationFormSummary]
+)
+def list_organization_forms(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.list_organization_forms(user)
+
+
+@router.post(
+    "/organizations/current/forms/upload",
+    response_model=FormReviewDetailResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_organization_form(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    category: str = Form("general"),
+    submission_method: str = Form("print_and_sign"),
+    instructions: str | None = Form(None),
+    required_documents: str | None = Form(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    pdf_bytes = await file.read()
+    docs_list: list[str] = []
+    if required_documents:
+        try:
+            parsed = json.loads(required_documents)
+            if isinstance(parsed, list):
+                docs_list = [str(x) for x in parsed]
+        except Exception:
+            docs_list = [d.strip() for d in required_documents.split(",") if d.strip()]
+
+    service = OrganizationFormService(db)
+    return service.upload_and_ingest_form(
+        user=user,
+        pdf_bytes=pdf_bytes,
+        filename=file.filename or "form.pdf",
+        name=name,
+        category=category,
+        submission_method=submission_method,
+        instructions=instructions,
+        required_documents=docs_list,
+    )
+
+
+@router.get(
+    "/organizations/current/forms/{template_id}/review",
+    response_model=FormReviewDetailResponse,
+)
+def get_form_review(
+    template_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.get_form_review(user, template_id)
+
+
+@router.patch(
+    "/organizations/current/forms/{template_id}/review",
+    response_model=FormReviewDetailResponse,
+)
+def update_form_review(
+    template_id: str,
+    body: FormReviewUpdateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.update_form_review(user, template_id, body)
+
+
+@router.post(
+    "/organizations/current/forms/{template_id}/fields",
+    response_model=FieldResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_field(
+    template_id: str,
+    body: FieldCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.add_field(user, template_id, body)
+
+
+@router.patch(
+    "/organizations/current/forms/{template_id}/fields/{field_id}",
+    response_model=FieldResponse,
+)
+def update_field(
+    template_id: str,
+    field_id: str,
+    body: FieldUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.update_field(user, template_id, field_id, body)
+
+
+@router.delete(
+    "/organizations/current/forms/{template_id}/fields/{field_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_field(
+    template_id: str,
+    field_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> None:
+    service = OrganizationFormService(db)
+    service.delete_field(user, template_id, field_id)
+
+
+@router.post(
+    "/organizations/current/forms/{template_id}/reorder",
+    response_model=list[str],
+)
+def reorder_fields(
+    template_id: str,
+    field_ids: list[str],
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.reorder_fields(user, template_id, field_ids)
+
+
+@router.post(
+    "/organizations/current/forms/{template_id}/publish",
+    response_model=FormReviewDetailResponse,
+)
+def publish_form(
+    template_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.publish_form(user, template_id)
+
+
+@router.post(
+    "/organizations/current/forms/{template_id}/archive",
+    response_model=FormReviewDetailResponse,
+)
+def archive_form(
+    template_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.archive_form(user, template_id)
+
+
+@router.get("/organizations/current/forms/{template_id}/source-pdf")
+def get_source_pdf(
+    template_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Response:
+    service = OrganizationFormService(db)
+    pdf_bytes, filename = service.get_source_pdf_bytes(user, template_id)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )

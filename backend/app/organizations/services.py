@@ -54,13 +54,21 @@ class OrganizationService:
         organization_type: str = "government",
         official_website_url: str | None = None,
     ) -> tuple[Organization, OrganizationMember]:
-        clean_name = name.strip() if name and name.strip() else (
-            "Official Public Administration" if organization_type == "government" else "Private Consulting Partners"
+        clean_name = (
+            name.strip()
+            if name and name.strip()
+            else (
+                "Official Public Administration"
+                if organization_type == "government"
+                else "Private Consulting Partners"
+            )
         )
         local_slug = SLUG_CLEAN_REGEX.sub("-", clean_name.lower()).strip("-") or "org"
         unique_slug = f"{local_slug}-{secrets.token_hex(3)}"
 
-        billing_plan = "enterprise" if organization_type == "government" else "agency_pro"
+        billing_plan = (
+            "enterprise" if organization_type == "government" else "agency_pro"
+        )
         allowed_cases = 100 if organization_type == "government" else 50
         org = self.org_repo.create(
             name=clean_name,
@@ -68,7 +76,9 @@ class OrganizationService:
             billing_plan=billing_plan,
             allowed_cases_per_month=allowed_cases,
             organization_type=organization_type,
-            official_website_url=official_website_url.strip() if official_website_url else None,
+            official_website_url=official_website_url.strip()
+            if official_website_url
+            else None,
         )
         member = self.org_repo.add_member(
             organization_id=org.id,
@@ -282,7 +292,9 @@ class OrganizationService:
 
         file_bytes = storage.get_bytes(ref)
         lower_ref = ref.lower()
-        if lower_ref.endswith(".svg") or file_bytes.lstrip().startswith((b"<svg", b"<?xml")):
+        if lower_ref.endswith(".svg") or file_bytes.lstrip().startswith(
+            (b"<svg", b"<?xml")
+        ):
             content_type = "image/svg+xml"
         elif lower_ref.endswith((".jpg", ".jpeg")):
             content_type = "image/jpeg"

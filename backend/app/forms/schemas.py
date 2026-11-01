@@ -123,3 +123,65 @@ class PublishedFormResponse(BaseSchema):
     version_number: int
     source_language: str
     supported_output_languages: list[str]
+
+
+# Organization Form Management & Review Schemas (Phase G2)
+class OrganizationFormSummary(BaseSchema):
+    id: str
+    key: str
+    name: str
+    description: str | None = None
+    category: str = "general"
+    submission_method: str = "print_and_sign"
+    instructions: str | None = None
+    required_documents: list[str] = Field(default_factory=list)
+    active_version_id: str | None = None
+    version_number: int = 1
+    status: str = "needs_review"
+    fields_count: int = 0
+    source_pdf_storage_path: str | None = None
+    has_pdf: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class FormReviewDetailResponse(BaseSchema):
+    template_id: str
+    version_id: str
+    key: str
+    name: str
+    description: str | None = None
+    category: str = "general"
+    submission_method: str = "print_and_sign"
+    instructions: str | None = None
+    required_documents: list[str] = Field(default_factory=list)
+    status: str
+    version_number: int
+    source_language: str = "de"
+    source_pdf_storage_path: str | None = None
+    review_notes: str | None = None
+    fields: list[FieldResponse] = Field(default_factory=list)
+
+
+class FormReviewUpdateRequest(BaseSchema):
+    name: str | None = None
+    description: str | None = None
+    category: str | None = None
+    submission_method: str | None = None
+    instructions: str | None = None
+    required_documents: list[str] | None = None
+    review_notes: str | None = None
+
+
+class FieldReviewItem(BaseSchema):
+    id: str | None = None
+    key: str
+    question_key: str | None = None
+    field_type: str = "string"
+    requiredness: str = "required"
+    position: int
+    label: str
+    help_text: str | None = None
+    placeholder: str | None = None
+    options: list[OptionSchema] = Field(default_factory=list)
+    configuration: dict[str, Any] = Field(default_factory=dict)

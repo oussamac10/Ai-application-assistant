@@ -201,9 +201,17 @@ def test_registration_account_types_and_organization_division(
     )
     assert res_gov.status_code == 201
     gov_data = res_gov.json()
-    assert gov_data.get("accountType") == "government" or gov_data.get("account_type") == "government"
-    assert gov_data.get("organizationRole") == "owner" or gov_data.get("organization_role") == "owner"
-    assert (gov_data.get("organizationId") or gov_data.get("organization_id")) is not None
+    assert (
+        gov_data.get("accountType") == "government"
+        or gov_data.get("account_type") == "government"
+    )
+    assert (
+        gov_data.get("organizationRole") == "owner"
+        or gov_data.get("organization_role") == "owner"
+    )
+    assert (
+        gov_data.get("organizationId") or gov_data.get("organization_id")
+    ) is not None
 
     gov_org = client.get("/api/organizations/current").json()
     assert gov_org["organization_type"] == "government"
@@ -224,8 +232,14 @@ def test_registration_account_types_and_organization_division(
     )
     assert res_biz.status_code == 201
     biz_data = res_biz.json()
-    assert biz_data.get("accountType") == "business" or biz_data.get("account_type") == "business"
-    assert biz_data.get("organizationRole") == "owner" or biz_data.get("organization_role") == "owner"
+    assert (
+        biz_data.get("accountType") == "business"
+        or biz_data.get("account_type") == "business"
+    )
+    assert (
+        biz_data.get("organizationRole") == "owner"
+        or biz_data.get("organization_role") == "owner"
+    )
 
     biz_org = client_biz.get("/api/organizations/current").json()
     assert biz_org["organization_type"] == "business"
@@ -244,5 +258,7 @@ def test_registration_account_types_and_organization_division(
     )
     assert res_ind.status_code == 201
     ind_data = res_ind.json()
-    assert ind_data.get("accountType") == "individual" or ind_data.get("account_type") == "individual"
-
+    assert (
+        ind_data.get("accountType") == "individual"
+        or ind_data.get("account_type") == "individual"
+    )

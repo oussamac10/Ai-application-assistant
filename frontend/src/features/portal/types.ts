@@ -123,3 +123,79 @@ export interface PlanInfo {
   is_paid: boolean;
   features: string[];
 }
+
+export type FormLifecycleStatus = 'draft' | 'needs_review' | 'published' | 'archived';
+
+export interface OrganizationFormSummary {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  category: string;
+  submissionMethod: string;
+  instructions?: string | null;
+  requiredDocuments: string[];
+  activeVersionId?: string | null;
+  versionNumber: number;
+  status: FormLifecycleStatus;
+  fieldsCount: number;
+  sourcePdfStoragePath?: string | null;
+  hasPdf: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FormTranslationItem {
+  language: string;
+  label: string;
+  helpText?: string | null;
+  placeholder?: string | null;
+}
+
+export interface FormOptionItem {
+  value: string;
+  label: string;
+  position: number;
+}
+
+export interface FormFieldItem {
+  id: string;
+  key: string;
+  fieldType: string;
+  required: boolean;
+  requiredness: string;
+  position: number;
+  configuration: Record<string, unknown>;
+  questionKey?: string | null;
+  translations: FormTranslationItem[];
+  options: FormOptionItem[];
+}
+
+export interface FormReviewDetail {
+  templateId: string;
+  versionId: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  category: string;
+  submissionMethod: string;
+  instructions?: string | null;
+  requiredDocuments: string[];
+  status: FormLifecycleStatus;
+  versionNumber: number;
+  sourceLanguage: string;
+  sourcePdfStoragePath?: string | null;
+  reviewNotes?: string | null;
+  fields: FormFieldItem[];
+}
+
+export interface FormReviewUpdatePayload {
+  name?: string;
+  description?: string;
+  category?: string;
+  submissionMethod?: string;
+  instructions?: string;
+  requiredDocuments?: string[];
+  reviewNotes?: string;
+}
+

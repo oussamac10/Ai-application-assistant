@@ -119,6 +119,7 @@ class CandidateInviteRedemptionResponse(BaseModel):
 
 class OrganizationCreateRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
-    organization_type: str = Field(default="government", pattern="^(government|business)$")
+    organization_type: str = Field(
+        default="government", pattern="^(government|business)$"
+    )
     official_website_url: str | None = Field(default=None, max_length=500)
-

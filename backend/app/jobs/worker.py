@@ -15,6 +15,7 @@ import app.field_detection.models  # noqa: F401
 import app.forms.models  # noqa: F401
 import app.jobs.models  # noqa: F401
 import app.ocr.models  # noqa: F401
+import app.organizations.models  # noqa: F401
 import app.pdf.models  # noqa: F401
 import app.questions.models  # noqa: F401
 import app.sessions.models  # noqa: F401
