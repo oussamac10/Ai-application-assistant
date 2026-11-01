@@ -295,7 +295,7 @@ class HybridFieldDetectionProvider:
     def _record(self, decision: HybridDecision) -> None:
         self.last_decision = decision
         # Scores, counts and durations only. No label, no coordinate, no page
-        # text, no credential — `docs/claude/working-rules.md`. The document id
+        # text, no credential — `.agents/AGENTS.md`. The document id
         # is logged by FieldDetectionService around this call.
         logger.info(
             "Hybrid detection: used=%s reason=%s pages=%d "

@@ -6,7 +6,7 @@ happen when it succeeded, and must never be able to make the outcome *worse*
 than not calling at all.
 
 No test here touches a live service: the Azure side is a stub, per
-`docs/claude/domain-rules.md` ("automated tests must never call a live/paid
+`.agents/AGENTS.md` ("automated tests must never call a live/paid
 provider").
 """
 

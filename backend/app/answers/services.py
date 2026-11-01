@@ -1196,7 +1196,7 @@ class AnswerService:
 
         Counts only. No label, no key, no submitted value and no token — the
         question "why is this form stuck?" is answerable from shape alone, and
-        answers are private (`docs/claude/working-rules.md`).
+        answers are private (`.agents/AGENTS.md`).
         """
         by_requiredness = {REQUIRED: 0, "optional": 0, "unknown": 0}
         unanswered_optional = unanswered_unknown = skipped = 0

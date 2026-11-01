@@ -4,7 +4,7 @@ Two live defects motivated this, both caused by the AI being asked to normalize
 an answer without being told anything about the field:
 
 - A user typed `stuttgart` into "Code postal, ville" and the model returned it
-  transliterated into Arabic. `docs/claude/domain-rules.md` forbids
+  transliterated into Arabic. `.agents/AGENTS.md` forbids
   transliterating a name automatically — and a city, an employer and a bank are
   proper nouns exactly like a person's name.
 - A user typed `2000` into "Revenu net mensuel en euros" and the model returned

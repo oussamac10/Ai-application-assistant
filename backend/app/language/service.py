@@ -20,7 +20,7 @@ Precedence, highest first:
 5. **`und`.**
 
 `und` is a real answer, not a failure: a form with eight words in it has no
-determinable language, and `docs/claude/domain-rules.md` forbids inventing
+determinable language, and `.agents/AGENTS.md` forbids inventing
 information. Callers must handle it — Azure Translator, for instance, omits
 `from` entirely rather than sending `from=en`.
 

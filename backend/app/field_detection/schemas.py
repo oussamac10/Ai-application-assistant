@@ -115,7 +115,7 @@ class PrepareQuestionsResponse(BaseModel):
     """Plain-language-safe response for the automatic upload-to-questions
     orchestration endpoint. Deliberately excludes confidence numbers,
     provider names, field keys, and any other technical detail — see
-    docs/claude/domain-rules.md and docs/security.md."""
+    .agents/AGENTS.md and docs/security.md."""
 
     documentId: str = Field(..., serialization_alias="documentId")
     status: str  # "ready" | "needs_clarification" | "failed"

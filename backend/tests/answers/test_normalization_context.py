@@ -168,7 +168,7 @@ def test_a_euro_label_overrides_a_provider_that_answered_usd(label: str) -> None
     proposal came back "2000 USD".
 
     The label is authoritative. Correcting deterministically is more reliable
-    than prompting harder, and `docs/claude/domain-rules.md` puts deterministic
+    than prompting harder, and `.agents/AGENTS.md` puts deterministic
     logic ahead of AI wherever language understanding is not genuinely
     required — reading the word "euros" is not language understanding.
     """

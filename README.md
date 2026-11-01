@@ -31,7 +31,7 @@ It guides the user through the form one field at a time, normalizing, validating
 * **Phase 16 (Completed)**: Three-state field requiredness (`required`, `optional`, `unknown` — [ADR 0016](docs/decisions/0016-three-state-requiredness-and-structured-confirmation.md)) and `hybrid` local-first field detection with deterministic escalation to Azure Document Intelligence ([ADR 0017](docs/decisions/0017-hybrid-local-first-field-detection.md)).
 
 Phase 15 (completed) —
-[`docs/phases/phase-15-azure-translator.md`](docs/phases/phase-15-azure-translator.md).
+[`docs/progress/phase-15-azure-translator.md`](docs/progress/phase-15-azure-translator.md).
 Translation now lives behind its own `TranslationProvider` abstraction (mock / Ollama / Azure
 Translator) rather than riding on the AI provider, the document's source language is detected
 instead of assumed, and only the interface language is translated during question preparation —
@@ -185,7 +185,7 @@ To sanity-check the model against a document first, upload it to
 > tier analyzes only the first 2 pages per document.
 
 Full setup, verification steps and known limitations:
-[`docs/phases/phase-14-azure-document-intelligence.md`](docs/phases/phase-14-azure-document-intelligence.md).
+[`docs/progress/phase-14-azure-document-intelligence.md`](docs/progress/phase-14-azure-document-intelligence.md).
 
 ## Optional: Azure Translator
 
@@ -236,7 +236,7 @@ document, `user_language` the interface, `output_language` the completed form. I
 (`lang`/`dir`) follows `user_language` only — an Arabic form in an English interface stays LTR.
 
 Full setup, benchmark and known limitations:
-[`docs/phases/phase-15-azure-translator.md`](docs/phases/phase-15-azure-translator.md).
+[`docs/progress/phase-15-azure-translator.md`](docs/progress/phase-15-azure-translator.md).
 
 ---
 

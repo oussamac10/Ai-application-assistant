@@ -1,6 +1,6 @@
 """Deterministic detection of text that must never be translated.
 
-Per `docs/claude/domain-rules.md`, deterministic code decides this — not the
+Per `.agents/AGENTS.md`, deterministic code decides this — not the
 AI, and not the translation provider. Sending an IBAN, an email address or an
 ISO date to a translator risks it being "helpfully" reformatted, localized or
 transliterated, and a mangled identifier is far worse than an untranslated

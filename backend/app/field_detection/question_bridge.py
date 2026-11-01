@@ -161,7 +161,7 @@ def _approved_catalog_labels(
     """`{detected label: approved catalog label}` for every detected field
     whose normalized name matches an approved reusable question in `language`.
 
-    Per `docs/claude/domain-rules.md`, approved human text wins over anything
+    Per `.agents/AGENTS.md`, approved human text wins over anything
     the AI would produce, and the AI must not be called when it exists. This
     is a lookup by semantic key (the detected field's normalized name), not by
     displayed text, which is exactly how the catalog is meant to be addressed.

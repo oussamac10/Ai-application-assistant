@@ -25,7 +25,7 @@ what the output is missing. So coverage is measured against the *document*:
 These are counts of geometry and punctuation. Nothing here inspects meaning, so
 nothing here can be wrong in an interesting way — which matters, because these
 numbers decide whether a paid service is called
-(`docs/claude/domain-rules.md`: AI never decides provider spending).
+(`.agents/AGENTS.md`: AI never decides provider spending).
 """
 
 from __future__ import annotations

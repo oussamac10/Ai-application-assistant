@@ -5,7 +5,7 @@ Every detected field previously became `required=True` (see
 That is an assumption, not a finding, and it is wrong in the direction that
 hurts most: a user is blocked on a field the form never insisted on.
 
-`docs/claude/domain-rules.md` forbids inventing information, so requiredness is
+`.agents/AGENTS.md` forbids inventing information, so requiredness is
 derived only from evidence the document actually carries, and the *absence* of
 evidence is recorded as such rather than resolved to "required".
 

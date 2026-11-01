@@ -22,7 +22,7 @@ matters more here than breadth:
   "und", "the", "les", "een") separate en/de/fr/es/it/nl/pt reliably on form
   text, which is mostly labels rather than prose. Diacritics break ties.
 - **`und` when unsure.** A form with four words in it genuinely has no
-  detectable language, and `docs/claude/domain-rules.md` forbids inventing
+  detectable language, and `.agents/AGENTS.md` forbids inventing
   information. Guessing "en" is what caused the original bug.
 
 Confidence is a real ratio (winning score over total score), never an invented

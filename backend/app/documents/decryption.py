@@ -57,7 +57,7 @@ def open_pdf(source: str | Path) -> pypdf.PdfReader:
     Raises `DocumentValidationError` only when the file genuinely cannot be
     read. Never includes the underlying exception text: pypdf error messages
     can carry object contents, and document contents are private
-    (`docs/claude/working-rules.md`).
+    (`.agents/AGENTS.md`).
     """
     path = Path(source)
     try:

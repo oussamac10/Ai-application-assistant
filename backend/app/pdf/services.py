@@ -615,7 +615,7 @@ def _signature_box_for(field_map: Any, answer: Any) -> tuple[SignatureBox, Any] 
     exactly as the form's author drew it, with no placeholder of any kind.
 
     A digitally signed answer with no mapped rectangle raises rather than
-    guessing a position — `docs/claude/domain-rules.md` forbids coordinate
+    guessing a position — `.agents/AGENTS.md` forbids coordinate
     guessing, and a signature in the wrong part of an official document is
     worse than an export that refuses to place it.
     """

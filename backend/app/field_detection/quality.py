@@ -1,7 +1,7 @@
 """How good is a local extraction, measured deterministically?
 
 Hybrid routing needs one honest answer to "did the local pass actually
-understand this document?", and it has to be plain code. `docs/claude/
+understand this document?", and it has to be plain code. `.agents/
 domain-rules.md` says a confidence value may only be stored when it comes from
 a provider with documented semantics, and forbids asking a model to invent one
 — so this is not a confidence score about the *document*. It is an arithmetic

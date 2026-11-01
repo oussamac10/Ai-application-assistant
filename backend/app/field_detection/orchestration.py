@@ -6,7 +6,7 @@ analysis, OCR, field detection, question generation, session creation) in
 one synchronous, idempotent call — mirroring how OCR/field-detection
 requests already reuse a "completed" prior result instead of recomputing.
 No new background-job infrastructure is introduced (out of scope for this
-phase; see docs/claude/current-phase.md).
+phase; see .agents/AGENTS.md).
 
 Normal users never see this module's internals: every error raised here
 carries only a safe `error_code` (mapped to a translated, plain-language

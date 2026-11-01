@@ -7,7 +7,7 @@ module maps each `FormField` in the dynamic `FormVersion` back to its originatin
 `DetectedField` and overlays the confirmed `output_value` (and any vector
 signatures) onto a copy of the uploaded PDF using PyMuPDF (`fitz`).
 
-Invariants (per `docs/claude/domain-rules.md` and ADR 0010):
+Invariants (per `.agents/AGENTS.md` and ADR 0010):
 - Never guess coordinates: only fields carrying an explicit `input_bounding_box`
   from field detection are drawn onto the page.
 - Never fall back to `settings.PDF_TEMPLATE_KEY` or an unrelated template.

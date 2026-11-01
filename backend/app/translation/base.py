@@ -1,6 +1,6 @@
 """The `TranslationProvider` abstraction.
 
-`docs/claude/domain-rules.md` has named `TranslationProvider` as a required
+`.agents/AGENTS.md` has named `TranslationProvider` as a required
 provider family since the beginning, but until Phase 15 translation rode on
 `AIProvider`. That conflated two genuinely different capabilities: language
 *understanding* (value extraction, clarification, question generation — a

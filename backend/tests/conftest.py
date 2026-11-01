@@ -7,7 +7,7 @@ Azure Translator calls: every test that builds a service without injecting a
 provider hit the network, spent the full 30 s timeout plus a retry, and the run
 hung for minutes instead of finishing in about one.
 
-`docs/claude/domain-rules.md` is unambiguous that automated tests must never
+`.agents/AGENTS.md` is unambiguous that automated tests must never
 call a live or paid provider, so the defaults are pinned here rather than left
 to whatever happens to be in `.env`. A test that wants a specific provider
 still injects one explicitly — which every provider test already does — so this
