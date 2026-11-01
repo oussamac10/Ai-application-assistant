@@ -163,10 +163,77 @@ def get_field_location_for_session(
     db: Session,
     session: FormSession,
     field: FormField,
-) -> tuple[FieldLocationInfo | None, SourceDocument | None]:
+) -> tuple[FieldLocationInfo | None, Any | None]:
     """Looks up the document and bounding-box metadata for a single field in a session."""
     if not session.source_document_id:
-        return None, None
+        version = session.version or db.get(FormVersion, session.form_version_id)
+        if not version or not version.source_pdf_storage_path:
+            return None, None
+
+        cfg = field.configuration or {}
+        page_num = int(cfg.get("page", 1))
+        bbox = cfg.get("bbox")
+
+        page_w = 595.0
+        page_h = 842.0
+        page_count = 1
+
+        storage_provider = storage_factory.get_storage_provider()
+        if storage_provider.exists(version.source_pdf_storage_path):
+            try:
+                import fitz
+
+                with storage_provider.local_path(
+                    version.source_pdf_storage_path
+                ) as local_pdf_path:
+                    doc = fitz.open(local_pdf_path)
+                    try:
+                        page_count = doc.page_count
+                        page_idx = page_num - 1
+                        if 0 <= page_idx < doc.page_count:
+                            rect = doc[page_idx].rect
+                            page_w = float(rect.width)
+                            page_h = float(rect.height)
+                    finally:
+                        doc.close()
+            except Exception:
+                pass
+
+        input_box = None
+        if bbox and len(bbox) == 4:
+            x0, y0, x1, y1 = (
+                float(bbox[0]),
+                float(bbox[1]),
+                float(bbox[2]),
+                float(bbox[3]),
+            )
+            input_box = {
+                "x": round(x0, 1),
+                "y": round(y0, 1),
+                "width": round(max(x1 - x0, 10.0), 1),
+                "height": round(max(y1 - y0, 10.0), 1),
+            }
+
+        location = FieldLocationInfo(
+            page_number=page_num,
+            input_bounding_box=input_box,
+            label_bounding_box=None,
+            source="template_schema",
+            page_width_pt=page_w,
+            page_height_pt=page_h,
+        )
+
+        class _VirtualDoc:
+            def __init__(self, filename: str, count: int) -> None:
+                self.original_filename = filename
+                self.page_count = count
+
+        doc_name = (
+            f"{version.template.name}.pdf"
+            if version.template and version.template.name
+            else "official_form.pdf"
+        )
+        return location, _VirtualDoc(doc_name, page_count)
 
     source_doc = db.get(SourceDocument, session.source_document_id)
     if not source_doc:
@@ -305,23 +372,32 @@ def render_session_page_preview_png(
     session: FormSession,
     page_number: int,
 ) -> bytes | None:
-    """Renders 1-indexed `page_number` of the session's uploaded `SourceDocument`
-    PDF to a PNG byte buffer at 144 DPI for the live split-screen field preview.
+    """Renders 1-indexed `page_number` of the session's PDF document
+    to a PNG byte buffer at 144 DPI for the live split-screen field preview.
     """
-    if not session.source_document_id or page_number < 1:
+    if page_number < 1:
         return None
 
-    source_doc = db.get(SourceDocument, session.source_document_id)
-    if not source_doc or not source_doc.storage_path:
+    storage_path = None
+    if session.source_document_id:
+        source_doc = db.get(SourceDocument, session.source_document_id)
+        if source_doc and source_doc.storage_path:
+            storage_path = source_doc.storage_path
+    else:
+        version = session.version or db.get(FormVersion, session.form_version_id)
+        if version and version.source_pdf_storage_path:
+            storage_path = version.source_pdf_storage_path
+
+    if not storage_path:
         return None
 
     storage_provider = storage_factory.get_storage_provider()
-    if not storage_provider.exists(source_doc.storage_path):
+    if not storage_provider.exists(storage_path):
         return None
 
     import fitz
 
-    with storage_provider.local_path(source_doc.storage_path) as source_path:
+    with storage_provider.local_path(storage_path) as source_path:
         doc = fitz.open(source_path)
         try:
             if page_number > doc.page_count:

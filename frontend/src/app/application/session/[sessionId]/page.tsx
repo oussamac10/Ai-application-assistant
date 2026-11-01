@@ -82,7 +82,9 @@ export default function GuidedSession() {
 
   useEffect(() => {
     const activePage = currentField?.pageNumber ?? 1;
+    if (!sessionId) return;
     if (!currentField?.sourceDocumentFilename) return;
+    if (typeof fetchSessionPagePreviewBlob !== "function") return;
     if (pagePreviewUrlsRef.current[activePage]) return;
 
     let cancelled = false;
