@@ -39,12 +39,12 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 
 ### Phase G2: Form Upload, Parsing & Human Schema Review Workflow
 - [x] Publishing workflow state machine: `Draft -> Processing -> Needs Review -> Ready -> Published -> Archived`.
-- [x] Background & synchronous ingestion: PDF AcroForms + layout coordinate extraction + German administrative field key mapping.
+- [x] Universal form ingestion: PDF AcroForms + layout coordinate extraction + universal English canonical field key mapping.
 - [x] Visual Schema Review Studio: dual-pane UI where staff review, rename, reorder, and correct fields before publishing.
 - [x] 100% accurate PDF layout extraction (no phantom fields; exact text prompt + vector box detection).
 - [x] Visual PDF page canvas with numbered highlight bounding boxes, zoom controls, and click-to-focus synchronization.
-- [x] Interactive "+ Place Field on PDF" crosshair drawing tool: place missed fields with exact point coordinates and assign Profile Vault mappings.
-- [x] Form metadata management: category, instructions, required supporting documents, and submission method.
+- [x] Permanent canvas interactivity: direct click-and-drag drawing of new fields, drag-to-move existing fields, and 6-point corner/edge resize handles with live auto-save.
+- [x] Universal form metadata management: neutral international English placeholders, empty default evidence checklist, and clean field creation with key auto-deduplication.
 
 ### Phase G3: Public Organization Portals & Citizen Discovery Directory
 - [x] Public Organization Portals at `/organizations/[slug]` (e.g. `/organizations/stadt-stuttgart`).
