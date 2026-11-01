@@ -101,9 +101,6 @@ describe("B2B & B2G Platform — Portal & Case Management", () => {
       expect(screen.getByText("Munich Relocation Services GmbH")).toBeDefined();
     });
 
-    expect(screen.getAllByText(/Agency Pro/)[0]).toBeDefined();
-    expect(screen.getByText(/48 cases remaining/)).toBeDefined();
-    expect(screen.getByText("Manage Billing & Invoices")).toBeDefined();
     expect(screen.getByText("Dr. Sarah Connor")).toBeDefined();
     expect(screen.getByText("sarah.connor@cyberdyne.org")).toBeDefined();
     expect(screen.getByText("John Matrix")).toBeDefined();

@@ -4,10 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
-  createCheckoutSession,
-  createPortalSession,
   getCurrentOrganization,
-  getSubscription,
   listCases,
   listOrganizationForms,
 } from "../services/portalClient";
@@ -16,7 +13,6 @@ import {
   CaseStatus,
   Organization,
   OrganizationFormSummary,
-  SubscriptionInfo,
 } from "../types";
 import { NewCaseModal } from "./NewCaseModal";
 import { InviteSuccessModal } from "./InviteSuccessModal";
@@ -38,12 +34,10 @@ export function PortalDashboard() {
 
   const [activeTab, setActiveTab] = useState<"cases" | "forms">("cases");
   const [org, setOrg] = useState<Organization | null>(null);
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [cases, setCases] = useState<Case[]>([]);
   const [forms, setForms] = useState<OrganizationFormSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingForms, setLoadingForms] = useState(false);
-  const [upgrading, setUpgrading] = useState(false);
 
   // Cases filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,13 +57,11 @@ export function PortalDashboard() {
     Promise.all([
       getCurrentOrganization(),
       listCases(),
-      getSubscription().catch(() => null),
       listOrganizationForms().catch(() => []),
     ])
-      .then(([orgData, casesData, subData, formsData]) => {
+      .then(([orgData, casesData, formsData]) => {
         setOrg(orgData);
         setCases(casesData);
-        setSubscription(subData);
         setForms(formsData);
       })
       .catch((err) => {
@@ -147,38 +139,6 @@ export function PortalDashboard() {
       setTimeout(() => setCopiedCaseId(null), 2500);
     } catch {
       // Fallback
-    }
-  };
-
-  const handleUpgradePro = async () => {
-    if (!org) return;
-    setUpgrading(true);
-    try {
-      const res = await createCheckoutSession(org.id, "agency_pro");
-      if (res.checkout_url) {
-        window.location.href = res.checkout_url;
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to initiate upgrade";
-      alert(message);
-    } finally {
-      setUpgrading(false);
-    }
-  };
-
-  const handleManageBilling = async () => {
-    if (!org) return;
-    setUpgrading(true);
-    try {
-      const res = await createPortalSession(org.id);
-      if (res.portal_url) {
-        window.location.href = res.portal_url;
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to open billing portal";
-      alert(message);
-    } finally {
-      setUpgrading(false);
     }
   };
 
@@ -278,11 +238,7 @@ export function PortalDashboard() {
               </span>
             )}
             <span className="rounded-lg border border-[#e0dcfd] bg-[#f7f6fe] px-2.5 py-0.5 text-xs font-bold text-[#6551f3] uppercase font-mono">
-              {(subscription?.plan_key || org?.billing_plan) === "enterprise"
-                ? "Enterprise"
-                : (subscription?.plan_key || org?.billing_plan) === "agency_pro"
-                ? "Agency Pro • 50 Cases/mo"
-                : "Agency Sandbox • 3 Cases/mo"}
+              {org?.organization_type ? org.organization_type.replace(/_/g, " ") : "Official Workspace"}
             </span>
           </div>
           <p className="mt-1.5 text-sm text-[#737283] max-w-2xl">
@@ -362,67 +318,6 @@ export function PortalDashboard() {
       {/* TAB 1: CASES MANAGEMENT */}
       {activeTab === "cases" && (
         <>
-          {/* Subscription & Case Quota Banner */}
-          {subscription && (
-            <div className="mt-6 rounded-xl border border-[#e0dcfd] bg-linear-to-r from-[#f7f6fe] via-white to-slate-50 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#6551f3] bg-[#f7f6fe] border border-[#e0dcfd] px-2 py-0.5 rounded-md font-mono">
-                    {subscription.plan_key === "enterprise"
-                      ? "Enterprise & Public Sector"
-                      : subscription.plan_key === "agency_pro"
-                      ? "Agency Pro"
-                      : "Agency Sandbox (Evaluation)"}
-                  </span>
-                  <span className="text-xs text-[#737283] font-medium">
-                    {subscription.remaining_cases} cases remaining this period
-                  </span>
-                </div>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="h-2 w-full max-w-md rounded-full bg-slate-200 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-[#6551f3] transition-all duration-300"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.round(
-                            (subscription.cases_used_this_period /
-                              Math.max(1, subscription.monthly_case_limit)) *
-                              100
-                          )
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs font-mono font-semibold text-slate-700 whitespace-nowrap">
-                    {subscription.cases_used_this_period} / {subscription.monthly_case_limit} cases used
-                  </span>
-                </div>
-              </div>
-              <div>
-                {subscription.plan_key === "agency_sandbox" ? (
-                  <button
-                    type="button"
-                    onClick={handleUpgradePro}
-                    disabled={upgrading}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#6551f3] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#523ee8] transition-colors"
-                  >
-                    {upgrading ? "Loading..." : "Upgrade to Agency Pro (€149/mo)"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleManageBilling}
-                    disabled={upgrading}
-                    className="inline-flex items-center gap-2 rounded-lg border border-[#ebecf0] bg-white px-3.5 py-2 text-xs font-semibold text-[#010024] shadow-2xs hover:bg-[#f7f6fe] transition-colors"
-                  >
-                    Manage Billing & Invoices
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* High-Density Metrics Strip (Aikido Style) */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border border-[#ebecf0] bg-white p-4 shadow-2xs">

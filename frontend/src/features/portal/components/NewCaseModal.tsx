@@ -61,15 +61,20 @@ export function NewCaseModal({
     setLoadingTemplates(true);
     getPublishedForms()
       .then((forms) => {
-        setTemplates(forms);
-        if (forms.length > 0) {
+        const officialForms = forms.filter(
+          (f) =>
+            !f.name?.toLowerCase().includes("signature demo") &&
+            !f.name?.toLowerCase().includes("development")
+        );
+        setTemplates(officialForms);
+        if (officialForms.length > 0) {
           // Default to residence permit / aufenthaltstitel if present, else first form
-          const permit = forms.find(
+          const permit = officialForms.find(
             (f) =>
               f.name?.toLowerCase().includes("aufenthalt") ||
               f.templateKey?.toLowerCase().includes("aufenthalt")
           );
-          setSelectedFormId(permit ? permit.id : forms[0].id);
+          setSelectedFormId(permit ? permit.id : officialForms[0].id);
         }
       })
       .catch((err) => {
@@ -125,7 +130,7 @@ export function NewCaseModal({
               {t("modalTitle")}
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Invite an international candidate to complete an official administrative form.
+              Invite a citizen or applicant to complete an official administrative form in their native language.
             </p>
           </div>
           <button

@@ -55,7 +55,7 @@ export function InviteSuccessModal({
 
         <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50/80 p-4 space-y-2">
           <div className="flex justify-between text-xs">
-            <span className="text-slate-500 font-medium">Candidate:</span>
+            <span className="text-slate-500 font-medium">Citizen / Applicant:</span>
             <span className="font-semibold text-slate-900">{caseData.candidate_name}</span>
           </div>
           <div className="flex justify-between text-xs">
@@ -70,7 +70,7 @@ export function InviteSuccessModal({
 
         <div className="mt-4">
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Single-Use Candidate Invite Link
+            Single-Use Intake Invite Link
           </label>
           <div className="flex items-center gap-2">
             <input
