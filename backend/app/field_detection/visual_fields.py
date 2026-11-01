@@ -34,6 +34,7 @@ import logging
 import re
 from dataclasses import dataclass
 
+from app.field_detection.classification import marker_type
 from app.field_detection.providers.base import (
     BoundingBox,
     DetectionPageInput,
@@ -53,6 +54,7 @@ logger = logging.getLogger(__name__)
 # A usable input region is at least this wide. Below it there is nowhere to
 # write, and short rules are usually decoration.
 MIN_REGION_WIDTH = 60.0
+MIN_CELL_WIDTH = 36.0
 
 # How far below a label its box top edge may sit, as a multiple of the label's
 # own text height. Beyond this they are unrelated things that happen to be near.
@@ -117,10 +119,11 @@ class VisualCounts:
 
 
 # Prose markers. A line ending in a full stop is a sentence; one ending in a
-# colon is asking for something.
-_SENTENCE_END = re.compile(r"[.!?]\s*$")
+# colon or a question mark (within MAX_LABEL_WORDS) is asking for something.
+_SENTENCE_END = re.compile(r"[.!]\s*$")
 _TRAILING_COLON = re.compile(r"[:：]\s*$")
 _PLACEHOLDER = re.compile(r"^[\W\d_]*$", re.UNICODE)
+_LEADING_CELL_INDEX = re.compile(r"^\s*\d{1,3}\s*[.)]?\s+(?=[^\W\d_])")
 
 
 def is_plausible_label(text: str) -> bool:
@@ -187,8 +190,19 @@ def _region_is_decorative(
 ) -> bool:
     """Whether a drawn region is furniture rather than an input area."""
     box = region.bounding_box
-    if box.width < MIN_REGION_WIDTH * _effective_scale(page):
+    scale = _effective_scale(page)
+    min_w = MIN_CELL_WIDTH if region.kind == "cell" else MIN_REGION_WIDTH
+    if box.width < min_w * scale:
         return True
+    if region.kind == "cell":
+        if page.width and box.width / page.width > 0.94:
+            return True
+        if page.height:
+            cell_margin = page.height * 0.02
+            if box.y < cell_margin or box.y > page.height - cell_margin:
+                return True
+        return False
+
     max_width_ratio = (
         MAX_MARKED_FIELD_WIDTH_RATIO
         if has_explicit_field_marker and region.kind == "underline"
@@ -306,6 +320,104 @@ def _union(boxes: list[BoundingBox]) -> BoundingBox:
     return BoundingBox(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
 
 
+def _cell_field(
+    region: RuledRegion,
+    tokens: list[DetectionToken],
+    scale: float = 1.0,
+) -> tuple[str, BoundingBox, BoundingBox, str] | None:
+    """Extracts `(label, label_box, writable_input_box, "cell_caption")` from a
+    2D grid cell whose caption sits near its top border (or below inline option
+    rows inside the same band) with blank writing space underneath."""
+    box = region.bounding_box
+    cell_tokens = [
+        t
+        for t in tokens
+        if box.x - 1.0
+        <= (t.bounding_box.x + t.bounding_box.width / 2.0)
+        <= box.x + box.width + 1.0
+        and box.y - 2.0 * scale
+        <= (t.bounding_box.y + t.bounding_box.height / 2.0)
+        <= box.y + box.height + 1.0
+    ]
+    if not cell_tokens:
+        return None
+
+    lines: list[list[DetectionToken]] = []
+    for tok in sorted(cell_tokens, key=lambda t: (t.bounding_box.y, t.bounding_box.x)):
+        cy = tok.bounding_box.y + tok.bounding_box.height / 2.0
+        for line in lines:
+            ref = line[0].bounding_box
+            ref_cy = ref.y + ref.height / 2.0
+            if abs(cy - ref_cy) <= max(ref.height, tok.bounding_box.height) * 0.6:
+                line.append(tok)
+                break
+        else:
+            lines.append([tok])
+
+    for line in lines:
+        line.sort(key=lambda t: t.bounding_box.x)
+
+    marker_lines = [
+        line for line in lines if any(marker_type(t.text) is not None for t in line)
+    ]
+    effective_top = box.y
+    candidate_lines = lines
+    if marker_lines:
+        last_marker_bottom = max(
+            t.bounding_box.y + t.bounding_box.height
+            for line in marker_lines
+            for t in line
+        )
+        candidate_lines = [
+            line
+            for line in lines
+            if line not in marker_lines
+            and min(t.bounding_box.y for t in line) >= last_marker_bottom - 1.5 * scale
+        ]
+        if not candidate_lines:
+            return None
+        effective_top = last_marker_bottom
+
+    first_line = candidate_lines[0]
+    first_top = min(t.bounding_box.y for t in first_line)
+    if first_top - effective_top > 9.0 * scale:
+        return None
+
+    caption_tokens = list(first_line)
+    used_lines = 1
+    if len(candidate_lines) >= 2:
+        first_bot = max(t.bounding_box.y + t.bounding_box.height for t in first_line)
+        second_top = min(t.bounding_box.y for t in candidate_lines[1])
+        if second_top - first_bot <= 3.5 * scale:
+            caption_tokens.extend(candidate_lines[1])
+            used_lines = 2
+
+    if len(candidate_lines) > used_lines:
+        # Additional printed lines deeper inside the cell -> pre-printed body
+        # cell rather than an empty input box.
+        return None
+
+    raw_text = " ".join(t.text for t in caption_tokens).strip()
+    cleaned_text = _LEADING_CELL_INDEX.sub("", raw_text).strip()
+    if not is_plausible_label(cleaned_text):
+        return None
+
+    caption_box = _union([t.bounding_box for t in caption_tokens])
+    in_y = caption_box.y + caption_box.height + 1.5 * scale
+    in_bottom = box.y + box.height - 1.0 * scale
+    in_h = in_bottom - in_y
+    if in_h < 8.5 * scale:
+        return None
+
+    in_box = BoundingBox(
+        x=box.x + 2.0 * scale,
+        y=in_y,
+        width=max(box.width - 4.0 * scale, 8.0),
+        height=in_h,
+    )
+    return cleaned_text, caption_box, in_box, "cell_caption"
+
+
 def detect_visual_fields(
     page: DetectionPageInput,
     claimed_regions: set[tuple[float, float]] | None = None,
@@ -332,6 +444,35 @@ def detect_visual_fields(
         if (round(box.x, 1), round(box.y, 1)) in claimed:
             filtered += 1
             continue
+
+        if region.kind == "cell":
+            if _region_is_decorative(region, page):
+                filtered += 1
+                continue
+            cell_found = _cell_field(region, tokens, scale=scale)
+            if cell_found is None:
+                ambiguous += 1
+                filtered += 1
+                continue
+            label, label_box, in_box, association = cell_found
+            pairs += 1
+            is_multiline = in_box.height >= 26.0 * scale
+            if is_multiline:
+                multiline += 1
+            fields.append(
+                VisualField(
+                    label=label,
+                    field_type="multiline_text" if is_multiline else "text",
+                    page_number=page.page_number,
+                    label_bounding_box=label_box,
+                    input_bounding_box=in_box,
+                    confidence=0.8,
+                    review_required=False,
+                    association=association,
+                )
+            )
+            continue
+
         if region.kind == "box" and _contains_text(region, tokens, scale=scale):
             filtered += 1
             continue

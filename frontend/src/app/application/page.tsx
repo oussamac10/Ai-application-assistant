@@ -10,6 +10,7 @@ import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
 export default function ApplicationLanding() {
   const t = useTranslations("landing");
   const tc = useTranslations("common");
+  const ts = useTranslations("setup");
   const { locale, setLocale } = useLanguage();
 
   return (
@@ -23,9 +24,9 @@ export default function ApplicationLanding() {
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
                   <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
-                  Application Setup
+                  {ts("badge")}
                 </span>
-                <span className="text-xs font-mono text-slate-500 tabular-nums">Step 1 of 4</span>
+                <span className="text-xs font-mono text-slate-500 tabular-nums">{ts("stepOfFour")}</span>
               </div>
 
               <div>
@@ -33,34 +34,34 @@ export default function ApplicationLanding() {
                   <svg className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  Universal Form Assistant
+                  {ts("sidebarTitle")}
                 </h2>
                 <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                  Complete any official form in your native language. Upload your PDF document to extract questions and fill it step by step.
+                  {ts("sidebarBody")}
                 </p>
               </div>
 
               {/* Steps Progress Indicator */}
               <div className="space-y-2 border-t border-slate-200 pt-3.5">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                  Application Journey
+                  {ts("journeyHeading")}
                 </p>
                 <div className="space-y-1.5 text-xs">
                   <div className="flex items-center gap-2.5 text-indigo-900 font-semibold bg-indigo-50 p-2 rounded-lg border border-indigo-200">
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] text-white font-semibold tabular-nums">1</span>
-                    <span>Language & Document Upload</span>
+                    <span>{ts("step1")}</span>
                   </div>
                   <div className="flex items-center gap-2.5 text-slate-600 px-2 py-1.5">
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 border border-slate-300 text-[10px] text-slate-600 font-semibold tabular-nums">2</span>
-                    <span>Guided Questions & AI Normalization</span>
+                    <span>{ts("step2")}</span>
                   </div>
                   <div className="flex items-center gap-2.5 text-slate-600 px-2 py-1.5">
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 border border-slate-300 text-[10px] text-slate-600 font-semibold tabular-nums">3</span>
-                    <span>Final Review & Confirmation</span>
+                    <span>{ts("step3")}</span>
                   </div>
                   <div className="flex items-center gap-2.5 text-slate-600 px-2 py-1.5">
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 border border-slate-300 text-[10px] text-slate-600 font-semibold tabular-nums">4</span>
-                    <span>Signed Official PDF Export</span>
+                    <span>{ts("step4")}</span>
                   </div>
                 </div>
               </div>
@@ -74,8 +75,8 @@ export default function ApplicationLanding() {
                 </svg>
               </div>
               <div className="text-xs text-slate-600 leading-snug">
-                <span className="font-semibold text-slate-900 block">Zero-Retention Privacy</span>
-                Original answers are preserved and protected by cryptographic session tokens.
+                <span className="font-semibold text-slate-900 block">{ts("privacyCardTitle")}</span>
+                {ts("privacyCardBody")}
               </div>
             </div>
           </aside>
@@ -87,13 +88,13 @@ export default function ApplicationLanding() {
               <div className="text-center">
                 <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
                   <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
-                  <span className="tabular-nums">Step 1 of 4 • Universal Form Setup</span>
+                  <span className="tabular-nums">{ts("headerBadge")}</span>
                 </div>
                 <h1 className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
                   {tc("title")}
                 </h1>
                 <p className="mt-1.5 text-sm text-slate-600">
-                  Choose your native language and upload your PDF form to begin
+                  {ts("subtitle")}
                 </p>
               </div>
 
@@ -102,7 +103,7 @@ export default function ApplicationLanding() {
                   selectedCode={locale}
                   onSelect={setLocale}
                   title={t("selectUiLanguage")}
-                  subtitle={`Questions and explanations will be shown in your language (${UNIVERSAL_LANGUAGES.length} languages available).`}
+                  subtitle={ts("languageSubtitle", { count: UNIVERSAL_LANGUAGES.length })}
                 />
                 <DocumentUploadForm currentLocale={locale} />
               </div>

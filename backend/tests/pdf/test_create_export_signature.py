@@ -378,3 +378,17 @@ def test_another_sessions_token_cannot_export() -> None:
 
     with pytest.raises(UnauthorizedError):
         _export(setup, token="someone-elses-token")
+
+
+@pytest.mark.parametrize("env_value", ["production", "prod", " PRODUCTION "])
+def test_production_refuses_to_publish_the_demo_form(env_value: str) -> None:
+    from app.commands.load_signature_demo import load_signature_demo_fixture
+    from app.core.config import settings
+
+    original = settings.ENVIRONMENT
+    settings.ENVIRONMENT = env_value
+    try:
+        with pytest.raises(SystemExit):
+            load_signature_demo_fixture()
+    finally:
+        settings.ENVIRONMENT = original

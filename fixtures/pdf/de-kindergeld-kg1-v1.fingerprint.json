@@ -1,0 +1,28 @@
+{
+  "templateKey": "de-kindergeld-kg1-v1",
+  "formKey": "de-kindergeld-kg1",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_kindergeld_kg1_first_name",
+    "de_kindergeld_kg1_last_name",
+    "de_kindergeld_kg1_tax_id",
+    "de_kindergeld_kg1_street",
+    "de_kindergeld_kg1_postal_code",
+    "de_kindergeld_kg1_city",
+    "de_kindergeld_kg1_child_first_name",
+    "de_kindergeld_kg1_child_birth_date",
+    "de_kindergeld_kg1_iban"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-KINDERGELD-KG1-V1",
+    "Antrag auf Kindergeld (KG1)"
+  ]
+}

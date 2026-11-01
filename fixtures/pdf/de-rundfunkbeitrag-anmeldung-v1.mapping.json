@@ -1,0 +1,64 @@
+{
+  "templateKey": "de-rundfunkbeitrag-anmeldung-v1",
+  "formVersionKey": "de-rundfunkbeitrag-anmeldung:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "first_name",
+      "pdfFieldName": "de_rundfunkbeitrag_anmeldung_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "last_name",
+      "pdfFieldName": "de_rundfunkbeitrag_anmeldung_last_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "de_rundfunkbeitrag_anmeldung_date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "street",
+      "pdfFieldName": "de_rundfunkbeitrag_anmeldung_street",
+      "format": "string",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "postal_code",
+      "pdfFieldName": "de_rundfunkbeitrag_anmeldung_postal_code",
+      "format": "string",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "city",
+      "pdfFieldName": "de_rundfunkbeitrag_anmeldung_city",
+      "format": "string",
+      "maxLength": 50,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "move_in_date",
+      "pdfFieldName": "de_rundfunkbeitrag_anmeldung_move_in_date",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "iban",
+      "pdfFieldName": "de_rundfunkbeitrag_anmeldung_iban",
+      "format": "string",
+      "maxLength": 34,
+      "overflow": "truncate"
+    }
+  ]
+}

@@ -454,7 +454,13 @@ def _resolve_effective_input_box(
             lx, ly, lw, lh = lbl_coords
             same_line = abs(iy - ly) <= max(lh, ih, 6.0)
             gap = ix - (lx + lw)
-            if same_line and gap >= 12.0 and native_page_tokens:
+            if (
+                same_line
+                and gap >= 12.0
+                and native_page_tokens
+                and form_field_type
+                not in ("single_choice", "multiple_choice", "boolean")
+            ):
                 overlaps_printed_word = any(
                     not (
                         is_blank_run(getattr(t, "text", ""))

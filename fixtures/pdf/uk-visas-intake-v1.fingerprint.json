@@ -1,0 +1,27 @@
+{
+  "templateKey": "uk-visas-intake-v1",
+  "formKey": "uk-visas-intake",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "uk_visas_intake_family_name",
+    "uk_visas_intake_given_names",
+    "uk_visas_intake_date_of_birth",
+    "uk_visas_intake_nationality",
+    "uk_visas_intake_current_address",
+    "uk_visas_intake_contact_email",
+    "uk_visas_intake_contact_phone",
+    "uk_visas_intake_visa_route"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: UK-VISAS-INTAKE-V1",
+    "UK Visas & International Employee Intake"
+  ]
+}

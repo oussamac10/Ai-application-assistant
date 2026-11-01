@@ -80,7 +80,7 @@ class RuledRegion:
     holds one.
     """
 
-    kind: str  # "underline" | "box"
+    kind: str  # "underline" | "box" | "cell"
     page_number: int
     bounding_box: BoundingBox
 

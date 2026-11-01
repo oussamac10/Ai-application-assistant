@@ -48,6 +48,7 @@ from app.field_detection.azure_normalization import (
     build_page_geometries,
     drop_positionally_duplicate_candidates,
     extract_key_value_candidates,
+    extract_table_candidates,
 )
 from app.field_detection.errors import AzureDocumentIntelligenceError
 from app.field_detection.normalization import (
@@ -136,8 +137,12 @@ class AzureDocumentIntelligenceProvider:
         # label but asks for nothing. Filtered before dedup so it cannot
         # occupy a normalized name a real field needs.
         candidates, _filtered = filter_non_field_candidates(candidates)
+        from app.field_detection.direction import is_rtl_language
+
         candidates = deduplicate_candidates(candidates)
-        candidates = sort_candidates_deterministically(candidates)
+        candidates = sort_candidates_deterministically(
+            candidates, rtl=is_rtl_language(document.language)
+        )
         normalization_duration = time.perf_counter() - normalization_started
 
         # Split so a slow request is attributable to the remote service
@@ -212,20 +217,27 @@ class AzureDocumentIntelligenceProvider:
                 text_input
             )
 
-        # 2. Azure's own key/value pairing, added only where it found a
+        # 2. Azure's table cells (grid table form fields)
+        table_candidates = extract_table_candidates(analyze_result, geometries)
+        after_tables = drop_positionally_duplicate_candidates(
+            text_candidates, table_candidates
+        )
+
+        # 3. Azure's own key/value pairing, added only where it found a
         #    region layout analysis did not. Without this positional check
         #    the same blank yields two questions, because name-based
         #    deduplication cannot equate "iban" with "mietkosten_iban".
         kv_candidates = extract_key_value_candidates(analyze_result, geometries)
-        candidates = drop_positionally_duplicate_candidates(
-            text_candidates, kv_candidates
-        )
-        kv_kept = len(candidates) - len(text_candidates)
+        candidates = drop_positionally_duplicate_candidates(after_tables, kv_candidates)
+        table_kept = len(after_tables) - len(text_candidates)
+        kv_kept = len(candidates) - len(after_tables)
 
         self.last_azure_counts = {
             **azure_counts,
             "tokens_built": sum(len(p.tokens) for p in pages),
             "text_candidates": len(text_candidates),
+            "table_candidates": len(table_candidates),
+            "table_kept_after_position_dedup": table_kept,
             "kv_candidates": len(kv_candidates),
             "kv_kept_after_position_dedup": kv_kept,
             "raw_candidates": len(candidates),

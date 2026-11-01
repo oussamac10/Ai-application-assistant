@@ -1,0 +1,26 @@
+{
+  "templateKey": "de-wohnungsgeberbestaetigung-v1",
+  "formKey": "de-wohnungsgeberbestaetigung",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_wohnungsgeberbestaetigung_landlord_name",
+    "de_wohnungsgeberbestaetigung_move_in_date",
+    "de_wohnungsgeberbestaetigung_street",
+    "de_wohnungsgeberbestaetigung_postal_code",
+    "de_wohnungsgeberbestaetigung_city",
+    "de_wohnungsgeberbestaetigung_first_name",
+    "de_wohnungsgeberbestaetigung_last_name"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-WOHNUNGSGEBERBESTAETIGUNG-V1",
+    "Wohnungsgeberbestätigung (§ 19 BMG)"
+  ]
+}

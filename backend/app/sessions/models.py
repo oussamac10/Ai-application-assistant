@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.session import Base
 
 if TYPE_CHECKING:
+    from app.answers.models import FormAnswer
     from app.forms.models import FormVersion
 
 
@@ -96,6 +97,9 @@ class FormSession(Base):
     )
 
     version: Mapped["FormVersion"] = relationship("FormVersion")
+    answers: Mapped[list["FormAnswer"]] = relationship(
+        "FormAnswer", back_populates="session"
+    )
 
     @property
     def form_origin(self) -> str:

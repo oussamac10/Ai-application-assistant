@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.answers.models import FormAnswer  # noqa: F401
 from app.auth.models import AuthActionToken, AuthSession, User  # noqa: F401
+from app.billing.models import AIUsageEvent, OrganizationSubscription  # noqa: F401
 from app.core.config import settings
 from app.database.session import Base
 from app.documents.models import SourceDocument  # noqa: F401
@@ -23,6 +24,11 @@ from app.forms.models import (  # noqa: F401
     FormVersion,
 )
 from app.ocr.models import OCRPage, OCRResult  # noqa: F401
+from app.organizations.models import (  # noqa: F401
+    Organization,
+    OrganizationCase,
+    OrganizationMember,
+)
 from app.jobs.models import ProcessingJob  # noqa: F401
 from app.pdf.models import FormExport  # noqa: F401
 from app.questions.models import (  # noqa: F401

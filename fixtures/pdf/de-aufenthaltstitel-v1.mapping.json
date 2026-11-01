@@ -1,0 +1,92 @@
+{
+  "templateKey": "de-aufenthaltstitel-v1",
+  "formVersionKey": "de-aufenthaltstitel:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "family_name",
+      "pdfFieldName": "de_aufenthaltstitel_family_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "birth_name",
+      "pdfFieldName": "de_aufenthaltstitel_birth_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "first_names",
+      "pdfFieldName": "de_aufenthaltstitel_first_names",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "de_aufenthaltstitel_date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "place_of_birth",
+      "pdfFieldName": "de_aufenthaltstitel_place_of_birth",
+      "format": "string",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "nationality",
+      "pdfFieldName": "de_aufenthaltstitel_nationality",
+      "format": "country",
+      "maxLength": 2,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "marital_status",
+      "pdfFieldName": "de_aufenthaltstitel_marital_status",
+      "format": "string",
+      "maxLength": 40,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "gender",
+      "pdfFieldName": "de_aufenthaltstitel_gender",
+      "format": "string",
+      "maxLength": 20,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "current_address",
+      "pdfFieldName": "de_aufenthaltstitel_current_address",
+      "format": "string",
+      "maxLength": 120,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "contact_email",
+      "pdfFieldName": "de_aufenthaltstitel_contact_email",
+      "format": "email",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "contact_phone",
+      "pdfFieldName": "de_aufenthaltstitel_contact_phone",
+      "format": "string",
+      "maxLength": 30,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "purpose_of_stay",
+      "pdfFieldName": "de_aufenthaltstitel_purpose_of_stay",
+      "format": "string",
+      "maxLength": 120,
+      "overflow": "truncate"
+    }
+  ]
+}

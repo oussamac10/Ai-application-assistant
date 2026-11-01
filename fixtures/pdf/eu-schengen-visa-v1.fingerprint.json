@@ -1,0 +1,30 @@
+{
+  "templateKey": "eu-schengen-visa-v1",
+  "formKey": "eu-schengen-visa",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "eu_schengen_visa_surname",
+    "eu_schengen_visa_first_names",
+    "eu_schengen_visa_date_of_birth",
+    "eu_schengen_visa_place_of_birth",
+    "eu_schengen_visa_current_nationality",
+    "eu_schengen_visa_gender",
+    "eu_schengen_visa_marital_status",
+    "eu_schengen_visa_home_address",
+    "eu_schengen_visa_contact_email",
+    "eu_schengen_visa_contact_phone",
+    "eu_schengen_visa_purpose_of_journey"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: EU-SCHENGEN-VISA-V1",
+    "Application for Schengen Visa (Harmonised EU Form)"
+  ]
+}

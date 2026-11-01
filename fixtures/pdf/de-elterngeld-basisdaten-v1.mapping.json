@@ -1,0 +1,57 @@
+{
+  "templateKey": "de-elterngeld-basisdaten-v1",
+  "formVersionKey": "de-elterngeld-basisdaten:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "first_name",
+      "pdfFieldName": "de_elterngeld_basisdaten_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "last_name",
+      "pdfFieldName": "de_elterngeld_basisdaten_last_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "de_elterngeld_basisdaten_date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "tax_id",
+      "pdfFieldName": "de_elterngeld_basisdaten_tax_id",
+      "format": "string",
+      "maxLength": 20,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "child_first_name",
+      "pdfFieldName": "de_elterngeld_basisdaten_child_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "child_birth_date",
+      "pdfFieldName": "de_elterngeld_basisdaten_child_birth_date",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "iban",
+      "pdfFieldName": "de_elterngeld_basisdaten_iban",
+      "format": "string",
+      "maxLength": 34,
+      "overflow": "truncate"
+    }
+  ]
+}

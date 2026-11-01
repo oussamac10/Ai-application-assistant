@@ -13,6 +13,7 @@ from app.documents.repository import SourceDocumentRepository
 from app.sessions.models import FormSession
 from app.sessions.repositories import SessionRepository
 from app.sessions.security import verify_ownership_token
+from app.sessions.services import compute_session_progress_percentage
 
 _MAX_TITLE_LENGTH = 255
 
@@ -24,21 +25,6 @@ def _form_name(session: FormSession) -> str:
 
 
 def to_summary_dict(session: FormSession) -> dict[str, Any]:
-    total = session.total_required_fields
-    if total <= 0 and session.version and session.version.fields:
-        total = len(session.version.fields)
-    if session.status in (
-        "awaiting_final_confirmation",
-        "ready_for_export",
-        "completed",
-    ):
-        progress = 100
-    else:
-        progress = (
-            min(100, int((session.current_field_position / total) * 100))
-            if total > 0
-            else 0
-        )
     return {
         "id": session.public_id,
         "title": session.title or _form_name(session),
@@ -46,7 +32,7 @@ def to_summary_dict(session: FormSession) -> dict[str, Any]:
         "form_name": _form_name(session),
         "form_origin": session.form_origin,
         "export_supported": session.export_supported,
-        "progress_percentage": progress,
+        "progress_percentage": compute_session_progress_percentage(session),
         "created_at": session.created_at,
         "updated_at": session.updated_at,
         "last_opened_at": session.last_opened_at,

@@ -59,6 +59,7 @@ export const UNIVERSAL_LANGUAGES: LanguageOption[] = [
     englishName: "Spanish",
     dir: "ltr",
     region: "Popular",
+    hasStaticUiBundle: true,
   },
   {
     code: "tr",
@@ -66,6 +67,7 @@ export const UNIVERSAL_LANGUAGES: LanguageOption[] = [
     englishName: "Turkish",
     dir: "ltr",
     region: "Popular",
+    hasStaticUiBundle: true,
   },
   {
     code: "uk",
@@ -73,6 +75,7 @@ export const UNIVERSAL_LANGUAGES: LanguageOption[] = [
     englishName: "Ukrainian",
     dir: "ltr",
     region: "Popular",
+    hasStaticUiBundle: true,
   },
   {
     code: "ru",
@@ -80,6 +83,7 @@ export const UNIVERSAL_LANGUAGES: LanguageOption[] = [
     englishName: "Russian",
     dir: "ltr",
     region: "Popular",
+    hasStaticUiBundle: true,
   },
   {
     code: "fa",

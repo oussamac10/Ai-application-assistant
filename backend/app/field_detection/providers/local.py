@@ -70,6 +70,7 @@ from app.field_detection.geometry import (
     right_edge,
     union_bounding_box,
 )
+from app.field_detection.grid_tables import detect_vector_grid_tables
 from app.field_detection.labeling import (
     LinePhrase,
     build_line_groups,
@@ -114,6 +115,154 @@ from app.field_detection.sections import (
     is_section_heading,
 )
 from app.field_detection.visual_fields import detect_visual_fields
+
+_BARE_SUBLABEL_WORDS = frozenset(
+    {
+        "seit",
+        "since",
+        "depuis",
+        "wann",
+        "wo",
+        "when",
+        "where",
+        "quand",
+        "où",
+        "ggf. an welchen",
+        "an welchen",
+        "falls ja, welche",
+        "if yes, which",
+    }
+)
+_SHORT_LETTERED_SUBCELL = re.compile(r"^[a-z]\)\s+\S+(?:\s+\S+)?$", re.IGNORECASE)
+
+
+def _is_bare_dependent_sublabel(label: str) -> bool:
+    cleaned = " ".join(label.strip().lower().rstrip("?؟:：.").split())
+    if cleaned in _BARE_SUBLABEL_WORDS:
+        return True
+    return _SHORT_LETTERED_SUBCELL.match(label.strip()) is not None
+
+
+def _concise_parent_heading(raw_line: str) -> str:
+    stripped = strip_heading_number(raw_line).strip()
+    # Strip trailing explanatory dash/parenthetical notes ("Staatsangehörigkeit(en) - Bei mehreren...")
+    for sep in (" - ", " – ", " ("):
+        if sep in stripped:
+            head = stripped.split(sep, 1)[0].strip()
+            if len(head) >= 3:
+                stripped = head
+                break
+    stripped = re.sub(r"^[a-z]\)\s+", "", stripped, flags=re.IGNORECASE)
+    stripped = stripped.rstrip("?؟:：.").strip()
+    words = stripped.split()
+    if len(words) > 6:
+        stripped = " ".join(words[:6])
+    return stripped
+
+
+def _find_enclosing_parent_title(
+    label_box: BoundingBox | None,
+    input_box: BoundingBox,
+    line_groups: list[list[LinePhrase]],
+) -> str | None:
+    ref_x = label_box.x if label_box is not None else input_box.x
+    ref_y = label_box.y if label_box is not None else input_box.y
+
+    # 1. Same-row left heading (e.g. `6 Familienstand` to the left of `seit`).
+    for group in line_groups:
+        if not group:
+            continue
+        gy = min(p.bounding_box.y for p in group)
+        if abs(gy - ref_y) <= 4.0:
+            left_phrases = [
+                p
+                for p in group
+                if p.bounding_box.x + p.bounding_box.width <= ref_x - 8.0
+                and all(marker_type(t.text) is None for t in p.tokens)
+            ]
+            if left_phrases:
+                left_raw = " ".join(p.text for p in left_phrases).strip()
+                if not _is_bare_dependent_sublabel(left_raw) and not re.match(
+                    r"^[a-z]\)", left_raw, re.IGNORECASE
+                ):
+                    candidate = _concise_parent_heading(left_raw)
+                    if len(candidate) >= 3:
+                        return candidate
+
+    # 2. Nearest numbered or question heading within 65pt above `ref_y`.
+    best: str | None = None
+    line_boxes = [_line_box(g) for g in line_groups if g]
+    non_empty_groups = [g for g in line_groups if g]
+    for g_idx, group in enumerate(non_empty_groups):
+        gy = min(p.bounding_box.y for p in group)
+        if gy >= ref_y - 3.0:
+            break
+        if ref_y - gy > 65.0:
+            continue
+        non_marker_tokens = [
+            t for p in group for t in p.tokens if marker_type(t.text) is None
+        ]
+        if not non_marker_tokens:
+            continue
+        raw = " ".join(t.text for t in non_marker_tokens).strip()
+        # Exclude pure `ja / nein` option words or sibling bare sub-labels.
+        if raw.lower() in {"ja nein", "yes no", "oui non"}:
+            continue
+        raw = re.sub(
+            r"\s+(?:ja|nein|yes|no|oui|non)\s+(?:ja|nein|yes|no|oui|non)\s*$",
+            "",
+            raw,
+            flags=re.IGNORECASE,
+        )
+        if _is_bare_dependent_sublabel(raw):
+            continue
+        if raw.rstrip().endswith(("?", "؟")) and not re.match(r"^\s*\d{1,3}\b", raw):
+            raw, _ = _join_wrapped_question_lines(
+                non_empty_groups, line_boxes, g_idx, set()
+            )
+        if re.match(r"^\s*(?:\d{1,3}\b|[a-z]\))", raw, re.IGNORECASE) or "?" in raw:
+            cand = _concise_parent_heading(raw)
+            if len(cand) >= 3:
+                best = cand
+    return best
+
+
+def _join_wrapped_question_lines(
+    line_groups: list[list[LinePhrase]],
+    line_boxes: list[BoundingBox],
+    index: int,
+    consumed: set[int],
+) -> tuple[str, list[int]]:
+    """If `line_groups[index]` ends with `?`, joins up to 3 unconsumed wrapped
+    clause lines immediately above it into the full question text."""
+    base_text = " ".join(p.text for p in line_groups[index]).strip()
+    if not base_text.rstrip().endswith(("?", "؟")):
+        return base_text, [index]
+
+    parts = [base_text]
+    indices = [index]
+    prev = index - 1
+    while prev >= 0 and len(indices) < 4 and prev not in consumed:
+        prev_group = line_groups[prev]
+        prev_tokens = _line_tokens(prev_group)
+        if not prev_tokens or any(marker_type(t.text) is not None for t in prev_tokens):
+            break
+        line_h = max(line_boxes[prev].height, line_boxes[prev + 1].height, 1.0)
+        v_gap = line_boxes[prev + 1].y - (line_boxes[prev].y + line_boxes[prev].height)
+        if not (-0.45 * line_h <= v_gap <= 2.2 * line_h):
+            break
+        prev_text = " ".join(p.text for p in prev_group).strip()
+        if not prev_text or prev_text.rstrip().endswith(
+            (".", "!", "?", "؟", ":", "：")
+        ):
+            break
+        parts.append(prev_text)
+        indices.append(prev)
+        prev -= 1
+
+    parts.reverse()
+    indices.reverse()
+    return " ".join(parts).strip(), indices
 
 
 def _contextual_label(label: str, context: SectionContext | None) -> str:
@@ -181,7 +330,7 @@ logger = logging.getLogger(__name__)
 
 _MAX_HEADING_WORDS = 8
 
-_MAX_OPTION_WORDS = 10
+_MAX_OPTION_WORDS = 14
 
 _HUMANIZE_UNDERSCORE = str.maketrans("_-", "  ")
 _HUNGARIAN_PREFIX = re.compile(r"^(?:txt|chk|fld|cmb|btn|opt|rad|sig)(?=[A-Z])")
@@ -271,7 +420,9 @@ class LocalFieldDetectionProvider:
         # occupy a normalized name a real field needs.
         candidates, _filtered = filter_non_field_candidates(candidates)
         candidates = deduplicate_candidates(candidates)
-        candidates = sort_candidates_deterministically(candidates)
+        candidates = sort_candidates_deterministically(
+            candidates, rtl=is_rtl_language(document.language)
+        )
 
         return DetectionResult(
             provider_name=self.provider_name,
@@ -664,6 +815,13 @@ class LocalFieldDetectionProvider:
             established = detect_context(line_text)
             if established is not None:
                 active = established
+            elif active is not None and active.is_subsection:
+                if (
+                    re.match(r"^\s*\d{1,3}\b", line_text)
+                    or line_text.endswith((":", "："))
+                    or (len(line_text.split()) >= 12 and line_text.endswith("."))
+                ):
+                    active = None
             context_map[index] = active
         return context_map
 
@@ -678,8 +836,44 @@ class LocalFieldDetectionProvider:
             )
             context_map = self._build_context_map(line_groups)
 
+            def _section_for_y(
+                target_y: float,
+                _lg: list[list[LinePhrase]] = line_groups,
+                _cm: dict[int, SectionContext | None] = context_map,
+            ) -> tuple[str, str] | None:
+                ctx = self._context_for_y(_lg, _cm, target_y)
+                if ctx is None:
+                    return None
+                return (
+                    ctx.key_prefix,
+                    ctx.title or ctx.label_prefix or ctx.key_prefix.title(),
+                )
+
+            table_candidates, claimed_table_coords, claimed_table_boxes = (
+                detect_vector_grid_tables(page, section_for_y=_section_for_y)
+            )
+            candidates.extend(table_candidates)
+
+            pre_consumed: set[int] = set()
+            if claimed_table_boxes:
+                for idx, grp in enumerate(line_groups):
+                    if not grp:
+                        continue
+                    lb = _line_box(grp)
+                    cx = lb.x + lb.width / 2.0
+                    cy = lb.y + lb.height / 2.0
+                    if any(
+                        tb.x - 2.0 <= cx <= tb.x + tb.width + 2.0
+                        and tb.y - 2.0 <= cy <= tb.y + tb.height + 2.0
+                        for tb in claimed_table_boxes
+                    ):
+                        pre_consumed.add(idx)
+
             choice_candidates, consumed = self._detect_choice_groups(
-                page.page_number, line_groups, context_map
+                page.page_number,
+                line_groups,
+                context_map,
+                initial_consumed=pre_consumed,
             )
             candidates.extend(choice_candidates)
 
@@ -704,9 +898,13 @@ class LocalFieldDetectionProvider:
             # an underline under a label, a box beside one. Runs before the
             # generic text passes so a drawn region's own label wins over
             # whatever the line heuristics would have inferred.
-            candidates.extend(
-                self._detect_visual_regions(page, line_groups, context_map)
+            visual_candidates, visual_label_boxes = self._detect_visual_regions(
+                page,
+                line_groups,
+                context_map,
+                claimed_regions=claimed_table_coords,
             )
+            candidates.extend(visual_candidates)
 
             candidates.extend(
                 self._detect_label_above_blank_line_fields(
@@ -721,7 +919,13 @@ class LocalFieldDetectionProvider:
             )
 
             candidates.extend(
-                self._detect_normal_fields(page, line_groups, consumed, context_map)
+                self._detect_normal_fields(
+                    page,
+                    line_groups,
+                    consumed,
+                    context_map,
+                    visual_label_boxes=visual_label_boxes,
+                )
             )
 
         return candidates
@@ -735,14 +939,30 @@ class LocalFieldDetectionProvider:
         """
         headings: dict[int, str] = {}
         current = ""
+        line_boxes = [_line_box(group) for group in line_groups]
         for index, group in enumerate(line_groups):
-            text = " ".join(phrase.text for phrase in group).strip()
-            tokens = _line_tokens(group)
+            is_split_column = (
+                len(group) > 1
+                and group[1].bounding_box.x - right_edge(group[0].bounding_box) > 40.0
+                and any(ch.isalpha() for ch in group[0].text)
+            )
+            if is_split_column:
+                text = group[0].text.strip()
+                tokens = list(group[0].tokens)
+            else:
+                text = " ".join(phrase.text for phrase in group).strip()
+                tokens = _line_tokens(group)
             has_marker = any(marker_type(t.text) is not None for t in tokens)
+            is_question = text.rstrip().endswith(("?", "؟"))
+            if is_question and not has_marker and not is_split_column:
+                text, _ = _join_wrapped_question_lines(
+                    line_groups, line_boxes, index, set()
+                )
+            max_words = 40 if is_question else _MAX_HEADING_WORDS
             if (
                 text
                 and not has_marker
-                and len(text.split()) <= _MAX_HEADING_WORDS
+                and len(text.split()) <= max_words
                 and not text.rstrip().endswith(".")
             ):
                 current = text
@@ -775,8 +995,8 @@ class LocalFieldDetectionProvider:
                     confidence=group.confidence,
                     source="native",
                     multiple=group.field_type == "multiple_choice",
-                    label_bounding_box=group.bounding_box,
-                    input_bounding_box=group.bounding_box,
+                    label_bounding_box=group.label_bounding_box or group.bounding_box,
+                    input_bounding_box=group.input_bounding_box or group.bounding_box,
                     options=group.options,
                 )
             )
@@ -796,25 +1016,45 @@ class LocalFieldDetectionProvider:
         page_number: int,
         line_groups: list[list[LinePhrase]],
         context_map: dict[int, SectionContext | None],
+        initial_consumed: set[int] | None = None,
     ) -> tuple[list[DetectedFieldCandidate], set[int]]:
         candidates: list[DetectedFieldCandidate] = []
-        consumed: set[int] = set()
+        consumed: set[int] = set(initial_consumed) if initial_consumed else set()
         line_boxes = [_line_box(group) for group in line_groups]
 
         for heading_index, heading_group in enumerate(line_groups):
             if heading_index in consumed:
                 continue
 
-            heading_tokens = _line_tokens(heading_group)
+            is_split_column = (
+                len(heading_group) > 1
+                and heading_group[1].bounding_box.x
+                - right_edge(heading_group[0].bounding_box)
+                > 40.0
+                and any(ch.isalpha() for ch in heading_group[0].text)
+            )
+            if is_split_column:
+                heading_tokens = list(heading_group[0].tokens)
+                raw_heading = heading_group[0].text.strip()
+                heading_indices = [heading_index]
+            else:
+                heading_tokens = _line_tokens(heading_group)
+                raw_heading = " ".join(p.text for p in heading_group).strip()
+                heading_indices = [heading_index]
+
             if not heading_tokens or any(
                 marker_type(t.text) is not None for t in heading_tokens
             ):
                 continue
 
-            heading_text = " ".join(p.text for p in heading_group).strip()
+            if raw_heading.rstrip().endswith(("?", "؟")) and not is_split_column:
+                raw_heading, heading_indices = _join_wrapped_question_lines(
+                    line_groups, line_boxes, heading_index, consumed
+                )
+
             # "5. Documents joints" -> "Documents joints". The enumeration is
             # the form's numbering, not part of the question.
-            heading_text = strip_heading_number(heading_text.rstrip(":").strip())
+            heading_text = strip_heading_number(raw_heading.rstrip(":").strip())
             if not heading_text:
                 continue
             if heading_text.lower() in _CONNECTIVE_ONLY_HEADINGS:
@@ -829,7 +1069,9 @@ class LocalFieldDetectionProvider:
                 if cursor in consumed:
                     break
                 candidate_box = line_boxes[cursor]
-                if not is_close_below(previous_box, candidate_box):
+                row_gap = candidate_box.y - (previous_box.y + previous_box.height)
+                max_h = max(previous_box.height, candidate_box.height, 1.0)
+                if not (-3.0 <= row_gap <= CLOSE_BELOW_RATIO * max_h):
                     break
 
                 # A physical line can hold one option (vertically stacked
@@ -908,7 +1150,7 @@ class LocalFieldDetectionProvider:
                 # never invent a choice type from conflicting geometry.
                 continue
 
-            consumed.add(heading_index)
+            consumed.update(heading_indices)
             consumed.update(option_indices)
 
             # The line immediately above an option list is often the tail
@@ -917,7 +1159,10 @@ class LocalFieldDetectionProvider:
             # back to the enclosing "§ N Title" section name, which is what
             # actually describes the group.
             context = context_map.get(heading_index)
-            if is_probably_prose_label(heading_text) or heading_text.endswith("."):
+            is_explicit_question = heading_text.rstrip().endswith(("?", "؟"))
+            if (
+                is_probably_prose_label(heading_text) and not is_explicit_question
+            ) or heading_text.endswith("."):
                 if context is not None and context.title:
                     heading_text = context.title
                 else:
@@ -926,11 +1171,16 @@ class LocalFieldDetectionProvider:
                     # safely, so skip it rather than ask an unclear
                     # question.
                     consumed.difference_update(option_indices)
-                    consumed.discard(heading_index)
+                    consumed.difference_update(heading_indices)
                     continue
 
             option_boxes = [line_boxes[i] for i in option_indices]
             option_labels = tuple(label for _, label in options)
+            heading_label_box = (
+                heading_group[0].bounding_box
+                if len(heading_group) > 1 and len(heading_indices) == 1
+                else union_bounding_box([line_boxes[i] for i in heading_indices])
+            )
 
             # An option carrying its own requiredness marker is not an option:
             # a choice question's requiredness belongs to the question, not to
@@ -972,7 +1222,7 @@ class LocalFieldDetectionProvider:
                             ),
                             label_bounding_box=line_boxes[option_indices[position]]
                             if position < len(option_indices)
-                            else line_boxes[heading_index],
+                            else heading_label_box,
                             input_bounding_box=marker_box,
                         )
                     )
@@ -992,7 +1242,7 @@ class LocalFieldDetectionProvider:
                     confidence=choice_group_confidence(marker_kind),
                     source=heading_tokens[0].source,
                     multiple=multiple,
-                    label_bounding_box=line_boxes[heading_index],
+                    label_bounding_box=heading_label_box,
                     input_bounding_box=union_bounding_box(option_boxes),
                     options=option_labels,
                 )
@@ -1048,6 +1298,7 @@ class LocalFieldDetectionProvider:
         line_groups: list[list[LinePhrase]],
         consumed: set[int],
         context_map: dict[int, SectionContext | None],
+        visual_label_boxes: list[BoundingBox] | None = None,
     ) -> list[DetectedFieldCandidate]:
         candidates: list[DetectedFieldCandidate] = []
         line_boxes = [_line_box(group) for group in line_groups]
@@ -1061,6 +1312,15 @@ class LocalFieldDetectionProvider:
             for segment_index, phrase in enumerate(group):
                 if not phrase.text:
                     continue
+                if visual_label_boxes:
+                    cx = phrase.bounding_box.x + phrase.bounding_box.width / 2.0
+                    cy = phrase.bounding_box.y + phrase.bounding_box.height / 2.0
+                    if any(
+                        vb.x - 2.0 <= cx <= vb.x + vb.width + 2.0
+                        and vb.y - 2.0 <= cy <= vb.y + vb.height + 2.0
+                        for vb in visual_label_boxes
+                    ):
+                        continue
                 if is_footer_metadata(phrase.text, phrase.bounding_box.y, page.height):
                     continue
                 # A "§ N ..." heading names a section, never a field.
@@ -1199,6 +1459,36 @@ class LocalFieldDetectionProvider:
                         width=gap_w,
                         height=gap_h,
                     )
+
+                if (
+                    input_box is None
+                    and not has_real_trailing_value
+                    and not phrase.has_blank_marker
+                    and not phrase.has_blank_sibling
+                    and not has_large_gap_below
+                ):
+                    phrase_bottom = phrase.bounding_box.y + phrase.bounding_box.height
+                    has_ruled_below = any(
+                        0.0 <= r.bounding_box.y - phrase_bottom <= 22.0
+                        for r in page.ruled_regions
+                    )
+                    next_is_prose_or_consumed = False
+                    if (
+                        index + 1 < len(line_groups)
+                        and next_box is not None
+                        and is_close_below(phrase.bounding_box, next_box, 2.5)
+                    ):
+                        next_text = " ".join(
+                            p.text for p in line_groups[index + 1]
+                        ).strip()
+                        if (
+                            (index + 1) in consumed
+                            or len(next_text.split()) >= 9
+                            or (len(next_text.split()) >= 6 and next_text.endswith("."))
+                        ):
+                            next_is_prose_or_consumed = True
+                    if has_ruled_below or next_is_prose_or_consumed:
+                        continue
 
                 context = context_map.get(index)
                 candidates.append(
@@ -1411,21 +1701,18 @@ class LocalFieldDetectionProvider:
         page: DetectionPageInput,
         line_groups: list[list[LinePhrase]] | None = None,
         context_map: dict[int, SectionContext | None] | None = None,
-    ) -> list[DetectedFieldCandidate]:
-        """Text fields from drawn underlines and boxes.
-
-        A signature line is left alone: `classify_label` already recognises it,
-        and that classification is authoritative — a signature must not also
-        become a text question.
-        """
-        fields, _counts = detect_visual_fields(page)
+        claimed_regions: set[tuple[float, float]] | None = None,
+    ) -> tuple[list[DetectedFieldCandidate], list[BoundingBox]]:
+        """Fields from drawn underlines, boxes, and grid cells."""
+        fields, _counts = detect_visual_fields(page, claimed_regions=claimed_regions)
         candidates: list[DetectedFieldCandidate] = []
+        visual_label_boxes: list[BoundingBox] = []
         page_source = next((t.source for t in page.tokens if t.source), "native")
 
         for order, field in enumerate(fields):
+            if field.label_bounding_box is not None:
+                visual_label_boxes.append(field.label_bounding_box)
             raw_label = strip_requiredness_markers(field.label).rstrip(":：").strip()
-            if classify_label(raw_label) == "signature":
-                continue
             ref_y = (
                 field.label_bounding_box.y
                 if field.label_bounding_box is not None
@@ -1436,18 +1723,44 @@ class LocalFieldDetectionProvider:
                 if line_groups is not None and context_map is not None
                 else None
             )
-            label = _contextual_label(raw_label, context)
+            effective_context = context
+            if (
+                _is_bare_dependent_sublabel(raw_label)
+                and (context is None or not context.label_prefix)
+                and line_groups is not None
+            ):
+                parent_title = _find_enclosing_parent_title(
+                    field.label_bounding_box, field.input_bounding_box, line_groups
+                )
+                if parent_title:
+                    parent_key = normalize_field_name(parent_title)
+                    combined_key = (
+                        f"{context.key_prefix}_{parent_key}"
+                        if context is not None and context.key_prefix
+                        else parent_key
+                    )
+                    effective_context = SectionContext(
+                        key_prefix=combined_key,
+                        label_prefix=parent_title,
+                        title=parent_title,
+                    )
+
+            classified_type = classify_label(raw_label)
+            if classified_type == "signature":
+                resolved_type = "signature"
+            elif field.field_type == "multiline_text":
+                resolved_type = "multiline_text"
+            else:
+                resolved_type = classified_type
+
+            label = _contextual_label(raw_label, effective_context)
             candidates.append(
                 DetectedFieldCandidate(
                     candidate_key=f"visual-{page.page_number}-{order}",
                     page_number=page.page_number,
                     label=label,
-                    normalized_name=_contextual_name(raw_label, context),
-                    field_type=(
-                        "multiline_text"
-                        if field.field_type == "multiline_text"
-                        else classify_label(raw_label)
-                    ),
+                    normalized_name=_contextual_name(raw_label, effective_context),
+                    field_type=resolved_type,
                     confidence=field.confidence,
                     source=page_source,
                     required=_marker_requiredness(field.label),
@@ -1455,7 +1768,7 @@ class LocalFieldDetectionProvider:
                     input_bounding_box=field.input_bounding_box,
                 )
             )
-        return candidates
+        return candidates, visual_label_boxes
 
 
 def _marker_requiredness(label: str) -> bool | None:

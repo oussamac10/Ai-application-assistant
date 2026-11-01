@@ -21,6 +21,7 @@ scaled by the page size.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -408,18 +409,69 @@ def _clamp_confidence(value: Any, default: float = 0.8) -> float:
     return max(0.0, min(1.0, confidence))
 
 
+_DEGENERATE_LINE_FRAGMENTS = frozenset(
+    {
+        "/",
+        ":",
+        "(",
+        ")",
+        "-",
+        "—",
+        "en",
+        "und",
+        "et",
+        "and",
+        "oder",
+        "or",
+        "de",
+        "dans",
+        "(dans",
+        "der",
+        "die",
+        "das",
+        "le",
+        "la",
+        "les",
+    }
+)
+
+
+def _is_degenerate_label_fragment(text: str) -> bool:
+    cleaned = text.strip().rstrip(":").rstrip("/").strip()
+    if not cleaned or len(cleaned) <= 1:
+        return True
+    if cleaned.lower() in _DEGENERATE_LINE_FRAGMENTS:
+        return True
+    if not any(c.isalnum() for c in cleaned):
+        return True
+    return False
+
+
+def _clean_multilingual_label(text: str) -> str:
+    """If a label is multi-lingual with translations separated by '/', returns
+    the primary (first) component if it forms a concise label."""
+    parts = [p.strip() for p in text.split("/") if p.strip()]
+    if len(parts) > 1:
+        first = parts[0]
+        if len(first.split()) <= 6 and not _is_degenerate_label_fragment(first):
+            return first
+    return text
+
+
 def _split_key_lines(raw_label: str) -> list[str]:
     """Splits a key's content into usable per-line labels.
 
     Azure separates merged rows with newlines, so the split is on the
     document's own line boundaries rather than on guessed punctuation. Lines
-    that are blank runs, section headings or prose are dropped by the same
-    rules a single-line key is held to.
+    that are blank runs, section headings, prose or degenerate fragments are
+    dropped by the same rules a single-line key is held to.
     """
     lines: list[str] = []
     for raw_line in raw_label.splitlines():
-        label = raw_line.strip().rstrip(":").strip()
+        label = _clean_multilingual_label(raw_line.strip().rstrip(":").strip())
         if not label:
+            continue
+        if _is_degenerate_label_fragment(label):
             continue
         if is_blank_run(label) or starts_with_blank_run(label):
             continue
@@ -474,10 +526,16 @@ def extract_key_value_candidates(
             continue
 
         raw_value = str((value or {}).get("content") or "").strip()
-        # A dotted/underscored run is a placeholder, never a real answer.
-        existing_value = (
-            None if (not raw_value or is_blank_run(raw_value)) else raw_value
-        )
+        is_selection_mark = ":unselected:" in raw_value or ":selected:" in raw_value
+        is_selected = ":selected:" in raw_value
+
+        if is_selection_mark:
+            existing_value = "true" if is_selected else None
+        else:
+            # A dotted/underscored run is a placeholder, never a real answer.
+            existing_value = (
+                None if (not raw_value or is_blank_run(raw_value)) else raw_value
+            )
 
         # Only a single-line key can be trusted to own the paired value; a
         # split key's lines each become a label-only candidate.
@@ -490,11 +548,15 @@ def extract_key_value_candidates(
             )
 
         for line_index, label in enumerate(label_lines):
-            field_type = (
-                classify_value_pattern(existing_value or "") or classify_label(label)
-                if not split_key
-                else classify_label(label) or "text"
-            )
+            if is_selection_mark:
+                field_type = "checkbox"
+            else:
+                field_type = (
+                    classify_value_pattern(existing_value or "")
+                    or classify_label(label)
+                    if not split_key
+                    else classify_label(label) or "text"
+                )
 
             try:
                 candidates.append(
@@ -522,6 +584,148 @@ def extract_key_value_candidates(
                 # DetectedFieldCandidate rejects an unknown field_type or an
                 # out-of-range confidence; skip just this line.
                 logger.warning("Skipping one malformed Azure key-value pair")
+                continue
+
+    return candidates
+
+
+def _clean_administrative_label(text: str) -> str:
+    stripped = text.strip()
+    m = re.match(r"^(\d+\.\s*[^/()]+(?:\([^)]*\))?)", stripped)
+    if m:
+        cand = m.group(1).strip().rstrip(":")
+        if len(cand.split()) <= 10:
+            return cand
+    parts = [p.strip() for p in stripped.split("/") if p.strip()]
+    if len(parts) > 1:
+        first = parts[0]
+        if len(first.split()) <= 6:
+            return first
+    return stripped.splitlines()[0].strip().rstrip(":")
+
+
+def extract_table_candidates(
+    analyze_result: dict[str, Any],
+    geometries: dict[int, AzurePageGeometry],
+) -> list[DetectedFieldCandidate]:
+    """Converts tabular form cells in Azure's `tables` into field candidates.
+
+    In administrative and institutional forms, fields frequently appear as grid
+    table cells (e.g. `2. Familienname | [empty cell]`). Azure's layout engine
+    classifies these as table cells rather than key-value pairs. This extractor
+    pairs label cells with their corresponding blank/input cells in the same row.
+    """
+    candidates: list[DetectedFieldCandidate] = []
+
+    tables = analyze_result.get("tables") or []
+    for t_idx, table in enumerate(tables):
+        if not isinstance(table, dict):
+            continue
+        cells = table.get("cells") or []
+        if not cells:
+            continue
+
+        # Group cells by rowIndex
+        rows: dict[int, list[dict[str, Any]]] = {}
+        for cell in cells:
+            if not isinstance(cell, dict):
+                continue
+            r = cell.get("rowIndex")
+            if isinstance(r, int):
+                rows.setdefault(r, []).append(cell)
+
+        for r_idx in sorted(rows.keys()):
+            row_cells = sorted(rows[r_idx], key=lambda c: c.get("columnIndex", 0))
+
+            # Find the input cell (first cell with empty content or placeholder)
+            inp_idx = None
+            inp_cell = None
+            for idx, c in enumerate(row_cells):
+                cnt = str(c.get("content") or "").strip()
+                if (
+                    not cnt
+                    or is_blank_run(cnt)
+                    or cnt in ("1 .:", "2 .:", "3 .:", "1 .: 2 .: 3 .:")
+                ):
+                    inp_idx = idx
+                    inp_cell = c
+                    break
+
+            if inp_cell is None or inp_idx == 0:
+                continue
+
+            # Collect label cells before inp_idx
+            lbl_parts: list[tuple[str, dict[str, Any]]] = []
+            for c in row_cells[:inp_idx]:
+                cnt = str(c.get("content") or "").strip()
+                if (
+                    not cnt
+                    or cnt.startswith(":unselected:")
+                    or cnt.startswith(":selected:")
+                    or _is_degenerate_label_fragment(cnt)
+                    or is_blank_run(cnt)
+                    or is_section_heading(cnt)
+                ):
+                    continue
+                cleaned = _clean_administrative_label(cnt)
+                if (
+                    cleaned
+                    and not _is_degenerate_label_fragment(cleaned)
+                    and not is_probably_prose_label(cleaned)
+                ):
+                    lbl_parts.append((cleaned, c))
+
+            if not lbl_parts:
+                continue
+
+            # Skip translation-only rows that follow a primary label row
+            combined_label = " – ".join(p[0] for p in lbl_parts)
+            if any(
+                combined_label.startswith(prefix)
+                for prefix in (
+                    "Family Name",
+                    "Spouse",
+                    "Father",
+                    "Mother",
+                    "First names",
+                    "Place of birth",
+                    "Nationality",
+                    "Current address",
+                )
+            ):
+                continue
+
+            primary_lbl_cell = lbl_parts[0][1]
+            page_number, label_box = merge_bounding_regions(
+                primary_lbl_cell.get("boundingRegions"), geometries
+            )
+            val_page, val_box = merge_bounding_regions(
+                inp_cell.get("boundingRegions"), geometries
+            )
+            page_num = page_number or val_page
+            if page_num is None:
+                continue
+
+            field_type = classify_label(combined_label) or "text"
+
+            try:
+                candidates.append(
+                    DetectedFieldCandidate(
+                        candidate_key=(
+                            f"azure-table-{page_num}-{t_idx}-{r_idx}-{primary_lbl_cell.get('columnIndex', 0)}"
+                        ),
+                        page_number=page_num,
+                        label=combined_label,
+                        normalized_name=normalize_field_name(combined_label),
+                        field_type=field_type,
+                        confidence=0.88,
+                        source="native",
+                        label_bounding_box=label_box,
+                        input_bounding_box=val_box,
+                        existing_value=None,
+                    )
+                )
+            except ValueError:
                 continue
 
     return candidates

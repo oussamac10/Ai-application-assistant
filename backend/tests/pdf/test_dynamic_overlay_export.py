@@ -623,12 +623,13 @@ async def test_french_flattened_pdf_end_to_end_prepare_and_export(
                 out_str = "Yes" if is_true else "No"
             elif f.field_type == "signature":
                 val = {
-                    "mode": "drawn",
+                    "width": 300,
+                    "height": 100,
                     "strokes": [
                         [
-                            {"x": 0.1, "y": 0.5},
-                            {"x": 0.5, "y": 0.3},
-                            {"x": 0.9, "y": 0.6},
+                            [20.0, 50.0],
+                            [150.0, 30.0],
+                            [270.0, 60.0],
                         ]
                     ],
                 }

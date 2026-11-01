@@ -1,8 +1,9 @@
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.forms.models import FormVersion
 from app.sessions.models import FormSession
 
 
@@ -44,9 +45,23 @@ class SessionRepository:
         stmt = (
             select(FormSession)
             .where(FormSession.public_id == public_id)
-            .options(joinedload(FormSession.version))
+            .options(
+                joinedload(FormSession.version).joinedload(FormVersion.fields),
+                selectinload(FormSession.answers),
+            )
         )
-        return self.db.scalars(stmt).first()
+        return self.db.scalars(stmt).unique().first()
+
+    def get_session_by_id(self, session_id: str) -> FormSession | None:
+        stmt = (
+            select(FormSession)
+            .where(FormSession.id == session_id)
+            .options(
+                joinedload(FormSession.version).joinedload(FormVersion.fields),
+                selectinload(FormSession.answers),
+            )
+        )
+        return self.db.scalars(stmt).unique().first()
 
     def get_latest_session_by_source_document_id(
         self, source_document_id: str

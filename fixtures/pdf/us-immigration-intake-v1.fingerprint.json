@@ -1,0 +1,27 @@
+{
+  "templateKey": "us-immigration-intake-v1",
+  "formKey": "us-immigration-intake",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "us_immigration_intake_family_name",
+    "us_immigration_intake_given_name",
+    "us_immigration_intake_date_of_birth",
+    "us_immigration_intake_country_of_citizenship",
+    "us_immigration_intake_current_address",
+    "us_immigration_intake_contact_email",
+    "us_immigration_intake_contact_phone",
+    "us_immigration_intake_visa_category"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: US-IMMIGRATION-INTAKE-V1",
+    "US Immigration & Professional Relocation Intake"
+  ]
+}

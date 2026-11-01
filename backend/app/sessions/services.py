@@ -1,5 +1,6 @@
 import re
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -47,6 +48,49 @@ class UnauthorizedError(Exception):
 
 # Deterministic ISO 639-1 language code check (2-letter lowercase)
 ISO_639_1_REGEX = re.compile(r"^[a-z]{2}$")
+
+
+def compute_session_progress_percentage(session: FormSession) -> int:
+    """Compute user-facing completion percentage across all answerable questions.
+
+    Matches ``AnswerService.get_progress``: counts fields on the bound
+    ``FormVersion`` whose ``FormAnswer.status`` is ``confirmed`` or ``skipped``,
+    rather than dividing the 1-indexed ``current_field_position`` cursor by
+    ``total_required_fields``.
+    """
+    if session.status in (
+        "awaiting_final_confirmation",
+        "ready_for_export",
+        "completed",
+    ):
+        return 100
+    fields = session.version.fields if session.version else []
+    total_questions = len(fields)
+    if total_questions <= 0:
+        return 0
+    dealt_with_ids = {
+        a.field_id for a in session.answers if a.status in ("confirmed", "skipped")
+    }
+    answered_questions = sum(1 for f in fields if f.id in dealt_with_ids)
+    return min(100, int((answered_questions / total_questions) * 100))
+
+
+def to_session_response_dict(session: FormSession) -> dict[str, Any]:
+    return {
+        "public_id": session.public_id,
+        "form_version_id": session.form_version_id,
+        "status": session.status,
+        "source_language": session.source_language,
+        "user_language": session.user_language,
+        "output_language": session.output_language,
+        "current_field_position": session.current_field_position,
+        "total_required_fields": session.total_required_fields,
+        "expires_at": session.expires_at,
+        "created_at": session.created_at,
+        "form_origin": session.form_origin,
+        "export_supported": session.export_supported,
+        "progress_percentage": compute_session_progress_percentage(session),
+    }
 
 
 class SessionService:

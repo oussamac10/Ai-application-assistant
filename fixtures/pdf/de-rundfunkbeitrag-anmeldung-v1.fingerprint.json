@@ -1,0 +1,27 @@
+{
+  "templateKey": "de-rundfunkbeitrag-anmeldung-v1",
+  "formKey": "de-rundfunkbeitrag-anmeldung",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_rundfunkbeitrag_anmeldung_first_name",
+    "de_rundfunkbeitrag_anmeldung_last_name",
+    "de_rundfunkbeitrag_anmeldung_date_of_birth",
+    "de_rundfunkbeitrag_anmeldung_street",
+    "de_rundfunkbeitrag_anmeldung_postal_code",
+    "de_rundfunkbeitrag_anmeldung_city",
+    "de_rundfunkbeitrag_anmeldung_move_in_date",
+    "de_rundfunkbeitrag_anmeldung_iban"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-RUNDFUNKBEITRAG-ANMELDUNG-V1",
+    "Anmeldung zum Rundfunkbeitrag"
+  ]
+}

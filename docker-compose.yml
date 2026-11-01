@@ -80,7 +80,7 @@ services:
       AZURE_TRANSLATOR_MAX_RETRIES: ${AZURE_TRANSLATOR_MAX_RETRIES:-1}
       AZURE_TRANSLATOR_MAX_BATCH_SIZE: ${AZURE_TRANSLATOR_MAX_BATCH_SIZE:-50}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-admin@example.com}
       # Azure Document Intelligence (Phase 14) — backend-only, and only
       # needed when FIELD_DETECTION_PROVIDER=azure. Values come from the
       # host environment / .env so no credential is ever written into this
@@ -181,6 +181,7 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
+      - "3000:3000"
       - "3003:3000"
     volumes:
       - ./frontend:/app
@@ -188,6 +189,7 @@ services:
       - /app/.next
     environment:
       BACKEND_API_URL: http://backend:8000
+      WATCHPACK_POLLING: "true"
       # Phase 13: reveals the Phase 11 technical field-review screen's entry
       # points on the upload flow. Unset/false in production; set to "true"
       # only for admin/development debugging.

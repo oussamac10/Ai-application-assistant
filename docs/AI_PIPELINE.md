@@ -40,7 +40,7 @@ flowchart LR
 ## 3. Document Understanding & Confidence Routing (`app/field_detection/`)
 
 1. **Local-First Hybrid Detection (`HybridFieldDetectionProvider`):**
-   - Runs `LocalFieldDetectionProvider` first at zero marginal cost (AcroForm widgets, vector boxes, ruled underlines, inline blank runs, checkbox/radio glyphs, table row indexing, and compound `Ort, Datum, Unterschrift` splitting).
+   - Runs `LocalFieldDetectionProvider` first at zero marginal cost (AcroForm widgets, compound stroked vector path decomposition, 2D vector grid cells & multi-row repeated tables, ruled underlines, inline blank runs, rotated margin code exclusion, inline/wrapped checkbox & radio option groups, party/sub-section context disambiguation, signature boxes, and compound `Ort, Datum, Unterschrift` splitting).
    - Evaluates deterministic quality (`quality.py`) and coverage (`coverage.py`: label, selection-mark, and page coverage).
    - Escalates to `AzureDocumentIntelligenceProvider` (`prebuilt-layout`, capped at `HYBRID_MAX_ESCALATION_PAGES=10`) **only** when local score `< 0.55` or coverage floors fail and Azure is explicitly enabled.
 2. **Deterministic Confidence Routing (Never LLM-Invented Confidence):**

@@ -100,14 +100,83 @@ def deduplicate_candidates(
 
 def sort_candidates_deterministically(
     candidates: list[DetectedFieldCandidate],
+    *,
+    rtl: bool = False,
 ) -> list[DetectedFieldCandidate]:
-    """Orders by page, then vertical position, then horizontal position —
+    """Orders by page, visual horizontal row band, and reading direction —
     falling back to candidate_key for candidates with no known position."""
+    by_page: dict[int, list[DetectedFieldCandidate]] = {}
+    for candidate in candidates:
+        by_page.setdefault(candidate.page_number, []).append(candidate)
 
-    def sort_key(candidate: DetectedFieldCandidate) -> tuple[int, float, float, str]:
-        box = candidate.input_bounding_box or candidate.label_bounding_box
-        y = box.y if box else float("inf")
-        x = box.x if box else float("inf")
-        return (candidate.page_number, y, x, candidate.candidate_key)
+    ordered: list[DetectedFieldCandidate] = []
+    for page_number in sorted(by_page):
+        positioned: list[
+            tuple[float, float, float, float, float, DetectedFieldCandidate]
+        ] = []
+        unpositioned: list[DetectedFieldCandidate] = []
+        for candidate in by_page[page_number]:
+            box = candidate.input_bounding_box or candidate.label_bounding_box
+            if box is None:
+                unpositioned.append(candidate)
+                continue
+            h = max(box.height, 1.0)
+            w = max(box.width, 1.0)
+            y0 = box.y
+            y1 = box.y + h
+            yc = (y0 + y1) / 2.0
+            positioned.append((yc, y0, box.x, box.x + w, y1, candidate))
 
-    return sorted(candidates, key=sort_key)
+        positioned.sort(
+            key=lambda item: (
+                item[0],
+                item[1],
+                -item[3] if rtl else item[2],
+                item[5].candidate_key,
+            )
+        )
+
+        rows: list[
+            tuple[
+                float,
+                float,
+                list[tuple[float, float, float, DetectedFieldCandidate]],
+            ]
+        ] = []
+        for yc, y0, x0, x1, y1, cand in positioned:
+            h = y1 - y0
+            placed = False
+            for r_idx, (ry0, ry1, r_items) in enumerate(rows):
+                rh = max(ry1 - ry0, 1.0)
+                if max(h, rh) > 36.0 and abs(y0 - ry0) > 4.0:
+                    continue
+                if any(
+                    min(x1, ix1) - max(x0, ix0) > min(x1 - x0, ix1 - ix0) * 0.25
+                    for ix0, ix1, _iy0, _ic in r_items
+                ):
+                    continue
+                overlap_y = min(y1, ry1) - max(y0, ry0)
+                ryc = (ry0 + ry1) / 2.0
+                if overlap_y >= 0.45 * min(h, rh) or abs(yc - ryc) <= 6.0:
+                    r_items.append((x0, x1, y0, cand))
+                    rows[r_idx] = (min(ry0, y0), max(ry1, y1), r_items)
+                    placed = True
+                    break
+            if not placed:
+                rows.append((y0, y1, [(x0, x1, y0, cand)]))
+
+        rows.sort(key=lambda r: (r[0] + r[1]) / 2.0)
+        for _ry0, _ry1, r_items in rows:
+            r_items.sort(
+                key=lambda item: (
+                    -item[1] if rtl else item[0],
+                    item[2],
+                    item[3].candidate_key,
+                )
+            )
+            ordered.extend(item[3] for item in r_items)
+
+        unpositioned.sort(key=lambda c: c.candidate_key)
+        ordered.extend(unpositioned)
+
+    return ordered

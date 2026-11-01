@@ -1,0 +1,64 @@
+{
+  "templateKey": "de-sepa-lastschriftmandat-v1",
+  "formVersionKey": "de-sepa-lastschriftmandat:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "first_name",
+      "pdfFieldName": "de_sepa_lastschriftmandat_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "last_name",
+      "pdfFieldName": "de_sepa_lastschriftmandat_last_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "street",
+      "pdfFieldName": "de_sepa_lastschriftmandat_street",
+      "format": "string",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "postal_code",
+      "pdfFieldName": "de_sepa_lastschriftmandat_postal_code",
+      "format": "string",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "city",
+      "pdfFieldName": "de_sepa_lastschriftmandat_city",
+      "format": "string",
+      "maxLength": 50,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "country",
+      "pdfFieldName": "de_sepa_lastschriftmandat_country",
+      "format": "country",
+      "maxLength": 40,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "iban",
+      "pdfFieldName": "de_sepa_lastschriftmandat_iban",
+      "format": "string",
+      "maxLength": 34,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "email",
+      "pdfFieldName": "de_sepa_lastschriftmandat_email",
+      "format": "email",
+      "maxLength": 80,
+      "overflow": "truncate"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "templateKey": "de-mieterselbstauskunft-v1",
+  "formKey": "de-mieterselbstauskunft",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_mieterselbstauskunft_first_name",
+    "de_mieterselbstauskunft_last_name",
+    "de_mieterselbstauskunft_date_of_birth",
+    "de_mieterselbstauskunft_phone",
+    "de_mieterselbstauskunft_email",
+    "de_mieterselbstauskunft_street",
+    "de_mieterselbstauskunft_postal_code",
+    "de_mieterselbstauskunft_city",
+    "de_mieterselbstauskunft_monthly_income"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-MIETERSELBSTAUSKUNFT-V1",
+    "Mieterselbstauskunft"
+  ]
+}

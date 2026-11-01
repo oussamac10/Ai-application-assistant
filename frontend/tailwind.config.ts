@@ -32,6 +32,8 @@ const config: Config = {
         },
       },
       boxShadow: {
+        "2xs": "0 1px 2px 0 rgba(15, 23, 42, 0.04)",
+        xs: "0 1px 2px 0 rgba(15, 23, 42, 0.05), 0 1px 3px 0 rgba(15, 23, 42, 0.06)",
         panel: "0 1px 0 0 rgba(255, 255, 255, 0.05) inset, 0 20px 40px -15px rgba(0, 0, 0, 0.55)",
         card: "0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -8px rgba(0, 0, 0, 0.4)",
         "btn-primary": "0 1px 0 0 rgba(255, 255, 255, 0.18) inset, 0 1px 2px 0 rgba(0, 0, 0, 0.35)",

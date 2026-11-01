@@ -11,6 +11,7 @@ import pytest
 from pypdf import PdfReader
 from sqlalchemy import text
 
+from app.answers.models import FormAnswer
 from app.applications.services import to_summary_dict
 from app.auth.errors import AuthUnauthorizedError
 from app.auth.services import _DUMMY_PASSWORD_HASH, AuthService
@@ -323,7 +324,21 @@ def test_application_progress_uses_total_fields_when_required_count_is_zero() ->
             source_document_id=doc.id,
         )
         assert session.total_required_fields == 0
-        session.current_field_position = 2
+        published_ver = form_svc.get_version(ver.id)
+        for fld in published_ver.fields[:2]:
+            db.add(
+                FormAnswer(
+                    session_id=session.id,
+                    field_id=fld.id,
+                    original_answer="ok",
+                    original_language="en",
+                    output_value="ok",
+                    status="confirmed",
+                    validation_status="valid",
+                    confirmed_by_user=True,
+                )
+            )
+        session.current_field_position = 3
         db.commit()
         db.refresh(session)
 

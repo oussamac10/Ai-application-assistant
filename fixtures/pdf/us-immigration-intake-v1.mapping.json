@@ -1,0 +1,64 @@
+{
+  "templateKey": "us-immigration-intake-v1",
+  "formVersionKey": "us-immigration-intake:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "family_name",
+      "pdfFieldName": "us_immigration_intake_family_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "given_name",
+      "pdfFieldName": "us_immigration_intake_given_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "us_immigration_intake_date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "country_of_citizenship",
+      "pdfFieldName": "us_immigration_intake_country_of_citizenship",
+      "format": "country",
+      "maxLength": 2,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "current_address",
+      "pdfFieldName": "us_immigration_intake_current_address",
+      "format": "string",
+      "maxLength": 120,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "contact_email",
+      "pdfFieldName": "us_immigration_intake_contact_email",
+      "format": "email",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "contact_phone",
+      "pdfFieldName": "us_immigration_intake_contact_phone",
+      "format": "string",
+      "maxLength": 30,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "visa_category",
+      "pdfFieldName": "us_immigration_intake_visa_category",
+      "format": "string",
+      "maxLength": 100,
+      "overflow": "truncate"
+    }
+  ]
+}

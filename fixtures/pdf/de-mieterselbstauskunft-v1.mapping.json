@@ -1,0 +1,71 @@
+{
+  "templateKey": "de-mieterselbstauskunft-v1",
+  "formVersionKey": "de-mieterselbstauskunft:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "first_name",
+      "pdfFieldName": "de_mieterselbstauskunft_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "last_name",
+      "pdfFieldName": "de_mieterselbstauskunft_last_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "de_mieterselbstauskunft_date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "phone",
+      "pdfFieldName": "de_mieterselbstauskunft_phone",
+      "format": "phone",
+      "maxLength": 30,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "email",
+      "pdfFieldName": "de_mieterselbstauskunft_email",
+      "format": "email",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "street",
+      "pdfFieldName": "de_mieterselbstauskunft_street",
+      "format": "string",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "postal_code",
+      "pdfFieldName": "de_mieterselbstauskunft_postal_code",
+      "format": "string",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "city",
+      "pdfFieldName": "de_mieterselbstauskunft_city",
+      "format": "string",
+      "maxLength": 50,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "monthly_income",
+      "pdfFieldName": "de_mieterselbstauskunft_monthly_income",
+      "format": "money",
+      "maxLength": 25,
+      "overflow": "truncate"
+    }
+  ]
+}

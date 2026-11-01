@@ -1,0 +1,26 @@
+{
+  "templateKey": "de-elterngeld-basisdaten-v1",
+  "formKey": "de-elterngeld-basisdaten",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_elterngeld_basisdaten_first_name",
+    "de_elterngeld_basisdaten_last_name",
+    "de_elterngeld_basisdaten_date_of_birth",
+    "de_elterngeld_basisdaten_tax_id",
+    "de_elterngeld_basisdaten_child_first_name",
+    "de_elterngeld_basisdaten_child_birth_date",
+    "de_elterngeld_basisdaten_iban"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-ELTERNGELD-BASISDATEN-V1",
+    "Antrag auf Elterngeld — Basisdaten"
+  ]
+}

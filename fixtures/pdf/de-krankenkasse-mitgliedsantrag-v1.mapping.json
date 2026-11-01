@@ -1,0 +1,71 @@
+{
+  "templateKey": "de-krankenkasse-mitgliedsantrag-v1",
+  "formVersionKey": "de-krankenkasse-mitgliedsantrag:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "first_name",
+      "pdfFieldName": "de_krankenkasse_mitgliedsantrag_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "last_name",
+      "pdfFieldName": "de_krankenkasse_mitgliedsantrag_last_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "de_krankenkasse_mitgliedsantrag_date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "nationality",
+      "pdfFieldName": "de_krankenkasse_mitgliedsantrag_nationality",
+      "format": "country",
+      "maxLength": 40,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "street",
+      "pdfFieldName": "de_krankenkasse_mitgliedsantrag_street",
+      "format": "string",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "postal_code",
+      "pdfFieldName": "de_krankenkasse_mitgliedsantrag_postal_code",
+      "format": "string",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "city",
+      "pdfFieldName": "de_krankenkasse_mitgliedsantrag_city",
+      "format": "string",
+      "maxLength": 50,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "phone",
+      "pdfFieldName": "de_krankenkasse_mitgliedsantrag_phone",
+      "format": "phone",
+      "maxLength": 30,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "email",
+      "pdfFieldName": "de_krankenkasse_mitgliedsantrag_email",
+      "format": "email",
+      "maxLength": 80,
+      "overflow": "truncate"
+    }
+  ]
+}

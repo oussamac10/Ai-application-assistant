@@ -121,12 +121,29 @@ def _normalize(text: str) -> str:
     return " ".join(text.strip().lower().rstrip(":：.،,").split())
 
 
+_NOTICE_HEAD_NOUNS: frozenset[str] = frozenset(
+    {
+        "hinweis",
+        "hinweise",
+        "belehrung",
+        "rechtsbelehrung",
+        "notice",
+        "disclaimer",
+        "warning",
+        "avertissement",
+    }
+)
+
+
 def is_notice_word(label: str) -> bool:
-    """Whether the label is (essentially) just a notice word."""
+    """Whether the label is (essentially) a notice heading."""
     normalized = _normalize(label)
-    if not normalized or len(normalized.split()) > _MAX_NOTICE_WORDS:
+    words = normalized.split()
+    if not words or len(words) > 4:
         return False
-    return normalized in _NOTICE_WORDS
+    if len(words) <= _MAX_NOTICE_WORDS and normalized in _NOTICE_WORDS:
+        return True
+    return words[-1] in _NOTICE_HEAD_NOUNS
 
 
 def is_instruction(label: str) -> bool:

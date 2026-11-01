@@ -767,3 +767,82 @@ def _candidate(key: str, label: str, field_type: str):
         confidence=0.9,
         source="native",
     )
+
+
+@pytest.mark.asyncio
+async def test_one_invalid_choice_field_skipped_other_fields_still_succeed(
+    tmp_path: Path,
+) -> None:
+    from app.field_detection.providers.base import DetectedFieldCandidate
+
+    db, doc, token = _upload_digital_document(tmp_path)
+    try:
+        candidates = [
+            _candidate("c1", "Full Name", "text"),
+            DetectedFieldCandidate(
+                candidate_key="c2",
+                page_number=1,
+                label="Preference",
+                normalized_name="preference",
+                field_type="multiple_choice",
+                confidence=0.9,
+                source="native",
+                options=("Yes", "Yes", "No"),
+            ),
+            _candidate("c3", "Email", "email"),
+        ]
+        service = FieldDetectionService(
+            db, provider=MockFieldDetectionProvider(candidates=candidates)
+        )
+        result = service.request_detection(doc.public_id, token)
+        for field in result.fields:
+            service.update_field(
+                doc.public_id, token, field.public_id, review_status="confirmed"
+            )
+
+        session, session_token = await service.create_session_from_confirmed_fields(
+            doc.public_id, token, "en", "en"
+        )
+        assert session_token
+        stored = SessionRepository(db).get_session_by_public_id(session.public_id)
+        assert stored is not None
+        field_keys = {f.key for f in stored.version.fields}
+        assert field_keys == {"full_name", "email"}
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_all_candidates_invalid_still_raises_safely(tmp_path: Path) -> None:
+    from app.field_detection.errors import FieldDetectionValidationError
+    from app.field_detection.providers.base import DetectedFieldCandidate
+
+    db, doc, token = _upload_digital_document(tmp_path)
+    try:
+        candidates = [
+            DetectedFieldCandidate(
+                candidate_key="c1",
+                page_number=1,
+                label="Preference",
+                normalized_name="preference",
+                field_type="multiple_choice",
+                confidence=0.9,
+                source="native",
+                options=("Yes", "Yes"),
+            ),
+        ]
+        service = FieldDetectionService(
+            db, provider=MockFieldDetectionProvider(candidates=candidates)
+        )
+        result = service.request_detection(doc.public_id, token)
+        service.update_field(
+            doc.public_id, token, result.fields[0].public_id, review_status="confirmed"
+        )
+
+        with pytest.raises(FieldDetectionValidationError) as exc_info:
+            await service.create_session_from_confirmed_fields(
+                doc.public_id, token, "en", "en"
+            )
+        assert exc_info.value.error_code == "field_detection_invalid_result"
+    finally:
+        db.close()

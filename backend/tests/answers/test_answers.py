@@ -795,3 +795,52 @@ def test_repeated_session_start_is_safe_and_idempotent(
         headers={"X-Session-Token": token},
     )
     assert res_current.status_code == 200
+
+
+def test_multiline_text_non_empty_free_form_answer_never_requires_clarification() -> (
+    None
+):
+    db = SessionLocal()
+    try:
+        form_service = FormService(db)
+        session_service = SessionService(db)
+        template = form_service.create_template(key="multiline-reg", name="Multiline")
+        version = form_service.create_draft_version(
+            form_template_id=template.id,
+            source_language="en",
+            supported_output_languages=["en"],
+        )
+        field = form_service.add_field_to_draft(
+            version.id,
+            FieldCreate(
+                key="bio",
+                field_type="multiline_text",
+                required=True,
+                position=1,
+                translations=[TranslationSchema(language="en", label="Biography")],
+            ),
+        )
+        form_service.publish_version(version.id)
+        session, token = session_service.create_session(
+            form_version_id=version.id, user_language="en", output_language="en"
+        )
+        db.commit()
+        session_service.start_session(session.public_id, token)
+        session_id = session.public_id
+        field_id = field.id
+    finally:
+        db.close()
+
+    response = client.post(
+        f"/api/form-sessions/{session_id}/answers",
+        headers={"X-Session-Token": token},
+        json={
+            "fieldId": field_id,
+            "originalAnswer": "  I am married and live in Berlin.  ",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "awaiting_confirmation"
+    assert data["requiresClarification"] is False
+    assert data["normalizedValue"] == "I am married and live in Berlin."

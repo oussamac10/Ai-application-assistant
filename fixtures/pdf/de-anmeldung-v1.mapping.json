@@ -1,0 +1,64 @@
+{
+  "templateKey": "de-anmeldung-v1",
+  "formVersionKey": "de-anmeldung:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "first_name",
+      "pdfFieldName": "de_anmeldung_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "last_name",
+      "pdfFieldName": "de_anmeldung_last_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "de_anmeldung_date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "nationality",
+      "pdfFieldName": "de_anmeldung_nationality",
+      "format": "country",
+      "maxLength": 40,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "move_in_date",
+      "pdfFieldName": "de_anmeldung_move_in_date",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "street",
+      "pdfFieldName": "de_anmeldung_street",
+      "format": "string",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "postal_code",
+      "pdfFieldName": "de_anmeldung_postal_code",
+      "format": "string",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "city",
+      "pdfFieldName": "de_anmeldung_city",
+      "format": "string",
+      "maxLength": 50,
+      "overflow": "truncate"
+    }
+  ]
+}

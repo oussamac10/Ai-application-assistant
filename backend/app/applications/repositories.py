@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.answers.models import FormAnswer
 from app.documents.models import SourceDocument
@@ -55,6 +55,7 @@ class ApplicationRepository:
             .options(
                 joinedload(FormSession.version).joinedload(FormVersion.template),
                 joinedload(FormSession.version).joinedload(FormVersion.fields),
+                selectinload(FormSession.answers),
             )
             .order_by(FormSession.updated_at.desc())
         )
@@ -69,6 +70,7 @@ class ApplicationRepository:
             .options(
                 joinedload(FormSession.version).joinedload(FormVersion.template),
                 joinedload(FormSession.version).joinedload(FormVersion.fields),
+                selectinload(FormSession.answers),
             )
             .order_by(FormSession.created_at.desc())
         )
@@ -101,6 +103,7 @@ class ApplicationRepository:
             .options(
                 joinedload(FormSession.version).joinedload(FormVersion.template),
                 joinedload(FormSession.version).joinedload(FormVersion.fields),
+                selectinload(FormSession.answers),
             )
         )
         return self.db.scalars(stmt).unique().first()

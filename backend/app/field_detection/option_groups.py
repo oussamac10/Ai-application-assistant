@@ -76,6 +76,8 @@ class OptionGroup:
     label_source: str
     needs_review: bool
     confidence: float
+    label_bounding_box: BoundingBox | None = None
+    input_bounding_box: BoundingBox | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -388,7 +390,10 @@ def _split_segment_at_markers(
     group was never formed and all four options leaked as separate text
     questions — the reported "Statut professionnel" failure.
     """
-    return _split_token_run(sorted(segment.tokens, key=lambda t: t.bounding_box.x))
+    ordered = sorted(segment.tokens, key=lambda t: t.bounding_box.x)
+    if not ordered or marker_type(ordered[0].text) is None:
+        return None
+    return _split_token_run(ordered)
 
 
 def split_inline_option_row(
@@ -491,6 +496,58 @@ def _row_tokens(segments: list[LinePhrase]) -> list[DetectionToken]:
     return [token for segment in segments for token in segment.tokens]
 
 
+def _fold_stacked_option_prefix(
+    line_groups: list[list[LinePhrase]],
+    index: int,
+    consumed: set[int],
+    segments: list[LinePhrase],
+    parsed: list[tuple[str, str]],
+) -> tuple[list[tuple[str, str]], int | None]:
+    """Joins a tight 2-line option caption stacked above one option in a
+    horizontal checkbox row (e.g. `verheiratet/eingetragene` directly above
+    `Lebenspartnerschaft`)."""
+    if index <= 0 or (index - 1) in consumed:
+        return parsed, None
+
+    prev_group = line_groups[index - 1]
+    prev_tokens = _row_tokens(prev_group)
+    if not prev_tokens or any(marker_type(t.text) is not None for t in prev_tokens):
+        return parsed, None
+
+    prev_text = " ".join(p.text for p in prev_group).strip()
+    if not prev_text or prev_text.endswith(":") or len(prev_text.split()) > 3:
+        return parsed, None
+
+    prev_box = union_bounding_box([t.bounding_box for t in prev_tokens])
+    ordered_row = sorted(_row_tokens(segments), key=lambda t: t.bounding_box.x)
+    marker_indices = [
+        i for i, t in enumerate(ordered_row) if marker_type(t.text) is not None
+    ]
+    if len(marker_indices) != len(parsed):
+        return parsed, None
+
+    first_marker_x = ordered_row[marker_indices[0]].bounding_box.x
+    # Must sit inside the row to the right of the first marker so a left-margin
+    # section heading is never mistaken for a stacked option caption.
+    if prev_box.x <= first_marker_x + 18.0:
+        return parsed, None
+
+    for opt_i, m_pos in enumerate(marker_indices):
+        if m_pos + 1 >= len(ordered_row):
+            continue
+        first_word_box = ordered_row[m_pos + 1].bounding_box
+        v_gap = first_word_box.y - (prev_box.y + prev_box.height)
+        if abs(prev_box.x - first_word_box.x) <= 8.0 and -4.0 <= v_gap <= 5.0:
+            kind, old_label = parsed[opt_i]
+            joined = f"{prev_text} {old_label}".strip()
+            if len(joined.split()) <= _MAX_OPTION_WORDS:
+                updated = list(parsed)
+                updated[opt_i] = (kind, joined)
+                return updated, index - 1
+
+    return parsed, None
+
+
 def detect_option_groups(
     page_number: int,
     line_groups: list[list[LinePhrase]],
@@ -514,6 +571,7 @@ def detect_option_groups(
         if index in consumed:
             continue
         inline_parent: str | None = None
+        folded_line_idx: int | None = None
         parsed = _parse_option_row(segments)
         if parsed is None or len(parsed) < 2:
             # A line can carry its question *and* its options — the dominant
@@ -524,12 +582,23 @@ def detect_option_groups(
             if inline is None:
                 continue
             inline_parent, parsed = inline
+        else:
+            parsed, folded_line_idx = _fold_stacked_option_prefix(
+                line_groups, index, consumed, segments, parsed
+            )
 
         options = tuple(label for _, label in parsed)
         marker_kinds = {kind for kind, _ in parsed}
 
+        effective_heading = (
+            heading_for_line.get(folded_line_idx)
+            if folded_line_idx is not None
+            else heading_for_line.get(index)
+        )
         label, label_source, needs_review, exclusive = _resolve_group_label(
-            options, inline_parent or heading_for_line.get(index)
+            options,
+            effective_heading,
+            inline_parent=inline_parent,
         )
 
         # Marker geometry wins when it is unambiguous: parentheses are radio
@@ -544,7 +613,26 @@ def detect_option_groups(
             # Mixed glyphs are contradictory evidence; skip rather than guess.
             continue
 
-        box = union_bounding_box([t.bounding_box for t in _row_tokens(segments)])
+        ordered_tokens = sorted(_row_tokens(segments), key=lambda t: t.bounding_box.x)
+        box = union_bounding_box([t.bounding_box for t in ordered_tokens])
+        lbl_box = box
+        in_box = box
+        if inline_parent is not None:
+            first_m = next(
+                (i for i, t in enumerate(ordered_tokens) if marker_type(t.text)),
+                None,
+            )
+            if first_m is not None and 0 < first_m < len(ordered_tokens):
+                lbl_box = union_bounding_box(
+                    [t.bounding_box for t in ordered_tokens[:first_m]]
+                )
+                in_box = union_bounding_box(
+                    [t.bounding_box for t in ordered_tokens[first_m:]]
+                )
+
+        used_indices = (
+            (folded_line_idx, index) if folded_line_idx is not None else (index,)
+        )
         groups.append(
             OptionGroup(
                 label=label,
@@ -552,26 +640,44 @@ def detect_option_groups(
                 field_type=field_type,
                 page_number=page_number,
                 bounding_box=box,
-                line_indices=(index,),
+                line_indices=used_indices,
                 label_source=label_source,
                 needs_review=needs_review,
                 # A named group is solid evidence; a neutral one is a
                 # structural guess and routes to review via the normal
                 # confidence thresholds.
                 confidence=0.55 if needs_review else 0.85,
+                label_bounding_box=lbl_box,
+                input_bounding_box=in_box,
             )
         )
         consumed.add(index)
+        if folded_line_idx is not None:
+            consumed.add(folded_line_idx)
 
     return groups
 
 
 def _resolve_group_label(
-    options: tuple[str, ...], heading: str | None
+    options: tuple[str, ...],
+    heading: str | None,
+    *,
+    inline_parent: str | None = None,
 ) -> tuple[str, str, bool, bool]:
     """Returns (label, source, needs_review, exclusive)."""
     option_set = match_option_set(options)
+    exclusive = option_set.exclusive if option_set is not None else False
+
+    if inline_parent:
+        cleaned_parent = strip_heading_number(inline_parent)
+        if cleaned_parent:
+            return cleaned_parent, "inline_parent", False, exclusive
+
     if option_set is not None:
+        if option_set.key == "yes_no" and heading:
+            cleaned_heading = strip_heading_number(heading)
+            if cleaned_heading:
+                return cleaned_heading, "heading", False, option_set.exclusive
         return option_set.label, "option_set", False, option_set.exclusive
 
     if _is_declaration_group(options):

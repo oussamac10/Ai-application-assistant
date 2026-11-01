@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { LanguageProvider } from "@/features/form-session/components/LanguageProvider";
 import { AuthProvider } from "@/features/auth/context/AuthProvider";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "AI Form Assistant | Multilingual Document & Form Completion",
@@ -23,6 +24,7 @@ export default function RootLayout({
             <div className="flex min-h-screen flex-col">
               <Navbar />
               <div className="flex-1">{children}</div>
+              <Footer />
             </div>
           </AuthProvider>
         </LanguageProvider>

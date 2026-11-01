@@ -1,0 +1,71 @@
+{
+  "templateKey": "de-kindergeld-kg1-v1",
+  "formVersionKey": "de-kindergeld-kg1:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "first_name",
+      "pdfFieldName": "de_kindergeld_kg1_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "last_name",
+      "pdfFieldName": "de_kindergeld_kg1_last_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "tax_id",
+      "pdfFieldName": "de_kindergeld_kg1_tax_id",
+      "format": "string",
+      "maxLength": 20,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "street",
+      "pdfFieldName": "de_kindergeld_kg1_street",
+      "format": "string",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "postal_code",
+      "pdfFieldName": "de_kindergeld_kg1_postal_code",
+      "format": "string",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "city",
+      "pdfFieldName": "de_kindergeld_kg1_city",
+      "format": "string",
+      "maxLength": 50,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "child_first_name",
+      "pdfFieldName": "de_kindergeld_kg1_child_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "child_birth_date",
+      "pdfFieldName": "de_kindergeld_kg1_child_birth_date",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "iban",
+      "pdfFieldName": "de_kindergeld_kg1_iban",
+      "format": "string",
+      "maxLength": 34,
+      "overflow": "truncate"
+    }
+  ]
+}

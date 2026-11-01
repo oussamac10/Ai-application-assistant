@@ -1,0 +1,85 @@
+{
+  "templateKey": "eu-schengen-visa-v1",
+  "formVersionKey": "eu-schengen-visa:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "surname",
+      "pdfFieldName": "eu_schengen_visa_surname",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "first_names",
+      "pdfFieldName": "eu_schengen_visa_first_names",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "eu_schengen_visa_date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "place_of_birth",
+      "pdfFieldName": "eu_schengen_visa_place_of_birth",
+      "format": "string",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "current_nationality",
+      "pdfFieldName": "eu_schengen_visa_current_nationality",
+      "format": "country",
+      "maxLength": 2,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "gender",
+      "pdfFieldName": "eu_schengen_visa_gender",
+      "format": "string",
+      "maxLength": 20,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "marital_status",
+      "pdfFieldName": "eu_schengen_visa_marital_status",
+      "format": "string",
+      "maxLength": 30,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "home_address",
+      "pdfFieldName": "eu_schengen_visa_home_address",
+      "format": "string",
+      "maxLength": 120,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "contact_email",
+      "pdfFieldName": "eu_schengen_visa_contact_email",
+      "format": "email",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "contact_phone",
+      "pdfFieldName": "eu_schengen_visa_contact_phone",
+      "format": "string",
+      "maxLength": 30,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "purpose_of_journey",
+      "pdfFieldName": "eu_schengen_visa_purpose_of_journey",
+      "format": "string",
+      "maxLength": 120,
+      "overflow": "truncate"
+    }
+  ]
+}

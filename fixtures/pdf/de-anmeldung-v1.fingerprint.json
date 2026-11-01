@@ -1,0 +1,27 @@
+{
+  "templateKey": "de-anmeldung-v1",
+  "formKey": "de-anmeldung",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_anmeldung_first_name",
+    "de_anmeldung_last_name",
+    "de_anmeldung_date_of_birth",
+    "de_anmeldung_nationality",
+    "de_anmeldung_move_in_date",
+    "de_anmeldung_street",
+    "de_anmeldung_postal_code",
+    "de_anmeldung_city"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-ANMELDUNG-V1",
+    "Anmeldung bei der Meldebehörde"
+  ]
+}

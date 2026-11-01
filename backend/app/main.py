@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
+from app.admin.api.routes import router as admin_router
 from app.ai.errors import (
     AIProviderConfigurationError,
     AIProviderMalformedResponseError,
@@ -28,6 +29,7 @@ from app.auth.errors import (
     AuthUnauthorizedError,
     AuthValidationError,
 )
+from app.billing.api.routes import router as billing_router
 from app.core.config import settings
 from app.core.rate_limit import RateLimitExceededError
 from app.documents.api.routes import router as documents_router
@@ -60,6 +62,14 @@ from app.ocr.errors import (
     OCRProviderUnavailableError,
     OCRTimeoutError,
     OCRValidationError,
+)
+from app.organizations.api.routes import router as organizations_router
+from app.organizations.errors import (
+    CaseNotFoundError,
+    CaseUnauthorizedError,
+    InvalidInviteTokenError,
+    OrganizationNotFoundError,
+    OrganizationQuotaExceededError,
 )
 from app.pdf.api.routes import router as pdf_router
 from app.questions.api.routes import router as questions_router
@@ -460,6 +470,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(OrganizationQuotaExceededError)
+async def organization_quota_exceeded_handler(
+    request: Request, exc: OrganizationQuotaExceededError
+) -> JSONResponse:
+    return JSONResponse(status_code=402, content={"detail": str(exc)})
+
+
+@app.exception_handler(CaseNotFoundError)
+async def case_not_found_handler(
+    request: Request, exc: CaseNotFoundError
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(OrganizationNotFoundError)
+async def organization_not_found_handler(
+    request: Request, exc: OrganizationNotFoundError
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(InvalidInviteTokenError)
+async def invalid_invite_token_handler(
+    request: Request, exc: InvalidInviteTokenError
+) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(CaseUnauthorizedError)
+async def case_unauthorized_handler(
+    request: Request, exc: CaseUnauthorizedError
+) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+
 app.include_router(health_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(applications_router, prefix="/api")
@@ -473,3 +519,6 @@ app.include_router(ocr_router, prefix="/api")
 app.include_router(field_detection_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(vault_router, prefix="/api")
+app.include_router(organizations_router, prefix="/api")
+app.include_router(billing_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")

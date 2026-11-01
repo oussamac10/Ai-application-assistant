@@ -1,0 +1,28 @@
+{
+  "templateKey": "de-krankenkasse-mitgliedsantrag-v1",
+  "formKey": "de-krankenkasse-mitgliedsantrag",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_krankenkasse_mitgliedsantrag_first_name",
+    "de_krankenkasse_mitgliedsantrag_last_name",
+    "de_krankenkasse_mitgliedsantrag_date_of_birth",
+    "de_krankenkasse_mitgliedsantrag_nationality",
+    "de_krankenkasse_mitgliedsantrag_street",
+    "de_krankenkasse_mitgliedsantrag_postal_code",
+    "de_krankenkasse_mitgliedsantrag_city",
+    "de_krankenkasse_mitgliedsantrag_phone",
+    "de_krankenkasse_mitgliedsantrag_email"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-KRANKENKASSE-MITGLIEDSANTRAG-V1",
+    "Mitgliedsantrag Gesetzliche Krankenkasse"
+  ]
+}

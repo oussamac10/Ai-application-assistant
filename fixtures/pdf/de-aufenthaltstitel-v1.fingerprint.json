@@ -1,0 +1,31 @@
+{
+  "templateKey": "de-aufenthaltstitel-v1",
+  "formKey": "de-aufenthaltstitel",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_aufenthaltstitel_family_name",
+    "de_aufenthaltstitel_birth_name",
+    "de_aufenthaltstitel_first_names",
+    "de_aufenthaltstitel_date_of_birth",
+    "de_aufenthaltstitel_place_of_birth",
+    "de_aufenthaltstitel_nationality",
+    "de_aufenthaltstitel_marital_status",
+    "de_aufenthaltstitel_gender",
+    "de_aufenthaltstitel_current_address",
+    "de_aufenthaltstitel_contact_email",
+    "de_aufenthaltstitel_contact_phone",
+    "de_aufenthaltstitel_purpose_of_stay"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-AUFENTHALTSTITEL-V1",
+    "Antrag auf Erteilung / Verlängerung eines Aufenthaltstitels"
+  ]
+}

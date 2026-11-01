@@ -1,0 +1,57 @@
+{
+  "templateKey": "de-wohnungsgeberbestaetigung-v1",
+  "formVersionKey": "de-wohnungsgeberbestaetigung:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "landlord_name",
+      "pdfFieldName": "de_wohnungsgeberbestaetigung_landlord_name",
+      "format": "person_name",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "move_in_date",
+      "pdfFieldName": "de_wohnungsgeberbestaetigung_move_in_date",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "street",
+      "pdfFieldName": "de_wohnungsgeberbestaetigung_street",
+      "format": "string",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "postal_code",
+      "pdfFieldName": "de_wohnungsgeberbestaetigung_postal_code",
+      "format": "string",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "city",
+      "pdfFieldName": "de_wohnungsgeberbestaetigung_city",
+      "format": "string",
+      "maxLength": 50,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "first_name",
+      "pdfFieldName": "de_wohnungsgeberbestaetigung_first_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "last_name",
+      "pdfFieldName": "de_wohnungsgeberbestaetigung_last_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    }
+  ]
+}

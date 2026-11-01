@@ -1,280 +1,450 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { checkBackendHealth, checkDatabaseHealth } from "@/services/api";
-import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useLanguage } from "@/features/form-session/components/LanguageProvider";
+import {
+  UNIVERSAL_LANGUAGES,
+  getLanguageByCode,
+} from "@/features/form-session/utils/languages";
+import {
+  PublishedForm,
+  createSession,
+  getPublishedForms,
+} from "@/features/form-session/services/apiClient";
+import { setSessionToken } from "@/features/form-session/services/sessionCredentials";
 
-type ConnectionStatus = "loading" | "connected" | "unavailable";
+const LAUNCH_UI_CODES = ["en", "de", "fr", "ar", "tr", "uk", "es", "ru"] as const;
 
 export default function Home() {
-  const [status, setStatus] = useState<ConnectionStatus>("loading");
-  const [dbStatus, setDbStatus] = useState<string>("checking");
+  const router = useRouter();
+  const t = useTranslations("home");
+  const tc = useTranslations("common");
+  const { locale, setLocale } = useLanguage();
+
+  const [forms, setForms] = useState<PublishedForm[]>([]);
+  const [loadingForms, setLoadingForms] = useState<boolean>(true);
+  const [launchingId, setLaunchingId] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+
+  const activeLanguage = useMemo(() => getLanguageByCode(locale), [locale]);
+  const launchLanguages = useMemo(
+    () => LAUNCH_UI_CODES.map((code) => getLanguageByCode(code)),
+    [],
+  );
 
   useEffect(() => {
     let active = true;
+    setLoadingForms(true);
 
-    async function verifyConnections() {
-      const isBackendAlive = await checkBackendHealth();
-
-      if (!active) return;
-
-      if (isBackendAlive) {
-        setStatus("connected");
-        try {
-          const databaseHealth = await checkDatabaseHealth();
-          if (active) {
-            setDbStatus(databaseHealth.database);
-          }
-        } catch {
-          if (active) {
-            setDbStatus("unavailable");
-          }
-        }
-      } else {
-        setStatus("unavailable");
-        setDbStatus("unavailable");
-      }
-    }
-
-    verifyConnections();
+    getPublishedForms()
+      .then((items) => {
+        if (!active) return;
+        const getRegionPriority = (key: string) => {
+          if (key.startsWith("eu-")) return 1;
+          if (key.startsWith("us-")) return 2;
+          if (key.startsWith("uk-")) return 3;
+          if (key.startsWith("de-")) return 4;
+          return 5;
+        };
+        const sorted = [...items].sort((a, b) => {
+          const pA = getRegionPriority(a.templateKey);
+          const pB = getRegionPriority(b.templateKey);
+          if (pA !== pB) return pA - pB;
+          return a.name.localeCompare(b.name);
+        });
+        setForms(sorted);
+      })
+      .catch(() => {
+        if (active) setForms([]);
+      })
+      .finally(() => {
+        if (active) setLoadingForms(false);
+      });
 
     return () => {
       active = false;
     };
   }, []);
 
+  const handleQuickLaunch = async (form: PublishedForm) => {
+    if (launchingId) return;
+    setLaunchError(null);
+    setLaunchingId(form.id);
+
+    try {
+      const outputLang =
+        form.supportedOutputLanguages[0] || form.sourceLanguage || "de";
+      const session = await createSession(form.id, locale, outputLang);
+      if (session.ownershipToken) {
+        setSessionToken(session.publicId, session.ownershipToken);
+      }
+      router.push(`/application/session/${session.publicId}`);
+    } catch {
+      setLaunchError(t("quickStartError"));
+      setLaunchingId(null);
+    }
+  };
+
   return (
-    <main className="min-h-[calc(100vh-3.5rem)] px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
-        {/* Hero Section */}
-        <div className="flex flex-col items-center text-center pt-4 sm:pt-8">
-          {/* Top Pill / Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3.5 py-1 text-xs font-semibold text-indigo-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
-            <span>Phase 1 Monorepo Foundation</span>
-            <span className="text-indigo-300">•</span>
-            <span className="text-slate-700">{UNIVERSAL_LANGUAGES.length}+ Universal Languages</span>
-          </div>
+    <main className="px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      <div className="mx-auto max-w-6xl space-y-16">
+        {/* Hero Section — Grounded in Civic Document Clarity */}
+        <section className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center pt-2">
+          <div className="lg:col-span-7 space-y-6 text-start">
+            <p className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1 text-xs font-medium text-slate-700 shadow-2xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-600" />
+              <span>{t("eyebrow")}</span>
+            </p>
 
-          {/* Main Title */}
-          <h1 className="mt-6 max-w-4xl text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl sm:leading-[1.1]">
-            <span className="block">AI Form Assistant</span>
-            <span className="mt-2 block text-2xl sm:text-4xl font-semibold text-indigo-700 tracking-tight">
-              Complete Official Forms Across Any Language
-            </span>
-          </h1>
+            <h1 className="max-w-2xl text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl sm:leading-[1.12]">
+              {t("headline")}
+            </h1>
 
-          {/* Description */}
-          <p className="mt-5 max-w-2xl text-base text-slate-600 leading-relaxed">
-            Eliminate language barriers in administrative and civic paperwork. Answer one question at a time in{" "}
-            <strong className="font-semibold text-slate-900">{UNIVERSAL_LANGUAGES.length}+ world languages</strong>{" "}
-            (Arabic, French, German, English, Spanish, Turkish, Ukrainian, Persian, Urdu, and more). Every answer is preserved,
-            normalized to canonical ISO standards, and verified by you before export.
-          </p>
+            <p className="max-w-xl text-base leading-relaxed text-slate-600">
+              {t("subheadline")}
+            </p>
 
-          {/* Universal Language Pills Strip (No Flags) */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5 max-w-3xl">
-            {UNIVERSAL_LANGUAGES.slice(0, 12).map((lang) => (
-              <span
-                key={lang.code}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-2xs"
-              >
-                <span className="font-mono text-[10px] font-bold uppercase text-indigo-600">
-                  {lang.code}
-                </span>
-                <span>{lang.nativeName}</span>
+            {/* Instant 8-Language Switcher Strip (Flag-Free) */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              {launchLanguages.map((lang) => {
+                const selected = locale === lang.code;
+                return (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => setLocale(lang.code)}
+                    aria-pressed={selected}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                      selected
+                        ? "border-indigo-600 bg-indigo-50 text-indigo-950"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="font-mono text-[10px] uppercase text-indigo-700">
+                      {lang.code}
+                    </span>
+                    <span>{lang.nativeName}</span>
+                  </button>
+                );
+              })}
+              <span className="px-2 text-xs text-slate-500">
+                <bdi>+{UNIVERSAL_LANGUAGES.length - launchLanguages.length}</bdi>
               </span>
-            ))}
-            <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
-              +{UNIVERSAL_LANGUAGES.length - 12} more languages
-            </span>
-          </div>
+            </div>
 
-          {/* Action CTAs */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto">
-            <Link
-              href="/application"
-              className="btn-primary w-full sm:w-auto px-7 py-3.5 text-sm font-semibold"
-            >
-              <span>Start Guided Application</span>
-              <svg
-                className="h-4 w-4 rtl:rotate-180"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+            {/* Primary & Secondary Actions */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+              <Link
+                href="/application"
+                className="btn-primary px-6 py-3.5 text-sm font-semibold"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 7l5 5m0 0l-5 5m5-5H6"
-                />
-              </svg>
-            </Link>
+                <svg
+                  className="h-4 w-4 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.75}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+                <span>{t("ctaUpload")}</span>
+              </Link>
 
-            <Link
-              href="/application"
-              className="btn-secondary w-full sm:w-auto px-6 py-3.5 text-sm font-medium"
-            >
-              <svg
-                className="h-4 w-4 text-indigo-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+              <a
+                href="#german-forms"
+                className="btn-secondary px-5 py-3.5 text-sm font-medium"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.75}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
-              <span>Upload Any PDF Form</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* Architectural Principles Grid */}
-        <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="surface-card rounded-2xl p-6">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-              </svg>
+                <span>{t("ctaBrowseTemplates")}</span>
+              </a>
             </div>
-            <h2 className="text-sm font-bold text-slate-900">Universal 3-Language Engine</h2>
-            <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-              Independent source, user, and output languages with full LTR and RTL layout support across 36+ languages.
+          </div>
+
+          {/* Right Column: Civic Workflow Sheet Preview */}
+          <div className="lg:col-span-5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+                <span className="text-xs font-semibold text-slate-900">
+                  {t("howItWorksTitle")}
+                </span>
+                <span
+                  className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-800"
+                  dir="ltr"
+                >
+                  {activeLanguage.code.toUpperCase()} → OFFICIAL PDF
+                </span>
+              </div>
+
+              <ol className="space-y-4">
+                <li className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {t("step1Title")}
+                  </p>
+                  <p className="text-xs leading-relaxed text-slate-600">
+                    {t("step1Body")}
+                  </p>
+                </li>
+                <li className="space-y-1 border-t border-slate-100 pt-3.5">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {t("step2Title")}
+                  </p>
+                  <p className="text-xs leading-relaxed text-slate-600">
+                    {t("step2Body")}
+                  </p>
+                </li>
+                <li className="space-y-1 border-t border-slate-100 pt-3.5">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {t("step3Title")}
+                  </p>
+                  <p className="text-xs leading-relaxed text-slate-600">
+                    {t("step3Body")}
+                  </p>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        {/* Zero-Signup 1-Click Official German Form Register */}
+        <section
+          id="german-forms"
+          className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs"
+        >
+          <div className="border-b border-slate-200 bg-slate-50/70 px-6 py-5 sm:px-8">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+              {t("quickStartTitle")}
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              {t("quickStartSubtitle", { language: activeLanguage.nativeName })}
+            </p>
+            {launchError && (
+              <div
+                role="alert"
+                className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-medium text-rose-800"
+              >
+                {launchError}
+              </div>
+            )}
+          </div>
+
+          {loadingForms ? (
+            <div className="px-6 py-10 text-center text-sm text-slate-500">
+              {tc("loading")}
+            </div>
+          ) : forms.length === 0 ? (
+            <div className="px-6 py-8 sm:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <p className="text-sm text-slate-600">{t("step1Body")}</p>
+              <Link
+                href="/application"
+                className="btn-primary shrink-0 px-5 py-2.5 text-xs font-semibold"
+              >
+                {t("ctaUpload")}
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0">
+              {forms.slice(0, 16).map((form, index) => {
+                const isLaunching = launchingId === form.id;
+                const rowBorder =
+                  index >= 2 ? "md:border-t md:border-slate-200" : "";
+                const colBorder =
+                  index % 2 === 1 ? "md:border-s md:border-slate-200" : "";
+
+                const getJurisdictionBadge = (key: string) => {
+                  if (key.startsWith("eu-")) return { flag: "🇪🇺", name: "EU / Schengen" };
+                  if (key.startsWith("us-")) return { flag: "🇺🇸", name: "United States" };
+                  if (key.startsWith("uk-")) return { flag: "🇬🇧", name: "United Kingdom" };
+                  if (key.startsWith("de-")) return { flag: "🇩🇪", name: "Germany" };
+                  return { flag: "🌐", name: "Official Form" };
+                };
+                const badge = getJurisdictionBadge(form.templateKey);
+
+                return (
+                  <div
+                    key={form.id}
+                    className={`flex flex-col justify-between gap-4 p-5 sm:px-7 sm:py-5 transition-colors hover:bg-slate-50/70 ${rowBorder} ${colBorder}`}
+                  >
+                    <div className="space-y-1.5 text-start">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50/80 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                          <span>{badge.flag}</span>
+                          <span>{badge.name}</span>
+                        </span>
+                        <span
+                          className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-slate-600"
+                          dir="ltr"
+                        >
+                          {form.sourceLanguage.toUpperCase()} • PDF
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        <bdi>{form.name}</bdi>
+                      </h3>
+                      {form.description && (
+                        <p className="text-xs leading-relaxed text-slate-600 line-clamp-2">
+                          <bdi>{form.description}</bdi>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end pt-1">
+                      <button
+                        type="button"
+                        data-testid={`quick-launch-${form.templateKey}`}
+                        disabled={Boolean(launchingId)}
+                        onClick={() => handleQuickLaunch(form)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3.5 py-2 text-xs font-semibold text-indigo-800 transition-colors hover:border-indigo-400 hover:bg-indigo-100 disabled:opacity-60"
+                      >
+                        <span>
+                          {isLaunching
+                            ? t("quickStartLaunching")
+                            : t("quickStartAction", {
+                                language: activeLanguage.nativeName,
+                              })}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Three Quiet Trust & Regulatory Guardrails */}
+        <section className="grid grid-cols-1 gap-6 md:grid-cols-3 border-y border-slate-200 py-10">
+          <div className="space-y-1.5 text-start">
+            <h2 className="text-sm font-bold text-slate-900">
+              {t("trustEuTitle")}
+            </h2>
+            <p className="text-xs leading-relaxed text-slate-600">
+              {t("trustEuBody")}
+            </p>
+          </div>
+          <div className="space-y-1.5 text-start">
+            <h2 className="text-sm font-bold text-slate-900">
+              {t("trustAccuracyTitle")}
+            </h2>
+            <p className="text-xs leading-relaxed text-slate-600">
+              {t("trustAccuracyBody")}
+            </p>
+          </div>
+          <div className="space-y-1.5 text-start">
+            <h2 className="text-sm font-bold text-slate-900">
+              {t("trustRdgTitle")}
+            </h2>
+            <p className="text-xs leading-relaxed text-slate-600">
+              {t("trustRdgBody")}
+            </p>
+          </div>
+        </section>
+
+        {/* Transparent Pricing Preview (Transactional Passes First) */}
+        <section className="space-y-6 pb-4">
+          <div className="max-w-2xl space-y-1.5 text-start">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+              {t("pricingTitle")}
+            </h2>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              {t("pricingSubtitle")}
             </p>
           </div>
 
-          <div className="surface-card rounded-2xl p-6">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <h2 className="text-sm font-bold text-slate-900">Deterministic Validation</h2>
-            <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-              Canonical ISO dates, currencies, and choices validated deterministically without invented data.
-            </p>
-          </div>
-
-          <div className="surface-card rounded-2xl p-6">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h2 className="text-sm font-bold text-slate-900">Privacy by Design</h2>
-            <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-              Temporary anonymous sessions with cryptographic ownership tokens and automatic expiration.
-            </p>
-          </div>
-
-          <div className="surface-card rounded-2xl p-6">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h2 className="text-sm font-bold text-slate-900">Universal PDF Export</h2>
-            <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-              Categorized templates with miniature PDF previews, digital signature capture, and mapped PDF output.
-            </p>
-          </div>
-        </div>
-
-        {/* System Telemetry & Health Section (Maintains test compatibility) */}
-        <div className="mt-12 surface-panel rounded-2xl p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">System Status & Environment Health</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Real-time API and database connectivity verification
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span>Environment Telemetry</span>
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Backend Status Box */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Backend Status
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            {/* Free Preview */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 flex flex-col justify-between gap-5">
+              <div className="space-y-3 text-start">
+                <h3 className="text-sm font-bold text-slate-900">
+                  {t("planFreeName")}
+                </h3>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900 tabular-nums">
+                    <bdi>{t("planFreePrice")}</bdi>
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {t("planFreeUnit")}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-600">
+                  {t("planFreeDesc")}
                 </p>
-                <span className="text-xs font-mono text-slate-500">FastAPI</span>
               </div>
-              <div className="mt-2.5 flex items-center gap-2.5">
-                {status === "loading" && (
-                  <>
-                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-                    <span className="text-sm font-semibold text-amber-800">
-                      Checking backend connection
-                    </span>
-                  </>
-                )}
-                {status === "connected" && (
-                  <>
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
-                    <span className="text-sm font-semibold text-emerald-800">
-                      Backend connected
-                    </span>
-                  </>
-                )}
-                {status === "unavailable" && (
-                  <>
-                    <span className="h-2.5 w-2.5 rounded-full bg-rose-600" />
-                    <span className="text-sm font-semibold text-rose-800">
-                      Backend unavailable
-                    </span>
-                  </>
-                )}
-              </div>
+              <Link
+                href="/application"
+                className="btn-secondary w-full py-2.5 text-xs font-semibold"
+              >
+                {t("ctaUpload")}
+              </Link>
             </div>
 
-            {/* Database Connection Box */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Database Connection
+            {/* Single Document Pass */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 flex flex-col justify-between gap-5">
+              <div className="space-y-3 text-start">
+                <h3 className="text-sm font-bold text-slate-900">
+                  {t("planSingleName")}
+                </h3>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900 tabular-nums">
+                    <bdi>{t("planSinglePrice")}</bdi>
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {t("planSingleUnit")}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-600">
+                  {t("planSingleDesc")}
                 </p>
-                <span className="text-xs font-mono text-slate-500">PostgreSQL</span>
               </div>
-              <div className="mt-2.5 flex items-center gap-2.5">
-                {dbStatus === "checking" && (
-                  <>
-                    <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
-                    <span className="text-sm font-semibold text-slate-700">
-                      Checking database...
-                    </span>
-                  </>
-                )}
-                {dbStatus === "connected" && (
-                  <>
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
-                    <span className="text-sm font-semibold text-emerald-800">
-                      Connected
-                    </span>
-                  </>
-                )}
-                {dbStatus === "unavailable" && (
-                  <>
-                    <span className="h-2.5 w-2.5 rounded-full bg-rose-600" />
-                    <span className="text-sm font-semibold text-rose-800">
-                      Unavailable
-                    </span>
-                  </>
-                )}
+              <Link
+                href="/application"
+                className="btn-secondary w-full py-2.5 text-xs font-semibold"
+              >
+                {t("ctaUpload")}
+              </Link>
+            </div>
+
+            {/* 5-Document Relocation Pack */}
+            <div className="rounded-2xl border-2 border-indigo-600 bg-white p-6 flex flex-col justify-between gap-5 shadow-xs">
+              <div className="space-y-3 text-start">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {t("planPackName")}
+                  </h3>
+                  <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-800">
+                    {t("planPackBadge")}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900 tabular-nums">
+                    <bdi>{t("planPackPrice")}</bdi>
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {t("planPackUnit")}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-600">
+                  {t("planPackDesc")}
+                </p>
               </div>
+              <Link
+                href="/application"
+                className="btn-primary w-full py-2.5 text-xs font-semibold"
+              >
+                {t("ctaUpload")}
+              </Link>
             </div>
           </div>
-        </div>
+
+          <p className="text-xs text-slate-500 text-start">
+            {t("planAgencyNote")}
+          </p>
+        </section>
       </div>
     </main>
   );

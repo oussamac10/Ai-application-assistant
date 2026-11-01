@@ -69,5 +69,5 @@ class FormAnswer(Base):
         UniqueConstraint("session_id", "field_id", name="uq_session_field_answer"),
     )
 
-    session = relationship("FormSession")
+    session = relationship("FormSession", back_populates="answers")
     field = relationship("FormField")

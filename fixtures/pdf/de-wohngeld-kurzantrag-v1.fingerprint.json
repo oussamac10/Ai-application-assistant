@@ -1,0 +1,27 @@
+{
+  "templateKey": "de-wohngeld-kurzantrag-v1",
+  "formKey": "de-wohngeld-kurzantrag",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_wohngeld_kurzantrag_first_name",
+    "de_wohngeld_kurzantrag_last_name",
+    "de_wohngeld_kurzantrag_date_of_birth",
+    "de_wohngeld_kurzantrag_street",
+    "de_wohngeld_kurzantrag_postal_code",
+    "de_wohngeld_kurzantrag_city",
+    "de_wohngeld_kurzantrag_monthly_income",
+    "de_wohngeld_kurzantrag_iban"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-WOHNGELD-KURZANTRAG-V1",
+    "Wohngeld-Kurzantrag (Mietzuschuss)"
+  ]
+}

@@ -201,4 +201,62 @@ describe("Guided session — multiple_choice submit and advance", () => {
     await waitFor(() => expect(screen.getByText("Request category")).toBeDefined());
     expect(screen.queryByText("Error Occurred")).toBeNull();
   });
+
+  it("displays translated choice labels while submitting canonical option values", async () => {
+    getCurrentFieldMock.mockResolvedValue({
+      ...CATEGORY_FIELD,
+      label: "Wie lautet Ihr Anliegen?",
+      options: [
+        { value: "Housing", label: "Wohnen" },
+        { value: "Education", label: "Bildung" },
+        { value: "Medical", label: "Medizinisch" },
+      ],
+    });
+    submitAnswerMock.mockResolvedValue({
+      id: "answer-1",
+      status: "awaiting_confirmation",
+      requiresClarification: false,
+      validationStatus: "valid",
+      originalAnswer: '["Housing","Education"]',
+      normalizedValue: ["Housing", "Education"],
+      outputValue: "Housing, Education",
+    });
+
+    const { default: GuidedSession } = await import(
+      "@/app/application/session/[sessionId]/page"
+    );
+    render(<GuidedSession />);
+
+    await waitFor(() => expect(screen.getByLabelText("Wohnen")).toBeDefined());
+    expect(screen.queryByLabelText("Housing")).toBeNull();
+
+    fireEvent.click(screen.getByLabelText("Wohnen"));
+    fireEvent.click(screen.getByLabelText("Bildung"));
+    fireEvent.click(screen.getByText("continue"));
+
+    await waitFor(() =>
+      expect(submitAnswerMock).toHaveBeenCalledWith(
+        "session-1",
+        "field-category",
+        JSON.stringify(["Housing", "Education"]),
+      ),
+    );
+  });
+
+  it("disables Back on the first dynamic question when position is 0", async () => {
+    getCurrentFieldMock.mockResolvedValue({
+      ...CATEGORY_FIELD,
+      position: 0,
+      allFieldKeys: ["request_category", "next_field"],
+    });
+
+    const { default: GuidedSession } = await import(
+      "@/app/application/session/[sessionId]/page"
+    );
+    render(<GuidedSession />);
+
+    await waitFor(() => expect(screen.getByText("Request category")).toBeDefined());
+    const backBtn = screen.getByRole("button", { name: "back" });
+    expect(backBtn).toBeDisabled();
+  });
 });

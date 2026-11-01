@@ -8,9 +8,13 @@ import en from "../../../../messages/en.json";
 import de from "../../../../messages/de.json";
 import fr from "../../../../messages/fr.json";
 import ar from "../../../../messages/ar.json";
+import tr from "../../../../messages/tr.json";
+import uk from "../../../../messages/uk.json";
+import es from "../../../../messages/es.json";
+import ru from "../../../../messages/ru.json";
 import { isRtlLanguage, UNIVERSAL_LANGUAGES } from "../utils/languages";
 
-const messagesMap: Record<string, any> = { en, de, fr, ar };
+const messagesMap: Record<string, any> = { en, de, fr, ar, tr, uk, es, ru };
 const supportedLanguageCodes = new Set(UNIVERSAL_LANGUAGES.map((l) => l.code));
 const ISO_639_1_REGEX = /^[a-z]{2}$/;
 

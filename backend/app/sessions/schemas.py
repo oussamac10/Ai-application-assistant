@@ -23,17 +23,11 @@ class SessionResponse(BaseSchema):
     created_at: datetime
     form_origin: str
     export_supported: bool
+    progress_percentage: int = 0
 
     @computed_field
     def session_id(self) -> str:
         return self.public_id
-
-    @computed_field
-    def progress_percentage(self) -> int:
-        if self.total_required_fields <= 0:
-            return 0
-        val = (self.current_field_position / self.total_required_fields) * 100
-        return int(val)
 
 
 class SessionCreateResponse(BaseSchema):

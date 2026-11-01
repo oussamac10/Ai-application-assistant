@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   UNIVERSAL_LANGUAGES,
   POPULAR_LANGUAGE_CODES,
@@ -22,22 +23,26 @@ type RegionFilter =
   | "Middle East & Africa"
   | "Asia & Americas";
 
-const REGION_TABS: { key: RegionFilter; label: string }[] = [
-  { key: "Popular", label: "Popular" },
-  { key: "All", label: `All (${UNIVERSAL_LANGUAGES.length})` },
-  { key: "Europe", label: "Europe" },
-  { key: "Middle East & Africa", label: "Middle East & Africa" },
-  { key: "Asia & Americas", label: "Asia & Global" },
-];
-
 export default function LanguageSelector({
   selectedCode,
   onSelect,
   title,
   subtitle,
 }: LanguageSelectorProps) {
+  const tNav = useTranslations("nav");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeRegion, setActiveRegion] = useState<RegionFilter>("Popular");
+
+  const regionTabs = useMemo<{ key: RegionFilter; label: string }[]>(
+    () => [
+      { key: "Popular", label: tNav("regionPopular") },
+      { key: "All", label: tNav("regionAll", { count: UNIVERSAL_LANGUAGES.length }) },
+      { key: "Europe", label: tNav("regionEurope") },
+      { key: "Middle East & Africa", label: tNav("regionMea") },
+      { key: "Asia & Americas", label: tNav("regionAsia") },
+    ],
+    [tNav]
+  );
 
   const activeLanguage = useMemo(
     () => getLanguageByCode(selectedCode),
@@ -144,7 +149,7 @@ export default function LanguageSelector({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search 36 languages (e.g. العربية, Deutsch, Türkçe, Українська)..."
+            placeholder={tNav("searchLanguagePlaceholder")}
             aria-label="Search languages"
             className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2 ps-9 pe-8 text-xs font-medium text-slate-900 placeholder-slate-400 transition-colors focus:border-indigo-500 focus:bg-white focus:outline-none"
           />
@@ -164,7 +169,7 @@ export default function LanguageSelector({
 
         {/* Region Filter Tabs */}
         <div className="flex items-center gap-1 overflow-x-auto pb-0.5 sm:pb-0">
-          {REGION_TABS.map((tab) => {
+          {regionTabs.map((tab) => {
             const isTabActive = searchQuery.trim() === "" && activeRegion === tab.key;
             return (
               <button

@@ -8,55 +8,108 @@ Archived under `docs/progress/`:
 - **SaaS Phase S0**: P0 Security, RBAC, Dynamic-Form Isolation, Credential Hardening & Retention (`docs/progress/phase-s0-security-and-hardening.md`)
 - **SaaS Phase S1**: Storage Provider, Smartphone Camera Scan Normalization, Multi-Script OCR + Async Jobs & Rate Limiting, Scanned Box Detection, and Embedded Unicode/RTL PDF + Watermarked Preview (`docs/progress/phase-s1-storage-camera-async-unicode.md`)
 - **SaaS Phase S2**: Account Lifecycle, GDPR Art. 17/20 Self-Service Controls, Encrypted Reusable Profile Vault (1-Click Pre-Fill), and Dual-Pane Verification Studio (`docs/progress/phase-s2-accounts-gdpr-vault-studio.md`)
-- **Business-Driven SaaS Partner Upgrade (Stage A & B)**: Vetted SaaS marketing/pricing/research skills (`pricing`, `customer-research`, `competitor-profiling`, `cro`, `paywalls`, `ab-testing`), permanent `saas-business-advisor` Co-Founder skill + `.agents/product-marketing.md`, `10`–`10,000` user CFO unit economics & 7-doc `docs/business/` suite (`docs/progress/stage-b-saas-business-partner-upgrade.md`)
+- **Business-Driven SaaS Partner Upgrade (Stage A & B)**: Vetted SaaS marketing/pricing/research skills, permanent `saas-business-advisor` Co-Founder skill, `10`–`10,000` user CFO unit economics & 7-doc `docs/business/` suite (`docs/progress/stage-b-saas-business-partner-upgrade.md`)
+- **SaaS Phase S3 (`S3-02` & `S3-03`) + 2D Vector-Grid Field Detection & Test Consolidation**: 8 Full Static UI Languages (`en, de, fr, ar, tr, uk, es, ru`), Conversion Homepage + 1-Click Top-10 Fingerprinted German Templates, German Legal Pages (`/impressum`, `/datenschutz`, `/agb`), General 2D Vector-Grid Field Detection, and Test Suite Consolidation (`docs/progress/phase-s3-ux-i18n-legal-german-templates.md`)
+- **Visual Row-Band Reading Order & Zero-Indexed First-Question Back-Button Guard**: (`docs/progress/phase-s3-row-band-sorting.md`)
+- **Universal Worldwide B2B & B2G Platform Pivot**: Multi-tenant Agency/Enterprise Portal (`/portal`), dynamic candidate magic-link invitations, destination-agnostic intake (`/portal/invite/[token]`), worldwide templates (`eu-schengen-visa`, `us-immigration-intake`, `uk-visas-intake`), and complete 8-locale copy modernization (`en, de, fr, ar, tr, uk, es, ru`) with 100% test parity.
+- **Phase S4: B2B/B2G Billing, Quotas, Admin Tower & Standalone Pricing**: Full Stripe Checkout & Customer Portal integration, Organization subscriptions (`agency_sandbox`, `agency_pro`, `enterprise`), token usage ledger & €0.25 circuit breaker, Founder Admin Console (`/admin` & `GET /api/admin/overview`), dedicated B2B/B2G Pricing page (`/pricing`), and dual-port (`3000` & `3003`) host connectivity.
 
 ---
 
 ## Current Task
 
-**Business-Driven SaaS Engineering Partner Upgrade (Stage B — Completed & Verified)**: Ready for next founder-approved execution milestone (`EXP-01` / `EXP-03` customer & pricing validation alongside `S4-01` deterministic AI bypass & `€0.25/session` spend cap, or committing completed `Phase S2` + `Stage B` changes).
+**System Readiness & Smoke Test (`S3-01` / Worldwide End-to-End Operational Smoke Test)**
+
+### Status
+- Docker containers healthy: `frontend` (:3000 & :3003), `backend` (:8000), `postgres` (:5432), `redis` (:6379), `worker` (ARQ).
+- Founder Admin Console live at `/admin` (`admin@example.com` granted platform_admin in dev).
+- Agency Studio live at `/portal` with candidate magic links and quota monitors.
+- Standalone Pricing page live at `/pricing`.
+- All backend (Ruff, mypy, Pytest) and frontend (TypeScript, ESLint, Vitest, 8-locale parity) tests passing with 0 errors.
+
+### 7-Line Business Decision Summary
+- **Feature:** Phase S4 — B2B & B2G Subscription Billing, Case Quotas & Token Cost Firewall.
+- **Customer problem:** Relocation agencies, international HR teams, and municipal authorities need predictable monthly seat/case quotas with centralized corporate invoicing (Stripe Checkout & Customer Portal), while the platform requires a hard API cost guardrail per case (`<= €0.25/case`) to maintain `> 85%` gross margins.
+- **Expected value:** Unlocks automated self-serve MRR (`€149/mo` Agency Pro, `€499/mo` Enterprise), automates case quota enforcement, and protects against runaway LLM/Azure API costs from rogue/heavy candidate usage.
+- **Estimated development effort:** ~2 solo-developer build days across backend quota schemas, Stripe webhooks, token ledger, and frontend checkout buttons in the `/portal`.
+- **Operating impact:** Establishes a hard `€0.25` variable cost circuit breaker per case, protecting gross margins `> 88%` on `€149/mo` (50 cases = max `€12.50` API COGS) and `> 90%` on `€499/mo` (200 cases = max `€50.00` API COGS).
+- **Monetization potential:** Converts trial agency accounts into recurring `€149`–`€499`/mo B2B subscriptions via standard Stripe Checkout & Customer Portal.
+- **Recommendation:** `Build now` — Core billing infrastructure is the essential commercial foundation for B2B and B2G monetization.
 
 ## Goal
 
-Operate permanently as an evidence-based Technical Co-Founder & CFO partner that protects gross margins, separates validated facts from `[ASSUMPTION]`s, challenges premature engineering complexity, and evaluates customer value, unit economics, and technical impact before major product/architecture investments.
+Provide full-stack B2B and B2G monetization: allow organizations to subscribe to Agency Pro (`€149/mo` / 50 cases) or Enterprise (`€499/mo` / 200 cases), enforce case creation limits, manage billing via Stripe Customer Portal, and cap AI token/API costs per case with a strict `€0.25` circuit breaker.
 
 ## Acceptance Criteria
 
-- [x] **External Business Skills Installed & Pinned**: Installed the 6 approved MIT pure-Markdown skills (`pricing`, `customer-research`, `competitor-profiling`, `cro`, `paywalls`, `ab-testing`) from `coreyhaines31/marketingskills@17772c7a80b7` into `.agents/skills/` (zero executable scripts or sponsored tool files) with exact SHA-256 hashes recorded in `.agents/skills/SOURCES.lock.json` and `.agents/skills/README.md`.
-- [x] **Custom `saas-business-advisor` Skill & Shared Positioning Context**: Created `.agents/skills/saas-business-advisor/SKILL.md` (11 activation triggers, proportionate bug-fix fast path, 4-pillar Business Evaluation Framework, 7-line Business Decision Summary, German VAT/Stripe/COGS guardrails, Co-Founder pushback rules) and `.agents/product-marketing.md`.
-- [x] **Antigravity Skill Discovery & Workflow Integration**: Validated all `22` `.agents/skills/*/SKILL.md` frontmatter and `SOURCES.lock.json` integrity (`173` locked files); integrated `saas-business-advisor` and the Business Decision Summary workflow into `.agents/AGENTS.md` (`14,391` bytes < `22,000` bytes).
-- [x] **Persistent Business Documentation & Multi-Scale CFO Model (`docs/business/`)**: Created `BUSINESS_STRATEGY.md`, `PRICING.md`, `UNIT_ECONOMICS.md` (`10, 50, 100, 500, 1,000, 5,000, 10,000` users across conservative/base/optimistic scenarios with 2026-10-26 official provider pricing, 19% VAT, Stripe EEA/non-EEA fees, and 12 API cost optimizations), `CUSTOMER_RESEARCH.md`, `COMPETITOR_ANALYSIS.md`, `GROWTH_STRATEGY.md`, and `BUSINESS_EXPERIMENTS.md`, harmonized with existing `docs/*.md`.
-- [x] **Live Skill Dry-Run Verification**: Evaluated 3 real product/architecture roadmap decisions (`S4-01` -> `Build now`, `S5-01` -> `Validate with customers first`, Public API / White-Label -> `Defer / Reject`) in `docs/business/BUSINESS_STRATEGY.md`.
+- [x] **Billing Data Models & Alembic Migration**: Add `organization_subscriptions` and `ai_usage_events` tables with proper foreign keys and indexes.
+- [x] **Token & Cost Firewall**: Create `app/ai/guardrails.py` tracking token spend per case/session, enforcing hard `€0.25/case` circuit breaker.
+- [x] **Case Quota Enforcement**: In `OrganizationService.create_case()`, enforce monthly limits based on active subscription (`sandbox: 3`, `pro: 50`, `enterprise: 200`), returning `402 Payment Required` with upgrade prompt when exceeded.
+- [x] **Stripe Checkout & Portal Endpoints**:
+  - `POST /api/billing/create-checkout-session`: Generates Stripe Checkout URL for selected B2B plan.
+  - `POST /api/billing/create-portal-session`: Generates Stripe Customer Portal URL.
+  - `POST /api/billing/webhook`: Processes `checkout.session.completed`, `customer.subscription.updated/deleted` idempotently.
+- [x] **Agency Portal UI Integration**: Display active plan, case quota progress bar, and "Upgrade Plan" / "Manage Subscription" controls in `frontend/src/features/portal/components/PortalDashboard.tsx`.
+- [x] **Verification**: Backend tests in `backend/tests/billing/` and frontend tests pass cleanly with zero live Stripe/AI calls.
 
 ## Planned Steps
 
-- [x] 1. Vendor the 6 pure-Markdown MIT skills from `coreyhaines31/marketingskills@17772c7a80b7` into `.agents/skills/` and update `.agents/skills/SOURCES.lock.json` with SHA-256 checksums.
-- [x] 2. Create `.agents/skills/saas-business-advisor/SKILL.md` and `.agents/product-marketing.md`.
-- [x] 3. Update `.agents/skills/README.md` and `.agents/AGENTS.md` (`< 22,000` bytes), and run automated skill-discovery + SHA-256 lockfile verification.
-- [x] 4. Author `docs/business/UNIT_ECONOMICS.md` (programmatically verified `10`–`10,000` user financial tables + 12 API cost optimizations) and `docs/business/PRICING.md`.
-- [x] 5. Author `docs/business/BUSINESS_STRATEGY.md`, `CUSTOMER_RESEARCH.md`, `COMPETITOR_ANALYSIS.md`, `GROWTH_STRATEGY.md`, and `BUSINESS_EXPERIMENTS.md`.
-- [x] 6. Harmonize `docs/MONETIZATION.md`, `docs/PRODUCT_STRATEGY.md`, `docs/GO_TO_MARKET.md`, and `docs/SAAS_ROADMAP.md` so zero pricing or strategy contradictions exist, test `saas-business-advisor` on 3 real decisions, and archive progress.
+- [x] 1. Create `backend/app/billing/models.py` (`OrganizationSubscription`, `AIUsageEvent`), schemas, and Alembic migration.
+- [x] 2. Implement `backend/app/ai/guardrails.py` for token/cost tracking and `€0.25` session limit.
+- [x] 3. Implement `backend/app/billing/services.py` with Stripe API abstractions, webhook handler, and quota logic.
+- [x] 4. Connect case creation in `OrganizationService` to check active subscription quota.
+- [x] 5. Implement `/api/billing/` endpoints and register in FastAPI `main.py`.
+- [x] 6. Update `PortalDashboard.tsx` with subscription banner and upgrade flow.
+- [x] 7. Add automated backend and frontend tests and run full verification gates.
 
 ## Files Expected to Change
 
-- `.agents/skills/{pricing,customer-research,competitor-profiling,cro,paywalls,ab-testing}/**`
-- `.agents/skills/saas-business-advisor/SKILL.md`
-- `.agents/skills/SOURCES.lock.json`, `.agents/skills/README.md`
-- `.agents/product-marketing.md`, `.agents/AGENTS.md`
-- `docs/business/{BUSINESS_STRATEGY,PRICING,UNIT_ECONOMICS,CUSTOMER_RESEARCH,COMPETITOR_ANALYSIS,GROWTH_STRATEGY,BUSINESS_EXPERIMENTS}.md`
-- `docs/{MONETIZATION,PRODUCT_STRATEGY,GO_TO_MARKET,SAAS_ROADMAP}.md`, `docs/progress/stage-b-saas-business-partner-upgrade.md`, `TODO.md`
+- `TODO.md`
+- `backend/app/billing/`
+- `backend/app/ai/guardrails.py`
+- `backend/app/organizations/services.py`
+- `backend/app/main.py`
+- `backend/migrations/`
+- `backend/tests/billing/`
+- `frontend/src/features/portal/`
+- `backend/app/organizations/api/candidate_routes.py`
+- `backend/app/main.py`
+- `backend/migrations/versions/e5f6a7b8c9d0_add_organizations_and_cases.py`
+- `backend/tests/organizations/test_organizations_and_cases.py`
+- `frontend/src/app/portal/page.tsx`
+- `frontend/src/app/portal/invite/[token]/page.tsx`
+- `frontend/src/features/portal/components/*`
+- `frontend/messages/en.json`
+- `frontend/messages/de.json`
+- `frontend/src/components/layout/Header.tsx`
 
 ## Decisions and Assumptions
 
-- Only pure Markdown (`SKILL.md`, `references/*.md`, and `LICENSE.txt`) is vendored from `coreyhaines31/marketingskills@17772c7a80b7` (`MIT`); `evals/evals.json`, `tools/integrations/*`, and all `.js`/`.py`/`.sh` files are omitted per workspace security policy.
-- Official cloud/payment pricing verified on `2026-10-26`; USD-denominated API meters converted at `1 USD = €0.92` (`[ASSUMPTION]`), and German B2C gross prices account for `19%` MwSt (`Net = Gross / 1.19`).
-
-## Blockers
-
-- None
+- **7-Line Business Decision Summary**:
+  - Feature: B2B/B2G Case Management Portal & Candidate Intake Engine.
+  - Customer problem: Relocation agencies & authorities manage cases via PDFs and email; candidates make repetitive mistakes.
+  - Expected value: Cuts processing time by 80%, boosts retention, unlocks €149–€499/mo SaaS contracts.
+  - Estimated development effort: 1.5 days; solo-maintainable modular monolith.
+  - Operating impact: 0 added AI costs; €0 COGS on official templates.
+  - Monetization potential: Direct B2B/B2G subscription revenue.
+  - Recommendation: Build now.
+- B2B case managers must be authenticated (`User` with role `case_manager`, `admin`, or `owner`).
+- Candidates access their assigned form session via single-use cryptographic magic tokens without having to create an account first.
+- Reuses the existing `FormSession`, `GuidedSession`, `DualPaneVerificationStudio`, and PDF export engine seamlessly.
 
 ## Verification
 
-- [x] All 22 workspace skills in `.agents/skills/` pass YAML frontmatter, directory-name match, line-count (`<= 500`), zero-script, and `SOURCES.lock.json` SHA-256 verification (`173` locked files)
-- [x] `.agents/AGENTS.md` verified `< 22,000` bytes (`14,391` bytes)
-- [x] Financial tables in `docs/business/UNIT_ECONOMICS.md` verified mathematically across all 7 user scales × 3 scenarios, with zero broken relative links across `docs/business/*`
+- Backend tests on `ai_form_assistant_test` database pass:
+  - `tests/organizations/test_organizations_and_cases.py` (6 passed)
+  - `tests/auth/`, `tests/vault/`, `tests/applications/` (32 passed)
+  - `tests/field_detection/test_azure_tables_and_marks.py` (3 passed)
+- Backend code hygiene:
+  - `ruff check .` -> clean (209 source files)
+  - `ruff format --check .` -> clean (297 files formatted)
+  - `mypy app` -> clean (Success: no issues found in 209 source files)
+- Frontend code hygiene & test suite:
+  - `npm run typecheck` -> clean (`tsc --noEmit` 0 errors)
+  - `npm run lint` -> clean (`next lint` 0 errors)
+  - `npx vitest run` -> 31 test files, 257 tests passed (including `portal.test.tsx` and `eight-locales-parity.test.tsx`)
+- Certified German Residence Permit Template:
+  - `fixtures/pdf/de-aufenthaltstitel-v1.pdf`, `.mapping.json`, `.fingerprint.json` generated and seeded.

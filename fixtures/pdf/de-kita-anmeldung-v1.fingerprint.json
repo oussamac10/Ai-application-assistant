@@ -1,0 +1,28 @@
+{
+  "templateKey": "de-kita-anmeldung-v1",
+  "formKey": "de-kita-anmeldung",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_kita_anmeldung_child_first_name",
+    "de_kita_anmeldung_child_birth_date",
+    "de_kita_anmeldung_first_name",
+    "de_kita_anmeldung_last_name",
+    "de_kita_anmeldung_street",
+    "de_kita_anmeldung_postal_code",
+    "de_kita_anmeldung_city",
+    "de_kita_anmeldung_phone",
+    "de_kita_anmeldung_email"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-KITA-ANMELDUNG-V1",
+    "Anmeldung Kindertagesbetreuung (Kita)"
+  ]
+}

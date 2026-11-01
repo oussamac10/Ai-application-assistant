@@ -1,68 +1,141 @@
-import { render, screen, act } from "@testing-library/react";
-import { expect, test, vi, beforeEach } from "vitest";
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "./page";
-import { checkBackendHealth, checkDatabaseHealth } from "@/services/api";
+import { LanguageProvider } from "@/features/form-session/components/LanguageProvider";
+import {
+  getPublishedForms,
+  createSession,
+} from "@/features/form-session/services/apiClient";
+import { getSessionToken } from "@/features/form-session/services/sessionCredentials";
 
-// Mock the api service module
-vi.mock("@/services/api", () => ({
-  checkBackendHealth: vi.fn(),
-  checkDatabaseHealth: vi.fn(),
+const pushMock = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
 }));
 
-beforeEach(() => {
-  vi.clearAllMocks();
+vi.mock("@/features/form-session/services/apiClient", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/features/form-session/services/apiClient")
+  >("@/features/form-session/services/apiClient");
+  return {
+    ...actual,
+    getPublishedForms: vi.fn(),
+    createSession: vi.fn(),
+  };
 });
 
-test("renders page title and header", async () => {
-  vi.mocked(checkBackendHealth).mockResolvedValue(false);
-  vi.mocked(checkDatabaseHealth).mockResolvedValue({ status: "error", database: "unavailable" });
+const SAMPLE_FORMS = [
+  {
+    id: "ver-anmeldung-1",
+    templateKey: "de-anmeldung",
+    name: "Anmeldung bei der Meldebehörde",
+    description: "Municipal address registration in Germany (§ 17 BMG).",
+    versionNumber: 1,
+    sourceLanguage: "de",
+    supportedOutputLanguages: ["de"],
+  },
+  {
+    id: "ver-kg1-1",
+    templateKey: "de-kindergeld-kg1",
+    name: "Antrag auf Kindergeld (KG1)",
+    description: "Child benefit application for families in Germany.",
+    versionNumber: 1,
+    sourceLanguage: "de",
+    supportedOutputLanguages: ["de"],
+  },
+];
 
-  await act(async () => {
-    render(<Home />);
+describe("Phase S3 — Conversion Homepage & 1-Click German Form Launchers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+    document.documentElement.lang = "en";
+    document.documentElement.dir = "ltr";
   });
 
-  expect(screen.getByText("AI Form Assistant")).toBeInTheDocument();
-  expect(screen.getByText("Phase 1 Monorepo Foundation")).toBeInTheDocument();
-});
+  function renderHome() {
+    return render(
+      <LanguageProvider>
+        <Home />
+      </LanguageProvider>,
+    );
+  }
 
-test("displays loading state initially", async () => {
-  // Let the health check promise hang to stay in loading state
-  let resolveHealth: (value: boolean) => void = () => {};
-  const healthPromise = new Promise<boolean>((resolve) => {
-    resolveHealth = resolve;
-  });
-  vi.mocked(checkBackendHealth).mockReturnValue(healthPromise);
+  it("renders the conversion hero, upload CTA, RDG/GDPR trust pillars, and pricing preview without developer telemetry", async () => {
+    vi.mocked(getPublishedForms).mockResolvedValue(SAMPLE_FORMS);
 
-  render(<Home />);
+    renderHome();
 
-  expect(screen.getByText("Checking backend connection")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: /Multilingual form completion infrastructure/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Phase 1 Monorepo Foundation/i)).toBeNull();
+    expect(screen.queryByText(/PostgreSQL/i)).toBeNull();
 
-  // Cleanup/resolve to avoid memory leaks/hanging promises
-  await act(async () => {
-    resolveHealth(true);
-  });
-});
+    const uploadLinks = screen.getAllByRole("link", {
+      name: /Launch Form Assistant/i,
+    });
+    expect(uploadLinks[0]).toHaveAttribute("href", "/application");
 
-test("displays connected state when backend health check succeeds", async () => {
-  vi.mocked(checkBackendHealth).mockResolvedValue(true);
-  vi.mocked(checkDatabaseHealth).mockResolvedValue({ status: "ok", database: "connected" });
-
-  await act(async () => {
-    render(<Home />);
-  });
-
-  expect(screen.getByText("Backend connected")).toBeInTheDocument();
-  expect(screen.getByText("Connected")).toBeInTheDocument();
-});
-
-test("displays unavailable state when backend health check fails", async () => {
-  vi.mocked(checkBackendHealth).mockResolvedValue(false);
-  vi.mocked(checkDatabaseHealth).mockResolvedValue({ status: "error", database: "unavailable" });
-
-  await act(async () => {
-    render(<Home />);
+    expect(await screen.findByText("Anmeldung bei der Meldebehörde")).toBeInTheDocument();
+    expect(screen.getByText(/Enterprise & Public Sector/i)).toBeInTheDocument();
+    expect(screen.getByText(/Administrative & Language Tool — Not Legal Advice/i)).toBeInTheDocument();
   });
 
-  expect(screen.getByText("Backend unavailable")).toBeInTheDocument();
-  expect(screen.getByText("Unavailable")).toBeInTheDocument();
+  it("launches a zero-signup 1-click guided session in the user's selected UI language", async () => {
+    vi.mocked(getPublishedForms).mockResolvedValue(SAMPLE_FORMS);
+    vi.mocked(createSession).mockResolvedValue({
+      publicId: "sess-quick-123",
+      status: "session_created",
+      ownershipToken: "tok-secret-xyz",
+      userLanguage: "tr",
+      outputLanguage: "de",
+      expiresAt: "2026-10-27T23:00:00Z",
+    });
+
+    renderHome();
+
+    expect(await screen.findByText("Anmeldung bei der Meldebehörde")).toBeInTheDocument();
+
+    // Switch interface language directly from the hero language bar to Turkish
+    fireEvent.click(screen.getByRole("button", { name: /Türkçe/i }));
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: /Relocation ajansları ve kamu kurumları için küresel çok dilli form doldurma altyapısı/i,
+      }),
+    ).toBeInTheDocument();
+
+    // Click the 1-click launcher for Anmeldung
+    const launchBtn = screen.getByTestId("quick-launch-de-anmeldung");
+    fireEvent.click(launchBtn);
+
+    await waitFor(() => {
+      expect(createSession).toHaveBeenCalledWith("ver-anmeldung-1", "tr", "de");
+    });
+    expect(getSessionToken("sess-quick-123")).toBe("tok-secret-xyz");
+    expect(pushMock).toHaveBeenCalledWith("/application/session/sess-quick-123");
+  });
+
+  it("renders gracefully with upload fallback when published forms request fails", async () => {
+    vi.mocked(getPublishedForms).mockRejectedValue(new Error("unavailable"));
+
+    renderHome();
+
+    await waitFor(() => {
+      expect(getPublishedForms).toHaveBeenCalledTimes(1);
+    });
+
+    // Upload CTA remains accessible even if catalog fetch fails
+    expect(
+      screen.getAllByRole("link", { name: /Launch Form Assistant/i })[0],
+    ).toHaveAttribute("href", "/application");
+  });
 });

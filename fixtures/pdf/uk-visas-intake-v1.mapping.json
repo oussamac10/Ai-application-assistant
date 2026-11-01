@@ -1,0 +1,64 @@
+{
+  "templateKey": "uk-visas-intake-v1",
+  "formVersionKey": "uk-visas-intake:1",
+  "mappingVersion": 1,
+  "strategy": "acroform",
+  "fields": [
+    {
+      "fieldKey": "family_name",
+      "pdfFieldName": "uk_visas_intake_family_name",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "given_names",
+      "pdfFieldName": "uk_visas_intake_given_names",
+      "format": "person_name",
+      "maxLength": 60,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "date_of_birth",
+      "pdfFieldName": "uk_visas_intake_date_of_birth",
+      "format": "date",
+      "maxLength": 10,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "nationality",
+      "pdfFieldName": "uk_visas_intake_nationality",
+      "format": "country",
+      "maxLength": 2,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "current_address",
+      "pdfFieldName": "uk_visas_intake_current_address",
+      "format": "string",
+      "maxLength": 120,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "contact_email",
+      "pdfFieldName": "uk_visas_intake_contact_email",
+      "format": "email",
+      "maxLength": 80,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "contact_phone",
+      "pdfFieldName": "uk_visas_intake_contact_phone",
+      "format": "string",
+      "maxLength": 30,
+      "overflow": "truncate"
+    },
+    {
+      "fieldKey": "visa_route",
+      "pdfFieldName": "uk_visas_intake_visa_route",
+      "format": "string",
+      "maxLength": 100,
+      "overflow": "truncate"
+    }
+  ]
+}

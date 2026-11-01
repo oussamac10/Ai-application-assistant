@@ -353,3 +353,24 @@ async def test_review_metadata_persisted_without_sensitive_data(tmp_path: Path) 
         assert token not in serialized
     finally:
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_prepare_output_language_independent_of_user_language(
+    tmp_path: Path,
+) -> None:
+    """Output language differing from both source and user language must publish
+    cleanly without triggering SessionService unsupported-output-language errors."""
+    db, doc, token = _upload(tmp_path, "digital.pdf", _create_digital_pdf)
+    try:
+        service = PrepareQuestionsService(
+            db,
+            ai_provider=MockAIProvider(),
+            field_detection_provider=MockFieldDetectionProvider(),
+        )
+        result = await service.prepare(doc.public_id, token, "fr", "de")
+        assert result.status == "ready"
+        assert result.session is not None
+        assert result.session.output_language == "de"
+    finally:
+        db.close()

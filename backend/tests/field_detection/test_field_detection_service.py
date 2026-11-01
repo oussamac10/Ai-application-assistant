@@ -311,3 +311,32 @@ def test_reject_field_marks_rejected_without_deleting(tmp_path: Path) -> None:
         assert any(f.public_id == field_id for f in refreshed.fields)
     finally:
         db.close()
+
+
+def test_candidate_and_bounding_box_schema_invariants() -> None:
+    from app.field_detection.providers.base import BoundingBox, DetectedFieldCandidate
+
+    with pytest.raises(ValueError):
+        BoundingBox(x=0, y=0, width=-1, height=10)
+
+    with pytest.raises(ValueError):
+        DetectedFieldCandidate(
+            candidate_key="k",
+            page_number=1,
+            label="x",
+            normalized_name="x",
+            field_type="not_a_real_type",
+            confidence=0.5,
+            source="native",
+        )
+
+    with pytest.raises(ValueError):
+        DetectedFieldCandidate(
+            candidate_key="k",
+            page_number=1,
+            label="x",
+            normalized_name="x",
+            field_type="text",
+            confidence=1.5,
+            source="native",
+        )

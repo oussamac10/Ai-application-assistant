@@ -238,3 +238,113 @@ def test_application_not_visible_to_other_user(published_form_version: str) -> N
     assert detail.status_code == 404
     listing = other_client.get("/api/applications")
     assert listing.json() == []
+
+
+def test_application_progress_matches_guided_session_confirmed_answers() -> None:
+    """Regression: an 8-field form (7 required + 1 optional) with 6 confirmed
+    answers has current_field_position == 7 (standing on Question 7) and
+    guided-session progress == 75%. /api/applications, /api/applications/{id},
+    and /api/form-sessions/{id} must also report 75% (not 7/7 == 100%), must
+    report 0% on Question 1 before answering, and must stay 75% when stepping
+    backward."""
+    db = SessionLocal()
+    try:
+        form_svc = FormService(db)
+        tpl = form_svc.create_template(
+            key="eight-field-progress-form",
+            name="Eight Field Progress Form",
+        )
+        ver = form_svc.create_draft_version(
+            form_template_id=tpl.id,
+            source_language="en",
+            supported_output_languages=["en"],
+        )
+        for pos in range(1, 9):
+            is_required = pos <= 7
+            form_svc.add_field_to_draft(
+                ver.id,
+                FieldCreate(
+                    key=f"field_{pos}",
+                    field_type="string",
+                    required=is_required,
+                    requiredness="required" if is_required else "optional",
+                    position=pos,
+                    translations=[
+                        TranslationSchema(language="en", label=f"Question {pos}")
+                    ],
+                ),
+            )
+        form_svc.publish_version(ver.id)
+        version_id = ver.id
+    finally:
+        db.close()
+
+    session_id, token = _create_anonymous_session(client, version_id)
+    _register(client, email="progress-owner@example.com")
+    csrf = _csrf(client)
+    claimed = client.post(
+        "/api/applications/claim",
+        json={"sessionId": session_id, "sessionToken": token},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert claimed.status_code == 200
+
+    started = client.post(
+        f"/api/form-sessions/{session_id}/start",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert started.status_code == 200
+
+    # Question 1 (0 answers given, current_field_position becomes 1): both
+    # guided session and /api/applications must report 0%.
+    first_field = client.get(f"/api/form-sessions/{session_id}/current-field")
+    assert first_field.status_code == 200
+    assert first_field.json()["progress"]["percentage"] == 0
+
+    initial_list = client.get("/api/applications").json()
+    assert initial_list[0]["progressPercentage"] == 0
+
+    # Confirm 6 of 8 fields -> cursor moves to position 7 (Question 7).
+    for idx in range(1, 7):
+        cur = client.get(f"/api/form-sessions/{session_id}/current-field")
+        assert cur.status_code == 200
+        field_id = cur.json()["id"]
+        sub = client.post(
+            f"/api/form-sessions/{session_id}/answers",
+            json={"fieldId": field_id, "originalAnswer": f"Value {idx}"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert sub.status_code == 201
+        if sub.json()["status"] != "confirmed":
+            answer_id = sub.json()["id"]
+            conf = client.post(
+                f"/api/form-sessions/{session_id}/answers/{answer_id}/confirm",
+                headers={"X-CSRF-Token": csrf},
+            )
+            assert conf.status_code == 200
+
+    # Standing on Question 7: guided session reports 75% (6/8).
+    seventh_field = client.get(f"/api/form-sessions/{session_id}/current-field")
+    assert seventh_field.status_code == 200
+    assert seventh_field.json()["progress"]["percentage"] == 75
+
+    listing = client.get("/api/applications")
+    assert listing.status_code == 200
+    assert listing.json()[0]["progressPercentage"] == 75
+
+    detail = client.get(f"/api/applications/{session_id}")
+    assert detail.status_code == 200
+    assert detail.json()["progressPercentage"] == 75
+
+    sess_read = client.get(f"/api/form-sessions/{session_id}")
+    assert sess_read.status_code == 200
+    assert sess_read.json()["progressPercentage"] == 75
+
+    # Stepping back to Question 6 must NOT shrink progress below 75%.
+    step_back = client.post(
+        f"/api/form-sessions/{session_id}/previous-field",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert step_back.status_code == 200
+    assert step_back.json()["progress"]["percentage"] == 75
+    assert client.get("/api/applications").json()[0]["progressPercentage"] == 75

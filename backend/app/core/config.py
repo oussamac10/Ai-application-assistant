@@ -233,6 +233,14 @@ class Settings(BaseSettings):
     PASSWORD_RESET_TTL_MINUTES: int = 60
     VAULT_ENCRYPTION_KEY: str | None = None
 
+    # Stripe B2B/B2G Billing
+    STRIPE_SECRET_KEY: str | None = None
+    STRIPE_PUBLISHABLE_KEY: str | None = None
+    STRIPE_WEBHOOK_SECRET: str | None = None
+    STRIPE_PRICE_AGENCY_PRO: str | None = None
+    STRIPE_PRICE_ENTERPRISE: str | None = None
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
+
     @property
     def admin_emails_set(self) -> set[str]:
         return {

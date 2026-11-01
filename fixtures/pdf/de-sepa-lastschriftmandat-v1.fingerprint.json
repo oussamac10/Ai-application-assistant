@@ -1,0 +1,27 @@
+{
+  "templateKey": "de-sepa-lastschriftmandat-v1",
+  "formKey": "de-sepa-lastschriftmandat",
+  "formVersion": 1,
+  "pageCount": 1,
+  "pageSizes": [
+    {
+      "width": 595.28,
+      "height": 841.89,
+      "tolerance": 5.0
+    }
+  ],
+  "requiredAcroFormFields": [
+    "de_sepa_lastschriftmandat_first_name",
+    "de_sepa_lastschriftmandat_last_name",
+    "de_sepa_lastschriftmandat_street",
+    "de_sepa_lastschriftmandat_postal_code",
+    "de_sepa_lastschriftmandat_city",
+    "de_sepa_lastschriftmandat_country",
+    "de_sepa_lastschriftmandat_iban",
+    "de_sepa_lastschriftmandat_email"
+  ],
+  "optionalTextMarkers": [
+    "Formular-Kennung: DE-SEPA-LASTSCHRIFTMANDAT-V1",
+    "SEPA-Lastschriftmandat"
+  ]
+}

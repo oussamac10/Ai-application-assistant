@@ -14,7 +14,6 @@ import {
   submitClarification,
   confirmAnswer,
   previousField,
-  changeAnswer,
   CurrentField,
   AnswerResponse,
 } from "@/features/form-session/services/apiClient";
@@ -33,11 +32,12 @@ import {
   SignaturePad,
   SignatureValue,
 } from "@/features/form-session/components/SignaturePad";
-import {
-  formatOriginalAnswer,
-  formatProposedValue,
-} from "@/features/form-session/utils/formatProposedValue";
+import { formatProposedValue } from "@/features/form-session/utils/formatProposedValue";
 import { formatFieldLabel } from "@/features/form-session/utils/formatFieldLabel";
+import { SessionContextSidebar } from "@/features/form-session/components/SessionContextSidebar";
+import { SessionClarificationPanel } from "@/features/form-session/components/SessionClarificationPanel";
+import { SessionConfirmationPanel } from "@/features/form-session/components/SessionConfirmationPanel";
+import { SessionFieldExplanation } from "@/features/form-session/components/SessionFieldExplanation";
 import ClaimBanner from "@/features/applications/components/ClaimBanner";
 import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { prefillSessionFromVault } from "@/features/profile-vault/services/vaultClient";
@@ -69,12 +69,15 @@ export default function GuidedSession() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [errorIsFieldLevel, setErrorIsFieldLevel] = useState<boolean>(false);
   const [allFieldKeys, setAllFieldKeys] = useState<string[]>([]);
-  const [clarifyValues, setClarifyValues] = useState<Record<string, any>>({});
+  const [clarifyValues, setClarifyValues] = useState<Record<string, string>>({});
   const [showExplanation, setShowExplanation] = useState<boolean>(false);
   const [prefilling, setPrefilling] = useState<boolean>(false);
   const [vaultNotice, setVaultNotice] = useState<string | null>(null);
   const [pagePreviewUrls, setPagePreviewUrls] = useState<Record<number, string>>({});
   const [zoomedPreviewOpen, setZoomedPreviewOpen] = useState<boolean>(false);
+  const [signatureValue, setSignatureValue] = useState<SignatureValue | null>(
+    null,
+  );
   const pagePreviewUrlsRef = useRef<Record<number, string>>({});
 
   useEffect(() => {
@@ -139,7 +142,7 @@ export default function GuidedSession() {
         field.currentAnswerStatus &&
         field.normalizedValue &&
         typeof field.normalizedValue === "object" &&
-        Array.isArray((field.normalizedValue as any).strokes)
+        Array.isArray((field.normalizedValue as { strokes?: unknown }).strokes)
       ) {
         setSignatureValue(field.normalizedValue as SignatureValue);
       } else {
@@ -147,8 +150,9 @@ export default function GuidedSession() {
       }
 
       setStep("answering");
-    } catch (err: any) {
-      setErrorMsg(te(err.message) || "Failed to retrieve next form question.");
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : "unavailable";
+      setErrorMsg(te(code) || "Failed to retrieve next form question.");
       setStep("error");
     }
   }, [sessionId, router, te]);
@@ -181,6 +185,23 @@ export default function GuidedSession() {
     initSession();
   }, [sessionId, te, fetchNextQuestion]);
 
+  const handleAnswerTransitions = (ans: AnswerResponse) => {
+    if (ans.status === "needs_clarification") {
+      setClarifyValues({});
+      setStep("needs_clarification");
+    } else if (ans.status === "awaiting_confirmation") {
+      setStep("awaiting_confirmation");
+    } else if (ans.status === "confirmed") {
+      setStep("loading");
+      fetchNextQuestion();
+    } else if (ans.status === "draft" && ans.validationStatus === "invalid") {
+      setErrorMsg(t("invalidAnswer"));
+      setStep("answering");
+    } else {
+      setStep("answering");
+    }
+  };
+
   const handleSubmitAnswer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentField || !inputValue.trim() || step === "submitting") return;
@@ -203,23 +224,6 @@ export default function GuidedSession() {
         te(err.message) || "Failed to submit answer. Please try again.",
       );
       setErrorIsFieldLevel(err?.status === 422 || err?.status === 400);
-      setStep("answering");
-    }
-  };
-
-  const handleAnswerTransitions = (ans: AnswerResponse) => {
-    if (ans.status === "needs_clarification") {
-      setClarifyValues({});
-      setStep("needs_clarification");
-    } else if (ans.status === "awaiting_confirmation") {
-      setStep("awaiting_confirmation");
-    } else if (ans.status === "confirmed") {
-      setStep("loading");
-      fetchNextQuestion();
-    } else if (ans.status === "draft" && ans.validationStatus === "invalid") {
-      setErrorMsg(t("invalidAnswer"));
-      setStep("answering");
-    } else {
       setStep("answering");
     }
   };
@@ -277,7 +281,9 @@ export default function GuidedSession() {
       );
       await fetchNextQuestion();
     } catch {
-      setErrorMsg(te("unavailable") || "Could not pre-fill from Profile Vault.");
+      setErrorMsg(
+        te("unavailable") || "Could not pre-fill from Profile Vault.",
+      );
     } finally {
       setPrefilling(false);
     }
@@ -296,10 +302,6 @@ export default function GuidedSession() {
       setStep("answering");
     }
   };
-
-  const [signatureValue, setSignatureValue] = useState<SignatureValue | null>(
-    null,
-  );
 
   const handleSignatureSubmit = async () => {
     if (!currentField || !signatureValue || step === "submitting") return;
@@ -361,7 +363,12 @@ export default function GuidedSession() {
     if (step !== "awaiting_confirmation") return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+      ) {
+        return;
+      }
 
       if (e.key === "Enter") {
         e.preventDefault();
@@ -396,7 +403,7 @@ export default function GuidedSession() {
         prev.currentAnswerStatus &&
         prev.normalizedValue &&
         typeof prev.normalizedValue === "object" &&
-        Array.isArray((prev.normalizedValue as any).strokes)
+        Array.isArray((prev.normalizedValue as { strokes?: unknown }).strokes)
       ) {
         setSignatureValue(prev.normalizedValue as SignatureValue);
       } else {
@@ -418,12 +425,15 @@ export default function GuidedSession() {
   const rowProgress = currentField
     ? rowProgressFor(currentField.fieldKey, allFieldKeys)
     : null;
-
   const requiredness = currentField
     ? resolveRequiredness(currentField)
     : "unknown";
-
   const skippable = currentField ? canSkipQuestion(currentField) : false;
+  const isFirstField = currentField
+    ? allFieldKeys.length > 0
+      ? allFieldKeys[0] === (currentField.fieldKey || currentField.key)
+      : currentField.position <= 1
+    : true;
 
   const total =
     currentField?.progress?.totalQuestions ??
@@ -484,197 +494,16 @@ export default function GuidedSession() {
     <main className="flex min-h-[calc(100vh-3.5rem)] flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-5xl flex-1 flex flex-col justify-center py-2">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Form Context Sidebar (desktop) */}
-          <aside className="hidden lg:flex lg:col-span-4 flex-col gap-4 sticky top-20">
-            {/* Form Info Card */}
-            <div className="surface-card rounded-2xl p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                  Assisted Session
-                </span>
-                <span className="text-xs font-mono text-slate-500 tabular-nums">Step 2 of 4</span>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <svg className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Official Form Flow
-                </h3>
-                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                  Fill in your answers sequentially. Each response is standardized and verified for the official document.
-                </p>
-              </div>
-
-              <div className="border-t border-slate-200 pt-3.5 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-600">
-                  <span>Questions Completed</span>
-                  <span className="font-bold text-slate-900 tabular-nums">
-                    {completed} of {total}
-                  </span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                  <div
-                    className="h-full rounded-full bg-indigo-600 transition-all duration-300"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Live Document Field Location Preview Card */}
-            {currentField && (
-              <div
-                data-testid="document-location-preview"
-                className="surface-card rounded-2xl p-5 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
-                    <svg className="h-3.5 w-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                    </svg>
-                    Document Placement
-                  </span>
-                  <span className="rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-700 tabular-nums">
-                    Page {currentField.pageNumber ?? 1}
-                    {currentField.sourceDocumentPageCount
-                      ? ` / ${currentField.sourceDocumentPageCount}`
-                      : ""}
-                  </span>
-                </div>
-
-                {(() => {
-                  const activePage = currentField.pageNumber ?? 1;
-                  const previewUrl = pagePreviewUrls[activePage];
-                  const pageW = currentField.pageWidthPt || 595;
-                  const pageH = currentField.pageHeightPt || 842;
-                  const box = currentField.inputBoundingBox;
-
-                  const topPct = box
-                    ? Math.min(Math.max((box.y / pageH) * 100, 1), 96)
-                    : Math.min(
-                        Math.max(18 + (completed / Math.max(total, 1)) * 64, 18),
-                        82,
-                      );
-                  const leftPct = box
-                    ? Math.min(Math.max((box.x / pageW) * 100, 1), 94)
-                    : 10;
-                  const widthPct = box
-                    ? Math.min(Math.max((box.width / pageW) * 100, 2), 96 - leftPct)
-                    : 80;
-                  const heightPct = box
-                    ? Math.min(Math.max((box.height / pageH) * 100, 1.4), 30)
-                    : 5;
-
-                  if (previewUrl) {
-                    return (
-                      <div className="space-y-2">
-                        <button
-                          type="button"
-                          data-testid="enlarge-pdf-preview"
-                          onClick={() => setZoomedPreviewOpen(true)}
-                          className="group relative mx-auto block w-full overflow-hidden rounded-xl border border-slate-300 bg-white shadow-xs transition-all hover:border-indigo-500 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          title="Click to enlarge official PDF page"
-                        >
-                          <img
-                            src={previewUrl}
-                            alt={`Official PDF page ${activePage}`}
-                            className="block w-full h-auto select-none"
-                          />
-                          <div
-                            data-testid="pdf-field-highlight-box"
-                            style={{
-                              top: `${topPct}%`,
-                              left: `${leftPct}%`,
-                              width: `${widthPct}%`,
-                              height: `${heightPct}%`,
-                            }}
-                            className="pointer-events-none absolute rounded-xs border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all duration-300"
-                          />
-                          <span className="absolute bottom-2 end-2 rounded-md bg-slate-900/75 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
-                            Click to enlarge
-                          </span>
-                        </button>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="relative mx-auto h-36 w-28 rounded-lg border border-slate-300 bg-white shadow-2xs overflow-hidden p-2">
-                      <div className="h-2 w-12 rounded-xs bg-slate-300 mb-2" />
-                      <div className="space-y-1.5">
-                        <div className="h-1 w-full rounded-xs bg-slate-100" />
-                        <div className="h-1 w-5/6 rounded-xs bg-slate-100" />
-                        <div className="h-1 w-full rounded-xs bg-slate-100" />
-                        <div className="h-1 w-4/5 rounded-xs bg-slate-100" />
-                        <div className="h-1 w-full rounded-xs bg-slate-100" />
-                        <div className="h-1 w-3/4 rounded-xs bg-slate-100" />
-                      </div>
-                      <div
-                        style={{
-                          top: `${topPct}%`,
-                          left: `${leftPct}%`,
-                          width: `${widthPct}%`,
-                        }}
-                        className="absolute h-4 rounded-xs border-2 border-indigo-600 bg-indigo-500/20 flex items-center px-1 transition-all duration-300"
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" />
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <p className="text-[11px] text-slate-600 leading-snug text-center">
-                  {currentField.sourceDocumentFilename ? (
-                    <>
-                      Mapped to{" "}
-                      <span className="font-semibold text-slate-800">
-                        {currentField.sourceDocumentFilename}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      Active field{" "}
-                      <span className="font-mono font-semibold text-slate-800">
-                        #{completed + 1}
-                      </span>{" "}
-                      on official PDF template
-                    </>
-                  )}
-                </p>
-              </div>
-            )}
-
-            {/* Multilingual Normalization Guidance Card */}
-            <div className="surface-card rounded-2xl p-5 space-y-2">
-              <div className="flex items-center gap-2 text-indigo-600">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                </svg>
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
-                  Multilingual Normalization
-                </h4>
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Answer in your own language. Your original wording is preserved while canonical dates, currencies, and choices are formatted for the target form.
-              </p>
-            </div>
-
-            {/* Privacy Card */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3 shadow-2xs">
-              <div className="h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <div className="text-xs text-slate-600 leading-snug">
-                <span className="font-semibold text-slate-900 block">Zero-Retention Guarantee</span>
-                Your session is temporary and protected by ownership credentials.
-              </div>
-            </div>
-          </aside>
+          <SessionContextSidebar
+            currentField={currentField}
+            completed={completed}
+            total={total}
+            progressPercent={progressPercent}
+            pagePreviewUrls={pagePreviewUrls}
+            zoomedPreviewOpen={zoomedPreviewOpen}
+            onOpenZoom={() => setZoomedPreviewOpen(true)}
+            onCloseZoom={() => setZoomedPreviewOpen(false)}
+          />
 
           {/* Right Column: Active Guided Form Card */}
           <div className="lg:col-span-8 flex flex-col justify-center w-full">
@@ -730,278 +559,46 @@ export default function GuidedSession() {
                       role="alert"
                       className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-center gap-3"
                     >
-                      <svg className="h-4 w-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      <svg
+                        className="h-4 w-4 text-rose-600 shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
                       </svg>
                       <span>{errorMsg}</span>
                     </div>
                   )}
 
-                  {/* 1. Clarification Form */}
-                  {step === "needs_clarification" && lastAnswer?.clarification && (
-                    <form onSubmit={handleClarifySubmit} className="space-y-6">
-                      <div className="space-y-1">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
-                          Clarification Needed
-                        </div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-2">
-                          {t("clarificationTitle")}
-                        </h2>
-                        <p className="text-sm text-slate-600">
-                          {t("clarificationSubtitle")}
-                        </p>
-                      </div>
+                  {step === "needs_clarification" &&
+                    lastAnswer?.clarification && (
+                      <SessionClarificationPanel
+                        currentField={currentField}
+                        lastAnswer={lastAnswer}
+                        inputValue={inputValue}
+                        clarifyValues={clarifyValues}
+                        onClarifyValuesChange={setClarifyValues}
+                        onSubmit={handleClarifySubmit}
+                        onEdit={handleEditClick}
+                      />
+                    )}
 
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-1.5 text-start">
-                        <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
-                          {t("originalAnswerLabel")}
-                        </p>
-                        <p className="text-sm text-slate-900 font-medium">
-                          &ldquo;
-                          {formatOriginalAnswer(
-                            inputValue,
-                            currentField?.fieldType,
-                            currentField?.options
-                          )}
-                          &rdquo;
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        {lastAnswer.clarification.missing.map((key) => {
-                          const isSentenceReason =
-                            key.includes(" ") && key.length > 25;
-                          return (
-                            <div key={key} className="space-y-2 text-start">
-                              {isSentenceReason ? (
-                                <>
-                                  <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900">
-                                    {key}
-                                  </p>
-                                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                                    {currentField?.label || t("yourAnswerLabel")}
-                                  </label>
-                                </>
-                              ) : (
-                                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                                  {key.replace(/_/g, " ")}
-                                </label>
-                              )}
-                              {key === "currency" ? (
-                                <div className="relative">
-                                  <select
-                                    className="input-field pe-10 appearance-none"
-                                    value={clarifyValues[key] || ""}
-                                    onChange={(e) =>
-                                      setClarifyValues({
-                                        ...clarifyValues,
-                                        [key]: e.target.value,
-                                      })
-                                    }
-                                    required
-                                  >
-                                    <option value="" disabled className="bg-white text-slate-400">
-                                      Select currency...
-                                    </option>
-                                    <option value="EUR" className="bg-white text-slate-900">EUR (€)</option>
-                                    <option value="USD" className="bg-white text-slate-900">USD ($)</option>
-                                    <option value="GBP" className="bg-white text-slate-900">GBP (£)</option>
-                                  </select>
-                                  <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
-                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                  </div>
-                                </div>
-                              ) : key === "period" ? (
-                                <div className="relative">
-                                  <select
-                                    className="input-field pe-10 appearance-none"
-                                    value={clarifyValues[key] || ""}
-                                    onChange={(e) =>
-                                      setClarifyValues({
-                                        ...clarifyValues,
-                                        [key]: e.target.value,
-                                      })
-                                    }
-                                    required
-                                  >
-                                    <option value="" disabled className="bg-white text-slate-400">
-                                      Select frequency...
-                                    </option>
-                                    <option value="monthly" className="bg-white text-slate-900">Monthly</option>
-                                    <option value="yearly" className="bg-white text-slate-900">Yearly</option>
-                                    <option value="weekly" className="bg-white text-slate-900">Weekly</option>
-                                  </select>
-                                  <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
-                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                  </div>
-                                </div>
-                              ) : (
-                                <input
-                                  type="text"
-                                  className="input-field"
-                                  value={clarifyValues[key] || ""}
-                                  onChange={(e) =>
-                                    setClarifyValues({
-                                      ...clarifyValues,
-                                      [key]: e.target.value,
-                                    })
-                                  }
-                                  required
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="flex gap-3 pt-2">
-                        <button
-                          type="button"
-                          onClick={handleEditClick}
-                          className="btn-secondary flex-1 py-3.5 text-sm font-medium"
-                        >
-                          {tc("edit")}
-                        </button>
-                        <button
-                          type="submit"
-                          className="btn-primary flex-1 py-3.5 text-sm font-semibold"
-                        >
-                          {tc("submit")}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-
-                  {/* 2. Normalization Confirmation Screen */}
                   {step === "awaiting_confirmation" && lastAnswer && (
-                    <div className="space-y-6">
-                      <div className="space-y-1">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                          <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
-                          Value Standardized
-                        </div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mt-2">
-                          {t("confirmTitle")}
-                        </h2>
-                        <p className="text-xs text-slate-600">
-                          Please confirm that the standardized value matches your intention
-                        </p>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-1.5 text-start">
-                          <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
-                            {t("originalAnswerLabel")}
-                          </p>
-                          <p className="text-sm text-slate-800 font-medium">
-                            &ldquo;
-                            {currentField?.fieldType === "signature"
-                              ? formatOriginalAnswer(
-                                  inputValue,
-                                  currentField?.fieldType,
-                                  currentField?.options
-                                ) || "Hand-drawn signature"
-                              : formatOriginalAnswer(
-                                  inputValue,
-                                  currentField?.fieldType,
-                                  currentField?.options
-                                )}
-                            &rdquo;
-                          </p>
-                        </div>
-
-                        <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-5 space-y-2 text-start">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] uppercase font-bold text-indigo-700 tracking-wider">
-                              {t("proposedValueLabel")}
-                            </p>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                              </svg>
-                              Ready for Form
-                            </span>
-                          </div>
-                          {currentField?.fieldType === "signature" &&
-                          lastAnswer.normalizedValue &&
-                          typeof lastAnswer.normalizedValue === "object" &&
-                          Array.isArray(
-                            (lastAnswer.normalizedValue as any).strokes
-                          ) ? (
-                            <div className="space-y-2 pt-1">
-                              <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                                <svg
-                                  viewBox={`0 0 ${(lastAnswer.normalizedValue as any).width || 600} ${(lastAnswer.normalizedValue as any).height || 200}`}
-                                  className="h-24 w-full"
-                                  aria-label="Signature preview"
-                                >
-                                  {(
-                                    (lastAnswer.normalizedValue as any)
-                                      .strokes as Array<Array<[number, number]>>
-                                  ).map((stroke, idx) =>
-                                    stroke.length > 0 ? (
-                                      <polyline
-                                        key={idx}
-                                        fill="none"
-                                        stroke="#0f172a"
-                                        strokeWidth={2.75}
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        points={stroke
-                                          .map(([x, y]) => `${x},${y}`)
-                                          .join(" ")}
-                                      />
-                                    ) : null
-                                  )}
-                                </svg>
-                              </div>
-                              <p className="text-xs font-medium text-slate-600">
-                                {formatProposedValue(
-                                  lastAnswer.normalizedValue,
-                                  lastAnswer.outputValue,
-                                  currentField?.fieldType
-                                )}
-                              </p>
-                            </div>
-                          ) : (
-                            <p className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                              {formatProposedValue(
-                                lastAnswer.normalizedValue,
-                                lastAnswer.outputValue,
-                                currentField?.fieldType
-                              )}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3 pt-2">
-                        <button
-                          type="button"
-                          onClick={handleEditClick}
-                          className="btn-secondary flex-1 py-3.5 text-sm font-medium"
-                        >
-                          <span>{tc("edit")}</span>
-                          <kbd className="hidden sm:inline-block rounded bg-slate-100 border border-slate-300 px-1.5 py-0.5 text-[10px] font-mono text-slate-600">Esc</kbd>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleConfirmClick}
-                          className="btn-primary flex-1 py-3.5 text-sm font-semibold"
-                        >
-                          <span>{tc("confirm")}</span>
-                          <kbd className="hidden sm:inline-block rounded bg-indigo-700 border border-indigo-500 px-1.5 py-0.5 text-[10px] font-mono text-indigo-100">↵ Enter</kbd>
-                        </button>
-                      </div>
-                    </div>
+                    <SessionConfirmationPanel
+                      currentField={currentField}
+                      lastAnswer={lastAnswer}
+                      inputValue={inputValue}
+                      onEdit={handleEditClick}
+                      onConfirm={handleConfirmClick}
+                    />
                   )}
 
-                  {/* 3. Primary Answering Flow */}
                   {(step === "answering" || step === "submitting") && (
                     <form onSubmit={handleSubmitAnswer} className="space-y-6">
                       <div className="space-y-2 text-start">
@@ -1028,7 +625,10 @@ export default function GuidedSession() {
                           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
                             {formatFieldLabel(currentField.label)}
                             {requiredness === "required" && (
-                              <span className="ms-1 text-rose-600" aria-hidden="true">
+                              <span
+                                className="ms-1 text-rose-600"
+                                aria-hidden="true"
+                              >
                                 *
                               </span>
                             )}
@@ -1050,68 +650,11 @@ export default function GuidedSession() {
                         </div>
 
                         {currentField.fieldExplanation && (
-                          <div className="pt-1">
-                            <button
-                              type="button"
-                              data-testid="toggle-field-explanation"
-                              aria-expanded={showExplanation}
-                              onClick={() => setShowExplanation((prev) => !prev)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100/80"
-                            >
-                              <svg
-                                className="h-3.5 w-3.5 text-indigo-600 shrink-0"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
-                              <span>
-                                {showExplanation
-                                  ? t("hideExplainButton")
-                                  : t("explainButton")}
-                              </span>
-                            </button>
-
-                            {showExplanation && (
-                              <div
-                                data-testid="field-explanation-panel"
-                                className="mt-3 rounded-xl border border-indigo-200/80 bg-indigo-50/50 p-4 space-y-3 text-start"
-                              >
-                                <div>
-                                  <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
-                                    {t("whatThisMeans")}
-                                  </p>
-                                  <p className="mt-0.5 text-xs leading-relaxed text-slate-800">
-                                    {currentField.fieldExplanation.summary}
-                                  </p>
-                                </div>
-                                <div className="border-t border-indigo-200/60 pt-2.5">
-                                  <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
-                                    {t("whereToFindIt")}
-                                  </p>
-                                  <p className="mt-0.5 text-xs leading-relaxed text-slate-700">
-                                    {currentField.fieldExplanation.whereToFind}
-                                  </p>
-                                </div>
-                                {currentField.fieldExplanation.example && (
-                                  <div className="border-t border-indigo-200/60 pt-2.5 flex items-center gap-2">
-                                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
-                                      {t("exampleAnswer")}:
-                                    </span>
-                                    <code className="rounded bg-white border border-indigo-200 px-2 py-0.5 text-xs font-mono font-semibold text-slate-900">
-                                      {currentField.fieldExplanation.example}
-                                    </code>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <SessionFieldExplanation
+                            explanation={currentField.fieldExplanation}
+                            open={showExplanation}
+                            onToggle={() => setShowExplanation((prev) => !prev)}
+                          />
                         )}
                       </div>
 
@@ -1127,7 +670,9 @@ export default function GuidedSession() {
                             "pending_manual_signature"
                           }
                           disabled={step === "submitting"}
-                          error={errorIsFieldLevel ? errorMsg || undefined : undefined}
+                          error={
+                            errorIsFieldLevel ? errorMsg || undefined : undefined
+                          }
                         />
                       ) : (
                         <FieldRenderer
@@ -1186,13 +731,23 @@ export default function GuidedSession() {
                         <button
                           type="button"
                           disabled={
-                            currentField.position === 1 || step === "submitting"
+                            isFirstField || step === "submitting"
                           }
                           onClick={handleBackClick}
                           className="btn-secondary flex-1 py-3.5 text-sm font-medium"
                         >
-                          <svg className="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          <svg
+                            className="h-4 w-4 rtl:rotate-180"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 19l-7-7 7-7"
+                            />
                           </svg>
                           <span>{tc("back")}</span>
                         </button>
@@ -1225,10 +780,24 @@ export default function GuidedSession() {
                           }
                           className="btn-primary flex-1 py-3.5 text-sm font-semibold"
                         >
-                          <span>{step === "submitting" ? tc("loading") : tc("continue")}</span>
+                          <span>
+                            {step === "submitting"
+                              ? tc("loading")
+                              : tc("continue")}
+                          </span>
                           {step !== "submitting" && (
-                            <svg className="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            <svg
+                              className="h-4 w-4 rtl:rotate-180"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
                             </svg>
                           )}
                         </button>
@@ -1241,83 +810,6 @@ export default function GuidedSession() {
           </div>
         </div>
       </div>
-
-      {/* Full-Resolution PDF Page Zoom Modal */}
-      {zoomedPreviewOpen &&
-        currentField &&
-        pagePreviewUrls[currentField.pageNumber ?? 1] && (
-          <div
-            data-testid="pdf-preview-modal"
-            onClick={() => setZoomedPreviewOpen(false)}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-            >
-              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
-                <div className="space-y-0.5 text-start">
-                  <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">
-                    Official Document Placement • Page {currentField.pageNumber ?? 1}
-                  </p>
-                  <p className="text-sm font-bold text-slate-900 truncate">
-                    {currentField.label}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setZoomedPreviewOpen(false)}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                >
-                  Close
-                </button>
-              </div>
-              <div className="overflow-y-auto p-4 sm:p-6 bg-slate-100/70">
-                {(() => {
-                  const activePage = currentField.pageNumber ?? 1;
-                  const previewUrl = pagePreviewUrls[activePage];
-                  const pageW = currentField.pageWidthPt || 595;
-                  const pageH = currentField.pageHeightPt || 842;
-                  const box = currentField.inputBoundingBox;
-                  const topPct = box
-                    ? Math.min(Math.max((box.y / pageH) * 100, 1), 96)
-                    : 20;
-                  const leftPct = box
-                    ? Math.min(Math.max((box.x / pageW) * 100, 1), 94)
-                    : 10;
-                  const widthPct = box
-                    ? Math.min(
-                        Math.max((box.width / pageW) * 100, 2),
-                        96 - leftPct,
-                      )
-                    : 80;
-                  const heightPct = box
-                    ? Math.min(Math.max((box.height / pageH) * 100, 1.4), 30)
-                    : 5;
-
-                  return (
-                    <div className="relative mx-auto w-fit h-fit rounded-lg border border-slate-300 bg-white shadow-md">
-                      <img
-                        src={previewUrl}
-                        alt={`Official PDF page ${activePage} enlarged`}
-                        className="block max-w-full h-auto rounded-lg select-none"
-                      />
-                      <div
-                        style={{
-                          top: `${topPct}%`,
-                          left: `${leftPct}%`,
-                          width: `${widthPct}%`,
-                          height: `${heightPct}%`,
-                        }}
-                        className="pointer-events-none absolute rounded-xs border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_4px_rgba(79,70,229,0.28)]"
-                      />
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-        )}
     </main>
   );
 }
