@@ -305,7 +305,9 @@
     "key_address_postal_code": "Code postal",
     "key_address_city": "Ville",
     "key_address_country": "Pays (Code ISO, ex. FR)",
-    "key_finance_iban": "IBAN"
+    "key_finance_iban": "IBAN",
+    "allFieldsSaved": "Tous les champs de profil sont complétés dans votre coffre-fort",
+    "allFieldsSavedDesc": "Vos données d'identité réutilisables sont stockées en toute sécurité et chiffrées. Pour mettre à jour une valeur, supprimez-la ci-dessus et saisissez-la à nouveau."
   },
   "applications": {
     "title": "Mes demandes",

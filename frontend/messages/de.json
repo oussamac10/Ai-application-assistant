@@ -305,7 +305,9 @@
     "key_address_postal_code": "Postleitzahl",
     "key_address_city": "Ort / Stadt",
     "key_address_country": "Land (ISO-Code, z. B. DE)",
-    "key_finance_iban": "IBAN"
+    "key_finance_iban": "IBAN",
+    "allFieldsSaved": "Alle Profildaten sind in Ihrem Tresor vollständig hinterlegt",
+    "allFieldsSavedDesc": "Ihre wiederverwendbaren Daten sind sicher verschlüsselt hinterlegt. Um einen Wert zu ändern, entfernen Sie den Eintrag oben und erfassen ihn neu."
   },
   "applications": {
     "title": "Meine Anträge",

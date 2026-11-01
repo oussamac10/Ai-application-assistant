@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import {
   Briefcase,
   Building2,
+  CheckCircle2,
   ExternalLink,
   Landmark,
   Plus,
@@ -60,7 +61,7 @@ const VAULT_FIELD_CATALOG: Array<{
     ltr: true,
   },
   {
-    key: "person.nationality",
+    key: "personal.nationality",
     labelKey: "key_person_nationality",
     fieldType: "country",
     placeholder: "DE",
@@ -150,12 +151,36 @@ export default function AccountSettingsPage() {
   const [creatingOrg, setCreatingOrg] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const availableVaultFields = useMemo(() => {
+    return VAULT_FIELD_CATALOG.filter(
+      (cat) =>
+        !vaultEntries.some(
+          (entry) =>
+            entry.questionKey === cat.key ||
+            (cat.key === "personal.nationality" &&
+              entry.questionKey === "person.nationality") ||
+            (cat.key === "person.nationality" &&
+              entry.questionKey === "personal.nationality"),
+        ),
+    );
+  }, [vaultEntries]);
+
   const activeFieldMeta = useMemo(
     () =>
-      VAULT_FIELD_CATALOG.find((item) => item.key === selectedKey) ??
+      availableVaultFields.find((item) => item.key === selectedKey) ??
+      availableVaultFields[0] ??
       VAULT_FIELD_CATALOG[0],
-    [selectedKey],
+    [availableVaultFields, selectedKey],
   );
+
+  useEffect(() => {
+    if (availableVaultFields.length > 0) {
+      if (!availableVaultFields.some((f) => f.key === selectedKey)) {
+        setSelectedKey(availableVaultFields[0].key);
+        setEntryValue("");
+      }
+    }
+  }, [availableVaultFields, selectedKey]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -353,7 +378,14 @@ export default function AccountSettingsPage() {
   };
 
   const labelForVaultKey = (questionKey: string) => {
-    const found = VAULT_FIELD_CATALOG.find((item) => item.key === questionKey);
+    const found = VAULT_FIELD_CATALOG.find(
+      (item) =>
+        item.key === questionKey ||
+        (item.key === "personal.nationality" &&
+          questionKey === "person.nationality") ||
+        (item.key === "person.nationality" &&
+          questionKey === "personal.nationality"),
+    );
     return found ? tVault(found.labelKey) : questionKey;
   };
 
@@ -598,86 +630,102 @@ export default function AccountSettingsPage() {
           </div>
         )}
 
-        {/* Aligned Control Bar for Adding / Updating a Vault Field */}
-        <form
-          onSubmit={handleSaveVaultEntry}
-          className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-4"
-        >
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
-            <div className="space-y-1.5 md:col-span-4">
-              <label
-                htmlFor="vault-key-select"
-                className="block text-xs font-semibold text-slate-700"
-              >
-                {tVault("fieldLabel")}
-              </label>
-              <div className="relative">
-                <select
-                  id="vault-key-select"
-                  data-testid="vault-key-select"
-                  value={selectedKey}
-                  onChange={(e) => setSelectedKey(e.target.value)}
-                  className="input-field h-11 cursor-pointer appearance-none bg-white py-0 pe-10 text-sm font-medium text-slate-900"
-                >
-                  {VAULT_FIELD_CATALOG.map((item) => (
-                    <option key={item.key} value={item.key}>
-                      {tVault(item.labelKey)}
-                    </option>
-                  ))}
-                </select>
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 end-0 flex items-center pe-3.5 text-slate-500"
-                >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </span>
-              </div>
+        {availableVaultFields.length === 0 ? (
+          <div className="flex items-center gap-3.5 rounded-xl border border-emerald-200/80 bg-emerald-50/70 p-4 text-emerald-900">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+              <CheckCircle2 className="h-5 w-5" />
             </div>
-
-            <div className="space-y-1.5 md:col-span-5">
-              <label
-                htmlFor="vault-value-input"
-                className="block text-xs font-semibold text-slate-700"
-              >
-                {tVault("valueLabel")}
-              </label>
-              <input
-                id="vault-value-input"
-                data-testid="vault-value-input"
-                type="text"
-                value={entryValue}
-                onChange={(e) => setEntryValue(e.target.value)}
-                placeholder={activeFieldMeta.placeholder}
-                data-ltr={activeFieldMeta.ltr ? "true" : undefined}
-                required
-                className="input-field h-11 bg-white py-0 text-sm"
-              />
-            </div>
-
-            <div className="md:col-span-3">
-              <button
-                type="submit"
-                data-testid="vault-save-entry-btn"
-                disabled={!entryValue.trim() || savingEntry}
-                className="btn-primary h-11 w-full px-4 py-0 text-sm font-semibold"
-              >
-                {tVault("saveEntry")}
-              </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-emerald-950">
+                {tVault("allFieldsSaved")}
+              </p>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                {tVault("allFieldsSavedDesc")}
+              </p>
             </div>
           </div>
-        </form>
+        ) : (
+          /* Aligned Control Bar for Adding / Updating a Vault Field */
+          <form
+            onSubmit={handleSaveVaultEntry}
+            className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-4"
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
+              <div className="space-y-1.5 md:col-span-4">
+                <label
+                  htmlFor="vault-key-select"
+                  className="block text-xs font-semibold text-slate-700"
+                >
+                  {tVault("fieldLabel")}
+                </label>
+                <div className="relative">
+                  <select
+                    id="vault-key-select"
+                    data-testid="vault-key-select"
+                    value={selectedKey}
+                    onChange={(e) => setSelectedKey(e.target.value)}
+                    className="input-field h-11 cursor-pointer appearance-none bg-white py-0 pe-10 text-sm font-medium text-slate-900"
+                  >
+                    {availableVaultFields.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {tVault(item.labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 end-0 flex items-center pe-3.5 text-slate-500"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 md:col-span-5">
+                <label
+                  htmlFor="vault-value-input"
+                  className="block text-xs font-semibold text-slate-700"
+                >
+                  {tVault("valueLabel")}
+                </label>
+                <input
+                  id="vault-value-input"
+                  data-testid="vault-value-input"
+                  type="text"
+                  value={entryValue}
+                  onChange={(e) => setEntryValue(e.target.value)}
+                  placeholder={activeFieldMeta.placeholder}
+                  data-ltr={activeFieldMeta.ltr ? "true" : undefined}
+                  required
+                  className="input-field h-11 bg-white py-0 text-sm"
+                />
+              </div>
+
+              <div className="md:col-span-3">
+                <button
+                  type="submit"
+                  data-testid="vault-save-entry-btn"
+                  disabled={!entryValue.trim() || savingEntry}
+                  className="btn-primary h-11 w-full px-4 py-0 text-sm font-semibold"
+                >
+                  {tVault("saveEntry")}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
       </section>
 
       {/* 3. GDPR Art. 20 Data Portability & Art. 17 Right to Erasure */}

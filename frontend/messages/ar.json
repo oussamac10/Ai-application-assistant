@@ -305,7 +305,9 @@
     "key_address_postal_code": "الرمز البريدي",
     "key_address_city": "المدينة",
     "key_address_country": "الدولة (رمز ISO، مثل DE)",
-    "key_finance_iban": "رقم الآيبان (IBAN)"
+    "key_finance_iban": "رقم الآيبان (IBAN)",
+    "allFieldsSaved": "تم استكمال جميع حقول الملف الشخصي في الخزنة",
+    "allFieldsSavedDesc": "بيانات هويتك القابلة لإعادة الاستخدام مخزنة ومشفّرة بأمان. لتعديل أي قيمة، احذفها من القائمة أعلاه ثم أعد إدخالها."
   },
   "applications": {
     "title": "طلباتي",

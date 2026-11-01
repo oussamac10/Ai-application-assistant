@@ -305,7 +305,9 @@
     "key_address_postal_code": "Postal Code",
     "key_address_city": "City",
     "key_address_country": "Country (ISO Code, e.g. DE)",
-    "key_finance_iban": "IBAN"
+    "key_finance_iban": "IBAN",
+    "allFieldsSaved": "All profile fields are completed in your vault",
+    "allFieldsSavedDesc": "Your reusable identity details are securely stored and encrypted. To update a value, remove it from the list above and re-enter it."
   },
   "applications": {
     "title": "My Applications",

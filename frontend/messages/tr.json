@@ -305,7 +305,9 @@
     "key_address_postal_code": "Posta Kodu (PLZ)",
     "key_address_city": "Şehir",
     "key_address_country": "Ülke (ISO Kodu, ör. DE)",
-    "key_finance_iban": "IBAN"
+    "key_finance_iban": "IBAN",
+    "allFieldsSaved": "Tüm profil alanları kasanızda eksiksiz kayıtlı",
+    "allFieldsSavedDesc": "Tekrar kullanılabilir kimlik bilgileriniz güvenli ve şifreli olarak saklanmaktadır. Bir değeri güncellemek için yukarıdaki listeden kaldırıp yeniden girin."
   },
   "applications": {
     "title": "Başvurularım",

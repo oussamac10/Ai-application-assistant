@@ -150,6 +150,39 @@ describe("Phase S2 — Account Lifecycle, Profile Vault & GDPR Self-Service", ()
     });
   });
 
+  it("filters out filled fields from dropdown and displays completion banner when all fields are stored", async () => {
+    const allKeys = [
+      "personal.first_name",
+      "personal.last_name",
+      "person.date_of_birth",
+      "personal.nationality",
+      "contact.email",
+      "contact.phone",
+      "address.street",
+      "address.postal_code",
+      "address.city",
+      "address.country",
+      "finance.iban",
+    ];
+
+    listProfileVaultMock.mockResolvedValue(
+      allKeys.map((k) => ({
+        questionKey: k,
+        fieldType: "string",
+        value: "dummy",
+        normalizedValue: "dummy",
+        valueLanguage: "en",
+        updatedAt: "2026-10-26T10:00:00Z",
+      })),
+    );
+
+    const { default: AccountPage } = await import("@/app/account/page");
+    render(<AccountPage />);
+
+    expect(await screen.findByText("allFieldsSaved")).toBeTruthy();
+    expect(screen.queryByTestId("vault-key-select")).toBeNull();
+  });
+
   it("exports portable GDPR JSON data and supports permanent account erasure", async () => {
     listProfileVaultMock.mockResolvedValue([]);
     exportAccountDataMock.mockResolvedValue({

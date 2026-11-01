@@ -305,7 +305,9 @@
     "key_address_postal_code": "Código postal",
     "key_address_city": "Ciudad",
     "key_address_country": "País (código ISO, ej. DE)",
-    "key_finance_iban": "IBAN"
+    "key_finance_iban": "IBAN",
+    "allFieldsSaved": "Todos los campos del perfil están completados en su bóveda",
+    "allFieldsSavedDesc": "Sus datos de identidad reutilizables están almacenados y cifrados de forma segura. Para actualizar un valor, elimínelo arriba y vuelva a ingresarlo."
   },
   "applications": {
     "title": "Mis solicitudes",

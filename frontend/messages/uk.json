@@ -305,7 +305,9 @@
     "key_address_postal_code": "Поштовий індекс (PLZ)",
     "key_address_city": "Місто",
     "key_address_country": "Країна (код ISO, напр. DE)",
-    "key_finance_iban": "IBAN"
+    "key_finance_iban": "IBAN",
+    "allFieldsSaved": "Усі поля профілю заповнені у вашому сховищі",
+    "allFieldsSavedDesc": "Ваші персональні дані надійно збережені та зашифровані. Щоб оновити значення, видаліть його зі списку вище та введіть знову."
   },
   "applications": {
     "title": "Мої заяви",

@@ -305,7 +305,9 @@
     "key_address_postal_code": "Почтовый индекс (PLZ)",
     "key_address_city": "Город",
     "key_address_country": "Страна (код ISO, напр. DE)",
-    "key_finance_iban": "IBAN"
+    "key_finance_iban": "IBAN",
+    "allFieldsSaved": "Все данные профиля полностью сохранены в вашем хранилище",
+    "allFieldsSavedDesc": "Ваши персональные данные надежно сохранены и зашифрованы. Чтобы обновить значение, удалите его из списка выше и введите заново."
   },
   "applications": {
     "title": "Мои заявления",
