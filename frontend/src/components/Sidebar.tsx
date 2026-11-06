@@ -17,8 +17,10 @@ import {
   ShieldCheck,
   X,
   Search,
+  Landmark,
 } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthProvider";
+import { useOrganization } from "@/features/portal/context/OrganizationContext";
 import { useLanguage } from "@/features/form-session/components/LanguageProvider";
 import {
   UNIVERSAL_LANGUAGES,
@@ -32,6 +34,7 @@ interface SidebarProps {
 
 export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const { user, logout } = useAuth();
+  const { organization: org } = useOrganization();
   const { locale, setLocale } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
@@ -83,11 +86,18 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   const userDisplayHandle = user?.email.split("@")[0] || "User";
   const userInitial = userDisplayHandle.charAt(0).toUpperCase() || "U";
-  const roleDisplay = user?.organizationRole
-    ? user.organizationRole.replace(/_/g, " ")
+  const roleDisplay = org?.role
+    ? org.role.toUpperCase()
+    : user?.organizationRole
+    ? user.organizationRole.replace(/_/g, " ").toUpperCase()
     : user?.role === "platform_admin"
-    ? "Platform Admin"
-    : "Member";
+    ? "PLATFORM ADMIN"
+    : "MEMBER";
+
+  const orgName = org?.name || "Stadtverwaltung Stuttgart — Bürgeramt & Ausländerwesen";
+  const [mainTitle, subTitle] = orgName.includes("—")
+    ? orgName.split("—").map((s) => s.trim())
+    : [orgName, "Bürgeramt & Ausländerwesen"];
 
   const navLinks = [
     {
@@ -95,17 +105,17 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       items: [
         {
           href: "/portal",
-          label: "Triage Queue & Forms",
+          label: "Forms & Review Studio",
           icon: FolderKanban,
         },
       ],
     },
     {
-      group: "APPLICATIONS",
+      group: "CITIZEN SERVICES",
       items: [
         {
           href: "/application",
-          label: "New Application",
+          label: "Citizen Intake",
           icon: FilePlus,
         },
         {
@@ -120,7 +130,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       items: [
         {
           href: "/account",
-          label: "Workspace & Profile Vault",
+          label: "Authority & Profile Vault",
           icon: Settings,
         },
         ...(user?.role === "platform_admin"
@@ -140,31 +150,31 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     <div className="flex h-full flex-col justify-between bg-[#0B0F19] text-slate-200 border-e border-[#161F30]">
       {/* Top Header: Brand & Workspace */}
       <div>
-        <div className="flex h-16 items-center justify-between px-5 border-b border-[#161F30]">
-          <Link href="/" className="flex items-center gap-2.5 group" title="Return to Home">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#6551f3] text-white shadow-xs group-hover:bg-[#523ee8] transition-colors">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        <div className="flex h-16 items-center justify-between px-4 border-b border-[#161F30]">
+          <Link href="/portal" className="flex items-center gap-2.5 group min-w-0" title="Go to Authority Portal">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-[#212E4A] p-1 shadow-xs overflow-hidden">
+              {org?.logo_storage_path ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={`/api/organizations/${org.id}/logo`}
+                  alt={`${org.name} logo`}
+                  className="h-full w-full object-contain"
                 />
-              </svg>
+              ) : (
+                <Landmark className="h-5 w-5 text-indigo-600" />
+              )}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-extrabold text-white tracking-tight">
-                  FormFlow
+                <span className="text-xs font-bold text-white tracking-tight truncate">
+                  {mainTitle}
                 </span>
-                <span className="rounded bg-[#131B2E] border border-[#212E4A] px-1 py-0.2 font-mono text-[9px] font-bold text-[#A397F8]">
-                  SYSTEM
+                <span className="rounded bg-[#131B2E] border border-[#212E4A] px-1 py-0.2 font-mono text-[8px] font-bold text-emerald-400 shrink-0">
+                  {org?.is_verified_government ? "OFFICIAL" : "LIVE"}
                 </span>
+              </div>
+              <div className="text-[10px] text-slate-400 truncate font-medium">
+                {subTitle}
               </div>
             </div>
           </Link>
@@ -179,14 +189,16 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </div>
 
         {/* Workspace Quick Tag */}
-        <div className="px-5 py-3 border-b border-[#161F30] bg-[#070A12]/60">
+        <div className="px-5 py-2.5 border-b border-[#161F30] bg-[#070A12]/60">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 text-slate-300 font-semibold truncate max-w-[170px]">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#00c07d] shrink-0" />
-              <span className="truncate">Official Agency Workspace</span>
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="truncate text-[11px] text-emerald-400">
+                {org?.is_verified_government ? "Amtlich verifiziert" : "Official Authority"}
+              </span>
             </div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#A397F8] bg-[#131B2E] px-1.5 py-0.5 rounded border border-[#212E4A]">
-              Live
+            <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-slate-300 bg-[#131B2E] px-1.5 py-0.5 rounded border border-[#212E4A]">
+              {org?.slug ? org.slug.split("-")[0].toUpperCase() : "DE-BW"}
             </span>
           </div>
         </div>

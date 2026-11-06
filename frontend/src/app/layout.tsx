@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { LanguageProvider } from "@/features/form-session/components/LanguageProvider";
 import { AuthProvider } from "@/features/auth/context/AuthProvider";
+import { OrganizationProvider } from "@/features/portal/context/OrganizationContext";
 import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
@@ -20,7 +21,9 @@ export default function RootLayout({
       <body className="min-h-screen bg-[#f8fafc] text-slate-900 antialiased selection:bg-indigo-600/15 selection:text-indigo-900">
         <LanguageProvider>
           <AuthProvider>
-            <AppShell>{children}</AppShell>
+            <OrganizationProvider>
+              <AppShell>{children}</AppShell>
+            </OrganizationProvider>
           </AuthProvider>
         </LanguageProvider>
       </body>

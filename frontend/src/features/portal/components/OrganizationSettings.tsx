@@ -40,6 +40,7 @@ import {
   updateOrganizationProfile,
   uploadOrganizationLogo,
 } from "../services/portalClient";
+import { useOrganization } from "../context/OrganizationContext";
 
 interface Props {
   initialOrg: Organization;
@@ -47,6 +48,7 @@ interface Props {
 }
 
 export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
+  const { refreshOrganization } = useOrganization();
   const [activeTab, setActiveTab] = useState<"profile" | "verification" | "team">("profile");
   const [org, setOrg] = useState<Organization>(initialOrg);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
@@ -126,6 +128,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
       const updated = await updateOrganizationProfile(payload);
       setOrg(updated);
       onOrgUpdated(updated);
+      refreshOrganization();
       setProfileSuccessMsg("Workspace profile successfully saved.");
       setTimeout(() => setProfileSuccessMsg(null), 4000);
     } catch (err: unknown) {
@@ -144,6 +147,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
       const updated = await uploadOrganizationLogo(file);
       setOrg(updated);
       onOrgUpdated(updated);
+      refreshOrganization();
       setLogoVersion(Date.now());
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Failed to upload logo.");

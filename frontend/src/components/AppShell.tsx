@@ -8,6 +8,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Sidebar from "@/components/Sidebar";
 import { useAuth } from "@/features/auth/context/AuthProvider";
+import { useOrganization } from "@/features/portal/context/OrganizationContext";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ const PUBLIC_MARKETING_PATHS = ["/", "/impressum", "/datenschutz", "/agb", "/pri
 
 export default function AppShell({ children }: AppShellProps) {
   const { user, loading } = useAuth();
+  const { organization: org } = useOrganization();
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -68,10 +70,20 @@ export default function AppShell({ children }: AppShellProps) {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-sm font-bold tracking-tight text-white">FormFlow</span>
-            <span className="rounded bg-[#131B2E] border border-[#212E4A] px-1 py-0.2 font-mono text-[9px] font-bold text-[#A397F8]">
-              SYSTEM
+          <Link href="/portal" className="flex items-center gap-2 min-w-0">
+            {org?.logo_storage_path ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={`/api/organizations/${org.id}/logo`}
+                alt={org.name}
+                className="w-6 h-6 rounded-md bg-white p-0.5 object-contain"
+              />
+            ) : null}
+            <span className="text-sm font-bold tracking-tight text-white truncate max-w-[180px]">
+              {org?.name ? org.name.split("—")[0].trim() : "Stadtverwaltung Stuttgart"}
+            </span>
+            <span className="rounded bg-[#131B2E] border border-[#212E4A] px-1 py-0.2 font-mono text-[9px] font-bold text-emerald-400">
+              OFFICIAL
             </span>
           </Link>
           <div className="w-7 h-7 rounded-full bg-[#6551f3] text-white text-xs font-bold flex items-center justify-center">
