@@ -93,7 +93,17 @@
     "error_template_mapping_invalid": "Este formulario no puede exportarse porque su asignación PDF no es válida.",
     "returnToSignature": "Firmar de nuevo",
     "checklistTitle": "Lista de entrega y documentos adjuntos",
-    "checklistSubtitle": "Compruebe estos últimos pasos antes de entregar el formulario completado a la autoridad."
+    "checklistSubtitle": "Compruebe estos últimos pasos antes de entregar el formulario completado a la autoridad.",
+    "exportGateTitle": "Crea una cuenta gratuita para descargar el PDF oficial",
+    "exportGateSubtitle": "¡Tus respuestas están 100% completas! Crea una cuenta gratuita o inicia sesión para compilar, descargar y guardar de forma segura tu PDF oficial listo para firmar.",
+    "exportGateBenefitPdf": "Compilación instantánea del PDF oficial listo para firmar",
+    "exportGateBenefitVault": "Guardar en el Baúl de Perfil encriptado para completar futuros formularios en 1 clic",
+    "exportGateBenefitAccess": "Accede a tu documento en cualquier momento desde cualquier dispositivo",
+    "exportGateRegisterBtn": "Crear cuenta gratuita",
+    "exportGateLoginBtn": "Iniciar sesión",
+    "exportGateDismiss": "Revisar respuestas de nuevo",
+    "exportAccountRequiredTitle": "Se requiere cuenta gratuita para descargar",
+    "exportAccountRequiredNotice": "Regístrate en 10 segundos para compilar y descargar tu formulario completado."
   },
   "errors": {
     "unauthorized": "Esta sesión no es válida o ha caducado. Inicie una nueva sesión.",

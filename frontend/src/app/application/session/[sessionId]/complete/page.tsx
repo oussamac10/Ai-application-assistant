@@ -3,12 +3,16 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { removeSessionToken } from "@/features/form-session/services/sessionCredentials";
+import { getSessionToken, removeSessionToken } from "@/features/form-session/services/sessionCredentials";
 import {
   extractExportErrorCode,
   resolveExportError,
 } from "@/features/form-session/utils/resolveExportErrorMessage";
 import { createExport, downloadExportBlob, getSession, getSummary, ExportResponse, SubmissionChecklistItem, ApiError, TokenMissingError } from "@/features/form-session/services/apiClient";
+import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
+import { claimApplication } from "@/features/applications/services/applicationsClient";
+import { ExportAccountGateModal } from "@/features/applications/components/ExportAccountGateModal";
+import { Lock } from "lucide-react";
 
 type ExportState = "ready" | "creating_export" | "export_ready" | "downloading" | "download_failed" | "export_expired" | "token_missing";
 
@@ -21,6 +25,8 @@ export default function SessionComplete() {
   const tc = useTranslations("common");
   const ts = useTranslations("signature");
 
+  const auth = useSafeAuth();
+  const [isExportGateOpen, setIsExportGateOpen] = useState<boolean>(false);
   const [exportState, setExportState] = useState<ExportState>("ready");
   const [exportData, setExportData] = useState<ExportResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -33,6 +39,18 @@ export default function SessionComplete() {
   const [checkedIds, setCheckedIds] = useState<Record<string, boolean>>({});
   const [canResign, setCanResign] = useState<boolean>(false);
   const [canRetry, setCanRetry] = useState<boolean>(true);
+
+  // Auto-claim session when authenticated user visits complete page with an anonymous session token
+  useEffect(() => {
+    if (auth?.user && sessionId) {
+      const token = getSessionToken(sessionId);
+      if (token) {
+        claimApplication(sessionId, token)
+          .then(() => removeSessionToken(sessionId))
+          .catch(() => {});
+      }
+    }
+  }, [auth?.user, sessionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +95,10 @@ export default function SessionComplete() {
   };
 
   const handleGeneratePdf = async () => {
+    if (!auth?.user) {
+      setIsExportGateOpen(true);
+      return;
+    }
     setExportState("creating_export");
     setErrorMsg(null);
     try {
@@ -295,6 +317,18 @@ export default function SessionComplete() {
 
             {/* Interactive Actions */}
             <div className="mt-7 w-full space-y-3">
+              {!auth?.user && exportSupported === true && exportState === "ready" && (
+                <div className="flex items-center gap-2.5 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-xs text-indigo-900 text-start">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white">
+                    <Lock className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <span className="font-semibold block">{t("exportAccountRequiredTitle")}</span>
+                    <span className="text-slate-600">{t("exportAccountRequiredNotice")}</span>
+                  </div>
+                </div>
+              )}
+
               {exportSupported === true && exportState === "ready" && (
                 <button
                   onClick={handleGeneratePdf}
@@ -384,6 +418,12 @@ export default function SessionComplete() {
           </div>
         </div>
       </div>
+
+      <ExportAccountGateModal
+        isOpen={isExportGateOpen}
+        onClose={() => setIsExportGateOpen(false)}
+        sessionId={sessionId}
+      />
     </main>
   );
 }

@@ -93,7 +93,17 @@
     "error_template_mapping_invalid": "لا يمكن تصدير هذا النموذج حالياً لأن تعيين PDF الخاص به غير صالح.",
     "returnToSignature": "التوقيع مرة أخرى",
     "checklistTitle": "قائمة التحقق للتقديم والمرفقات المطلوبة",
-    "checklistSubtitle": "تحقّق من هذه الخطوات النهائية قبل تقديم النموذج المكتمل إلى الجهة المختصة."
+    "checklistSubtitle": "تحقّق من هذه الخطوات النهائية قبل تقديم النموذج المكتمل إلى الجهة المختصة.",
+    "exportGateTitle": "أنشئ حساباً مجانياً لتحميل ملف PDF الرسمي",
+    "exportGateSubtitle": "إجاباتك مكتملة بنسبة 100%! أنشئ حساباً مجانياً أو سجّل الدخول لإنشاء ملف PDF الرسمي الجاهز للتوقيع وتحميله وحفظه بأمان.",
+    "exportGateBenefitPdf": "إنشاء فوري لملف PDF الرسمي الجاهز للتوقيع",
+    "exportGateBenefitVault": "حفظ البيانات في خزينة الملف الشخصي المشفرة لملء النماذج القادمة بنقرة واحدة",
+    "exportGateBenefitAccess": "الوصول إلى مستندك في أي وقت ومن أي جهاز",
+    "exportGateRegisterBtn": "إنشاء حساب مجاني",
+    "exportGateLoginBtn": "تسجيل الدخول",
+    "exportGateDismiss": "مراجعة الإجابات مرة أخرى",
+    "exportAccountRequiredTitle": "يلزم حساب مجاني للتحميل",
+    "exportAccountRequiredNotice": "سجّل خلال 10 ثوانٍ لإنشاء النموذج وتحميله."
   },
   "errors": {
     "unauthorized": "هذه الجلسة غير صالحة أو منتهية الصلاحية. يرجى بدء جلسة جديدة.",

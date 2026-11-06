@@ -93,7 +93,17 @@
     "error_template_mapping_invalid": "Ce formulaire ne peut pas être exporté actuellement car son mappage PDF est invalide.",
     "returnToSignature": "Signer à nouveau",
     "checklistTitle": "Liste de contrôle pour l'envoi et les justificatifs",
-    "checklistSubtitle": "Cochez ces dernières étapes avant de remettre votre formulaire complété à l'organisme."
+    "checklistSubtitle": "Cochez ces dernières étapes avant de remettre votre formulaire complété à l'organisme.",
+    "exportGateTitle": "Créez un compte gratuit pour télécharger le PDF officiel",
+    "exportGateSubtitle": "Vos réponses sont complètes à 100 % ! Créez un compte gratuit ou connectez-vous pour compiler, télécharger et conserver en toute sécurité votre formulaire officiel prêt à signer.",
+    "exportGateBenefitPdf": "Compilation instantanée du PDF officiel prêt à signer",
+    "exportGateBenefitVault": "Enregistrement dans le Coffre-fort de profil chiffré pour vos futurs formulaires en 1 clic",
+    "exportGateBenefitAccess": "Accédez à votre document à tout moment et depuis n'importe quel appareil",
+    "exportGateRegisterBtn": "Créer un compte gratuit",
+    "exportGateLoginBtn": "Se connecter",
+    "exportGateDismiss": "Vérifier à nouveau mes réponses",
+    "exportAccountRequiredTitle": "Compte gratuit requis pour le téléchargement",
+    "exportAccountRequiredNotice": "Inscrivez-vous en 10 secondes pour générer et télécharger votre formulaire."
   },
   "errors": {
     "unauthorized": "Cette session est invalide ou a expiré. Veuillez démarrer une nouvelle session.",

@@ -93,7 +93,17 @@
     "error_template_mapping_invalid": "This form cannot currently be exported because its PDF mapping is invalid.",
     "returnToSignature": "Sign again",
     "checklistTitle": "Submission & Supporting Document Checklist",
-    "checklistSubtitle": "Check off these final steps before submitting your completed form to the authority."
+    "checklistSubtitle": "Check off these final steps before submitting your completed form to the authority.",
+    "exportGateTitle": "Create Free Account to Download Official PDF",
+    "exportGateSubtitle": "Your answers are 100% complete! Create a free account or log in to compile, download, and securely store your official ready-to-sign PDF.",
+    "exportGateBenefitPdf": "Instant ready-to-sign official PDF compilation",
+    "exportGateBenefitVault": "Save to encrypted Profile Vault for 1-click completion of future forms",
+    "exportGateBenefitAccess": "Access your document anytime from any device",
+    "exportGateRegisterBtn": "Create Free Account",
+    "exportGateLoginBtn": "Log In",
+    "exportGateDismiss": "Review answers again",
+    "exportAccountRequiredTitle": "Free Account Required to Download",
+    "exportAccountRequiredNotice": "Sign up in 10 seconds to compile and download your completed form."
   },
   "errors": {
     "unauthorized": "This session is invalid or has expired. Please start a new session.",

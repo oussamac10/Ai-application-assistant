@@ -93,7 +93,17 @@
     "error_template_mapping_invalid": "PDF eşlemesi geçersiz olduğu için bu form şu anda dışa aktarılamıyor.",
     "returnToSignature": "Tekrar imzala",
     "checklistTitle": "Teslim ve Ek Belge Kontrol Listesi",
-    "checklistSubtitle": "Doldurduğunuz formu kuruma teslim etmeden önce bu son adımları kontrol edin."
+    "checklistSubtitle": "Doldurduğunuz formu kuruma teslim etmeden önce bu son adımları kontrol edin.",
+    "exportGateTitle": "Resmi PDF'i İndirmek İçin Ücretsiz Hesap Oluşturun",
+    "exportGateSubtitle": "Cevaplarınız %100 tamamlandı! İmzaya hazır resmi PDF'inizi derlemek, indirmek ve güvenle saklamak için ücretsiz bir hesap oluşturun veya giriş yapın.",
+    "exportGateBenefitPdf": "İmzaya hazır resmi PDF'in anında oluşturulması",
+    "exportGateBenefitVault": "Gelecekteki formları tek tıkla doldurmak için şifreli Profil Kasası'na kaydetme",
+    "exportGateBenefitAccess": "Belgenize dilediğiniz zaman her cihazdan erişim",
+    "exportGateRegisterBtn": "Ücretsiz Hesap Oluştur",
+    "exportGateLoginBtn": "Giriş Yap",
+    "exportGateDismiss": "Cevapları tekrar gözden geçir",
+    "exportAccountRequiredTitle": "İndirmek İçin Ücretsiz Hesap Gerekli",
+    "exportAccountRequiredNotice": "Tamamlanan formu derlemek ve indirmek için 10 saniyede kaydolun."
   },
   "errors": {
     "unauthorized": "Bu oturum geçersiz veya süresi dolmuş. Lütfen yeni bir oturum başlatın.",

@@ -93,7 +93,17 @@
     "error_template_mapping_invalid": "Dieses Formular kann derzeit nicht exportiert werden, da seine PDF-Zuordnung ungültig ist.",
     "returnToSignature": "Erneut unterschreiben",
     "checklistTitle": "Checkliste für Abgabe & Unterlagen",
-    "checklistSubtitle": "Haken Sie diese letzten Schritte ab, bevor Sie das ausgefüllte Formular bei der Stelle einreichen."
+    "checklistSubtitle": "Haken Sie diese letzten Schritte ab, bevor Sie das ausgefüllte Formular bei der Stelle einreichen.",
+    "exportGateTitle": "Kostenloses Konto erstellen, um das offizielle PDF herunterzuladen",
+    "exportGateSubtitle": "Ihre Antworten sind zu 100 % vollständig! Erstellen Sie ein kostenloses Konto oder melden Sie sich an, um Ihr unterschriftsreifes PDF zu erstellen, herunterzuladen und sicher zu speichern.",
+    "exportGateBenefitPdf": "Sofortige Erstellung des unterschriftsreifen offiziellen PDFs",
+    "exportGateBenefitVault": "Im verschlüsselten Profil-Tresor speichern für 1-Klick-Ausfüllen künftiger Formulare",
+    "exportGateBenefitAccess": "Jederzeit von jedem Gerät aus auf Ihr Dokument zugreifen",
+    "exportGateRegisterBtn": "Kostenloses Konto erstellen",
+    "exportGateLoginBtn": "Anmelden",
+    "exportGateDismiss": "Antworten nochmals prüfen",
+    "exportAccountRequiredTitle": "Kostenloses Konto zum Herunterladen erforderlich",
+    "exportAccountRequiredNotice": "In 10 Sekunden registrieren, um das ausgefüllte Formular herunterzuladen."
   },
   "errors": {
     "unauthorized": "Diese Sitzung ist ungültig oder abgelaufen. Bitte starten Sie eine neue Sitzung.",

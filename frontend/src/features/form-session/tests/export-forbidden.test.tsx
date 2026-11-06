@@ -38,6 +38,14 @@ vi.mock("@/features/form-session/services/sessionCredentials", () => ({
   removeSessionToken: vi.fn(),
 }));
 
+vi.mock("@/features/auth/hooks/useSafeAuth", () => ({
+  useSafeAuth: () => ({ user: { id: "test-user-id", email: "tester@example.com" } }),
+}));
+
+vi.mock("@/features/applications/services/applicationClient", () => ({
+  claimApplication: vi.fn().mockResolvedValue({ success: true }),
+}));
+
 const getSessionMock = vi.fn();
 const getSummaryMock = vi.fn();
 const createExportMock = vi.fn();
