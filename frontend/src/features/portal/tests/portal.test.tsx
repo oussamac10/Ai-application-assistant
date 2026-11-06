@@ -5,7 +5,7 @@ import { PortalDashboard } from "../components/PortalDashboard";
 import { CandidateIntakeLanding } from "../components/CandidateIntakeLanding";
 import * as portalClient from "../services/portalClient";
 import * as apiClient from "@/features/form-session/services/apiClient";
-import { Case, Organization } from "../types";
+import { Case, Organization, OrganizationFormSummary } from "../types";
 
 const pushMock = vi.fn();
 
@@ -76,24 +76,45 @@ const mockCases: Case[] = [
   },
 ];
 
+const mockForms: OrganizationFormSummary[] = [
+  {
+    id: "tpl-1",
+    key: "de-anmeldung",
+    name: "Wohnungsgeberbestätigung",
+    category: "residence",
+    submissionMethod: "online",
+    requiredDocuments: [],
+    hasPdf: true,
+    status: "published",
+    versionNumber: 1,
+    fieldsCount: 8,
+    createdAt: "2026-11-01T00:00:00Z",
+    updatedAt: "2026-11-01T00:00:00Z",
+  },
+  {
+    id: "tpl-2",
+    key: "de-kindergeld",
+    name: "Antrag auf Kindergeld",
+    category: "family",
+    submissionMethod: "online",
+    requiredDocuments: [],
+    hasPdf: true,
+    status: "needs_review",
+    versionNumber: 1,
+    fieldsCount: 14,
+    createdAt: "2026-11-01T00:00:00Z",
+    updatedAt: "2026-11-01T00:00:00Z",
+  },
+];
+
 describe("B2B & B2G Platform — Portal & Case Management", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(portalClient, "getSubscription").mockResolvedValue({
-      id: "sub-1",
-      organization_id: "org-1",
-      plan_key: "agency_pro",
-      status: "active",
-      monthly_case_limit: 50,
-      cases_used_this_period: 2,
-      remaining_cases: 48,
-      cancel_at_period_end: false,
-    });
   });
 
-  it("renders workspace details, metrics, and case table in PortalDashboard", async () => {
+  it("renders workspace details, metrics, and official forms in PortalDashboard", async () => {
     vi.spyOn(portalClient, "getCurrentOrganization").mockResolvedValue(mockOrg);
-    vi.spyOn(portalClient, "listCases").mockResolvedValue(mockCases);
+    vi.spyOn(portalClient, "listOrganizationForms").mockResolvedValue(mockForms);
 
     render(<PortalDashboard />);
 
@@ -101,62 +122,35 @@ describe("B2B & B2G Platform — Portal & Case Management", () => {
       expect(screen.getByText("Munich Relocation Services GmbH")).toBeDefined();
     });
 
-    expect(screen.getByText("Dr. Sarah Connor")).toBeDefined();
-    expect(screen.getByText("sarah.connor@cyberdyne.org")).toBeDefined();
-    expect(screen.getByText("John Matrix")).toBeDefined();
-    expect(screen.getByText("50%")).toBeDefined();
-    expect(screen.getByText("100%")).toBeDefined();
+    expect(screen.getByText("Total forms")).toBeDefined();
+    expect(screen.getByText("Live in portal")).toBeDefined();
+    expect(screen.getAllByText("Needs review").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Wohnungsgeberbestätigung")).toBeDefined();
+    expect(screen.getByText("Antrag auf Kindergeld")).toBeDefined();
   });
 
-  it("filters cases in table when searching by candidate name", async () => {
+  it("filters forms in table when searching by form name", async () => {
     vi.spyOn(portalClient, "getCurrentOrganization").mockResolvedValue(mockOrg);
-    vi.spyOn(portalClient, "listCases").mockResolvedValue(mockCases);
+    vi.spyOn(portalClient, "listOrganizationForms").mockResolvedValue(mockForms);
 
     render(<PortalDashboard />);
 
     await waitFor(() => {
-      expect(screen.getByText("Dr. Sarah Connor")).toBeDefined();
+      expect(screen.getByText("Wohnungsgeberbestätigung")).toBeDefined();
     });
 
-    const searchInput = screen.getByPlaceholderText("searchPlaceholder");
-    fireEvent.change(searchInput, { target: { value: "Matrix" } });
+    const searchInput = screen.getByPlaceholderText("Search forms...");
+    fireEvent.change(searchInput, { target: { value: "Kindergeld" } });
 
     await waitFor(() => {
-      expect(screen.queryByText("Dr. Sarah Connor")).toBeNull();
-      expect(screen.getByText("John Matrix")).toBeDefined();
+      expect(screen.queryByText("Wohnungsgeberbestätigung")).toBeNull();
+      expect(screen.getByText("Antrag auf Kindergeld")).toBeDefined();
     });
   });
 
-  it("creates a candidate case via NewCaseModal", async () => {
+  it("opens upload form modal on clicking Upload PDF", async () => {
     vi.spyOn(portalClient, "getCurrentOrganization").mockResolvedValue(mockOrg);
-    vi.spyOn(portalClient, "listCases").mockResolvedValue([]);
-    vi.spyOn(apiClient, "getPublishedForms").mockResolvedValue([
-      {
-        id: "ver-aufenthalt-1",
-        name: "Antrag auf Aufenthaltstitel",
-        templateKey: "de-aufenthaltstitel",
-        description: "Official residence permit",
-        versionNumber: 1,
-        sourceLanguage: "de",
-        supportedOutputLanguages: ["de"],
-      },
-    ]);
-    const createCaseSpy = vi.spyOn(portalClient, "createCase").mockResolvedValue({
-      id: "case-new",
-      public_id: "pub-new",
-      organization_id: "org-1",
-      candidate_name: "Elena Rostova",
-      candidate_email: "elena@example.com",
-      status: "invited",
-      form_version_id: "ver-aufenthalt-1",
-      form_title: "Antrag auf Aufenthaltstitel",
-      created_at: "2026-11-01T01:30:00Z",
-      updated_at: "2026-11-01T01:30:00Z",
-      invite_token: "new-invite-token-xyz",
-      total_fields: 12,
-      answered_fields: 0,
-      progress_percent: 0,
-    });
+    vi.spyOn(portalClient, "listOrganizationForms").mockResolvedValue([]);
 
     render(<PortalDashboard />);
 
@@ -164,34 +158,11 @@ describe("B2B & B2G Platform — Portal & Case Management", () => {
       expect(screen.getByText("Munich Relocation Services GmbH")).toBeDefined();
     });
 
-    // Open New Case Modal
-    const newCaseBtn = screen.getAllByRole("button", { name: /newCase/i })[0];
-    fireEvent.click(newCaseBtn);
+    const uploadBtns = screen.getAllByRole("button", { name: /Upload PDF/i });
+    fireEvent.click(uploadBtns[0]);
 
     await waitFor(() => {
-      expect(screen.getByText("modalTitle")).toBeDefined();
-    });
-
-    // Fill candidate name & email
-    fireEvent.change(screen.getByPlaceholderText("candidateNamePlaceholder"), {
-      target: { value: "Elena Rostova" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("candidateEmailPlaceholder"), {
-      target: { value: "elena@example.com" },
-    });
-
-    // Submit form
-    const submitBtn = screen.getByRole("button", { name: /createButton/i });
-    fireEvent.click(submitBtn);
-
-    await waitFor(() => {
-      expect(createCaseSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          candidate_name: "Elena Rostova",
-          candidate_email: "elena@example.com",
-          form_version_id: "ver-aufenthalt-1",
-        })
-      );
+      expect(screen.getByText("Upload & Ingest Official Form")).toBeDefined();
     });
   });
 
