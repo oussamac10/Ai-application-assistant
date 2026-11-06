@@ -1410,8 +1410,13 @@ export function FormSchemaReviewStudio({
                       <div
                         key={field.id}
                         id={`field-card-${field.id}`}
-                        onClick={() => setHighlightedFieldId(field.id)}
-                        className={`p-4 rounded-xl border transition-all shadow-xs group ${
+                        onClick={() => {
+                          setHighlightedFieldId(field.id);
+                          if (hasBbox && typeof fPage === "number") {
+                            setActivePage(fPage);
+                          }
+                        }}
+                        className={`p-4 rounded-xl border transition-all shadow-xs group cursor-pointer ${
                           isHighlighted
                             ? "border-[#6551f3] bg-indigo-50/20 ring-2 ring-[#6551f3]/30"
                             : "border-slate-200 hover:border-blue-300 bg-white"
@@ -1440,20 +1445,6 @@ export function FormSchemaReviewStudio({
                           </div>
 
                           <div className="flex items-center gap-1">
-                            {hasBbox && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActivePage(fPage);
-                                  setHighlightedFieldId(field.id);
-                                }}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors"
-                                title="Focus this box on the PDF canvas"
-                              >
-                                <Target className="w-3 h-3" /> Focus Box
-                              </button>
-                            )}
                             {canEdit && (
                               <>
                                 <button
@@ -1463,7 +1454,7 @@ export function FormSchemaReviewStudio({
                                     e.stopPropagation();
                                     handleMoveField(idx, "up");
                                   }}
-                                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-20 ml-1"
+                                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-20 ml-1 cursor-pointer"
                                   title="Move Up"
                                 >
                                   <ChevronUp className="w-4 h-4" />
@@ -1475,7 +1466,7 @@ export function FormSchemaReviewStudio({
                                     e.stopPropagation();
                                     handleMoveField(idx, "down");
                                   }}
-                                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-20"
+                                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-20 cursor-pointer"
                                   title="Move Down"
                                 >
                                   <ChevronDown className="w-4 h-4" />
@@ -1486,7 +1477,7 @@ export function FormSchemaReviewStudio({
                                     e.stopPropagation();
                                     handleDeleteField(field.id);
                                   }}
-                                  className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 ml-1"
+                                  className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 ml-1 cursor-pointer"
                                   title="Delete Field"
                                 >
                                   <Trash2 className="w-4 h-4" />
