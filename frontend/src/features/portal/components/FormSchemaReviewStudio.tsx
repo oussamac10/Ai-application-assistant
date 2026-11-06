@@ -916,6 +916,7 @@ export function FormSchemaReviewStudio({
                   const isCurrentlyMoving =
                     interaction?.type === "move" && interaction?.fieldId === field.id;
                   const primaryLabel = field.translations?.[0]?.label || field.key;
+                  const isSmallBox = field.fieldType === "boolean" || widthPct < 8 || heightPct < 3.5;
 
                   return (
                     <div
@@ -945,24 +946,58 @@ export function FormSchemaReviewStudio({
                         width: `${widthPct}%`,
                         height: `${heightPct}%`,
                       }}
-                      className={`absolute rounded border-2 transition-colors flex items-start p-0.5 group select-none ${
+                      className={`absolute transition-colors select-none group ${
+                        isSmallBox
+                          ? "rounded-xs border-[1.5px]"
+                          : "rounded border-2 p-0.5 overflow-hidden flex items-start"
+                      } ${
                         isCurrentlyMoving
                           ? "border-[#6551f3] bg-[#6551f3]/35 shadow-lg z-30 cursor-grabbing"
                           : isHighlighted
                           ? "border-[#6551f3] bg-[#6551f3]/25 shadow-[0_0_0_3px_rgba(101,81,243,0.35)] z-20 cursor-grab"
+                          : isSmallBox
+                          ? "border-indigo-500/80 bg-indigo-500/10 hover:border-indigo-600 hover:bg-indigo-500/25 z-10 cursor-grab"
                           : "border-indigo-500/80 bg-indigo-500/15 hover:border-indigo-600 hover:bg-indigo-500/25 z-10 cursor-grab"
                       }`}
                       title={`[${idx + 1}] ${primaryLabel} (Drag to move, use handles to resize)`}
                     >
-                      <span
-                        className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-[130px] leading-tight select-none pointer-events-none ${
-                          isHighlighted
-                            ? "bg-[#6551f3] text-white"
-                            : "bg-indigo-900/80 text-white group-hover:bg-indigo-600"
-                        }`}
-                      >
-                        [{idx + 1}] {primaryLabel}
-                      </span>
+                      {/* For small boxes / checkboxes, render a neat badge above the box instead of smashing text inside */}
+                      {isSmallBox ? (
+                        <>
+                          {/* Tiny index tag floating above */}
+                          <span
+                            className={`absolute -top-3.5 -start-1 text-[8px] font-mono font-bold px-1 py-0.2 rounded-xs shadow-2xs pointer-events-none select-none transition-all z-20 ${
+                              isHighlighted
+                                ? "bg-[#6551f3] text-white ring-1 ring-white/50"
+                                : "bg-slate-900/85 text-white group-hover:bg-indigo-600"
+                            }`}
+                          >
+                            {idx + 1}
+                          </span>
+
+                          {/* Floating full label tooltip on highlight or hover */}
+                          <div
+                            className={`absolute -top-7 start-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium shadow-md pointer-events-none select-none z-40 transition-all ${
+                              isHighlighted
+                                ? "flex items-center gap-1 bg-[#6551f3] text-white"
+                                : "hidden group-hover:flex items-center gap-1 bg-slate-900/90 text-white"
+                            }`}
+                          >
+                            <span className="font-mono font-bold">[{idx + 1}]</span>
+                            <span className="max-w-[180px] truncate">{primaryLabel}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <span
+                          className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-full leading-tight select-none pointer-events-none ${
+                            isHighlighted
+                              ? "bg-[#6551f3] text-white"
+                              : "bg-indigo-900/80 text-white group-hover:bg-indigo-600"
+                          }`}
+                        >
+                          [{idx + 1}] {primaryLabel}
+                        </span>
+                      )}
 
                       {/* Delete button on highlighted box */}
                       {isHighlighted && canEdit && (
@@ -973,10 +1008,10 @@ export function FormSchemaReviewStudio({
                             e.stopPropagation();
                             handleDeleteField(field.id);
                           }}
-                          className="absolute -top-3 -right-3 w-5 h-5 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg z-50 cursor-pointer transition-transform hover:scale-125"
+                          className={`absolute ${isSmallBox ? "-top-2.5 -right-2.5 w-4 h-4" : "-top-3 -right-3 w-5 h-5"} rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg z-50 cursor-pointer transition-transform hover:scale-125`}
                           title="Delete Field (or press Delete/Backspace)"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className={isSmallBox ? "w-2.5 h-2.5" : "w-3 h-3"} />
                         </button>
                       )}
 
@@ -999,104 +1034,108 @@ export function FormSchemaReviewStudio({
                                 currentClientY: e.clientY,
                               });
                             }}
-                            className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-se-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            className={`absolute -bottom-1 -right-1 ${isSmallBox ? "w-2 h-2" : "w-3 h-3"} bg-white border-2 border-[#6551f3] rounded-xs cursor-se-resize shadow-md z-30 hover:scale-125 transition-transform`}
                             title="Drag to resize width and height"
                           />
-                          {/* Right edge handle */}
-                          <div
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              const initial = [...bbox] as [number, number, number, number];
-                              setInteraction({
-                                type: "resize",
-                                fieldId: field.id,
-                                handle: "e",
-                                initialBbox: initial,
-                                startClientX: e.clientX,
-                                startClientY: e.clientY,
-                                currentClientX: e.clientX,
-                                currentClientY: e.clientY,
-                              });
-                            }}
-                            className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-2 h-4 bg-white border-2 border-[#6551f3] rounded-xs cursor-ew-resize shadow-md z-30 hover:scale-125 transition-transform"
-                            title="Drag to adjust width"
-                          />
-                          {/* Bottom edge handle */}
-                          <div
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              const initial = [...bbox] as [number, number, number, number];
-                              setInteraction({
-                                type: "resize",
-                                fieldId: field.id,
-                                handle: "s",
-                                initialBbox: initial,
-                                startClientX: e.clientX,
-                                startClientY: e.clientY,
-                                currentClientX: e.clientX,
-                                currentClientY: e.clientY,
-                              });
-                            }}
-                            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border-2 border-[#6551f3] rounded-xs cursor-ns-resize shadow-md z-30 hover:scale-125 transition-transform"
-                            title="Drag to adjust height"
-                          />
-                          {/* Top-left handle */}
-                          <div
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              const initial = [...bbox] as [number, number, number, number];
-                              setInteraction({
-                                type: "resize",
-                                fieldId: field.id,
-                                handle: "nw",
-                                initialBbox: initial,
-                                startClientX: e.clientX,
-                                startClientY: e.clientY,
-                                currentClientX: e.clientX,
-                                currentClientY: e.clientY,
-                              });
-                            }}
-                            className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-nw-resize shadow-md z-30 hover:scale-125 transition-transform"
-                            title="Drag to resize"
-                          />
-                          {/* Top-right handle */}
-                          <div
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              const initial = [...bbox] as [number, number, number, number];
-                              setInteraction({
-                                type: "resize",
-                                fieldId: field.id,
-                                handle: "ne",
-                                initialBbox: initial,
-                                startClientX: e.clientX,
-                                startClientY: e.clientY,
-                                currentClientX: e.clientX,
-                                currentClientY: e.clientY,
-                              });
-                            }}
-                            className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-ne-resize shadow-md z-30 hover:scale-125 transition-transform"
-                            title="Drag to resize"
-                          />
-                          {/* Bottom-left handle */}
-                          <div
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              const initial = [...bbox] as [number, number, number, number];
-                              setInteraction({
-                                type: "resize",
-                                fieldId: field.id,
-                                handle: "sw",
-                                initialBbox: initial,
-                                startClientX: e.clientX,
-                                startClientY: e.clientY,
-                                currentClientX: e.clientX,
-                                currentClientY: e.clientY,
-                              });
-                            }}
-                            className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-sw-resize shadow-md z-30 hover:scale-125 transition-transform"
-                            title="Drag to resize"
-                          />
+                          {!isSmallBox && (
+                            <>
+                              {/* Right edge handle */}
+                              <div
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  const initial = [...bbox] as [number, number, number, number];
+                                  setInteraction({
+                                    type: "resize",
+                                    fieldId: field.id,
+                                    handle: "e",
+                                    initialBbox: initial,
+                                    startClientX: e.clientX,
+                                    startClientY: e.clientY,
+                                    currentClientX: e.clientX,
+                                    currentClientY: e.clientY,
+                                  });
+                                }}
+                                className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-2 h-4 bg-white border-2 border-[#6551f3] rounded-xs cursor-ew-resize shadow-md z-30 hover:scale-125 transition-transform"
+                                title="Drag to adjust width"
+                              />
+                              {/* Bottom edge handle */}
+                              <div
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  const initial = [...bbox] as [number, number, number, number];
+                                  setInteraction({
+                                    type: "resize",
+                                    fieldId: field.id,
+                                    handle: "s",
+                                    initialBbox: initial,
+                                    startClientX: e.clientX,
+                                    startClientY: e.clientY,
+                                    currentClientX: e.clientX,
+                                    currentClientY: e.clientY,
+                                  });
+                                }}
+                                className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border-2 border-[#6551f3] rounded-xs cursor-ns-resize shadow-md z-30 hover:scale-125 transition-transform"
+                                title="Drag to adjust height"
+                              />
+                              {/* Top-left handle */}
+                              <div
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  const initial = [...bbox] as [number, number, number, number];
+                                  setInteraction({
+                                    type: "resize",
+                                    fieldId: field.id,
+                                    handle: "nw",
+                                    initialBbox: initial,
+                                    startClientX: e.clientX,
+                                    startClientY: e.clientY,
+                                    currentClientX: e.clientX,
+                                    currentClientY: e.clientY,
+                                  });
+                                }}
+                                className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-nw-resize shadow-md z-30 hover:scale-125 transition-transform"
+                                title="Drag to resize"
+                              />
+                              {/* Top-right handle */}
+                              <div
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  const initial = [...bbox] as [number, number, number, number];
+                                  setInteraction({
+                                    type: "resize",
+                                    fieldId: field.id,
+                                    handle: "ne",
+                                    initialBbox: initial,
+                                    startClientX: e.clientX,
+                                    startClientY: e.clientY,
+                                    currentClientX: e.clientX,
+                                    currentClientY: e.clientY,
+                                  });
+                                }}
+                                className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-ne-resize shadow-md z-30 hover:scale-125 transition-transform"
+                                title="Drag to resize"
+                              />
+                              {/* Bottom-left handle */}
+                              <div
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  const initial = [...bbox] as [number, number, number, number];
+                                  setInteraction({
+                                    type: "resize",
+                                    fieldId: field.id,
+                                    handle: "sw",
+                                    initialBbox: initial,
+                                    startClientX: e.clientX,
+                                    startClientY: e.clientY,
+                                    currentClientX: e.clientX,
+                                    currentClientY: e.clientY,
+                                  });
+                                }}
+                                className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-sw-resize shadow-md z-30 hover:scale-125 transition-transform"
+                                title="Drag to resize"
+                              />
+                            </>
+                          )}
                         </>
                       )}
                     </div>
