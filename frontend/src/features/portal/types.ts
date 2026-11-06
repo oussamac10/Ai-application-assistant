@@ -240,4 +240,27 @@ export interface PublicOrganizationDetail extends PublicOrganizationSummary {
   published_forms: PublicPublishedFormItem[];
 }
 
+export interface PublicFormDetail {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  category: string;
+  submission_method: string;
+  instructions?: string | null;
+  required_documents: string[];
+  active_version_id: string;
+  version_number: number;
+  source_language: string;
+  supported_output_languages: string[];
+  fields_count: number;
+  has_pdf: boolean;
+  organization?: PublicOrganizationSummary | null;
+  share_url: string;
+  qr_svg_url: string;
+  qr_png_url: string;
+  counter_poster_pdf_url: string;
+}
+
+
 

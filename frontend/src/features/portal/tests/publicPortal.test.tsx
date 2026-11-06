@@ -14,10 +14,13 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/organizations",
 }));
 
+let mockCurrentLocale = "en";
+const mockSetLocale = vi.fn();
+
 vi.mock("@/features/form-session/components/LanguageProvider", () => ({
   useLanguage: () => ({
-    locale: "en",
-    setLocale: vi.fn(),
+    locale: mockCurrentLocale,
+    setLocale: mockSetLocale,
   }),
 }));
 
@@ -155,6 +158,39 @@ describe("CitizenDirectory & PublicOrganizationPortal (Phase G3)", () => {
         "de"
       );
       expect(pushMock).toHaveBeenCalledWith("/application/session/session-pub-999");
+    });
+  });
+
+  it("respects active French UI locale and starts session in French", async () => {
+    mockCurrentLocale = "fr";
+    vi.spyOn(portalClient, "getPublicOrganizationBySlug").mockResolvedValue(mockDetailOrg);
+    vi.spyOn(apiClient, "createSession").mockResolvedValue({
+      publicId: "session-pub-fr-123",
+      status: "in_progress",
+      ownershipToken: "token-fr-123",
+      userLanguage: "fr",
+      outputLanguage: "de",
+      expiresAt: "2026-12-01T00:00:00Z",
+    });
+
+    render(<PublicOrganizationPortal slug="stadt-stuttgart" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Anmeldung einer Wohnung (§ 17 BMG)")).toBeInTheDocument();
+    });
+
+    // The button should reflect French ("Start in Français" or native name)
+    const startButton = screen.getByRole("button", { name: /Start in Français/i });
+    expect(startButton).toBeInTheDocument();
+    fireEvent.click(startButton);
+
+    await waitFor(() => {
+      expect(apiClient.createSession).toHaveBeenCalledWith(
+        "ver-anmeldung-1",
+        "fr",
+        "de"
+      );
+      expect(pushMock).toHaveBeenCalledWith("/application/session/session-pub-fr-123");
     });
   });
 });

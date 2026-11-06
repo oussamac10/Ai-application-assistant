@@ -13,31 +13,44 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 
 ## Current Task
 
-**Phase G3: Public Organization Portals & Citizen Discovery Directory (Completed)**
+**Phase G4: Public Form Links & Printable Counter QR Codes (Active)**
 
 ### 7-Line Business Decision Summary
-- **Feature:** Phase G3 — Public Organization Portals (`/organizations/[slug]`) & Citizen Discovery Directory (`/organizations`).
-- **Customer problem:** Citizens, immigrants, and expats struggle to find official municipal forms in a language they understand; public authorities need a branded, trustworthy, official public portal where citizens can browse verified forms and launch free multilingual completion.
-- **Expected value:** Closes the distribution loop from back-office schema review (G2) to live citizen usage. Drives inbound public discovery, SEO indexation for municipal forms, and authority brand credibility with official badges.
-- **Estimated development effort:** ~1 solo-developer build day across FastAPI public endpoints, Next.js dynamic routing (`/organizations/[slug]` and `/organizations`), search/filtering, and responsive mobile-first UI.
-- **Operating impact:** Zero paid AI calls; uses lightweight read-only queries with index lookups on `slug` and `status = 'published'`; static assets served via local/S3 storage.
-- **Monetization potential:** Foundational prerequisite for municipal SaaS subscriptions — agencies and cities pay to host and publish their official portal and forms.
-- **Recommendation:** `Build now` — Completes the public face of the platform and connects published G2 forms to citizens.
+- **Feature:** Phase G4 — Public Form Links (`/f/[slug]`), Vector QR Code Generation (SVG/PNG), Printable A4 Counter Poster PDF Generator, and Caseworker Share Modal.
+- **Customer problem:** Municipalities and public institutions rely on physical paper forms at service desks; citizens cannot complete them without staff translation assistance, creating long queues and slow intake.
+- **Expected value:** Bridges physical service counters to digital multilingual intake; drastically reduces in-person queue times and counter translation inquiries; drives viral smartphone scans and organic citizen adoption.
+- **Estimated development effort:** ~1 solo-developer build day across FastAPI QR/PDF poster generation (built-in ReportLab + PyMuPDF), Next.js `/f/[...slug]` landing page, and Caseworker Share Modal.
+- **Operating impact:** Zero paid AI calls; uses lightweight vector drawing and standard PDF canvas rendering. Completely local, fast, and deterministic.
+- **Monetization potential:** High-value SaaS selling point: municipal counters and consulates can print official branded QR posters immediately upon subscribing to host their forms.
+- **Recommendation:** `Build now` — Essential real-world distribution mechanism for public authority forms.
+
+### Goal
+Allow citizens to access published forms via clean short permalinks (`/f/[slug]`) and high-resolution QR codes, enable municipal offices to download printable A4 counter posters with 8-language call-to-actions, and give caseworkers a 1-click share modal in their workspace.
+
+### Acceptance Criteria
+1. Backend provides `GET /api/public/forms/{identifier}` resolving by form `key` or `id` (and optionally `{org_slug}/{form_key}`), returning published form metadata, active version, and organization details.
+2. Backend provides `GET /api/public/forms/{identifier}/qr?format=svg` and `?format=png` generating crisp vector/raster QR codes pointing to the form URL.
+3. Backend provides `GET /api/public/forms/{identifier}/counter-poster.pdf` generating a high-quality, printable A4 counter poster with authority branding, form name, large QR code, and 8-language translation callout.
+4. Frontend provides a dedicated public intake page at `/f/[...slug]` that displays the form title, organization badge, language selector, and 1-click start button creating a session in the chosen language.
+5. Agency Workspace (`OrganizationForms` and `OrganizationSettings`) includes a "Share & QR" action button opening a modal with direct link copying, QR downloads (PNG & SVG), counter poster PDF download, and website embed snippet.
+6. All backend tests pass on `ai_form_assistant_test` DB; all frontend tests pass with TypeScript and ESLint verification.
 
 ### Planned Steps
-- [x] 1. Define Pydantic schemas in `backend/app/organizations/schemas.py` for `PublicOrganizationSummary`, `PublicOrganizationDetail`, `PublicPublishedFormItem`.
-- [x] 2. Implement public query service methods in `backend/app/organizations/services.py` (`list_public_organizations`, `get_public_organization_by_slug`, `get_organization_logo_bytes`).
-- [x] 3. Wire public REST API routes in `backend/app/organizations/api/routes.py` (`GET /api/public/organizations`, `GET /api/public/organizations/{slug}`, `GET /api/public/organizations/{slug}/logo`).
-- [x] 4. Add backend test suite in `backend/tests/organizations/test_public_organization_portals.py` targeting `ai_form_assistant_test` DB.
-- [x] 5. Add frontend client functions in `frontend/src/features/portal/services/portalClient.ts` (`listPublicOrganizations`, `getPublicOrganizationBySlug`).
-- [x] 6. Build `PublicOrganizationPortal.tsx` component and Next.js page at `frontend/src/app/organizations/[slug]/page.tsx`.
-- [x] 7. Build Citizen Discovery Directory page at `frontend/src/app/organizations/page.tsx` with search & filters.
-- [x] 8. Update navigation header to link to the Citizen Directory.
-- [x] 9. Run full quality gate (Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest) and verify.
+- [x] 1. Define Pydantic schemas in `backend/app/forms/public_schemas.py` for public form resolution (`PublicFormDetail`).
+- [x] 2. Implement QR code generator and A4 counter poster generator service in `backend/app/forms/public_qr_service.py` using ReportLab & PyMuPDF.
+- [x] 3. Implement public form query and poster service methods in `backend/app/forms/public_service.py`.
+- [x] 4. Wire public REST API routes in `backend/app/forms/public_routes.py` (`GET /api/public/forms/{identifier}`, `GET /api/public/forms/{identifier}/qr`, `GET /api/public/forms/{identifier}/counter-poster.pdf`).
+- [x] 5. Write comprehensive backend unit and integration tests in `backend/tests/forms/test_public_form_qr_and_links.py` targeting `ai_form_assistant_test` DB.
+- [x] 6. Add frontend API client functions in `frontend/src/features/portal/services/portalClient.ts` for fetching public form metadata and generating share links.
+- [x] 7. Create Next.js public route at `frontend/src/app/f/[...slug]/page.tsx` for citizen mobile/desktop intake.
+- [x] 8. Build `ShareFormModal.tsx` in `frontend/src/features/portal/components/ShareFormModal.tsx` with direct link copy, QR preview/downloads, counter poster PDF button, and HTML embed snippet.
+- [x] 9. Integrate `ShareFormModal` into `OrganizationForms.tsx` and `PortalDashboard.tsx` form tables.
+- [x] 10. Write frontend unit tests in `frontend/src/features/portal/tests/shareFormModal.test.tsx` and `frontend/src/app/f/tests/shortLinkIntake.test.tsx`.
+- [x] 11. Run full verification gate: Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest.
 
 ---
 
-### Phase G2: Form Upload, Parsing & Human Schema Review Workflow
+### Phase G2: Form Upload, Parsing & Human Schema Review Workflow (Completed)
 - [x] Publishing workflow state machine: `Draft -> Processing -> Needs Review -> Ready -> Published -> Archived`.
 - [x] Universal form ingestion: PDF AcroForms + layout coordinate extraction + universal English canonical field key mapping.
 - [x] Visual Schema Review Studio: dual-pane UI where staff review, rename, reorder, and correct fields before publishing.
@@ -46,17 +59,18 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 - [x] Permanent canvas interactivity: direct click-and-drag drawing of new fields, drag-to-move existing fields, and 6-point corner/edge resize handles with live auto-save.
 - [x] Universal form metadata management: neutral international English placeholders, empty default evidence checklist, and clean field creation with key auto-deduplication.
 
-### Phase G3: Public Organization Portals & Citizen Discovery Directory
+### Phase G3: Public Organization Portals & Citizen Discovery Directory (Completed)
 - [x] Public Organization Portals at `/organizations/[slug]` (e.g. `/organizations/stadt-stuttgart`).
 - [x] Branded portal UI: verified government badge, logo, description, office contact, and searchable form catalog.
 - [x] Citizen municipality search directory at `/organizations` and linked in navigation.
 - [x] SEO-optimized server-rendered public pages.
 
-### Phase G4: Public Form Links & Printable Counter QR Codes
-- [ ] Short URL resolver (`/f/[slug]`) mapping to the active published form version.
-- [ ] High-resolution SVG and PNG QR code generation with organization branding.
-- [ ] Printable A4 counter poster generator ("Scan to fill out in your native language" for municipal counters).
-- [ ] Share modal with 1-click link copying and embed snippets.
+### Phase G4: Public Form Links & Printable Counter QR Codes (Completed)
+- [x] Short URL resolver (`/f/[slug]`) mapping to the active published form version.
+- [x] High-resolution SVG and PNG QR code generation with organization branding.
+- [x] Printable A4 counter poster generator ("Scan to fill out in your native language" for municipal counters).
+- [x] Share modal with 1-click link copying, compact download buttons, and embed snippets.
+- [x] Portal UI Refinement: Clean, compact button labels across all 8 languages (`Review`, `Share`, `Upload PDF`, `New Intake`), sentence-case metric strips, and clutter-free card footers.
 
 ### Phase G5: Private & Invitation-Only Intake with Email Verification
 - [ ] Private invitation engine with cryptographically secure tokens and expiration timestamps.

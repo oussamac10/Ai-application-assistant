@@ -168,7 +168,7 @@ export default function LanguageSelector({
         </div>
 
         {/* Region Filter Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 sm:pb-0">
+        <div className="flex flex-wrap items-center gap-1">
           {regionTabs.map((tab) => {
             const isTabActive = searchQuery.trim() === "" && activeRegion === tab.key;
             return (

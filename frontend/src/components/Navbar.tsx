@@ -302,7 +302,7 @@ export default function Navbar() {
                 </div>
 
                 {/* Region Pills */}
-                <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+                <div className="flex flex-wrap items-center gap-1">
                   {[
                     { key: "Popular", label: tNav("regionPopular") },
                     {

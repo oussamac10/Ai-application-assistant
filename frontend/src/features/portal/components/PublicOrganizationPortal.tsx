@@ -19,7 +19,9 @@ import {
   Layers,
   Sparkles,
   Info,
+  QrCode,
 } from "lucide-react";
+import { ShareFormModal } from "./ShareFormModal";
 import { getPublicOrganizationBySlug } from "../services/portalClient";
 import { PublicOrganizationDetail, PublicPublishedFormItem } from "../types";
 import { createSession, ApiError } from "@/features/form-session/services/apiClient";
@@ -33,7 +35,7 @@ interface PublicOrganizationPortalProps {
 
 export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps) {
   const router = useRouter();
-  const { setLocale } = useLanguage();
+  const { locale, setLocale } = useLanguage();
 
   const [org, setOrg] = useState<PublicOrganizationDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,11 +43,19 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
-  const [citizenLanguage, setCitizenLanguage] = useState("en");
+  const [citizenLanguage, setCitizenLanguage] = useState(locale || "en");
+
+  // Keep citizenLanguage in sync with active UI locale
+  useEffect(() => {
+    if (locale) {
+      setCitizenLanguage(locale);
+    }
+  }, [locale]);
 
   // Starting session state
   const [startingFormId, setStartingFormId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  const [sharingForm, setSharingForm] = useState<PublicPublishedFormItem | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -106,14 +116,11 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
       // Navigate directly into the guided question intake
       router.push(`/application/session/${session.publicId}`);
     } catch (err: unknown) {
-      let msg = "Failed to start form session";
-      if (err instanceof ApiError && err.detail) {
+      let msg = "Failed to start form session. Please try again.";
+      if (err instanceof ApiError && err.detail && err.detail !== "unknown") {
         msg = err.detail;
-      } else if (err instanceof Error) {
-        msg =
-          err.message === "unknown"
-            ? "Failed to start form session. Please try again."
-            : err.message;
+      } else if (err instanceof Error && err.message && err.message !== "unknown") {
+        msg = err.message;
       }
       setStartError(msg);
       setStartingFormId(null);
@@ -375,9 +382,20 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
                   {/* Action Button */}
                   <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Free Citizen Intake
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Free Citizen Intake
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSharingForm(form)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+                        title="Share Form & Counter QR Code"
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        <span>QR & Share</span>
+                      </button>
+                    </div>
 
                     <div className="flex flex-wrap items-center gap-2">
                       {/* Language Selector on Form Card */}
@@ -430,6 +448,19 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
           </div>
         )}
       </main>
+
+      {sharingForm && (
+        <ShareFormModal
+          isOpen={!!sharingForm}
+          onClose={() => setSharingForm(null)}
+          form={{
+            id: sharingForm.id,
+            key: sharingForm.key,
+            name: sharingForm.name,
+          }}
+          orgSlug={org?.slug}
+        />
+      )}
     </div>
   );
 }

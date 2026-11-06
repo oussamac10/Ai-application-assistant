@@ -743,7 +743,7 @@ export function FormSchemaReviewStudio({
                   ) : (
                     <CheckCircle className="w-4 h-4" />
                   )}
-                  Approve & Publish to Portal
+                  Approve & Publish
                 </button>
               )}
 

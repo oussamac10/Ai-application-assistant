@@ -32,12 +32,13 @@
   - Public Organization Portal: branded landing page with verified badge, office hours, contact details, and searchable form list.
   - Zero-friction citizen access: no registration required for public forms.
 
-### Phase G4 — Public Form Links & Printable Counter QR Codes
+### Phase G4 — Public Form Links & Printable Counter QR Codes (`Completed`)
 - **Objectives:** Enable offices to generate unlimited links and printable physical collateral for counters and waiting areas.
 - **Scope:**
   - Short URL resolver `/f/{short_code}` resolving to the active published form version.
   - Dynamic QR code generation (SVG and high-resolution PNG with organization branding).
   - Printable A4 counter poster generator ("Scan to fill out in your native language" for municipal counters).
+  - 1-click share modal with direct link copying and website embed snippets.
 
 ### Phase G5 — Private Invitations & Email Verification
 - **Objectives:** Allow case managers to invite specific citizens to fill out private administrative forms with strict identity protection.

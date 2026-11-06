@@ -14,6 +14,7 @@ import {
   OrganizationVerificationPayload,
   PublicOrganizationDetail,
   PublicOrganizationSummary,
+  PublicFormDetail,
 } from "../types";
 
 export async function getCurrentOrganization(): Promise<Organization> {
@@ -590,6 +591,20 @@ export async function getPublicOrganizationBySlug(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Organization portal not found.");
+  }
+  return res.json();
+}
+
+export async function getPublicFormByIdentifier(
+  identifier: string
+): Promise<PublicFormDetail> {
+  const res = await fetch(`/api/public/forms/${identifier}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Public form could not be found.");
   }
   return res.json();
 }

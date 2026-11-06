@@ -48,6 +48,7 @@ from app.field_detection.errors import (
     FieldDetectionValidationError,
 )
 from app.forms.api.routes import router as forms_router
+from app.forms.public_routes import router as public_forms_router
 from app.forms.services import (
     ResourceNotFoundError,
     StateConflictError,
@@ -520,5 +521,6 @@ app.include_router(field_detection_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(vault_router, prefix="/api")
 app.include_router(organizations_router, prefix="/api")
+app.include_router(public_forms_router, prefix="/api")
 app.include_router(billing_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
