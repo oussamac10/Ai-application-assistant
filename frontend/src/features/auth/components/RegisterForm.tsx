@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Briefcase, Landmark, User } from "lucide-react";
 import { useAuth } from "../context/AuthProvider";
@@ -20,6 +20,10 @@ function errorKeyFor(err: unknown): string {
 export default function RegisterForm() {
   const t = useTranslations("auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams?.get("redirect");
+  const redirectUrl = redirectParam && redirectParam.startsWith("/") ? redirectParam : null;
+
   const { register } = useAuth();
 
   const [accountType, setAccountType] = useState<"individual" | "government" | "business">("individual");
@@ -42,7 +46,9 @@ export default function RegisterForm() {
         organizationName: organizationName.trim() || undefined,
         officialWebsiteUrl: officialWebsiteUrl.trim() || undefined,
       });
-      if (accountType === "individual") {
+      if (redirectUrl) {
+        router.push(redirectUrl);
+      } else if (accountType === "individual") {
         router.push("/applications");
       } else {
         router.push("/portal");
@@ -282,7 +288,10 @@ export default function RegisterForm() {
 
           <p className="mt-6 text-center text-xs text-slate-600">
             {t("haveAccountPrompt")}{" "}
-            <Link href="/login" className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+            <Link
+              href={redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : "/login"}
+              className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+            >
               {t("goToLogin")}
             </Link>
           </p>

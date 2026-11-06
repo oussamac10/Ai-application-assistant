@@ -39,6 +39,8 @@ import { SessionClarificationPanel } from "@/features/form-session/components/Se
 import { SessionConfirmationPanel } from "@/features/form-session/components/SessionConfirmationPanel";
 import { SessionFieldExplanation } from "@/features/form-session/components/SessionFieldExplanation";
 import ClaimBanner from "@/features/applications/components/ClaimBanner";
+import { SaveAndResumeModal } from "@/features/applications/components/SaveAndResumeModal";
+import { Bookmark } from "lucide-react";
 import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { prefillSessionFromVault } from "@/features/profile-vault/services/vaultClient";
 
@@ -78,6 +80,7 @@ export default function GuidedSession() {
   const [signatureValue, setSignatureValue] = useState<SignatureValue | null>(
     null,
   );
+  const [isSaveResumeOpen, setIsSaveResumeOpen] = useState<boolean>(false);
   const pagePreviewUrlsRef = useRef<Record<number, string>>({});
 
   useEffect(() => {
@@ -509,7 +512,13 @@ export default function GuidedSession() {
 
           {/* Right Column: Active Guided Form Card */}
           <div className="lg:col-span-8 flex flex-col justify-center w-full">
-            <ClaimBanner sessionId={sessionId} />
+            <ClaimBanner
+              sessionId={sessionId}
+              formTitle={currentField?.sourceDocumentFilename || "Official Form"}
+              completedCount={completed}
+              totalCount={total}
+              progressPercent={progressPercent}
+            />
 
             {auth?.user && (
               <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-indigo-200/80 bg-white px-4 py-3 shadow-2xs text-start">
@@ -540,9 +549,22 @@ export default function GuidedSession() {
                       percent: progressPercent,
                     })}
                   </span>
-                  <span className="rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-indigo-700 font-bold tabular-nums">
-                    {progressPercent}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {!auth?.user && (
+                      <button
+                        type="button"
+                        onClick={() => setIsSaveResumeOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors text-[11px] font-medium cursor-pointer"
+                        title="Save your progress to resume later"
+                      >
+                        <Bookmark className="w-3 h-3 text-indigo-600" />
+                        <span>Save & Resume</span>
+                      </button>
+                    )}
+                    <span className="rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-indigo-700 font-bold tabular-nums">
+                      {progressPercent}%
+                    </span>
+                  </div>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-200/80 overflow-hidden border border-slate-300/60">
                   <div
@@ -812,6 +834,16 @@ export default function GuidedSession() {
           </div>
         </div>
       </div>
+
+      <SaveAndResumeModal
+        isOpen={isSaveResumeOpen}
+        onClose={() => setIsSaveResumeOpen(false)}
+        sessionId={sessionId}
+        formTitle={currentField?.sourceDocumentFilename || "Official Form"}
+        completedCount={completed}
+        totalCount={total}
+        progressPercent={progressPercent}
+      />
     </main>
   );
 }

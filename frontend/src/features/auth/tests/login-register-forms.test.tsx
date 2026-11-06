@@ -3,9 +3,11 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 const pushMock = vi.fn();
+let mockSearchParams = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 vi.mock("next-intl", () => ({
@@ -80,6 +82,26 @@ describe("LoginForm", () => {
     await waitFor(() => expect(screen.getByText("error_generic_login_failed")).toBeDefined());
     expect(pushMock).not.toHaveBeenCalled();
   });
+
+  it("redirects to custom redirectUrl on login success when redirect param is present", async () => {
+    mockSearchParams = new URLSearchParams("redirect=/application/session/sess-123");
+    loginMock.mockResolvedValue({ id: "u1", email: "user@example.com", createdAt: "now" });
+    const { default: LoginForm } = await import("@/features/auth/components/LoginForm");
+    render(<LoginForm />);
+
+    fireEvent.change(screen.getByLabelText("emailLabel"), {
+      target: { value: "user@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("passwordLabel"), {
+      target: { value: "correct-horse-battery" },
+    });
+    fireEvent.click(screen.getByText("loginButton"));
+
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/application/session/sess-123")
+    );
+    mockSearchParams = new URLSearchParams();
+  });
 });
 
 describe("RegisterForm", () => {
@@ -101,6 +123,28 @@ describe("RegisterForm", () => {
 
     await waitFor(() => expect(registerMock).toHaveBeenCalled());
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/applications"));
+  });
+
+  it("registers and redirects to custom redirectUrl on success when redirect param is present", async () => {
+    mockSearchParams = new URLSearchParams("redirect=/application/session/sess-abc");
+    registerMock.mockResolvedValue({ id: "u1", email: "new@example.com", createdAt: "now" });
+    const { default: RegisterForm } = await import("@/features/auth/components/RegisterForm");
+    render(<RegisterForm />);
+
+    fireEvent.change(screen.getByLabelText("emailLabel"), {
+      target: { value: "new@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("passwordLabel"), {
+      target: { value: "correct-horse-battery" },
+    });
+    fireEvent.change(screen.getByLabelText("passwordConfirmationLabel"), {
+      target: { value: "correct-horse-battery" },
+    });
+    fireEvent.click(screen.getByText("registerButton"));
+
+    await waitFor(() => expect(registerMock).toHaveBeenCalled());
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/application/session/sess-abc"));
+    mockSearchParams = new URLSearchParams();
   });
 
   it("surfaces the password_mismatch error code as a translated message", async () => {

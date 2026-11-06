@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "../context/AuthProvider";
 import { AuthApiError } from "../services/authClient";
@@ -18,6 +18,10 @@ function errorKeyFor(err: unknown): string {
 export default function LoginForm() {
   const t = useTranslations("auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams?.get("redirect");
+  const redirectUrl = redirectParam && redirectParam.startsWith("/") ? redirectParam : "/applications";
+
   const { login } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -32,7 +36,7 @@ export default function LoginForm() {
     setErrorKey(null);
     try {
       await login(email, password);
-      router.push("/applications");
+      router.push(redirectUrl);
     } catch (err) {
       setErrorKey(errorKeyFor(err));
     } finally {
@@ -122,7 +126,10 @@ export default function LoginForm() {
 
           <p className="mt-6 text-center text-xs text-slate-600">
             {t("noAccountPrompt")}{" "}
-            <Link href="/register" className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+            <Link
+              href={redirectParam ? `/register?redirect=${encodeURIComponent(redirectParam)}` : "/register"}
+              className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+            >
               {t("goToRegister")}
             </Link>
           </p>
