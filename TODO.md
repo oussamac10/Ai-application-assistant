@@ -13,40 +13,40 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 
 ## Current Task
 
-**Phase G4: Public Form Links & Printable Counter QR Codes (Active)**
+**Phase G5-AI: Semantic Intelligence, Vector Search & Auto-Mapping (`pgvector` + Multilingual Embeddings)**
 
 ### 7-Line Business Decision Summary
-- **Feature:** Phase G4 — Public Form Links (`/f/[slug]`), Vector QR Code Generation (SVG/PNG), Printable A4 Counter Poster PDF Generator, and Caseworker Share Modal.
-- **Customer problem:** Municipalities and public institutions rely on physical paper forms at service desks; citizens cannot complete them without staff translation assistance, creating long queues and slow intake.
-- **Expected value:** Bridges physical service counters to digital multilingual intake; drastically reduces in-person queue times and counter translation inquiries; drives viral smartphone scans and organic citizen adoption.
-- **Estimated development effort:** ~1 solo-developer build day across FastAPI QR/PDF poster generation (built-in ReportLab + PyMuPDF), Next.js `/f/[...slug]` landing page, and Caseworker Share Modal.
-- **Operating impact:** Zero paid AI calls; uses lightweight vector drawing and standard PDF canvas rendering. Completely local, fast, and deterministic.
-- **Monetization potential:** High-value SaaS selling point: municipal counters and consulates can print official branded QR posters immediately upon subscribing to host their forms.
-- **Recommendation:** `Build now` — Essential real-world distribution mechanism for public authority forms.
+- **Feature:** Phase G5-AI — PostgreSQL `pgvector` Semantic Intelligence Pipeline (Review Studio AI Schema Auto-Mapper, Multilingual Natural-Language Form Finder, Profile Vault 2.0 Semantic Fill, and Gemini 2.0 Flash Plain-Language Bureaucracy Explanations).
+- **Customer problem:** Municipal caseworkers spend hours manually mapping OCR boxes on long PDFs to schema keys; foreign citizens cannot find forms because they don't know German bureaucratic names (*Amtsdeutsch*); complex legal terms confuse applicants.
+- **Expected value:** Reduces form configuration time from 20 minutes to <2 minutes per form (90% reduction); enables citizens of all 8 languages to find official German forms using everyday native phrasing; eliminates field confusion with instant plain-language explanations.
+- **Estimated development effort:** ~2 solo-developer build days across PostgreSQL `pgvector` migration, `EmbeddingService` (Google `text-embedding-004` & local `bge-m3`), Review Studio auto-mapping endpoint, and multilingual form search.
+- **Operating impact:** Embeddings run in PostgreSQL with HNSW cosine index (`<=>`) in `<10ms` at negligible cost (~€0.000016 per 50-field form); zero external vector SaaS dependencies (Pinecone/Milvus); 100% GDPR compliant and on-premise capable.
+- **Monetization potential:** Core enterprise/agency differentiator: turns the Review Studio into a magical 1-click publishing workflow and drives citizen adoption across multilingual communities.
+- **Recommendation:** `Build now` — Extremely high user experience value, zero ongoing infrastructure overhead, and perfect synergy with PostgreSQL 16.
 
 ### Goal
-Allow citizens to access published forms via clean short permalinks (`/f/[slug]`) and high-resolution QR codes, enable municipal offices to download printable A4 counter posters with 8-language call-to-actions, and give caseworkers a 1-click share modal in their workspace.
+Equip the platform with native PostgreSQL vector search (`pgvector`) to power 4 breakthrough capabilities: (1) instant AI schema auto-mapping in Review Studio, (2) cross-lingual form discovery in citizen native languages, (3) semantic Profile Vault pre-filling, and (4) Gemini 2.0 Flash plain-language field explanations.
 
 ### Acceptance Criteria
-1. Backend provides `GET /api/public/forms/{identifier}` resolving by form `key` or `id` (and optionally `{org_slug}/{form_key}`), returning published form metadata, active version, and organization details.
-2. Backend provides `GET /api/public/forms/{identifier}/qr?format=svg` and `?format=png` generating crisp vector/raster QR codes pointing to the form URL.
-3. Backend provides `GET /api/public/forms/{identifier}/counter-poster.pdf` generating a high-quality, printable A4 counter poster with authority branding, form name, large QR code, and 8-language translation callout.
-4. Frontend provides a dedicated public intake page at `/f/[...slug]` that displays the form title, organization badge, language selector, and 1-click start button creating a session in the chosen language.
-5. Agency Workspace (`OrganizationForms` and `OrganizationSettings`) includes a "Share & QR" action button opening a modal with direct link copying, QR downloads (PNG & SVG), counter poster PDF download, and website embed snippet.
-6. All backend tests pass on `ai_form_assistant_test` DB; all frontend tests pass with TypeScript and ESLint verification.
+1. PostgreSQL 16 `pgvector` extension enabled via Alembic migration, creating `embedding_vectors` table with `vector(768)` / `vector(1024)` and HNSW cosine index (`<=>`).
+2. `EmbeddingService` implemented with clean provider abstraction: Google `text-embedding-004` (cloud standard) and local `fastembed` (`BAAI/bge-m3`, sovereign on-premise).
+3. Backend provides `POST /api/organizations/{org_id}/forms/{form_id}/auto-map` returning high-confidence canonical key predictions and top-3 suggestions for detected OCR bounding boxes in `<2s`.
+4. Review Studio UI displays 1-click "Auto-Map Fields" action with visual confidence tags and dropdown review.
+5. Multilingual Natural-Language Form Finder endpoint `GET /api/public/forms/search?q=...&lang=...` retrieves relevant German administrative templates from native queries (Arabic, Turkish, Ukrainian, etc.).
+6. Gemini 2.0 Flash explanation endpoint generates 2-sentence plain-language definitions and document readiness checklists for complicated bureaucratic terms.
+7. Automated tests pass with zero live paid AI calls using mock embedding and test fixtures on `ai_form_assistant_test` DB.
 
 ### Planned Steps
-- [x] 1. Define Pydantic schemas in `backend/app/forms/public_schemas.py` for public form resolution (`PublicFormDetail`).
-- [x] 2. Implement QR code generator and A4 counter poster generator service in `backend/app/forms/public_qr_service.py` using ReportLab & PyMuPDF.
-- [x] 3. Implement public form query and poster service methods in `backend/app/forms/public_service.py`.
-- [x] 4. Wire public REST API routes in `backend/app/forms/public_routes.py` (`GET /api/public/forms/{identifier}`, `GET /api/public/forms/{identifier}/qr`, `GET /api/public/forms/{identifier}/counter-poster.pdf`).
-- [x] 5. Write comprehensive backend unit and integration tests in `backend/tests/forms/test_public_form_qr_and_links.py` targeting `ai_form_assistant_test` DB.
-- [x] 6. Add frontend API client functions in `frontend/src/features/portal/services/portalClient.ts` for fetching public form metadata and generating share links.
-- [x] 7. Create Next.js public route at `frontend/src/app/f/[...slug]/page.tsx` for citizen mobile/desktop intake.
-- [x] 8. Build `ShareFormModal.tsx` in `frontend/src/features/portal/components/ShareFormModal.tsx` with direct link copy, QR preview/downloads, counter poster PDF button, and HTML embed snippet.
-- [x] 9. Integrate `ShareFormModal` into `OrganizationForms.tsx` and `PortalDashboard.tsx` form tables.
-- [x] 10. Write frontend unit tests in `frontend/src/features/portal/tests/shareFormModal.test.tsx` and `frontend/src/app/f/tests/shortLinkIntake.test.tsx`.
-- [x] 11. Run full verification gate: Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest.
+- [ ] 1. Create Alembic migration enabling `pgvector` and defining `embedding_vectors` table with HNSW index and tenant isolation.
+- [ ] 2. Implement `backend/app/ai/embedding_service.py` with `EmbeddingProvider` protocol, `GoogleEmbeddingProvider`, and `FastEmbedProvider`.
+- [ ] 3. Seed canonical field dictionary embeddings (250+ administrative keys across personal, address, employment, family, and landlord domains).
+- [ ] 4. Implement Review Studio auto-mapper service and endpoint `POST /api/organizations/{org_id}/forms/{form_id}/auto-map`.
+- [ ] 5. Implement multilingual form vector search in `backend/app/forms/public_service.py`.
+- [ ] 6. Implement Gemini 2.0 Flash plain-language field explanation helper with prompt isolation and document checklist generation.
+- [ ] 7. Integrate "Auto-Map Fields" button and confidence badges into `FormSchemaReviewStudio.tsx`.
+- [ ] 8. Write comprehensive backend tests for vector search, schema auto-mapping, and tenant isolation targeting `ai_form_assistant_test` DB.
+- [ ] 9. Write frontend tests for auto-mapper interactions in Review Studio.
+- [ ] 10. Run full verification gate: Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest.
 
 ---
 
@@ -71,6 +71,14 @@ Allow citizens to access published forms via clean short permalinks (`/f/[slug]`
 - [x] Printable A4 counter poster generator ("Scan to fill out in your native language" for municipal counters).
 - [x] Share modal with 1-click link copying, compact download buttons, and embed snippets.
 - [x] Portal UI Refinement: Clean, compact button labels across all 8 languages (`Review`, `Share`, `Upload PDF`, `New Intake`), sentence-case metric strips, and clutter-free card footers.
+
+### Phase G5-AI: Semantic Intelligence, Vector Search & Auto-Mapping (pgvector + Multilingual Embeddings)
+- [ ] PostgreSQL 16 `pgvector` migration with HNSW cosine index (`<=>`) and tenant-isolated `embedding_vectors` table.
+- [ ] `EmbeddingService` interface supporting Google `text-embedding-004` (cloud standard) and local `fastembed` (`bge-m3`, sovereign on-premise).
+- [ ] Review Studio AI Schema Auto-Mapper: automatically maps detected OCR bounding box labels to canonical keys in `<2s` with confidence ratings and top-3 suggestions.
+- [ ] Multilingual Natural-Language Form Finder: cross-lingual semantic discovery over German forms from citizen native phrasing (Arabic, Turkish, Ukrainian, etc.).
+- [ ] Profile Vault 2.0 Semantic Auto-Fill: high-confidence cross-form attribute matching across varied key naming schemes.
+- [ ] Grounded Gemini 2.0 Flash / 1.5 Flash plain-language bureaucracy explanations (*Amtsdeutsch*) and document readiness checklists.
 
 ### Phase G5: Private & Invitation-Only Intake with Email Verification
 - [ ] Private invitation engine with cryptographically secure tokens and expiration timestamps.

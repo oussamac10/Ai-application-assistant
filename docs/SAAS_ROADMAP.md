@@ -40,6 +40,15 @@
   - Printable A4 counter poster generator ("Scan to fill out in your native language" for municipal counters).
   - 1-click share modal with direct link copying and website embed snippets.
 
+### Phase G5-AI — Semantic Intelligence, Vector Search & Auto-Mapping (`pgvector` + Multilingual Embeddings)
+- **Objectives:** Supercharge the Human Schema Review Studio and citizen discovery with ultra-fast, zero-jargon semantic intelligence powered by native PostgreSQL `pgvector`, multilingual embeddings, and Google Gemini LLMs.
+- **Scope:**
+  - **Feature 1: Review Studio AI Schema Auto-Mapper**: Automatically maps detected OCR bounding box labels (`"Familienname"`, `"Geburtsdatum"`, `"Wohnort"`) to canonical schema keys (`personal.last_name`, `personal.birth_date`, `address.city`) using cosine vector similarity in `<2s`, reducing manual reviewer effort by 90% without paid LLM prompt latency.
+  - **Feature 2: Multilingual Natural-Language Form Finder**: Enables citizens to search for official German administrative procedures in their native language (Arabic, Turkish, Ukrainian, Spanish, French, etc.) using semantic query vector search over form titles, descriptions, and catalog keywords.
+  - **Feature 3: Profile Vault 2.0 Semantic Auto-Fill**: Intelligently correlates user profile entries with target form schema fields using vector proximity when field keys differ between municipalities or states.
+  - **Feature 4: Plain-Language Field Explanations & Document Readiness**: Grounded Gemini 2.0 Flash / 1.5 Flash micro-explanations for complex bureaucratic terminology (*Amtsdeutsch*) with actionable document checklists (e.g. required certificates, landlord confirmations) in all 8 languages.
+  - **Hybrid AI Architecture**: Cloud-first with Google `text-embedding-004` & Gemini 2.0 Flash (`x-goog-api-key`), with seamless air-gapped sovereign on-premise fallback using `BAAI/bge-m3` via `fastembed` + local `Ollama` for strict German public sector compliance.
+
 ### Phase G5 — Private Invitations & Email Verification
 - **Objectives:** Allow case managers to invite specific citizens to fill out private administrative forms with strict identity protection.
 - **Scope:**
@@ -106,6 +115,10 @@
 | **S4** | `S4-02` | Stripe Checkout (`EUR 4.99` / default `EUR 16.99` Pack / `EUR 12.99` & `79/yr` / `EUR 39` Pro), Stripe Tax, `credit_ledger`, 7d typo re-export, auto-refund on fail, `+EUR 12` upsell, German *Kündigungsbutton* | **P1** | **Todo** | `S3-01`, `S4-01` | 3.5d | Live Stripe unlock, hard plan caps, zero-chargeback auto-refund |
 | **S4B** | `S4B-01` | Admin runtime/cost kill-switches (`Azure` toggle, daily AI cap, upload pause, ARQ job inspector) + `AuditEvent` log | **P1** | **Todo** | `S4-01` | 1.0d | Founder can halt paid API spikes in 1 click without redeploying |
 | **S4B** | `S4B-02` | Protected `/admin` UI (`require_admin`): margin pulse, user credit grant/ban, visual `forms` & `questions` approval studio | **P1** | **Todo** | `S4-02`, `S4B-01` | 1.5d | Full zero-PII platform control; `403` enforced for non-admins |
+| **G5-AI** | `G5-AI-01` | Native `pgvector` migration (`embedding_vectors` table, HNSW cosine index) + `EmbeddingService` (`text-embedding-004` & local `bge-m3`) | **P1** | **Todo** | `S1-03` | 1.5d | Fast embedding storage in PostgreSQL with `<10ms` cosine search |
+| **G5-AI** | `G5-AI-02` | Review Studio AI Schema Auto-Mapper: map OCR labels to canonical keys in `<2s` with confidence scores | **P1** | **Todo** | `G5-AI-01` | 1.5d | 90% reduction in manual field configuration time in Review Studio |
+| **G5-AI** | `G5-AI-03` | Multilingual Natural-Language Form Finder: cross-lingual vector search over German templates (Arabic, Turkish, etc.) | **P1** | **Todo** | `G5-AI-01` | 1.0d | Citizen native query finds correct official German authority form |
+| **G5-AI** | `G5-AI-04` | Profile Vault 2.0 semantic key fill + Gemini 2.0 Flash plain-language explanations & document readiness checklist | **P1** | **Todo** | `G5-AI-02` | 2.0d | One-click vault pre-fill across varying keys + simple *Amtsdeutsch* |
 | **S5** | `S5-01` | Organization / Association Portals (`/p/[orgSlug]` + `/org/[slug]/admin` + `EUR 99/mo` `200`-doc plan, gated on `EXP-03`) | **P1** | **Todo** | `S4-02` | 5.0d | 2 pilot organizations live on `/p/{slug}` |
 | **S6** | `S6-01` | Paid EU `VertexAIProvider` (`europe-west3`), multi-stage non-root Dockerfiles (`standalone`), `docker-compose.prod.yml`, Caddy HTTPS | **P0** | **Todo** | `S1-03` | 2.0d | Zero EEA unpaid-tier calls; non-root + Observatory A+ |
 | **S6** | `S6-02` | GitHub Actions Postgres 16 + Alembic + Next build + Playwright CI, Hetzner EU deploy & backup restore drill | **P0** | **Todo** | `S6-01` | 2.5d | Automated CI/CD + `<10m` verified DB restore |

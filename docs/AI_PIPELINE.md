@@ -87,3 +87,115 @@ AI Form Assistant deliberately uses a **backend-controlled deterministic state m
    - Severe smartphone camera perspective skew (>5°) reduces overlay precision.
    - Overflowing values shrink down to a minimum readable `6.5pt` and flag a warning on the Verification Studio rather than silently truncating personal data.
    - Forms legally requiring *eigenhändige Unterschrift im Original* or Qualified Electronic Signature (`QES`) should use the built-in **"Sign on paper after printing"** option (`pending_manual_signature`).
+
+---
+
+## 7. Vector Embeddings & Semantic Intelligence Engine (`pgvector` + Gemini LLM)
+
+### 7.1 Architecture & Core Philosophy: Zero-Dependency Native Postgres
+
+AI Form Assistant integrates vector intelligence directly into **PostgreSQL 16 using the official `pgvector` extension**, completely eliminating external SaaS vector databases (such as Pinecone, Qdrant, or Milvus):
+
+- **Zero Additional Infrastructure Overhead:** Runs inside the existing PostgreSQL container (`ai_form_assistant` / `ai_form_assistant_test`), eliminating additional cloud hosting bills, separate network hops, and vendor lock-in.
+- **ACID Consistency & Tenant Isolation:** Vector embeddings reside in relational tables with foreign keys to `Organization`, `FormVersion`, and `CanonicalFieldKey`. Workspace boundaries are enforced via standard SQL `WHERE organization_id = :org_id OR organization_id IS NULL`, preventing cross-tenant data leakage.
+- **GDPR & Sovereign Data Boundary:** Citizen answers and sensitive government forms never transit through third-party vector cloud providers.
+
+```mermaid
+flowchart TD
+    subgraph Ingestion["1. Catalog & Template Ingestion"]
+        Canonical["Canonical Field Dictionary (250+ standard administrative keys)"]
+        Forms["Published Form Templates & Descriptions"]
+        Embedder["Embedding Service (Google text-embedding-004 / local bge-m3)"]
+        Canonical --> Embedder
+        Forms --> Embedder
+    end
+
+    subgraph Storage["2. Native PostgreSQL (pgvector)"]
+        PGVector[("PostgreSQL 16 + pgvector (HNSW Index, Cosine Distance <=>)")]
+        Embedder -->|Store 768d / 1024d vectors| PGVector
+    end
+
+    subgraph Runtime["3. Real-Time Workflows"]
+        Studio["Review Studio: Raw OCR Bounding Boxes"] -->|Embed Field Labels| QueryVector["Query Vector"]
+        Citizen["Citizen: Multilingual Natural Query (e.g. Arabic, Turkish)"] -->|Embed Citizen Intent| QueryVector
+        Profile["User Profile Vault 2.0 (Saved Attributes)"] -->|Embed Saved Keys| QueryVector
+        QueryVector -->|Cosine Similarity <=>| PGVector
+        PGVector -->|Top-K Matches (<20ms)| Results["Fast Rank-Ordered Matches"]
+    end
+
+    subgraph Output["4. User Experience"]
+        Results --> AutoMap["1. Review Studio AI Auto-Mapper: Instant Canonical Field Key Suggestion"]
+        Results --> FormSearch["2. Multilingual Form Finder: Exact German Authority Form Discovery"]
+        Results --> ProfileFill["3. Cross-Form Auto-Fill: Semantic Profile Vault Pre-Fill"]
+        Results --> Explain["4. Gemini 2.0 Flash Plain-Language Field Explanations & Checklists"]
+    end
+```
+
+---
+
+### 7.2 The 4 Core Vector & LLM Capabilities
+
+#### 1. AI Schema Auto-Mapper in Human Review Studio
+- **Problem:** When an agency caseworker uploads a 6-page municipal PDF, OCR detects 40–80 bounding boxes with bureaucratic labels (`"Familienname (ggf. Geburtsname)"`, `"Tag und Ort der Geburt"`, `"Wohnungsgeber (Vermieter)"`). Manually typing and selecting schema keys for every field is tedious.
+- **Vector Solution:** Each detected OCR label is embedded and matched against our pre-indexed 250+ canonical field keys (`personal.last_name`, `personal.birth_date`, `landlord.name`) via cosine distance in PostgreSQL (`<=>`).
+- **Performance & Cost:** Matches 50 fields in `<2 seconds` at **€0 LLM cost** (pure vector retrieval, no expensive LLM prompting). Reviewers receive a high-confidence suggested key (e.g., `96% Match: personal.last_name`) and a dropdown of top-3 alternatives.
+
+#### 2. Multilingual Natural-Language Form Finder
+- **Problem:** Immigrants and foreign residents rarely know the precise German administrative name of procedures (e.g. *Wohnungsgeberbestätigung* for landlord confirmation, *Antrag auf Erteilung einer Aufenthaltserlaubnis* for residence permit).
+- **Vector Solution:** Citizens search in their native language (e.g. Arabic: *"أريد تسجيل عنوان سكني الجديد"*, Turkish: *"Yeni kiraladığım dairenin ikametgah belgesi"*, Ukrainian: *"Реєстрація адреси проживання"*).
+- **Cross-Lingual Embedding Retrieval:** The multilingual embedding model projects the query into shared semantic space, instantly finding the correct German authority form with 1-click start.
+
+#### 3. Profile Vault 2.0 Semantic Auto-Fill
+- **Problem:** Different forms and municipalities use slightly different nomenclature for the same data (e.g., Form A uses `applicant_address_street`, while Form B uses `current_residence_road`). Strict string matching misses these matches.
+- **Vector Solution:** Semantic proximity matching connects encrypted Profile Vault items to target form fields whenever cosine similarity exceeds `0.85`, enabling seamless 1-click form pre-filling across diverse government templates.
+
+#### 4. Plain-Language Field Explanations & Document Readiness (Gemini LLM)
+- **Problem:** Administrative forms contain dense legal jargon (*Amtsdeutsch*) that confuses citizens and caseworkers alike.
+- **Gemini Solution:** Grounded micro-explanations powered by Gemini 2.0 Flash / 1.5 Flash. When a citizen clicks "Explain in simple terms", the system generates a 2-sentence plain-language explanation in the citizen's preferred language plus a checklist of required physical documents (e.g., rental contract, passport, biometric photo).
+
+---
+
+### 7.3 Model Selection: Dual Cloud & Sovereign On-Premise Strategy
+
+| Dimension | Cloud Production (Standard) | Sovereign On-Premise (German Public Sector) |
+| :--- | :--- | :--- |
+| **Embedding Model** | Google `text-embedding-004` (768 dimensions) | `BAAI/bge-m3` via Python `fastembed` (1024 dimensions) |
+| **Embedding Cost** | ~€0.02 / 1,000,000 tokens (negligible) | €0 (runs locally on CPU/GPU) |
+| **Embedding Latency** | ~50–80 ms per batch of 50 fields | ~120 ms local CPU inference |
+| **LLM Reasoning & Explanations** | Google Gemini 2.0 Flash / 1.5 Flash (`x-goog-api-key`) | Local `Ollama` (`mistral-small` or `llama-3.1-8b`) |
+| **LLM Latency** | ~250–400 ms | ~800–1500 ms depending on host hardware |
+| **Data Privacy & Egress** | Zero training, EU data processing location | **Zero cloud egress** (air-gapped, strictly on-premise) |
+
+---
+
+### 7.4 Database Schema & Indexing Specification
+
+```sql
+-- 1. Enable pgvector extension in PostgreSQL
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- 2. Semantic Embedding Vectors Table
+CREATE TABLE embedding_vectors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_type VARCHAR(32) NOT NULL, -- 'canonical_field', 'form_metadata', 'vault_entry'
+    entity_id VARCHAR(128) NOT NULL,
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    language_code VARCHAR(8) NOT NULL DEFAULT 'de',
+    source_text TEXT NOT NULL,
+    embedding vector(768) NOT NULL, -- 768 for text-embedding-004; 1024 for bge-m3
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 3. High-Performance HNSW Cosine Index (<10ms retrieval over 100k vectors)
+CREATE INDEX idx_embedding_vectors_hnsw 
+ON embedding_vectors 
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
+
+-- 4. Fast Cosine Similarity Query
+-- SELECT entity_id, 1 - (embedding <=> :query_vector) AS similarity
+-- FROM embedding_vectors
+-- WHERE entity_type = 'canonical_field'
+-- ORDER BY embedding <=> :query_vector ASC
+-- LIMIT 3;
+```
