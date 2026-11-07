@@ -242,9 +242,6 @@ export function OrganizationCategoryManager() {
             <h2 className="text-base font-bold text-slate-900">
               Form Categories & Taxonomy
             </h2>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
-              TYPO3 Model
-            </span>
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-xl">
             Structure your official forms into hierarchical categories. Each category supports verified multilingual translations across all citizen guidance languages.
@@ -369,7 +366,7 @@ export function OrganizationCategoryManager() {
                       type="button"
                       onClick={() => openAssignedFormsModal(cat)}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold transition-colors cursor-pointer border border-indigo-200/80"
-                      title="Manage assigned official administrative forms (TYPO3-style relation)"
+                      title="Manage assigned official administrative forms"
                     >
                       <FileText className="w-3.5 h-3.5 text-indigo-600" />
                       <span>{cat.forms_count} {cat.forms_count === 1 ? "Form" : "Forms"}</span>
@@ -407,7 +404,7 @@ export function OrganizationCategoryManager() {
                     {editingCategory ? "Edit Category & Translations" : "Create Official Category"}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Inspired by TYPO3 sys_category taxonomy standard
+                    Flexible hierarchical taxonomy for official forms
                   </p>
                 </div>
               </div>

@@ -194,7 +194,7 @@ describe("Form Category Relations & Dashboard Management", () => {
 
     // Find the Manage Forms button on the first category card
     const manageBtns = screen.getAllByTitle(
-      "Manage assigned official administrative forms (TYPO3-style relation)"
+      "Manage assigned official administrative forms"
     );
     expect(manageBtns.length).toBeGreaterThan(0);
     fireEvent.click(manageBtns[0]);
