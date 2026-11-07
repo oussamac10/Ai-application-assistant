@@ -206,4 +206,41 @@ describe("B2B & B2G Platform — Portal & Case Management", () => {
       expect(screen.getByText(/Invalid or expired candidate invite link/i)).toBeDefined();
     });
   });
+
+  it("applies authority ui_theme_config hiding metrics strip and showing custom notice banner", async () => {
+    const themedOrg: Organization = {
+      ...mockOrg,
+      ui_theme_config: {
+        primary_color: "#FEDB00",
+        accent_color: "#1E3A8A",
+        sidebar_theme: "heraldic",
+        layout_density: "compact",
+        show_metrics_strip: false,
+        show_authority_metadata: true,
+        show_portal_link: false,
+        section_order: ["header", "actions", "forms"],
+        citizen_welcome_heading: "Willkommen beim Amt",
+        citizen_notice_banner: "Wartungsarbeiten am System am Wochenende",
+      },
+    };
+
+    vi.spyOn(portalClient, "getCurrentOrganization").mockResolvedValue(themedOrg);
+    vi.spyOn(portalClient, "listOrganizationForms").mockResolvedValue(mockForms);
+
+    render(<PortalDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Munich Relocation Services GmbH")).toBeDefined();
+    });
+
+    // Custom notice banner is rendered
+    expect(screen.getByText("Wartungsarbeiten am System am Wochenende")).toBeDefined();
+
+    // Metrics strip is hidden
+    expect(screen.queryByText("Total forms")).toBeNull();
+    expect(screen.queryByText("Live in portal")).toBeNull();
+
+    // Forms and actions are still rendered
+    expect(screen.getByText("Wohnungsgeberbestätigung")).toBeDefined();
+  });
 });

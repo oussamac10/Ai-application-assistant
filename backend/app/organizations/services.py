@@ -154,6 +154,7 @@ class OrganizationService:
             contact_phone=org.contact_phone,
             official_website_url=org.official_website_url,
             supported_languages=org.supported_languages or ["de", "en"],
+            ui_theme_config=getattr(org, "ui_theme_config", None),
             created_at=org.created_at,
         )
 
@@ -185,6 +186,8 @@ class OrganizationService:
             org.official_website_url = updates.official_website_url.strip() or None
         if updates.supported_languages is not None:
             org.supported_languages = updates.supported_languages
+        if updates.ui_theme_config is not None:
+            org.ui_theme_config = updates.ui_theme_config
 
         self.org_repo.save(org)
         self.db.commit()
@@ -704,6 +707,7 @@ class OrganizationService:
             contact_email=org.contact_email,
             contact_phone=org.contact_phone,
             cover_image_storage_path=org.cover_image_storage_path,
+            ui_theme_config=getattr(org, "ui_theme_config", None),
             published_forms=published_forms,
         )
 

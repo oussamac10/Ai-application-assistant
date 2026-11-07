@@ -1,3 +1,21 @@
+export type SidebarTheme = "dark" | "light" | "heraldic";
+export type LayoutDensity = "comfortable" | "compact";
+export type SectionKey = "header" | "metrics" | "actions" | "forms";
+
+export interface UIThemeConfig {
+  primary_color?: string;
+  accent_color?: string;
+  sidebar_theme?: SidebarTheme;
+  layout_density?: LayoutDensity;
+  show_metrics_strip?: boolean;
+  show_authority_metadata?: boolean;
+  show_portal_link?: boolean;
+  section_order?: SectionKey[];
+  citizen_welcome_heading?: string | null;
+  citizen_welcome_text?: string | null;
+  citizen_notice_banner?: string | null;
+}
+
 export interface Organization {
   id: string;
   name: string;
@@ -17,6 +35,7 @@ export interface Organization {
   contact_phone?: string | null;
   official_website_url?: string | null;
   supported_languages: string[];
+  ui_theme_config?: UIThemeConfig | null;
   created_at: string;
 }
 
@@ -36,6 +55,7 @@ export interface OrganizationProfileUpdatePayload {
   contact_phone?: string;
   official_website_url?: string;
   supported_languages?: string[];
+  ui_theme_config?: UIThemeConfig | null;
 }
 
 export interface OrganizationVerificationPayload {
@@ -237,6 +257,7 @@ export interface PublicOrganizationDetail extends PublicOrganizationSummary {
   contact_email?: string | null;
   contact_phone?: string | null;
   cover_image_storage_path?: string | null;
+  ui_theme_config?: UIThemeConfig | null;
   published_forms: PublicPublishedFormItem[];
 }
 
