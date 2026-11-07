@@ -284,3 +284,190 @@ def test_public_organization_portal_category_filtering(db_session: Session) -> N
     assert f2 is not None
     assert f2["category_id"] == cat_family.id
     assert f2["category_slug"] == "family-children"
+
+
+def test_quick_update_and_batch_assign_form_category(db_session: Session) -> None:
+    client = TestClient(app)
+    email = "admin-relations@test.de"
+    _register_user(client, email)
+    csrf_token = _csrf(client)
+
+    user = db_session.query(User).filter_by(email=email).first()
+    assert user is not None
+
+    org = Organization(
+        name="Stadt Ulm",
+        slug="stadt-ulm",
+        organization_type="government",
+    )
+    db_session.add(org)
+    db_session.flush()
+
+    member = OrganizationMember(
+        organization_id=org.id,
+        user_id=user.id,
+        role="owner",
+    )
+    db_session.add(member)
+
+    cat = OrganizationCategory(
+        organization_id=org.id,
+        name="Wohnen & Bauen",
+        slug="wohnen-bauen",
+        icon="Home",
+        translations={"en": {"name": "Housing & Building"}},
+        sort_order=10,
+    )
+    db_session.add(cat)
+
+    form1 = FormTemplate(
+        organization_id=org.id,
+        key="ulm-wohnen-1",
+        name="Antrag auf Wohnberechtigungsschein",
+        category="general",
+    )
+    form2 = FormTemplate(
+        organization_id=org.id,
+        key="ulm-wohnen-2",
+        name="Wohnungsgeberbestätigung",
+        category="general",
+    )
+    db_session.add_all([form1, form2])
+    db_session.flush()
+
+    ver1 = FormVersion(
+        form_template_id=form1.id,
+        version_number=1,
+        status="published",
+        source_language="de",
+        supported_output_languages=["de"],
+    )
+    ver2 = FormVersion(
+        form_template_id=form2.id,
+        version_number=1,
+        status="published",
+        source_language="de",
+        supported_output_languages=["de"],
+    )
+    db_session.add_all([ver1, ver2])
+    db_session.commit()
+
+    # 1. Quick update form1 category via PATCH
+    res = client.patch(
+        f"/api/organizations/current/forms/{form1.id}/category",
+        headers={"x-csrf-token": csrf_token},
+        json={"category_id": cat.id},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["categoryId"] == cat.id
+    assert data["categoryName"] == "Wohnen & Bauen"
+    assert data["categorySlug"] == "wohnen-bauen"
+    assert data["categoryIcon"] == "Home"
+
+    # 2. Get category forms
+    res_forms = client.get(f"/api/organizations/current/categories/{cat.id}/forms")
+    assert res_forms.status_code == 200
+    assert res_forms.json() == [form1.id]
+
+    # 3. Batch assign both forms via POST
+    res_batch = client.post(
+        f"/api/organizations/current/categories/{cat.id}/forms",
+        headers={"x-csrf-token": csrf_token},
+        json={"form_ids": [form1.id, form2.id]},
+    )
+    assert res_batch.status_code == 200
+    assigned = res_batch.json()
+    assert set(assigned) == {form1.id, form2.id}
+
+    # Verify both forms now belong to cat
+    db_session.expire_all()
+    refreshed_f2 = db_session.query(FormTemplate).filter_by(id=form2.id).first()
+    assert refreshed_f2 is not None
+    assert refreshed_f2.category_id == cat.id
+    assert refreshed_f2.category == "Wohnen & Bauen"
+
+    # 4. Quick unassign form1
+    res_unassign = client.patch(
+        f"/api/organizations/current/forms/{form1.id}/category",
+        headers={"x-csrf-token": csrf_token},
+        json={"category_id": None},
+    )
+    assert res_unassign.status_code == 200
+    assert res_unassign.json()["categoryId"] is None
+
+
+def test_auto_categorize_organization_forms(db_session: Session) -> None:
+    client = TestClient(app)
+    email = "admin-auto@test.de"
+    _register_user(client, email)
+    csrf_token = _csrf(client)
+
+    user = db_session.query(User).filter_by(email=email).first()
+    assert user is not None
+
+    org = Organization(
+        name="Stadt Freiburg",
+        slug="stadt-freiburg",
+        organization_type="government",
+    )
+    db_session.add(org)
+    db_session.flush()
+
+    member = OrganizationMember(
+        organization_id=org.id,
+        user_id=user.id,
+        role="owner",
+    )
+    db_session.add(member)
+
+    # Seed default starter categories first
+    client.post(
+        "/api/organizations/current/categories/seed-defaults",
+        headers={"x-csrf-token": csrf_token},
+    )
+
+    # Create 3 uncategorized forms with typical German municipal names
+    f1 = FormTemplate(
+        organization_id=org.id,
+        key="freiburg-wohnung",
+        name="Wohnungsgeberbestätigung (§ 19 BMG)",
+        category="general",
+    )
+    f2 = FormTemplate(
+        organization_id=org.id,
+        key="freiburg-kinder",
+        name="Antrag auf Kindergeld (KG1)",
+        category="general",
+    )
+    f3 = FormTemplate(
+        organization_id=org.id,
+        key="freiburg-visum",
+        name="Application for Schengen Visa",
+        category="general",
+    )
+    db_session.add_all([f1, f2, f3])
+    db_session.commit()
+
+    # Call auto-categorize
+    res = client.post(
+        "/api/organizations/current/forms/auto-categorize",
+        headers={"x-csrf-token": csrf_token},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["categorized_count"] == 3
+
+    # Check that each form got assigned to its expected category
+    db_session.expire_all()
+    rf1 = db_session.query(FormTemplate).filter_by(id=f1.id).first()
+    assert rf1 is not None and rf1.category_rel is not None
+    assert rf1.category_rel.slug == "housing-residence"
+
+    rf2 = db_session.query(FormTemplate).filter_by(id=f2.id).first()
+    assert rf2 is not None and rf2.category_rel is not None
+    assert rf2.category_rel.slug == "family-children"
+
+    rf3 = db_session.query(FormTemplate).filter_by(id=f3.id).first()
+    assert rf3 is not None and rf3.category_rel is not None
+    assert rf3.category_rel.slug == "immigration-residence"

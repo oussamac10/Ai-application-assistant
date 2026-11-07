@@ -207,7 +207,14 @@ export interface OrganizationFormSummary {
   name: string;
   description?: string | null;
   category: string;
+  categoryId?: string | null;
   category_id?: string | null;
+  categoryName?: string | null;
+  category_name?: string | null;
+  categorySlug?: string | null;
+  category_slug?: string | null;
+  categoryIcon?: string | null;
+  category_icon?: string | null;
   submissionMethod: string;
   instructions?: string | null;
   requiredDocuments: string[];

@@ -9,9 +9,11 @@ from app.auth.models import User
 from app.database.session import get_db
 from app.forms.organization_service import OrganizationFormService
 from app.forms.schemas import (
+    CategoryFormsAssignRequest,
     FieldCreate,
     FieldResponse,
     FieldUpdate,
+    FormCategoryUpdateRequest,
     FormReviewDetailResponse,
     FormReviewUpdateRequest,
     OrganizationFormSummary,
@@ -576,6 +578,62 @@ def seed_default_organization_categories(
 ) -> Any:
     service = OrganizationService(db)
     return service.seed_default_categories(user)
+
+
+@router.patch(
+    "/organizations/current/forms/{template_id}/category",
+    response_model=OrganizationFormSummary,
+)
+def update_organization_form_category(
+    template_id: str,
+    req: FormCategoryUpdateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.update_form_category(user, template_id, req.category_id)
+
+
+@router.post(
+    "/organizations/current/forms/auto-categorize",
+    response_model=dict[str, Any],
+)
+def auto_categorize_organization_forms(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.auto_categorize_forms(user)
+
+
+@router.get(
+    "/organizations/current/categories/{category_id}/forms",
+    response_model=list[str],
+)
+def get_category_forms(
+    category_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    service = OrganizationService(db)
+    return service.get_category_forms(user, category_id)
+
+
+@router.post(
+    "/organizations/current/categories/{category_id}/forms",
+    response_model=list[str],
+)
+def assign_category_forms(
+    category_id: str,
+    req: CategoryFormsAssignRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    return service.assign_category_forms(user, category_id, req.form_ids)
 
 
 # Public Citizen Portals & Directory Routes (Phase G3)

@@ -14,6 +14,7 @@ import logging
 import re
 import tempfile
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +43,7 @@ from app.forms.schemas import (
     TranslationSchema,
 )
 from app.organizations.models import OrganizationCase
-from app.organizations.repositories import OrganizationRepository
+from app.organizations.repositories import CategoryRepository, OrganizationRepository
 from app.pdf.models import FormExport
 from app.sessions.models import FormSession
 from app.storage.factory import get_storage_provider
@@ -349,6 +350,7 @@ class OrganizationFormService:
 
         templates = (
             self.db.query(FormTemplate)
+            .options(joinedload(FormTemplate.category_rel))
             .filter(FormTemplate.organization_id == org.id)
             .order_by(FormTemplate.updated_at.desc())
             .all()
@@ -371,6 +373,7 @@ class OrganizationFormService:
                 else 0
             )
 
+            cat_rel = tmpl.category_rel
             summaries.append(
                 OrganizationFormSummary(
                     id=tmpl.id,
@@ -379,6 +382,9 @@ class OrganizationFormService:
                     description=tmpl.description,
                     category=tmpl.category,
                     category_id=tmpl.category_id,
+                    category_name=cat_rel.name if cat_rel else None,
+                    category_slug=cat_rel.slug if cat_rel else None,
+                    category_icon=cat_rel.icon if cat_rel else None,
                     submission_method=tmpl.submission_method,
                     instructions=tmpl.instructions,
                     required_documents=tmpl.required_documents or [],
@@ -767,6 +773,219 @@ class OrganizationFormService:
 
         self.db.commit()
         return self.get_form_review(user, template_id)
+
+    def update_form_category(
+        self, user: User, template_id: str, category_id: str | None
+    ) -> OrganizationFormSummary:
+        org, _ = self._require_org_editor(user)
+
+        template = (
+            self.db.query(FormTemplate)
+            .filter(
+                FormTemplate.id == template_id,
+                FormTemplate.organization_id == org.id,
+            )
+            .first()
+        )
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Form template not found."
+            )
+
+        latest_version = (
+            self.db.query(FormVersion)
+            .filter(FormVersion.form_template_id == template.id)
+            .order_by(FormVersion.version_number.desc())
+            .first()
+        )
+
+        if (
+            category_id
+            and category_id.strip()
+            and category_id.lower() not in ("none", "null")
+        ):
+            cat_repo = CategoryRepository(self.db)
+            cat = cat_repo.get_by_id(org.id, category_id.strip())
+            if not cat:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Category '{category_id}' not found in this organization.",
+                )
+            template.category_id = cat.id
+            template.category = cat.name
+        else:
+            template.category_id = None
+            template.category = "general"
+
+        template.updated_at = datetime.now(UTC)
+        self.db.commit()
+        self.db.refresh(template)
+
+        fields_count = (
+            self.db.query(func.count(FormField.id))
+            .filter(FormField.form_version_id == latest_version.id)
+            .scalar()
+            if latest_version
+            else 0
+        )
+
+        cat_rel = template.category_rel
+        return OrganizationFormSummary(
+            id=template.id,
+            key=template.key,
+            name=template.name,
+            description=template.description,
+            category=template.category,
+            category_id=template.category_id,
+            category_name=cat_rel.name if cat_rel else None,
+            category_slug=cat_rel.slug if cat_rel else None,
+            category_icon=cat_rel.icon if cat_rel else None,
+            submission_method=template.submission_method,
+            instructions=template.instructions,
+            required_documents=template.required_documents or [],
+            active_version_id=latest_version.id if latest_version else None,
+            version_number=latest_version.version_number if latest_version else 1,
+            status=latest_version.status if latest_version else "needs_review",
+            fields_count=fields_count,
+            source_pdf_storage_path=latest_version.source_pdf_storage_path
+            if latest_version
+            else None,
+            has_pdf=bool(latest_version and latest_version.source_pdf_storage_path),
+            created_at=template.created_at,
+            updated_at=template.updated_at,
+        )
+
+    def auto_categorize_forms(self, user: User) -> dict[str, Any]:
+        org, _ = self._require_org_editor(user)
+
+        cat_repo = CategoryRepository(self.db)
+        existing_cats = cat_repo.list_by_organization(org.id)
+        if not existing_cats:
+            from app.organizations.services import OrganizationService
+
+            org_service = OrganizationService(self.db)
+            org_service.seed_default_categories(user)
+            existing_cats = cat_repo.list_by_organization(org.id)
+
+        slug_to_cat = {c.slug: c for c in existing_cats}
+
+        keywords_map: dict[str, list[str]] = {
+            "housing-residence": [
+                "wohnung",
+                "anmeldung",
+                "meldebehörde",
+                "miete",
+                "umzug",
+                "wohnsitz",
+                "residence",
+                "housing",
+                "tenant",
+                "rental",
+                "rundfunk",
+            ],
+            "family-children": [
+                "kinder",
+                "kind",
+                "eltern",
+                "geburt",
+                "ehe",
+                "familie",
+                "kita",
+                "child",
+                "parent",
+                "birth",
+                "marriage",
+            ],
+            "immigration-residence": [
+                "aufenthalt",
+                "ausländer",
+                "visum",
+                "visa",
+                "schengen",
+                "einbürgerung",
+                "pass",
+                "asyl",
+                "immigration",
+                "foreign",
+                "citizenship",
+            ],
+            "work-business": [
+                "arbeit",
+                "gewerbe",
+                "beruf",
+                "job",
+                "steuer",
+                "sepa",
+                "bank",
+                "business",
+                "employment",
+                "tax",
+            ],
+            "mobility-vehicles": [
+                "kfz",
+                "auto",
+                "fahrzeug",
+                "führerschein",
+                "park",
+                "verkehr",
+                "vehicle",
+                "car",
+                "driver",
+                "traffic",
+            ],
+            "social-health": [
+                "sozial",
+                "gesundheit",
+                "kranken",
+                "wohngeld",
+                "pflege",
+                "hilfe",
+                "social",
+                "health",
+                "insurance",
+                "welfare",
+            ],
+        }
+
+        templates = (
+            self.db.query(FormTemplate)
+            .filter(FormTemplate.organization_id == org.id)
+            .all()
+        )
+
+        categorized_count = 0
+        details: list[dict[str, Any]] = []
+
+        for tmpl in templates:
+            target_slug = None
+            text_to_check = f"{tmpl.name} {tmpl.key} {tmpl.description or ''}".lower()
+
+            for cat_slug, keywords in keywords_map.items():
+                if any(kw in text_to_check for kw in keywords):
+                    target_slug = cat_slug
+                    break
+
+            if target_slug and target_slug in slug_to_cat:
+                matched_cat = slug_to_cat[target_slug]
+                if tmpl.category_id != matched_cat.id:
+                    tmpl.category_id = matched_cat.id
+                    tmpl.category = matched_cat.name
+                    tmpl.updated_at = datetime.now(UTC)
+                    categorized_count += 1
+                    details.append(
+                        {
+                            "form_id": tmpl.id,
+                            "form_name": tmpl.name,
+                            "category": matched_cat.name,
+                        }
+                    )
+
+        self.db.commit()
+        return {
+            "categorized_count": categorized_count,
+            "total_forms": len(templates),
+            "details": details,
+        }
 
     def update_field(
         self, user: User, template_id: str, field_id: str, req: FieldUpdate

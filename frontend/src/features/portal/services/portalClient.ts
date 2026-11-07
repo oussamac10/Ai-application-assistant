@@ -703,3 +703,79 @@ export async function seedDefaultOrganizationCategories(): Promise<OrganizationC
   }
   return res.json();
 }
+
+export async function updateFormCategory(
+  templateId: string,
+  categoryId: string | null
+): Promise<OrganizationFormSummary> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/forms/${templateId}/category`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify({ category_id: categoryId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update form category.");
+  }
+  return res.json();
+}
+
+export async function autoCategorizeForms(): Promise<{
+  categorized_count: number;
+  total_forms: number;
+  details: Array<{ form_id: string; form_name: string; category: string }>;
+}> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations/current/forms/auto-categorize", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to auto-categorize forms.");
+  }
+  return res.json();
+}
+
+export async function getCategoryForms(categoryId: string): Promise<string[]> {
+  const res = await fetch(`/api/organizations/current/categories/${categoryId}/forms`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to fetch forms for category.");
+  }
+  return res.json();
+}
+
+export async function assignCategoryForms(
+  categoryId: string,
+  formIds: string[]
+): Promise<string[]> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/categories/${categoryId}/forms`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify({ form_ids: formIds }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to assign forms to category.");
+  }
+  return res.json();
+}

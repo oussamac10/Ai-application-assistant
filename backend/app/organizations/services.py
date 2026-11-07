@@ -60,6 +60,7 @@ class OrganizationService:
         self.form_repo = FormRepository(db)
         self.session_repo = SessionRepository(db)
         self.user_repo = UserRepository(db)
+        self.cat_repo = CategoryRepository(db)
 
     def create_organization_for_user(
         self,
@@ -844,6 +845,68 @@ class OrganizationService:
                 )
         self.db.commit()
         return self.list_categories(user)
+
+    def get_category_forms(self, user: User, category_id: str) -> list[str]:
+        org, _ = self.ensure_default_organization(user)
+        cat = self.cat_repo.get_by_id(org.id, category_id)
+        if not cat:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Category '{category_id}' not found.",
+            )
+        form_rows = (
+            self.db.query(FormTemplate.id)
+            .filter(
+                FormTemplate.organization_id == org.id,
+                FormTemplate.category_id == category_id,
+            )
+            .all()
+        )
+        return [r[0] for r in form_rows]
+
+    def assign_category_forms(
+        self, user: User, category_id: str, form_ids: list[str]
+    ) -> list[str]:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ["owner", "admin", "editor"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin or editor permissions required to update categories.",
+            )
+        cat = self.cat_repo.get_by_id(org.id, category_id)
+        if not cat:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Category '{category_id}' not found.",
+            )
+
+        # Unassign any forms currently belonging to this category that are not in form_ids
+        unassign_q = self.db.query(FormTemplate).filter(
+            FormTemplate.organization_id == org.id,
+            FormTemplate.category_id == category_id,
+        )
+        if form_ids:
+            unassign_q = unassign_q.filter(~FormTemplate.id.in_(form_ids))
+        unassign_q.update(
+            {FormTemplate.category_id: None, FormTemplate.category: "general"},
+            synchronize_session="fetch",
+        )
+
+        # Assign forms in form_ids to this category
+        if form_ids:
+            self.db.query(FormTemplate).filter(
+                FormTemplate.organization_id == org.id,
+                FormTemplate.id.in_(form_ids),
+            ).update(
+                {
+                    FormTemplate.category_id: category_id,
+                    FormTemplate.category: cat.name,
+                },
+                synchronize_session="fetch",
+            )
+
+        self.db.commit()
+        return form_ids
 
     def get_public_organization_by_slug(self, slug: str) -> PublicOrganizationDetail:
         org = self.org_repo.get_by_slug(slug)

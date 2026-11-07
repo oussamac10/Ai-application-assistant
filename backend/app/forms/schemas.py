@@ -134,6 +134,9 @@ class OrganizationFormSummary(BaseSchema):
     description: str | None = None
     category: str = "general"
     category_id: str | None = None
+    category_name: str | None = None
+    category_slug: str | None = None
+    category_icon: str | None = None
     submission_method: str = "print_and_sign"
     instructions: str | None = None
     required_documents: list[str] = Field(default_factory=list)
@@ -145,6 +148,14 @@ class OrganizationFormSummary(BaseSchema):
     has_pdf: bool = False
     created_at: datetime
     updated_at: datetime
+
+
+class FormCategoryUpdateRequest(BaseSchema):
+    category_id: str | None = None
+
+
+class CategoryFormsAssignRequest(BaseSchema):
+    form_ids: list[str] = Field(default_factory=list)
 
 
 class FormReviewDetailResponse(BaseSchema):

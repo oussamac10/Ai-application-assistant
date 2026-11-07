@@ -60,6 +60,11 @@ Empower organizations to create and manage structured, hierarchical form categor
 - [x] 9. Implement multilingual category filter pills in `PublicOrganizationPortal.tsx` with instant language translation.
 - [x] 10. Write backend and frontend tests verifying category creation, assignment, public portal filtering, and multilingual display.
 - [x] 11. Run full verification gate: Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest.
+- [x] 12. Add direct form-category relation endpoints (`PATCH /forms/{id}/category`, `POST /categories/{id}/forms`, `POST /forms/auto-categorize`).
+- [x] 13. Add interactive category badges and quick assignment dropdown menus directly on Official Administrative Form cards in `PortalDashboard.tsx`.
+- [x] 14. Add category filter tabs and 1-click "Auto-Categorize Official Forms" button in `PortalDashboard.tsx`.
+- [x] 15. Add TYPO3-style assigned form relation management modal inside `OrganizationCategoryManager.tsx`.
+- [x] 16. Verify with backend pytest on isolated test DB and Vitest suites (288/288 frontend tests passing).
 
 ---
 

@@ -19,11 +19,12 @@ import {
 
 interface CategoryIconProps {
   name?: string | null;
+  icon?: string | null;
   className?: string;
 }
 
-export function CategoryIcon({ name, className = "w-4 h-4" }: CategoryIconProps) {
-  const normalized = (name || "").toLowerCase().trim();
+export function CategoryIcon({ name, icon, className = "w-4 h-4" }: CategoryIconProps) {
+  const normalized = (icon || name || "").toLowerCase().trim();
 
   switch (normalized) {
     case "home":
