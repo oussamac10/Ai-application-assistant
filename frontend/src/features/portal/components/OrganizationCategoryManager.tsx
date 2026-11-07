@@ -21,7 +21,6 @@ import {
   createOrganizationCategory,
   updateOrganizationCategory,
   deleteOrganizationCategory,
-  seedDefaultOrganizationCategories,
   getCategoryForms,
   assignCategoryForms,
   listOrganizationForms,
@@ -166,21 +165,6 @@ export function OrganizationCategoryManager() {
     setModalOpen(true);
   };
 
-  const handleSeedDefaults = async () => {
-    try {
-      setActionLoading(true);
-      setError(null);
-      const seeded = await seedDefaultOrganizationCategories();
-      setCategories(seeded);
-      setSuccessMsg("Default official municipal categories loaded successfully with 8 languages.");
-      setTimeout(() => setSuccessMsg(null), 4000);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to seed default categories");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleDelete = async (cat: OrganizationCategory) => {
     if (!window.confirm(`Are you sure you want to delete category "${cat.name}"? Forms will be marked uncategorized.`)) {
       return;
@@ -270,15 +254,6 @@ export function OrganizationCategoryManager() {
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            disabled={actionLoading}
-            onClick={handleSeedDefaults}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Load Default German Categories</span>
-          </button>
-          <button
-            type="button"
             onClick={openCreateModal}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-xs transition-colors cursor-pointer"
           >
@@ -315,15 +290,15 @@ export function OrganizationCategoryManager() {
           <FolderTree className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <h3 className="text-sm font-bold text-slate-800">No Categories Defined</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto mb-4">
-            You haven&apos;t defined any categories yet. Load standard German municipal categories or create custom ones.
+            You haven&apos;t created any categories yet. Create categories to organize your official administrative forms.
           </p>
           <button
             type="button"
-            onClick={handleSeedDefaults}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors shadow-xs"
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
           >
-            <Sparkles className="w-4 h-4" />
-            <span>Initialize Standard Categories (8 Languages)</span>
+            <Plus className="w-4 h-4" />
+            <span>Create Your First Category</span>
           </button>
         </div>
       ) : (

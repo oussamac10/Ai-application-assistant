@@ -861,11 +861,11 @@ class OrganizationFormService:
         cat_repo = CategoryRepository(self.db)
         existing_cats = cat_repo.list_by_organization(org.id)
         if not existing_cats:
-            from app.organizations.services import OrganizationService
-
-            org_service = OrganizationService(self.db)
-            org_service.seed_default_categories(user)
-            existing_cats = cat_repo.list_by_organization(org.id)
+            return {
+                "categorized_count": 0,
+                "total_forms": 0,
+                "details": [],
+            }
 
         slug_to_cat = {c.slug: c for c in existing_cats}
 

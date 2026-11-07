@@ -63,27 +63,16 @@ def _csrf(c: TestClient) -> str:
     return token
 
 
-def test_organization_categories_crud_and_seeding(db_session: Session) -> None:
+def test_organization_categories_crud(db_session: Session) -> None:
     client = TestClient(app)
     _register_user(client, "cat_owner@example.com")
     csrf_token = _csrf(client)
     headers = {"x-csrf-token": csrf_token}
 
-    # 1. Fetching categories when empty auto-seeds standard municipal categories
+    # 1. Fetching categories when empty returns empty list (no auto-seeding)
     res = client.get("/api/organizations/current/categories")
     assert res.status_code == 200
-    categories = res.json()
-    assert len(categories) >= 6
-    housing_cat = next(
-        (c for c in categories if c["slug"] == "housing-residence"), None
-    )
-    assert housing_cat is not None
-    assert housing_cat["name"] == "Wohnen & Meldewesen"
-    assert housing_cat["icon"] == "Home"
-    assert "en" in housing_cat["translations"]
-    assert housing_cat["translations"]["en"]["name"] == "Housing & Residence"
-    assert "ar" in housing_cat["translations"]
-    assert housing_cat["translations"]["ar"]["name"] == "السكن وتسجيل الإقامة"
+    assert res.json() == []
 
     # 2. Create a new custom category
     create_payload = {
@@ -421,11 +410,27 @@ def test_auto_categorize_organization_forms(db_session: Session) -> None:
     )
     db_session.add(member)
 
-    # Seed default starter categories first
-    client.post(
-        "/api/organizations/current/categories/seed-defaults",
-        headers={"x-csrf-token": csrf_token},
+    # Create organization categories
+    cat1 = OrganizationCategory(
+        organization_id=org.id,
+        name="Wohnen & Meldewesen",
+        slug="housing-residence",
+        icon="Home",
     )
+    cat2 = OrganizationCategory(
+        organization_id=org.id,
+        name="Familie & Kinder",
+        slug="family-children",
+        icon="Users",
+    )
+    cat3 = OrganizationCategory(
+        organization_id=org.id,
+        name="Ausländerwesen & Aufenthalt",
+        slug="immigration-residence",
+        icon="Globe",
+    )
+    db_session.add_all([cat1, cat2, cat3])
+    db_session.flush()
 
     # Create 3 uncategorized forms with typical German municipal names
     f1 = FormTemplate(

@@ -687,23 +687,6 @@ export async function deleteOrganizationCategory(categoryId: string): Promise<vo
   }
 }
 
-export async function seedDefaultOrganizationCategories(): Promise<OrganizationCategory[]> {
-  const csrf = getCsrfToken();
-  const res = await fetch("/api/organizations/current/categories/seed-defaults", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(csrf ? { "x-csrf-token": csrf } : {}),
-    },
-    credentials: "include",
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to seed default categories.");
-  }
-  return res.json();
-}
-
 export async function updateFormCategory(
   templateId: string,
   categoryId: string | null

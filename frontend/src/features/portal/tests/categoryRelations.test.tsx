@@ -16,38 +16,48 @@ const mockOrg: Organization = {
   id: "org-1",
   name: "Stadtverwaltung Stuttgart",
   slug: "first-f95b49",
+  billing_plan: "free",
+  allowed_cases_per_month: 100,
+  role: "owner",
   organization_type: "government",
   verification_status: "verified_official",
   is_verified_government: true,
   description: "Official municipal authority.",
   supported_languages: ["de", "en"],
   created_at: "2026-11-01T00:00:00Z",
-  updated_at: "2026-11-01T00:00:00Z",
 };
 
 const mockCategories: OrganizationCategory[] = [
   {
     id: "cat-housing",
+    organization_id: "org-1",
     name: "Wohnen & Meldewesen",
     slug: "housing-residence",
     icon: "Home",
     sort_order: 10,
+    is_active: true,
     forms_count: 1,
     translations: {
       en: { name: "Housing & Residence" },
       de: { name: "Wohnen & Meldewesen" },
     },
+    created_at: "2026-11-01T00:00:00Z",
+    updated_at: "2026-11-01T00:00:00Z",
   },
   {
     id: "cat-family",
+    organization_id: "org-1",
     name: "Familie & Kinder",
     slug: "family-children",
     icon: "Users",
     sort_order: 20,
+    is_active: true,
     forms_count: 0,
     translations: {
       en: { name: "Family & Children" },
     },
+    created_at: "2026-11-01T00:00:00Z",
+    updated_at: "2026-11-01T00:00:00Z",
   },
 ];
 

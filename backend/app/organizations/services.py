@@ -13,7 +13,6 @@ from app.auth.models import User
 from app.auth.repositories import UserRepository
 from app.forms.models import FormTemplate, FormVersion
 from app.forms.repositories import FormRepository
-from app.organizations.default_categories import DEFAULT_STARTER_CATEGORIES
 from app.organizations.errors import (
     CaseNotFoundError,
     InvalidInviteTokenError,
@@ -665,20 +664,6 @@ class OrganizationService:
         org, _ = self.ensure_default_organization(user)
         cat_repo = CategoryRepository(self.db)
         categories = cat_repo.list_by_organization(org.id, only_active=only_active)
-        if not categories:
-            for default_cat in DEFAULT_STARTER_CATEGORIES:
-                cat_repo.create(
-                    organization_id=org.id,
-                    name=default_cat["name"],
-                    slug=default_cat["slug"],
-                    icon=default_cat["icon"],
-                    sort_order=default_cat["sort_order"],
-                    description=default_cat.get("description"),
-                    translations=default_cat.get("translations", {}),
-                )
-            self.db.commit()
-            categories = cat_repo.list_by_organization(org.id, only_active=only_active)
-
         counts = cat_repo.count_all_forms(org.id)
         return [
             OrganizationCategoryRead(
@@ -823,29 +808,6 @@ class OrganizationService:
         cat_repo.delete(category)
         self.db.commit()
 
-    def seed_default_categories(self, user: User) -> list[OrganizationCategoryRead]:
-        org, member = self.ensure_default_organization(user)
-        if member.role not in ("owner", "admin", "form_editor"):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only organization staff can seed categories.",
-            )
-        cat_repo = CategoryRepository(self.db)
-        for default_cat in DEFAULT_STARTER_CATEGORIES:
-            existing = cat_repo.get_by_slug(org.id, default_cat["slug"])
-            if not existing:
-                cat_repo.create(
-                    organization_id=org.id,
-                    name=default_cat["name"],
-                    slug=default_cat["slug"],
-                    icon=default_cat["icon"],
-                    sort_order=default_cat["sort_order"],
-                    description=default_cat.get("description"),
-                    translations=default_cat.get("translations", {}),
-                )
-        self.db.commit()
-        return self.list_categories(user)
-
     def get_category_forms(self, user: User, category_id: str) -> list[str]:
         org, _ = self.ensure_default_organization(user)
         cat = self.cat_repo.get_by_id(org.id, category_id)
@@ -918,19 +880,6 @@ class OrganizationService:
 
         cat_repo = CategoryRepository(self.db)
         categories_db = cat_repo.list_by_organization(org.id, only_active=True)
-        if not categories_db:
-            for default_cat in DEFAULT_STARTER_CATEGORIES:
-                cat_repo.create(
-                    organization_id=org.id,
-                    name=default_cat["name"],
-                    slug=default_cat["slug"],
-                    icon=default_cat["icon"],
-                    sort_order=default_cat["sort_order"],
-                    description=default_cat.get("description"),
-                    translations=default_cat.get("translations", {}),
-                )
-            self.db.commit()
-            categories_db = cat_repo.list_by_organization(org.id, only_active=True)
 
         cat_by_id = {c.id: c for c in categories_db}
         cat_by_slug = {c.slug.lower(): c for c in categories_db}

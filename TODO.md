@@ -65,6 +65,7 @@ Empower organizations to create and manage structured, hierarchical form categor
 - [x] 14. Add category filter tabs and 1-click "Auto-Categorize Official Forms" button in `PortalDashboard.tsx`.
 - [x] 15. Add TYPO3-style assigned form relation management modal inside `OrganizationCategoryManager.tsx`.
 - [x] 16. Verify with backend pytest on isolated test DB and Vitest suites (288/288 frontend tests passing).
+- [x] 17. Removed "Load Default German Categories" button, auto-seeding logic, and hardcoded starter categories backend module; organizations now maintain custom taxonomy independently.
 
 ---
 

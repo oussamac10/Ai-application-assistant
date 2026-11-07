@@ -567,19 +567,6 @@ def delete_organization_category(
     service.delete_category(user, category_id)
 
 
-@router.post(
-    "/organizations/current/categories/seed-defaults",
-    response_model=list[OrganizationCategoryRead],
-)
-def seed_default_organization_categories(
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user),
-    _csrf: None = Depends(verify_csrf),
-) -> Any:
-    service = OrganizationService(db)
-    return service.seed_default_categories(user)
-
-
 @router.patch(
     "/organizations/current/forms/{template_id}/category",
     response_model=OrganizationFormSummary,
