@@ -78,6 +78,7 @@ Empower organizations to create and manage structured, hierarchical form categor
 - [x] 27. Replaced all native `<select>` dropdowns across `FormSchemaReviewStudio.tsx`, `FormUploadModal.tsx`, `NewCaseModal.tsx`, and `PublicOrganizationPortal.tsx` with `<ModernSelect>` (supporting `size="sm"` and search).
 - [x] 28. Fixed sidebar layout hierarchy in `Sidebar.tsx` and `FormSchemaReviewStudio.tsx` (`flex flex-col flex-1 overflow-hidden`, `shrink-0` on headers, `h-full` without sticky bugs) preventing header clipping and horizontal overflow.
 - [x] 29. Re-extracted fields on live dev DB form `wohnungsgeberbestaetigung-3a5959e5` and verified with full quality gate: Ruff, Mypy, Pytest on test DB (24 passed), TypeScript, ESLint, Vitest (41 test files, 298 passed).
+- [x] 30. Added `graphify` automated codebase knowledge graph skill (`.agents/skills/graphify/SKILL.md`) and registered it in `.agents/AGENTS.md` for automatic dependency mapping, cross-layer blast-radius tracing, and zero-regression refactoring.
 
 ---
 
