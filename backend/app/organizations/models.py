@@ -13,6 +13,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.session import Base
@@ -28,7 +29,6 @@ class Organization(Base):
         String(36),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
-        index=True,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(
@@ -105,7 +105,6 @@ class OrganizationMember(Base):
         String(36),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
-        index=True,
     )
     organization_id: Mapped[str] = mapped_column(
         String(36),
@@ -151,7 +150,6 @@ class OrganizationCase(Base):
         String(36),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
-        index=True,
     )
     public_id: Mapped[str] = mapped_column(
         String(36),
@@ -220,7 +218,6 @@ class OrganizationCategory(Base):
         String(36),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
-        index=True,
     )
     organization_id: Mapped[str] = mapped_column(
         String(36),
@@ -239,7 +236,10 @@ class OrganizationCategory(Base):
         index=True,
     )
     translations: Mapped[dict[str, Any]] = mapped_column(
-        JSON, default=dict, server_default="{}", nullable=False
+        JSONB,
+        default=dict,
+        server_default="{}",
+        nullable=False,
     )
     sort_order: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False

@@ -35,7 +35,7 @@ class ProviderUsageRecord(Base):
     __tablename__ = "provider_usage_records"
 
     id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
     provider: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     model_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -44,7 +44,10 @@ class ProviderUsageRecord(Base):
         String(36), ForeignKey("source_documents.id"), nullable=False, index=True
     )
     user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)

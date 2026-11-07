@@ -28,12 +28,10 @@ class TranslationMemory(Base):
     id: Mapped[str] = mapped_column(
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
-    source_text_hash: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )
+    source_text_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     source_text: Mapped[str] = mapped_column(Text, nullable=False)
-    source_language: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
-    target_language: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    source_language: Mapped[str] = mapped_column(String(10), nullable=False)
+    target_language: Mapped[str] = mapped_column(String(10), nullable=False)
     translated_text: Mapped[str] = mapped_column(Text, nullable=False)
     provider: Mapped[str] = mapped_column(String(50), nullable=False, default="gemini")
     created_at: Mapped[datetime] = mapped_column(
@@ -49,6 +47,7 @@ class TranslationMemory(Base):
             "target_language",
             name="uq_translation_memories_hash_lang",
         ),
+        Index("ix_translation_memories_hash", "source_text_hash"),
         Index(
             "ix_translation_memories_lookup",
             "source_text_hash",

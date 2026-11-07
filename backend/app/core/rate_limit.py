@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 from collections import deque
-from typing import Any, cast
+from typing import Any
 
 from fastapi import Request
 
@@ -33,12 +33,44 @@ class RateLimitExceededError(Exception):
 
 _memory_lock = threading.Lock()
 _memory_windows: dict[str, deque[float]] = {}
+_redis_client: Any = None
+_redis_client_lock = threading.Lock()
+
+
+def _get_redis_client() -> Any:
+    """Returns a thread-safe pooled Redis client singleton.
+
+    Reusing connection pool avoids TCP socket exhaustion and eliminates
+    the 2-5ms connection setup overhead on every rate-limited request.
+    """
+    global _redis_client
+    if _redis_client is None:
+        with _redis_client_lock:
+            if _redis_client is None:
+                import redis
+
+                _redis_client = redis.Redis.from_url(
+                    settings.REDIS_URL or "",
+                    socket_timeout=1.5,
+                    socket_connect_timeout=1.5,
+                    health_check_interval=30,
+                    decode_responses=False,
+                )
+    return _redis_client
 
 
 def reset_rate_limiter_state() -> None:
     """Clears in-memory rate-limit counters (used in deterministic tests)."""
+    global _redis_client
     with _memory_lock:
         _memory_windows.clear()
+    with _redis_client_lock:
+        if _redis_client is not None:
+            try:
+                _redis_client.close()
+            except Exception:
+                pass
+            _redis_client = None
 
 
 def _client_identifier(request: Request) -> str:
@@ -78,11 +110,7 @@ def check_sliding_window(
 def _check_redis_sliding_window(
     key: str, now: float, limit: int, window_seconds: int
 ) -> None:
-    import redis
-
-    client: Any = cast(
-        Any, redis.Redis.from_url(settings.REDIS_URL or "", socket_timeout=1.5)
-    )
+    client = _get_redis_client()
     cutoff = now - window_seconds
     member = f"{now:.6f}:{uuid.uuid4().hex[:8]}"
 
