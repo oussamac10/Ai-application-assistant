@@ -296,6 +296,7 @@ export function FormSchemaReviewStudio({
         await updateFormField(templateId, field.id, {
           key: field.key,
           label: trans?.label || field.key,
+          translations: field.translations,
           fieldType: field.fieldType,
           requiredness: field.requiredness,
           questionKey: field.questionKey || null,

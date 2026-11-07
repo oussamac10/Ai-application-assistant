@@ -2,6 +2,21 @@
 
 import React, { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { useLanguage } from "./LanguageProvider";
+
+const BOOLEAN_LABELS: Record<string, { yes: string; no: string }> = {
+  ar: { yes: "نعم", no: "لا" },
+  de: { yes: "Ja", no: "Nein" },
+  en: { yes: "Yes", no: "No" },
+  fr: { yes: "Oui", no: "Non" },
+  es: { yes: "Sí", no: "No" },
+  tr: { yes: "Evet", no: "Hayır" },
+  uk: { yes: "Так", no: "Ні" },
+  ru: { yes: "Да", no: "Нет" },
+  it: { yes: "Sì", no: "No" },
+  pl: { yes: "Tak", no: "Nie" },
+  pt: { yes: "Sim", no: "Não" },
+};
 
 interface FieldRendererProps {
   fieldType: string;
@@ -31,6 +46,13 @@ export function FieldRenderer({
   enableVoiceInput = false,
 }: FieldRendererProps) {
   const t = useTranslations("common");
+  let activeLocale = "en";
+  try {
+    const lang = useLanguage();
+    if (lang?.locale) activeLocale = lang.locale;
+  } catch {
+    // fallback if outside LanguageProvider
+  }
   const inputId = `field-${fieldKey}`;
   const errorId = `error-${fieldKey}`;
   const descId = `desc-${fieldKey}`;
@@ -217,6 +239,7 @@ export function FieldRenderer({
           onChange(boolVal);
         };
         const isActive = (val: string) => value === val;
+        const labels = BOOLEAN_LABELS[activeLocale] || BOOLEAN_LABELS.en;
 
         return (
           <div
@@ -235,7 +258,7 @@ export function FieldRenderer({
               }`}
               onClick={() => handleBooleanChange("true")}
             >
-              <span>Yes</span>
+              <span>{labels.yes}</span>
             </button>
             <button
               type="button"
@@ -247,7 +270,7 @@ export function FieldRenderer({
               }`}
               onClick={() => handleBooleanChange("false")}
             >
-              <span>No</span>
+              <span>{labels.no}</span>
             </button>
           </div>
         );
