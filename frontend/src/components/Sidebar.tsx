@@ -158,7 +158,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   const sidebarContent = (
     <div
-      className={`flex h-full flex-col justify-between border-e transition-colors ${
+      className={`flex h-full w-full min-w-0 max-w-full flex-col justify-between overflow-hidden border-e transition-colors ${
         isLight
           ? "bg-white text-slate-800 border-slate-200"
           : isHeraldic
@@ -167,9 +167,9 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       }`}
     >
       {/* Top Header: Brand & Workspace */}
-      <div>
+      <div className="min-w-0">
         <div
-          className={`flex h-16 items-center justify-between px-4 border-b ${
+          className={`flex h-16 items-center justify-between px-4 border-b min-w-0 ${
             isLight
               ? "border-slate-200"
               : isHeraldic
@@ -177,7 +177,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               : "border-[#161F30]"
           }`}
         >
-          <Link href="/portal" className="flex items-center gap-2.5 group min-w-0" title="Go to Authority Portal">
+          <Link href="/portal" className="flex items-center gap-2.5 group min-w-0 flex-1 overflow-hidden" title="Go to Authority Portal">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-[#212E4A] p-1 shadow-xs overflow-hidden">
               {org?.logo_storage_path ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -190,10 +190,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <Landmark className="h-5 w-5 text-indigo-600" />
               )}
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <span
-                  className={`text-xs font-bold tracking-tight truncate ${
+                  className={`text-xs font-bold tracking-tight truncate min-w-0 ${
                     isLight ? "text-slate-900" : "text-white"
                   }`}
                 >
@@ -204,7 +204,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 </span>
               </div>
               <div
-                className={`text-[10px] truncate font-medium ${
+                className={`text-[10px] truncate font-medium min-w-0 ${
                   isLight ? "text-slate-500" : "text-slate-400"
                 }`}
               >
@@ -216,7 +216,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           {/* Close button for mobile drawer */}
           <button
             onClick={onMobileClose}
-            className={`lg:hidden p-1 rounded-lg ${
+            className={`lg:hidden p-1 rounded-lg shrink-0 ${
               isLight
                 ? "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
                 : "text-slate-400 hover:text-white hover:bg-[#131B2E]"
@@ -228,7 +228,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
         {/* Workspace Quick Tag */}
         <div
-          className={`px-5 py-2.5 border-b ${
+          className={`px-4 py-2.5 border-b min-w-0 ${
             isLight
               ? "bg-slate-50 border-slate-200"
               : isHeraldic
@@ -236,15 +236,15 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               : "bg-[#070A12]/60 border-[#161F30]"
           }`}
         >
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-slate-300 font-semibold truncate max-w-[170px]">
+          <div className="flex items-center justify-between text-xs min-w-0 gap-2">
+            <div className="flex items-center gap-1.5 text-slate-300 font-semibold truncate min-w-0">
               <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span className="truncate text-[11px] text-emerald-400">
+              <span className="truncate text-[11px] text-emerald-400 min-w-0">
                 {org?.is_verified_government ? "Amtlich verifiziert" : "Official Authority"}
               </span>
             </div>
             <span
-              className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+              className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${
                 isLight
                   ? "bg-white text-slate-700 border-slate-200"
                   : "bg-[#131B2E] text-slate-300 border-[#212E4A]"
@@ -256,17 +256,17 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </div>
 
         {/* Navigation Groups */}
-        <nav className="p-3 space-y-5 overflow-y-auto">
+        <nav className="p-3 space-y-5 overflow-y-auto overflow-x-hidden min-w-0">
           {navLinks.map((group) => (
-            <div key={group.group}>
+            <div key={group.group} className="min-w-0">
               <div
-                className={`px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider ${
+                className={`px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider truncate ${
                   isLight ? "text-slate-400" : "text-slate-500"
                 }`}
               >
                 {group.group}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 {group.items.map((item) => {
                   const active = isActive(item.href);
                   const Icon = item.icon;
@@ -283,7 +283,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                             }
                           : undefined
                       }
-                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all min-w-0 ${
                         active
                           ? "shadow-xs font-bold"
                           : isLight
@@ -295,7 +295,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                         className="w-4 h-4 shrink-0"
                         style={active ? { color: activeTextColor } : undefined}
                       />
-                      <span>{item.label}</span>
+                      <span className="truncate min-w-0">{item.label}</span>
                     </Link>
                   );
                 })}
@@ -330,16 +330,16 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </button>
 
         {/* User Card with Dropdown */}
-        <div className="relative" ref={userMenuRef}>
+        <div className="relative min-w-0" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#131B2E] text-left transition-colors group"
+            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#131B2E] text-left transition-colors group min-w-0"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <div className="w-8 h-8 rounded-full bg-[#6551f3] text-white font-bold text-xs flex items-center justify-center shrink-0">
                 {userInitial}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-white truncate">
                   {userDisplayHandle}
                 </p>
@@ -349,7 +349,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               </div>
             </div>
             <ChevronDown
-              className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${
                 userMenuOpen ? "rotate-180 text-white" : ""
               }`}
             />
@@ -439,7 +439,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex w-64 shrink-0 h-screen sticky top-0 z-30 border-r border-slate-800">
+      <aside className="hidden lg:flex w-64 shrink-0 h-screen sticky top-0 z-20 overflow-hidden">
         {sidebarContent}
       </aside>
 
