@@ -914,47 +914,77 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800">Primary Brand Color (Buttons & Highlights)</label>
-                  <div className="flex items-center gap-2.5">
-                    <input
-                      type="color"
-                      value={themeConfig.primary_color || "#4f46e5"}
-                      onChange={(e) =>
-                        setThemeConfig((prev) => ({ ...prev, primary_color: e.target.value }))
-                      }
-                      className="h-9 w-9 rounded-xl border border-slate-300 cursor-pointer p-0.5 bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={themeConfig.primary_color || ""}
-                      onChange={(e) =>
-                        setThemeConfig((prev) => ({ ...prev, primary_color: e.target.value }))
-                      }
-                      placeholder="#FEDB00"
-                      className="font-mono text-xs uppercase flex-1 rounded-xl border border-slate-300 px-3 py-2 bg-white"
-                    />
+                  <div className="relative flex items-center rounded-xl border border-slate-300 bg-white shadow-2xs focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-600/20 transition-all p-1.5 gap-2.5">
+                    {/* Seamless Edge-to-Edge Color Swatch */}
+                    <label
+                      className="relative w-8 h-8 rounded-lg cursor-pointer shrink-0 overflow-hidden shadow-2xs border border-black/10 hover:scale-105 active:scale-95 transition-transform"
+                      title="Click to pick a color"
+                    >
+                      <input
+                        type="color"
+                        value={themeConfig.primary_color || "#4F46E5"}
+                        onChange={(e) =>
+                          setThemeConfig((prev) => ({ ...prev, primary_color: e.target.value }))
+                        }
+                        className="absolute -top-4 -left-4 w-20 h-20 cursor-pointer opacity-0"
+                      />
+                      <div
+                        className="w-full h-full transition-colors"
+                        style={{ backgroundColor: themeConfig.primary_color || "#4F46E5" }}
+                      />
+                    </label>
+
+                    <div className="flex items-center flex-1 pr-2">
+                      <span className="text-slate-400 font-mono text-xs select-none">#</span>
+                      <input
+                        type="text"
+                        value={(themeConfig.primary_color || "4F46E5").replace(/^#/, "")}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, "").slice(0, 6);
+                          setThemeConfig((prev) => ({ ...prev, primary_color: `#${raw}` }));
+                        }}
+                        placeholder="4F46E5"
+                        className="w-full font-mono text-xs uppercase text-slate-900 bg-transparent focus:outline-none ps-1 tracking-wider"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-800">Accent / Secondary Color</label>
-                  <div className="flex items-center gap-2.5">
-                    <input
-                      type="color"
-                      value={themeConfig.accent_color || "#6366f1"}
-                      onChange={(e) =>
-                        setThemeConfig((prev) => ({ ...prev, accent_color: e.target.value }))
-                      }
-                      className="h-9 w-9 rounded-xl border border-slate-300 cursor-pointer p-0.5 bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={themeConfig.accent_color || ""}
-                      onChange={(e) =>
-                        setThemeConfig((prev) => ({ ...prev, accent_color: e.target.value }))
-                      }
-                      placeholder="#3B82F6"
-                      className="font-mono text-xs uppercase flex-1 rounded-xl border border-slate-300 px-3 py-2 bg-white"
-                    />
+                  <div className="relative flex items-center rounded-xl border border-slate-300 bg-white shadow-2xs focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-600/20 transition-all p-1.5 gap-2.5">
+                    {/* Seamless Edge-to-Edge Color Swatch */}
+                    <label
+                      className="relative w-8 h-8 rounded-lg cursor-pointer shrink-0 overflow-hidden shadow-2xs border border-black/10 hover:scale-105 active:scale-95 transition-transform"
+                      title="Click to pick a color"
+                    >
+                      <input
+                        type="color"
+                        value={themeConfig.accent_color || "#6366F1"}
+                        onChange={(e) =>
+                          setThemeConfig((prev) => ({ ...prev, accent_color: e.target.value }))
+                        }
+                        className="absolute -top-4 -left-4 w-20 h-20 cursor-pointer opacity-0"
+                      />
+                      <div
+                        className="w-full h-full transition-colors"
+                        style={{ backgroundColor: themeConfig.accent_color || "#6366F1" }}
+                      />
+                    </label>
+
+                    <div className="flex items-center flex-1 pr-2">
+                      <span className="text-slate-400 font-mono text-xs select-none">#</span>
+                      <input
+                        type="text"
+                        value={(themeConfig.accent_color || "6366F1").replace(/^#/, "")}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, "").slice(0, 6);
+                          setThemeConfig((prev) => ({ ...prev, accent_color: `#${raw}` }));
+                        }}
+                        placeholder="6366F1"
+                        className="w-full font-mono text-xs uppercase text-slate-900 bg-transparent focus:outline-none ps-1 tracking-wider"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
