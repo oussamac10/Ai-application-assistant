@@ -25,6 +25,7 @@ import {
   ZoomOut,
   Target,
   MoreVertical,
+  Columns2,
 } from "lucide-react";
 import {
   getFormReview,
@@ -99,6 +100,7 @@ export function FormSchemaReviewStudio({
   const [newDocInput, setNewDocInput] = useState("");
   const [reviewNotes, setReviewNotes] = useState("");
   const [activeTab, setActiveTab] = useState<"fields" | "metadata">("fields");
+  const [paneView, setPaneView] = useState<"split" | "canvas" | "fields">("split");
 
   // New field modal state
   const [showAddField, setShowAddField] = useState(false);
@@ -690,24 +692,24 @@ export function FormSchemaReviewStudio({
   const pdfUrl = `/api/organizations/current/forms/${templateId}/source-pdf`;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] bg-slate-50">
+    <div className="flex flex-col h-full w-full min-w-0 max-w-full overflow-x-hidden bg-slate-50">
       {/* Top Action Bar */}
-      <header className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between shrink-0 shadow-sm">
-        <div className="flex items-center gap-4">
+      <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shrink-0 shadow-2xs gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onBack}
-            className="p-2 -ml-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+            className="p-1.5 -ml-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0"
             title="Back to Catalog"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-base font-bold text-slate-900 truncate max-w-md">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 truncate max-w-[200px] sm:max-w-xs md:max-w-md">
                 {name || review.name}
               </h1>
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider shrink-0 ${
                   review.status === "published"
                     ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                     : review.status === "archived"
@@ -715,21 +717,64 @@ export function FormSchemaReviewStudio({
                     : "bg-amber-100 text-amber-800 border border-amber-200"
                 }`}
               >
-                {review.status === "published" ? "Live in Portal" : "Needs Review"}
+                {review.status === "published" ? "Live" : "Review"}
               </span>
-              <span className="text-xs text-slate-400 font-mono">
+              <span className="text-[11px] text-slate-400 font-mono hidden sm:inline shrink-0">
                 v{review.versionNumber} • {fields.length} Fields
               </span>
             </div>
-            <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-              Verified Organization Schema • Dual-Pane Human Verification Studio
+            <p className="text-[11px] text-slate-500 hidden sm:flex items-center gap-1.5 mt-0.5 truncate">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span>Dual-Pane Verification Studio</span>
             </p>
           </div>
         </div>
 
+        {/* Center: View Switcher (Split, Canvas, Fields) */}
+        <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200 shrink-0">
+          <button
+            type="button"
+            onClick={() => setPaneView("split")}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              paneView === "split"
+                ? "bg-white text-indigo-700 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+            title="Dual-Pane Split View"
+          >
+            <Columns2 className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Split</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaneView("canvas")}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              paneView === "canvas"
+                ? "bg-white text-indigo-700 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+            title="PDF Canvas Only"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Canvas</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaneView("fields")}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              paneView === "fields"
+                ? "bg-white text-indigo-700 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+            title="Fields & Schema Editor Only"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Fields</span>
+          </button>
+        </div>
+
         {/* Studio Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           {successMessage && (
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
               <Check className="w-3.5 h-3.5" />
@@ -827,13 +872,21 @@ export function FormSchemaReviewStudio({
       </header>
 
       {/* Main Dual-Pane Studio Body */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-w-0 w-full overflow-hidden">
         {/* Left Pane: Interactive Visual PDF Canvas & Placement Studio */}
-        <div className="w-1/2 border-r border-slate-200 bg-slate-900 flex flex-col overflow-hidden">
+        <div
+          className={`${
+            paneView === "fields"
+              ? "hidden"
+              : paneView === "canvas"
+              ? "w-full"
+              : "w-1/2"
+          } min-w-0 border-r border-slate-200 bg-slate-900 flex flex-col overflow-hidden`}
+        >
           {/* Top Controls Toolbar */}
-          <div className="px-4 py-2 bg-slate-800 border-b border-slate-700 flex items-center justify-between text-xs text-slate-300 font-medium shrink-0">
+          <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center justify-between text-xs text-slate-300 font-medium shrink-0 min-w-0 gap-2">
             {/* Page navigation */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span className="font-semibold text-white">Page</span>
               <div className="inline-flex items-center rounded-lg bg-slate-700 p-0.5 border border-slate-600">
                 <button
@@ -861,13 +914,21 @@ export function FormSchemaReviewStudio({
             </div>
 
             {/* Middle: Canvas interaction hint */}
-            <div className="hidden lg:flex items-center gap-2 text-xs text-slate-300 font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Canvas Ready: Drag empty space to create • Drag boxes to move or resize</span>
-            </div>
+            {paneView === "canvas" && (
+              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-300 font-medium truncate">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="truncate">Drag empty space to create • Drag boxes to move or resize</span>
+              </div>
+            )}
+            {paneView === "split" && (
+              <div className="hidden 2xl:flex items-center gap-1.5 text-[11px] text-slate-400 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                <span className="truncate">Drag to place or move</span>
+              </div>
+            )}
 
             {/* Right: Zoom & Open PDF */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setZoomScale((z) => Math.max(0.7, Math.round((z - 0.15) * 100) / 100))}
@@ -1226,34 +1287,44 @@ export function FormSchemaReviewStudio({
         </div>
 
         {/* Right Pane: Schema Fields Editor & Review */}
-        <div className="w-1/2 flex flex-col bg-white overflow-hidden">
+        <div
+          className={`${
+            paneView === "canvas"
+              ? "hidden"
+              : paneView === "fields"
+              ? "w-full"
+              : "w-1/2"
+          } min-w-0 flex flex-col bg-white overflow-hidden`}
+        >
           {/* Sub Navigation */}
-          <div className="px-6 py-2 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-            <div className="flex items-center gap-3">
+          <div className="px-4 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50 shrink-0 min-w-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setActiveTab("fields")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
                   activeTab === "fields"
-                    ? "bg-white text-blue-700 shadow-sm border border-slate-200"
+                    ? "bg-white text-blue-700 shadow-2xs border border-slate-200"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Layers className="w-3.5 h-3.5" /> Form Fields Schema ({fields.length})
+                <Layers className="w-3.5 h-3.5" />
+                <span>Fields ({fields.length})</span>
               </button>
               <button
                 onClick={() => setActiveTab("metadata")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
                   activeTab === "metadata"
-                    ? "bg-white text-blue-700 shadow-sm border border-slate-200"
+                    ? "bg-white text-blue-700 shadow-2xs border border-slate-200"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <FileText className="w-3.5 h-3.5" /> General Details & Rules
+                <FileText className="w-3.5 h-3.5" />
+                <span>Details</span>
               </button>
             </div>
 
             {activeTab === "fields" && canEdit && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -1268,7 +1339,7 @@ export function FormSchemaReviewStudio({
                     setModalError(null);
                     setShowAddField(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Field</span>

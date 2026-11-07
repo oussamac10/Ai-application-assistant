@@ -92,7 +92,7 @@ export default function AppShell({ children }: AppShellProps) {
         </header>
 
         {/* Scrollable System Content Container */}
-        <main className="flex-1 overflow-y-auto min-w-0 bg-[#f9f9fb]">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-[#f9f9fb]">
           {children}
         </main>
       </div>
