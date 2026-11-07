@@ -10,6 +10,7 @@ import { prepareQuestions } from "../../field-detection/services/apiClient";
 import { isDetectionDebugUiEnabled } from "../../field-detection/debugMode";
 import { DocumentUploadResponse } from "../types";
 import { resolveUploadErrorMessage } from "../utils/resolveUploadErrorMessage";
+import { AlertCircle, UploadCloud } from "lucide-react";
 
 interface DocumentUploadFormProps {
   currentLocale: string;
@@ -262,9 +263,7 @@ export default function DocumentUploadForm({
             role="alert"
             className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
           >
-            <svg className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -304,20 +303,7 @@ export default function DocumentUploadForm({
             />
 
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-indigo-200 bg-white text-indigo-600 shadow-2xs">
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.75}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
+              <UploadCloud className="h-6 w-6" aria-hidden="true" />
             </div>
 
             {!file ? (
@@ -510,19 +496,7 @@ export default function DocumentUploadForm({
         <div className="space-y-6">
           <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
             <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 shadow-2xs">
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
+              <AlertCircle className="h-5 w-5" />
             </div>
             <h3 className="text-base font-bold text-rose-900">
               {t("upload_error_title") || "Upload or Analysis Failed"}

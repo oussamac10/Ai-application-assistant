@@ -12,6 +12,7 @@ import {
   renameApplication,
 } from "@/features/applications/services/applicationsClient";
 import ApplicationCard from "@/features/applications/components/ApplicationCard";
+import { Plus, FileText } from "lucide-react";
 
 export default function MyApplicationsPage() {
   const t = useTranslations("applications");
@@ -86,9 +87,7 @@ export default function MyApplicationsPage() {
             href="/application"
             className="btn-primary px-5 py-2.5 text-sm font-semibold"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+            <Plus className="h-4 w-4" />
             <span>{t("startNew")}</span>
           </Link>
         </div>
@@ -106,9 +105,7 @@ export default function MyApplicationsPage() {
           {applications.length === 0 && !loadFailed ? (
             <div className="surface-card rounded-2xl p-12 text-center space-y-4">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600">
-                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <FileText className="h-7 w-7" />
               </div>
               <p className="text-base font-bold text-slate-900">{t("empty")}</p>
               <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
@@ -119,9 +116,7 @@ export default function MyApplicationsPage() {
                   href="/application"
                   className="btn-primary px-6 py-3 text-sm font-semibold"
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+                  <Plus className="h-4 w-4" />
                   <span>{t("startNew")}</span>
                 </Link>
               </div>

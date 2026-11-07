@@ -6,6 +6,7 @@ import { getPublishedForms, PublishedForm } from "@/features/form-session/servic
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
 import { createCase } from "../services/portalClient";
 import { Case } from "../types";
+import { X, Loader2 } from "lucide-react";
 
 interface NewCaseModalProps {
   isOpen: boolean;
@@ -139,9 +140,7 @@ export function NewCaseModal({
             aria-label="Close"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -266,10 +265,7 @@ export function NewCaseModal({
             >
               {submitting ? (
                 <>
-                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   {t("creating")}
                 </>
               ) : (

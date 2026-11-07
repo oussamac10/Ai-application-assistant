@@ -28,6 +28,7 @@ import {
   ExternalLink,
   Landmark,
   Info,
+  Search,
 } from "lucide-react";
 import {
   resolveThemeConfig,
@@ -176,8 +177,8 @@ export function PortalDashboard() {
                 className="h-full w-full object-contain"
               />
             ) : (
-              <div className="w-full h-full rounded-xl bg-amber-50 flex items-center justify-center text-amber-700 font-bold text-lg">
-                🏛️
+              <div className="w-full h-full rounded-xl bg-amber-50 flex items-center justify-center text-amber-700">
+                <Landmark className="w-8 h-8 text-amber-600" />
               </div>
             )}
           </div>
@@ -349,9 +350,7 @@ export function PortalDashboard() {
 
       <div className="relative w-full sm:w-80">
         <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-slate-400">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+          <Search className="w-3.5 h-3.5" />
         </div>
         <input
           type="text"

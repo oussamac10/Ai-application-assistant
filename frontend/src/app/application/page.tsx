@@ -6,6 +6,7 @@ import { useLanguage } from "@/features/form-session/components/LanguageProvider
 import DocumentUploadForm from "@/features/document-upload/components/DocumentUploadForm";
 import LanguageSelector from "@/features/form-session/components/LanguageSelector";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
+import { FileText, Lock } from "lucide-react";
 
 export default function ApplicationLanding() {
   const t = useTranslations("landing");
@@ -31,9 +32,7 @@ export default function ApplicationLanding() {
 
               <div>
                 <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                  <svg className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+                  <FileText className="h-4 w-4 text-indigo-600" />
                   {ts("sidebarTitle")}
                 </h2>
                 <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
@@ -70,9 +69,7 @@ export default function ApplicationLanding() {
             {/* Privacy Card */}
             <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3 shadow-2xs">
               <div className="h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+                <Lock className="h-4 w-4" />
               </div>
               <div className="text-xs text-slate-600 leading-snug">
                 <span className="font-semibold text-slate-900 block">{ts("privacyCardTitle")}</span>

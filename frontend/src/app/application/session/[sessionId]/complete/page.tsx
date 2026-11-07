@@ -12,7 +12,7 @@ import { createExport, downloadExportBlob, getSession, getSummary, ExportRespons
 import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { claimApplication } from "@/features/applications/services/applicationsClient";
 import { ExportAccountGateModal } from "@/features/applications/components/ExportAccountGateModal";
-import { Lock } from "lucide-react";
+import { Lock, Check, ClipboardCheck, FileDown, Download, Loader2 } from "lucide-react";
 
 type ExportState = "ready" | "creating_export" | "export_ready" | "downloading" | "download_failed" | "export_expired" | "token_missing";
 
@@ -173,9 +173,7 @@ export default function SessionComplete() {
           <div className="flex flex-col items-center">
             {/* Green Success Checkmark Badge */}
             <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-600">
-              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
+              <Check className="h-7 w-7" strokeWidth={2.5} />
             </div>
 
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 mb-2">
@@ -234,19 +232,7 @@ export default function SessionComplete() {
               >
                 <div className="space-y-0.5">
                   <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <svg
-                      className="h-4 w-4 text-indigo-600 shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                      />
-                    </svg>
+                    <ClipboardCheck className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span>{t("checklistTitle")}</span>
                   </h2>
                   <p className="text-xs text-slate-600">
@@ -334,9 +320,7 @@ export default function SessionComplete() {
                   onClick={handleGeneratePdf}
                   className="btn-primary w-full py-3.5 text-sm font-semibold"
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+                  <FileDown className="h-4 w-4" />
                   <span>{t("generatePdf")}</span>
                 </button>
               )}
@@ -346,10 +330,7 @@ export default function SessionComplete() {
                   disabled
                   className="btn-secondary w-full py-3.5 text-sm font-medium cursor-not-allowed"
                 >
-                  <svg className="h-4 w-4 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
                   <span>{t("preparingPdf")}</span>
                 </button>
               )}
@@ -357,18 +338,14 @@ export default function SessionComplete() {
               {exportState === "export_ready" && (
                 <div className="space-y-3">
                   <div className="text-xs text-emerald-700 font-semibold flex items-center justify-center gap-1.5">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
+                    <Check className="h-4 w-4" strokeWidth={2.5} />
                     <span>{t("pdfReady")}</span>
                   </div>
                   <button
                     onClick={handleDownloadPdf}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-emerald-700"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
+                    <Download className="h-4 w-4" />
                     <span>{t("downloadPdf")}</span>
                   </button>
                 </div>
@@ -379,10 +356,7 @@ export default function SessionComplete() {
                   disabled
                   className="btn-secondary w-full py-3.5 text-sm font-medium cursor-not-allowed"
                 >
-                  <svg className="h-4 w-4 animate-spin text-emerald-600" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
                   <span>{tc("loading")}</span>
                 </button>
               )}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { Bookmark, ShieldCheck, Check, Sparkles } from "lucide-react";
+import { Bookmark, ShieldCheck, Check, Sparkles, X } from "lucide-react";
 import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { claimApplication } from "../services/applicationsClient";
 import {
@@ -131,9 +131,7 @@ export default function ClaimBanner({
               aria-label="Dismiss banner"
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
