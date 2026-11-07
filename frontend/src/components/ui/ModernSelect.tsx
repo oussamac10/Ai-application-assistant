@@ -23,6 +23,7 @@ export interface ModernSelectProps<T extends string = string> {
   searchable?: boolean;
   searchPlaceholder?: string;
   "aria-label"?: string;
+  size?: "sm" | "md";
 }
 
 export function ModernSelect<T extends string = string>({
@@ -36,6 +37,7 @@ export function ModernSelect<T extends string = string>({
   searchable = false,
   searchPlaceholder = "Search options...",
   "aria-label": ariaLabel,
+  size = "md",
 }: ModernSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,7 +131,9 @@ export function ModernSelect<T extends string = string>({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={!id ? (ariaLabel || placeholder) : undefined}
-        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all duration-150 outline-none select-none cursor-pointer ${
+        className={`w-full flex items-center justify-between border font-medium transition-all duration-150 outline-none select-none cursor-pointer ${
+          size === "sm" ? "px-2.5 py-1.5 rounded-lg text-xs" : "px-3.5 py-2.5 rounded-xl text-xs"
+        } ${
           disabled
             ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed"
             : isOpen

@@ -26,6 +26,7 @@ import {
   Target,
   MoreVertical,
   Columns2,
+  Globe,
 } from "lucide-react";
 import {
   getFormReview,
@@ -41,8 +42,12 @@ import {
   archiveForm,
   getFormPagePreviewUrl,
   listOrganizationCategories,
+  getCurrentOrganization,
+  translateFormFieldLabel,
 } from "../services/portalClient";
 import { FormReviewDetail, FormFieldItem, OrganizationCategory } from "../types";
+import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
+import { ModernSelect } from "@/components/ui/ModernSelect";
 
 interface FormSchemaReviewStudioProps {
   templateId: string;
@@ -131,6 +136,21 @@ export function FormSchemaReviewStudio({
   const topMenuRef = useRef<HTMLDivElement>(null);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
 
+  // Multilingual translations states
+  const [supportedLanguages, setSupportedLanguages] = useState<string[]>([
+    "de",
+    "en",
+    "ar",
+    "fr",
+    "tr",
+    "uk",
+    "es",
+    "ru",
+  ]);
+  const [expandedTranslationsFieldId, setExpandedTranslationsFieldId] = useState<string | null>(null);
+  const [activeTranslationLang, setActiveTranslationLang] = useState<string>("ar");
+  const [translatingFieldId, setTranslatingFieldId] = useState<string | null>(null);
+
   // Close dropdowns on outside click
   useEffect(() => {
     if (!showTopMenu && !showToolsMenu) return;
@@ -206,6 +226,20 @@ export function FormSchemaReviewStudio({
       listOrganizationCategories(true)
         .then((cats) => setAvailableCategories(cats))
         .catch(() => {});
+
+      getCurrentOrganization()
+        .then((org) => {
+          if (org?.supported_languages && org.supported_languages.length > 0) {
+            setSupportedLanguages(org.supported_languages);
+            const firstNonSource = org.supported_languages.find(
+              (l) => l !== (data.sourceLanguage || "de")
+            );
+            if (firstNonSource) {
+              setActiveTranslationLang(firstNonSource);
+            }
+          }
+        })
+        .catch(() => {});
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load form review schema";
       setError(msg);
@@ -259,17 +293,104 @@ export function FormSchemaReviewStudio({
         if (f.id !== fieldId) return f;
         const updated = { ...f, ...updates };
         if (updates.label !== undefined) {
+          const srcLang = review?.sourceLanguage || "de";
           const trans = [...(updated.translations || [])];
-          if (trans.length > 0) {
+          const srcIndex = trans.findIndex((t) => t.language === srcLang);
+          if (srcIndex >= 0) {
+            trans[srcIndex] = { ...trans[srcIndex], label: updates.label };
+          } else if (trans.length > 0) {
             trans[0] = { ...trans[0], label: updates.label };
           } else {
-            trans.push({ language: "de", label: updates.label });
+            trans.push({ language: srcLang, label: updates.label });
           }
           updated.translations = trans;
         }
         return updated;
       })
     );
+  };
+
+  const handleFieldTranslationChange = (
+    fieldId: string,
+    language: string,
+    newLabel: string
+  ) => {
+    setFields((prev) =>
+      prev.map((f) => {
+        if (f.id !== fieldId) return f;
+        const trans = [...(f.translations || [])];
+        const existingIdx = trans.findIndex((t) => t.language === language);
+        if (existingIdx >= 0) {
+          trans[existingIdx] = { ...trans[existingIdx], label: newLabel };
+        } else {
+          trans.push({ language, label: newLabel });
+        }
+        return { ...f, translations: trans };
+      })
+    );
+  };
+
+  const handleAutoTranslateField = async (
+    fieldId: string,
+    targetLanguage?: string
+  ) => {
+    const field = fields.find((f) => f.id === fieldId);
+    if (!field) return;
+
+    const sourceLang = review?.sourceLanguage || "de";
+    const sourceLabel =
+      field.translations?.find((t) => t.language === sourceLang)?.label ||
+      field.translations?.[0]?.label ||
+      field.key;
+
+    if (!sourceLabel || !sourceLabel.trim()) {
+      setError("Please provide a source label before auto-translating.");
+      return;
+    }
+
+    const targets = targetLanguage
+      ? [targetLanguage]
+      : supportedLanguages.filter((l) => l !== sourceLang);
+
+    if (targets.length === 0) return;
+
+    try {
+      setTranslatingFieldId(fieldId);
+      setError(null);
+      const translatedMap = await translateFormFieldLabel(
+        sourceLabel,
+        sourceLang,
+        targets
+      );
+
+      setFields((prev) =>
+        prev.map((f) => {
+          if (f.id !== fieldId) return f;
+          const trans = [...(f.translations || [])];
+          for (const [lang, transText] of Object.entries(translatedMap)) {
+            const idx = trans.findIndex((t) => t.language === lang);
+            if (idx >= 0) {
+              trans[idx] = { ...trans[idx], label: transText };
+            } else {
+              trans.push({ language: lang, label: transText });
+            }
+          }
+          return { ...f, translations: trans };
+        })
+      );
+      setSuccessMessage(
+        targetLanguage
+          ? `Field translated to ${targetLanguage.toUpperCase()}.`
+          : `Field translated to ${Object.keys(translatedMap).length} supported languages.`
+      );
+      setTimeout(() => setSuccessMessage(null), 3500);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to auto-translate field.";
+      setError(msg);
+    } finally {
+      setTranslatingFieldId(null);
+    }
   };
 
   const handleSaveDraft = async () => {
@@ -292,10 +413,13 @@ export function FormSchemaReviewStudio({
 
       // 2. Persist fields
       for (const field of fields) {
-        const trans = field.translations?.[0];
+        const srcLang = review.sourceLanguage || "de";
+        const primaryTrans =
+          field.translations?.find((t) => t.language === srcLang) ||
+          field.translations?.[0];
         await updateFormField(templateId, field.id, {
           key: field.key,
-          label: trans?.label || field.key,
+          label: primaryTrans?.label || field.key,
           translations: field.translations,
           fieldType: field.fieldType,
           requiredness: field.requiredness,
@@ -702,7 +826,7 @@ export function FormSchemaReviewStudio({
   const pdfUrl = `/api/organizations/current/forms/${templateId}/source-pdf`;
 
   return (
-    <div className="flex flex-col h-full w-full min-w-0 max-w-full overflow-x-hidden bg-slate-50">
+    <div className="flex flex-col h-full w-full min-w-0 max-w-full overflow-hidden bg-slate-50">
       {/* Top Action Bar */}
       <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shrink-0 shadow-2xs gap-3 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -1575,20 +1699,16 @@ export function FormSchemaReviewStudio({
                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                               Input Type
                             </label>
-                            <select
+                            <ModernSelect
                               disabled={!canEdit}
                               value={field.fieldType}
-                              onChange={(e) =>
-                                handleFieldChange(field.id, { fieldType: e.target.value })
+                              onChange={(val) =>
+                                handleFieldChange(field.id, { fieldType: val })
                               }
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            >
-                              {FIELD_TYPE_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
+                              options={FIELD_TYPE_OPTIONS}
+                              size="sm"
+                              aria-label="Input Type"
+                            />
                           </div>
 
                           {/* Requirement */}
@@ -1596,20 +1716,22 @@ export function FormSchemaReviewStudio({
                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                               Requirement
                             </label>
-                            <select
+                            <ModernSelect
                               disabled={!canEdit}
                               value={isRequired ? "required" : "optional"}
-                              onChange={(e) =>
+                              onChange={(val) =>
                                 handleFieldChange(field.id, {
-                                  requiredness: e.target.value,
-                                  required: e.target.value === "required",
+                                  requiredness: val,
+                                  required: val === "required",
                                 })
                               }
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="required">Required for Citizen</option>
-                              <option value="optional">Optional</option>
-                            </select>
+                              options={[
+                                { value: "required", label: "Required for Citizen" },
+                                { value: "optional", label: "Optional" },
+                              ]}
+                              size="sm"
+                              aria-label="Requirement"
+                            />
                           </div>
 
                           {/* Profile Vault Mapping */}
@@ -1617,25 +1739,213 @@ export function FormSchemaReviewStudio({
                             <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                               Profile Vault Pre-fill
                             </label>
-                            <select
+                            <ModernSelect
                               disabled={!canEdit}
                               value={field.questionKey || ""}
-                              onChange={(e) =>
+                              onChange={(val) =>
                                 handleFieldChange(field.id, {
-                                  questionKey: e.target.value || null,
+                                  questionKey: val || null,
                                 })
                               }
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="">No prefill (custom field)</option>
-                              {CANONICAL_VAULT_KEYS.map((k) => (
-                                <option key={k.key} value={k.key}>
-                                  {k.label}
-                                </option>
-                              ))}
-                            </select>
+                              options={[
+                                { value: "", label: "No prefill (custom field)" },
+                                ...CANONICAL_VAULT_KEYS.map((k) => ({
+                                  value: k.key,
+                                  label: k.label,
+                                })),
+                              ]}
+                              searchable
+                              searchPlaceholder="Search vault keys..."
+                              size="sm"
+                              aria-label="Profile Vault Pre-fill"
+                            />
                           </div>
                         </div>
+
+                        {/* Citizen Guidance Translations Toggle Bar */}
+                        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedTranslationsFieldId(
+                                expandedTranslationsFieldId === field.id
+                                  ? null
+                                  : field.id
+                              );
+                            }}
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                          >
+                            <Globe className="w-3.5 h-3.5" />
+                            <span>Citizen Guidance Translations</span>
+                            <span className="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded-full border border-indigo-200">
+                              {field.translations?.length || 1}
+                            </span>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform ${
+                                expandedTranslationsFieldId === field.id
+                                  ? "rotate-180"
+                                  : ""
+                              }`}
+                            />
+                          </button>
+
+                          {canEdit && (
+                            <button
+                              type="button"
+                              disabled={translatingFieldId === field.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAutoTranslateField(field.id);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 rounded-lg transition disabled:opacity-50 cursor-pointer"
+                              title="Auto-translate to all supported citizen guidance languages"
+                            >
+                              {translatingFieldId === field.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                              )}
+                              <span>Auto-Translate All</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Expandable Multilingual Translations Drawer */}
+                        {expandedTranslationsFieldId === field.id && (
+                          <div
+                            className="mt-3 p-3 bg-slate-50/80 rounded-xl border border-slate-200 space-y-3"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                Guidance Language for Citizens
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                Original Form: {review.sourceLanguage?.toUpperCase() || "DE"}
+                              </span>
+                            </div>
+
+                            {/* Language Tabs */}
+                            <div className="flex flex-wrap gap-1.5">
+                              {supportedLanguages.map((code) => {
+                                const langObj = UNIVERSAL_LANGUAGES.find(
+                                  (l) => l.code === code
+                                );
+                                const label = langObj
+                                  ? `${langObj.nativeName} (${code.toUpperCase()})`
+                                  : code.toUpperCase();
+                                const isSelected = activeTranslationLang === code;
+                                const transForCode = field.translations?.find(
+                                  (t) => t.language === code
+                                );
+                                const hasTranslation = Boolean(
+                                  transForCode?.label?.trim()
+                                );
+
+                                return (
+                                  <button
+                                    key={code}
+                                    type="button"
+                                    onClick={() => setActiveTranslationLang(code)}
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition border cursor-pointer ${
+                                      isSelected
+                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                    }`}
+                                  >
+                                    <span>{label}</span>
+                                    {hasTranslation && (
+                                      <span
+                                        className={`w-1.5 h-1.5 rounded-full ${
+                                          isSelected ? "bg-white" : "bg-emerald-500"
+                                        }`}
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Active Language Editor */}
+                            {(() => {
+                              const activeLangObj = UNIVERSAL_LANGUAGES.find(
+                                (l) => l.code === activeTranslationLang
+                              );
+                              const isRtl = activeLangObj?.dir === "rtl";
+                              const currentTrans = field.translations?.find(
+                                (t) => t.language === activeTranslationLang
+                              );
+                              const currentTransVal = currentTrans?.label || "";
+                              const isSourceLang =
+                                activeTranslationLang ===
+                                (review.sourceLanguage || "de");
+
+                              return (
+                                <div className="space-y-2 pt-1">
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-slate-700">
+                                      Question Label in{" "}
+                                      {activeLangObj?.englishName ||
+                                        activeTranslationLang.toUpperCase()}{" "}
+                                      {isRtl ? "(RTL)" : ""}
+                                    </label>
+                                    {canEdit && !isSourceLang && (
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          translatingFieldId === field.id
+                                        }
+                                        onClick={() =>
+                                          handleAutoTranslateField(
+                                            field.id,
+                                            activeTranslationLang
+                                          )
+                                        }
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 cursor-pointer"
+                                      >
+                                        {translatingFieldId === field.id ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Sparkles className="w-3 h-3 text-indigo-500" />
+                                        )}
+                                        <span>Auto-Translate This</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                  <input
+                                    type="text"
+                                    disabled={!canEdit}
+                                    dir={isRtl ? "rtl" : "ltr"}
+                                    value={currentTransVal}
+                                    onChange={(e) =>
+                                      handleFieldTranslationChange(
+                                        field.id,
+                                        activeTranslationLang,
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder={
+                                      isSourceLang
+                                        ? primaryLabel
+                                        : `Enter translated label in ${
+                                            activeLangObj?.englishName ||
+                                            activeTranslationLang
+                                          }...`
+                                    }
+                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  />
+                                  <p className="text-[10px] text-slate-400">
+                                    Citizens completing the form in{" "}
+                                    {activeLangObj?.nativeName ||
+                                      activeTranslationLang}{" "}
+                                    will see this exact question prompt.
+                                  </p>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
 
                         {/* Internal Technical Key */}
                         <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 font-mono">
@@ -1667,24 +1977,27 @@ export function FormSchemaReviewStudio({
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Official Category / Department (Taxonomy)
                   </label>
-                  <select
+                  <ModernSelect
                     disabled={!canEdit}
                     value={categoryId || ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onChange={(val) => {
                       setCategoryId(val || null);
                       const found = availableCategories.find((c) => c.id === val);
                       if (found) setCategory(found.slug);
+                      else if (!val) setCategory("general");
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Uncategorized / General Services</option>
-                    {availableCategories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.translations?.en?.name ? `(${c.translations.en.name})` : ""}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: "", label: "Uncategorized / General Services" },
+                      ...availableCategories.map((c) => ({
+                        value: c.id,
+                        label: `${c.name}${c.translations?.en?.name ? ` (${c.translations.en.name})` : ""}`,
+                      })),
+                    ]}
+                    placeholder="Select category..."
+                    searchable={availableCategories.length > 5}
+                    searchPlaceholder="Search categories..."
+                    aria-label="Official Category / Department"
+                  />
                 </div>
 
                 <div>
@@ -1880,30 +2193,28 @@ export function FormSchemaReviewStudio({
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Input Type
                   </label>
-                  <select
+                  <ModernSelect
                     value={newFieldType}
-                    onChange={(e) => setNewFieldType(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {FIELD_TYPE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setNewFieldType(val)}
+                    options={FIELD_TYPE_OPTIONS}
+                    size="sm"
+                    aria-label="Input Type"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Requirement
                   </label>
-                  <select
+                  <ModernSelect
                     value={newFieldRequired ? "yes" : "no"}
-                    onChange={(e) => setNewFieldRequired(e.target.value === "yes")}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="yes">Required</option>
-                    <option value="no">Optional</option>
-                  </select>
+                    onChange={(val) => setNewFieldRequired(val === "yes")}
+                    options={[
+                      { value: "yes", label: "Required" },
+                      { value: "no", label: "Optional" },
+                    ]}
+                    size="sm"
+                    aria-label="Requirement"
+                  />
                 </div>
               </div>
 
@@ -1911,18 +2222,21 @@ export function FormSchemaReviewStudio({
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Profile Vault Pre-fill Mapping
                 </label>
-                <select
+                <ModernSelect
                   value={newFieldQuestionKey}
-                  onChange={(e) => setNewFieldQuestionKey(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">None (custom)</option>
-                  {CANONICAL_VAULT_KEYS.map((k) => (
-                    <option key={k.key} value={k.key}>
-                      {k.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setNewFieldQuestionKey(val)}
+                  options={[
+                    { value: "", label: "None (custom)" },
+                    ...CANONICAL_VAULT_KEYS.map((k) => ({
+                      value: k.key,
+                      label: k.label,
+                    })),
+                  ]}
+                  searchable
+                  searchPlaceholder="Search vault keys..."
+                  size="sm"
+                  aria-label="Profile Vault Pre-fill Mapping"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">

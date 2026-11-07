@@ -762,3 +762,30 @@ export async function assignCategoryForms(
   }
   return res.json();
 }
+
+export async function translateFormFieldLabel(
+  text: string,
+  sourceLanguage: string,
+  targetLanguages: string[]
+): Promise<Record<string, string>> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations/current/forms/translate-field", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      text,
+      source_language: sourceLanguage,
+      target_languages: targetLanguages,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to translate field label.");
+  }
+  const data = await res.json();
+  return data.translations || {};
+}

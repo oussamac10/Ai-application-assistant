@@ -158,23 +158,159 @@ _KEY_PATTERNS: list[tuple[re.Pattern[str], str, str, str]] = [
 ]
 
 
+def clean_label_text(text: str) -> str:
+    """Strips leading/trailing colons, asterisks, hyphens, and redundant whitespace."""
+    if not text:
+        return ""
+    t = text.strip()
+    t = re.sub(r"[\s\:\*\-\_]+$", "", t)
+    t = re.sub(r"^[\s\:\*\-\_]+", "", t)
+    t = re.sub(r"\s+", " ", t)
+    return t.strip()
+
+
+def extract_nearby_text_for_widget(page: fitz.Page, rect: fitz.Rect, ftype: str) -> str:
+    """Extracts adjacent printed text on the PDF page near the widget rectangle."""
+    words = page.get_text("words")
+    if not words:
+        return ""
+
+    if ftype in ("boolean", "choice"):
+        # For checkboxes or radio buttons, label is almost always directly to the right on the same line
+        same_line_right = [
+            w[4]
+            for w in words
+            if abs(w[1] - rect.y0) < 14 and rect.x1 <= w[0] < rect.x1 + 420
+        ]
+        if same_line_right:
+            return " ".join(same_line_right)
+
+        # Fallback: text immediately above
+        above = [
+            w[4]
+            for w in words
+            if 0 <= rect.y0 - w[3] < 22 and abs(w[0] - rect.x0) < 150
+        ]
+        if above:
+            return " ".join(above)
+    else:
+        # For text inputs, text is typically directly above the input box
+        above = [
+            w[4]
+            for w in words
+            if 0 <= rect.y0 - w[3] < 28 and rect.x0 - 50 <= w[0] <= rect.x1 + 50
+        ]
+        if above:
+            return " ".join(above)
+
+        # Or text on the left of the input box
+        left = [
+            w[4]
+            for w in words
+            if abs(w[1] - rect.y0) < 14 and rect.x0 - 260 <= w[0] < rect.x0
+        ]
+        if left:
+            return " ".join(left)
+
+    return ""
+
+
+def extract_widget_metadata(
+    page: fitz.Page, widget: fitz.Widget
+) -> tuple[str, str, str | None, str] | None:
+    """Extracts (label, field_type, question_key, requiredness) for an AcroForm widget.
+
+    Returns None if the widget is a non-input pushbutton (Print, Reset, Submit).
+    """
+    ftype_raw = (widget.field_type_string or "text").lower()
+    field_name = widget.field_name or ""
+
+    # Skip pushbuttons (Print, Reset, Clear, Submit)
+    if ftype_raw == "button" or field_name.lower().startswith(("bt", "btn", "button")):
+        return None
+
+    # Determine baseline field type
+    if (
+        "check" in ftype_raw
+        or "radio" in ftype_raw
+        or field_name.lower().startswith(("chk", "rad"))
+    ):
+        field_type = "boolean"
+    elif "signature" in ftype_raw or "sig" in field_name.lower():
+        field_type = "signature"
+    elif "choice" in ftype_raw:
+        field_type = "choice"
+    else:
+        field_type = "string"
+
+    # 1. Prefer explicit PDF Alternate Field Name / Label (/TU)
+    explicit_label = clean_label_text(
+        getattr(widget, "field_label", None)
+        or getattr(widget, "field_alt_text", None)
+        or ""
+    )
+
+    # 2. If no explicit label or it's just the raw variable name, inspect adjacent visual text
+    visual_label = ""
+    if not explicit_label or explicit_label.lower() == field_name.lower():
+        visual_label = clean_label_text(
+            extract_nearby_text_for_widget(page, widget.rect, field_type)
+        )
+
+    if explicit_label and explicit_label.lower() != field_name.lower():
+        detected_label = explicit_label
+    elif visual_label:
+        detected_label = visual_label
+    else:
+        # Strip common programmer prefixes (chk, txt, rad) and split camelCase
+        name_clean = re.sub(r"^(chk|txt|btn|rad)_?", "", field_name, flags=re.I)
+        name_clean = re.sub(r"([a-z])([A-Z])", r"\1 \2", name_clean)
+        name_clean = re.sub(r"[_\-]+", " ", name_clean).strip()
+        detected_label = name_clean.title() if name_clean else field_name
+
+    # Refine field type for string fields
+    if field_type == "string":
+        if re.search(r"datum|date|am_?$", detected_label, re.I) or re.search(
+            r"datum|date", field_name, re.I
+        ):
+            field_type = "date"
+        elif (
+            re.search(r"e[-_]?mail", detected_label, re.I)
+            or "mail" in field_name.lower()
+        ):
+            field_type = "email"
+        elif (
+            re.search(r"telefon|phone|mobil", detected_label, re.I)
+            or "phone" in field_name.lower()
+        ):
+            field_type = "phone"
+        elif re.search(r"iban", detected_label, re.I) or "iban" in field_name.lower():
+            field_type = "iban"
+        elif re.search(r"unterschrift|signature", detected_label, re.I):
+            field_type = "signature"
+
+    # Question key mapping (for Profile Vault prefill)
+    question_key: str | None = None
+    for pattern, _, expected_type, qkey in _KEY_PATTERNS:
+        # Only map question key if field types are compatible (e.g. string with string, date with date)
+        if field_type == expected_type and (
+            pattern.search(detected_label) or pattern.search(field_name)
+        ):
+            question_key = qkey
+            break
+
+    requiredness = (
+        "optional" if field_type in ("email", "phone", "iban") else "required"
+    )
+
+    return detected_label, field_type, question_key, requiredness
+
+
 def infer_field_metadata(
     raw_name: str, field_type_str: str
 ) -> tuple[str, str, str | None, str]:
-    """Infers (clean_label, field_type, question_key, requiredness) from field names."""
-    normalized = raw_name.strip()
-    for pattern, label, ftype, qkey in _KEY_PATTERNS:
-        if pattern.search(normalized):
-            req = "optional" if ftype in ("email", "phone", "iban") else "required"
-            return label, ftype, qkey, req
-
-    # Fallback to humanized label
-    clean_label = re.sub(r"[_\-]+", " ", normalized).strip()
-    if clean_label:
-        clean_label = clean_label[0].upper() + clean_label[1:]
-    else:
-        clean_label = "Feld"
-
+    """Infers (clean_label, field_type, question_key, requiredness) from prompt text or field name."""
+    clean_label = clean_label_text(raw_name)
     ftype = "string"
     if "check" in field_type_str.lower() or "radio" in field_type_str.lower():
         ftype = "boolean"
@@ -183,7 +319,23 @@ def infer_field_metadata(
     elif "signature" in field_type_str.lower():
         ftype = "signature"
 
-    return clean_label, ftype, None, "required"
+    # Check for question key and type refinements
+    qkey: str | None = None
+    for pattern, _, expected_type, key in _KEY_PATTERNS:
+        if pattern.search(clean_label):
+            if ftype == "string":
+                ftype = expected_type
+            qkey = key
+            break
+
+    # If raw_name is just an ASCII identifier without spaces (e.g. first_name), humanize it
+    if re.match(r"^[a-zA-Z0-9_\-]+$", clean_label):
+        clean_label = re.sub(r"[_\-]+", " ", clean_label).strip()
+        if clean_label:
+            clean_label = clean_label[0].upper() + clean_label[1:]
+
+    req = "optional" if ftype in ("email", "phone", "iban") else "required"
+    return clean_label or "Feld", ftype, qkey, req
 
 
 def slugify(text: str) -> str:
@@ -491,7 +643,9 @@ class OrganizationFormService:
         # 5. Extract fields from PDF only if explicitly requested
         if auto_extract:
             extracted_fields = self._extract_fields_from_pdf_bytes(pdf_bytes)
-            self._insert_extracted_fields(version.id, extracted_fields)
+            self._insert_extracted_fields(
+                version.id, extracted_fields, version.source_language or "de"
+            )
 
         self.db.commit()
         return self.get_form_review(user, template.id)
@@ -505,19 +659,21 @@ class OrganizationFormService:
                 for widget in page.widgets():
                     if not widget.field_name:
                         continue
-                    label, ftype, qkey, req = infer_field_metadata(
-                        widget.field_name, widget.field_type_string or "text"
-                    )
+                    meta = extract_widget_metadata(page, widget)
+                    if not meta:
+                        continue  # e.g. pushbuttons like Print or Reset
+                    label, ftype, qkey, req = meta
+
                     options: list[str] = []
                     if hasattr(widget, "choice_values") and widget.choice_values:
                         options = list(widget.choice_values)
 
                     rect = widget.rect
                     bbox = [
-                        float(rect.x0),
-                        float(rect.y0),
-                        float(rect.x1),
-                        float(rect.y1),
+                        round(float(rect.x0), 1),
+                        round(float(rect.y0), 1),
+                        round(float(rect.x1), 1),
+                        round(float(rect.y1), 1),
                     ]
 
                     extracted_fields.append(
@@ -548,7 +704,10 @@ class OrganizationFormService:
         return extracted_fields
 
     def _insert_extracted_fields(
-        self, version_id: str, extracted_fields: list[dict[str, Any]]
+        self,
+        version_id: str,
+        extracted_fields: list[dict[str, Any]],
+        source_language: str = "de",
     ) -> None:
         """Inserts extracted fields into database with unique keys and source translation."""
         current_max_pos = (
@@ -586,10 +745,10 @@ class OrganizationFormService:
             self.db.add(form_field)
             self.db.flush()
 
-            # Translation for de (source language)
+            # Translation for source language (e.g. de)
             trans = FormFieldTranslation(
                 form_field_id=form_field.id,
-                language="de",
+                language=source_language,
                 label=f["label"],
             )
             self.db.add(trans)
@@ -620,7 +779,22 @@ class OrganizationFormService:
 
         pdf_bytes = self.storage.get_bytes(latest_version.source_pdf_storage_path)
         extracted_fields = self._extract_fields_from_pdf_bytes(pdf_bytes)
-        self._insert_extracted_fields(latest_version.id, extracted_fields)
+
+        # Clear existing unverified fields so re-scanning replaces rather than duplicates with _2 suffixes
+        existing_fields = (
+            self.db.query(FormField)
+            .filter(FormField.form_version_id == latest_version.id)
+            .all()
+        )
+        for ef in existing_fields:
+            self.db.delete(ef)
+        self.db.flush()
+
+        self._insert_extracted_fields(
+            latest_version.id,
+            extracted_fields,
+            latest_version.source_language or "de",
+        )
         self.db.commit()
 
         return self.get_form_review(user, template_id)
@@ -1383,3 +1557,114 @@ class OrganizationFormService:
         png_bytes: bytes = bytes(pix.tobytes("png"))
         doc.close()
         return png_bytes
+
+    async def translate_field_label(
+        self,
+        user: User,
+        text: str,
+        source_language: str,
+        target_languages: list[str],
+    ) -> dict[str, str]:
+        """Translates a field label from source language into target guidance languages."""
+        self._require_org_viewer(user)
+        clean_text = text.strip()
+        if not clean_text:
+            return {}
+
+        # Known fallback dictionary for mock/offline testing
+        mock_dictionary: dict[str, dict[str, str]] = {
+            "ar": {
+                "einzugsbestätigung": "تأكيد السكن والانتقال من المؤجر",
+                "auszugsbestätigung": "تأكيد مغادرة السكن من المؤجر",
+                "vorname": "الاسم الأول",
+                "nachname": "اسم العائلة",
+                "geburtsdatum": "تاريخ الميلاد",
+                "aktuelle anschrift": "العنوان الحالي",
+                "datum einzug": "تاريخ الانتقال للسكن",
+                "erste person": "الشخص الأول",
+                "zweite person": "الشخص الثاني",
+                "dritte person": "الشخص الثالث",
+                "vierte person": "الشخص الرابع",
+                "eigentümer": "مالك السكن",
+                "unterschrift": "التوقيع",
+            },
+            "en": {
+                "einzugsbestätigung": "Landlord Move-In Confirmation (Section 19 BMG)",
+                "auszugsbestätigung": "Landlord Move-Out Confirmation",
+                "vorname": "First Name",
+                "nachname": "Last Name",
+                "geburtsdatum": "Date of Birth",
+                "aktuelle anschrift": "Current Address",
+                "datum einzug": "Move-In Date",
+                "erste person": "First Person",
+                "zweite person": "Second Person",
+                "dritte person": "Third Person",
+                "vierte person": "Fourth Person",
+                "eigentümer": "Property Owner",
+                "unterschrift": "Signature",
+            },
+            "fr": {
+                "einzugsbestätigung": "Attestation d'emménagement du bailleur",
+                "auszugsbestätigung": "Attestation de déménagement du bailleur",
+                "vorname": "Prénom",
+                "nachname": "Nom de famille",
+                "geburtsdatum": "Date de naissance",
+                "aktuelle anschrift": "Adresse actuelle",
+                "datum einzug": "Date d'emménagement",
+                "unterschrift": "Signature",
+            },
+            "tr": {
+                "einzugsbestätigung": "Ev Sahibi Taşınma Onayı",
+                "auszugsbestätigung": "Ev Sahibi Ayrılma Onayı",
+                "vorname": "Ad",
+                "nachname": "Soyad",
+                "geburtsdatum": "Doğum Tarihi",
+                "aktuelle anschrift": "Mevcut Adres",
+                "datum einzug": "Taşınma Tarihi",
+                "unterschrift": "İmza",
+            },
+            "uk": {
+                "einzugsbestätigung": "Підтвердження орендодавця про вселення",
+                "auszugsbestätigung": "Підтвердження орендодавця про виселення",
+                "vorname": "Ім'я",
+                "nachname": "Прізвище",
+                "geburtsdatum": "Дата народження",
+                "aktuelle anschrift": "Поточна адреса",
+                "datum einzug": "Дата вселення",
+                "unterschrift": "Підпис",
+            },
+        }
+
+        from app.ai.factory import build_provider
+        from app.ai.text_translation import translate_text
+
+        ai_provider = build_provider()
+        results: dict[str, str] = {}
+
+        for target_lang in target_languages:
+            target_lang = target_lang.strip().lower()
+            if target_lang == source_language.lower():
+                results[target_lang] = clean_text
+                continue
+
+            try:
+                res = await translate_text(
+                    ai_provider, clean_text, source_language, target_lang
+                )
+                if res.translated_text and res.translated_text != clean_text:
+                    results[target_lang] = res.translated_text
+                else:
+                    matched = None
+                    text_lower = clean_text.lower()
+                    for keyword, trans in mock_dictionary.get(target_lang, {}).items():
+                        if keyword in text_lower:
+                            matched = trans
+                            break
+                    results[target_lang] = (
+                        matched or f"[{target_lang.upper()}] {clean_text}"
+                    )
+            except Exception as e:
+                logger.warning("Field translation to %s failed: %s", target_lang, e)
+                results[target_lang] = clean_text
+
+        return results

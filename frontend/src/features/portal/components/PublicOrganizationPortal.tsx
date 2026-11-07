@@ -29,6 +29,7 @@ import { createSession, ApiError } from "@/features/form-session/services/apiCli
 import { setSessionToken } from "@/features/form-session/services/sessionCredentials";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
 import { useLanguage } from "@/features/form-session/components/LanguageProvider";
+import { ModernSelect } from "@/components/ui/ModernSelect";
 
 interface PublicOrganizationPortalProps {
   slug: string;
@@ -527,23 +528,20 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
                     <div className="flex flex-wrap items-center gap-2">
                       {/* Language Selector on Form Card */}
-                      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
-                        <Globe className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <select
+                      <div className="w-48">
+                        <ModernSelect
                           value={citizenLanguage}
-                          onChange={(e) => {
-                            setCitizenLanguage(e.target.value);
-                            setLocale(e.target.value);
+                          onChange={(val) => {
+                            setCitizenLanguage(val);
+                            setLocale(val);
                           }}
-                          className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer pr-1"
+                          options={UNIVERSAL_LANGUAGES.map((lang) => ({
+                            value: lang.code,
+                            label: `${lang.nativeName} (${lang.code.toUpperCase()})`,
+                          }))}
+                          size="sm"
                           aria-label="Select assistance language"
-                        >
-                          {UNIVERSAL_LANGUAGES.map((lang) => (
-                            <option key={lang.code} value={lang.code}>
-                              {lang.nativeName} ({lang.code.toUpperCase()})
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
 
                       <button

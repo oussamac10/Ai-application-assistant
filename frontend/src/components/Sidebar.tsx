@@ -167,9 +167,9 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       }`}
     >
       {/* Top Header: Brand & Workspace */}
-      <div className="min-w-0">
+      <div className="min-w-0 flex flex-col flex-1 overflow-hidden">
         <div
-          className={`flex h-16 items-center justify-between px-4 border-b min-w-0 ${
+          className={`flex h-16 shrink-0 items-center justify-between px-4 border-b min-w-0 ${
             isLight
               ? "border-slate-200"
               : isHeraldic
@@ -228,7 +228,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
         {/* Workspace Quick Tag */}
         <div
-          className={`px-4 py-2.5 border-b min-w-0 ${
+          className={`px-4 py-2.5 shrink-0 border-b min-w-0 ${
             isLight
               ? "bg-slate-50 border-slate-200"
               : isHeraldic
@@ -256,7 +256,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </div>
 
         {/* Navigation Groups */}
-        <nav className="p-3 space-y-5 overflow-y-auto overflow-x-hidden min-w-0">
+        <nav className="p-3 space-y-5 overflow-y-auto overflow-x-hidden min-w-0 flex-1">
           {navLinks.map((group) => (
             <div key={group.group} className="min-w-0">
               <div
@@ -307,7 +307,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
       {/* Bottom Footer: Language & User Profile */}
       <div
-        className={`p-3 border-t space-y-2 ${
+        className={`p-3 shrink-0 border-t space-y-2 ${
           isLight
             ? "border-slate-200 bg-slate-50/80"
             : isHeraldic
@@ -439,7 +439,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex w-64 shrink-0 h-screen sticky top-0 z-20 overflow-hidden">
+      <aside className="hidden lg:flex w-64 shrink-0 h-full overflow-hidden z-20">
         {sidebarContent}
       </aside>
 

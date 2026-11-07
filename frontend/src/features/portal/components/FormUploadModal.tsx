@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { uploadOrganizationForm, listOrganizationCategories } from "../services/portalClient";
 import { FormReviewDetail, OrganizationCategory } from "../types";
+import { ModernSelect } from "@/components/ui/ModernSelect";
 
 interface FormUploadModalProps {
   isOpen: boolean;
@@ -300,25 +301,26 @@ export function FormUploadModal({
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               Official Category / Department
             </label>
-            <select
+            <ModernSelect
               value={selectedCategoryId}
-              onChange={(e) => {
-                const catId = e.target.value;
+              onChange={(catId) => {
                 setSelectedCategoryId(catId);
                 const found = categories.find((c) => c.id === catId);
                 if (found) setCategory(found.slug);
+                else if (!catId) setCategory("general");
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 bg-white"
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.translations?.en?.name ? `(${c.translations.en.name})` : ""}
-                </option>
-              ))}
-              {categories.length === 0 && (
-                <option value="">General Administrative Services</option>
-              )}
-            </select>
+              options={[
+                { value: "", label: "General Administrative Services" },
+                ...categories.map((c) => ({
+                  value: c.id,
+                  label: `${c.name}${c.translations?.en?.name ? ` (${c.translations.en.name})` : ""}`,
+                })),
+              ]}
+              placeholder="Select official category..."
+              searchable={categories.length > 5}
+              searchPlaceholder="Search categories..."
+              aria-label="Official Category / Department"
+            />
           </div>
 
           {/* Instructions for Applicant */}

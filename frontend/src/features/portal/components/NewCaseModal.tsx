@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { getPublishedForms, PublishedForm } from "@/features/form-session/services/apiClient";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
+import { ModernSelect } from "@/components/ui/ModernSelect";
 import { createCase } from "../services/portalClient";
 import { Case } from "../types";
 import { X, Loader2 } from "lucide-react";
@@ -188,18 +189,18 @@ export function NewCaseModal({
                 Loading official templates...
               </div>
             ) : (
-              <select
+              <ModernSelect
                 value={selectedFormId}
-                onChange={(e) => setSelectedFormId(e.target.value)}
-                required
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-900 bg-white focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
-              >
-                {templates.map((tmpl) => (
-                  <option key={tmpl.id} value={tmpl.id}>
-                    {tmpl.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedFormId(val)}
+                options={templates.map((tmpl) => ({
+                  value: tmpl.id,
+                  label: tmpl.name,
+                }))}
+                placeholder="Select official template..."
+                searchable={templates.length > 5}
+                searchPlaceholder="Search forms..."
+                aria-label="Official Template"
+              />
             )}
           </div>
 
@@ -208,17 +209,17 @@ export function NewCaseModal({
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                 {t("languageLabel")}
               </label>
-              <select
+              <ModernSelect
                 value={userLanguage}
-                onChange={(e) => setUserLanguage(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-900 bg-white focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
-              >
-                {UNIVERSAL_LANGUAGES.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.nativeName} ({lang.englishName})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setUserLanguage(val)}
+                options={UNIVERSAL_LANGUAGES.map((lang) => ({
+                  value: lang.code,
+                  label: `${lang.nativeName} (${lang.englishName})`,
+                }))}
+                searchable
+                searchPlaceholder="Search languages..."
+                aria-label="Assistance Language"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">

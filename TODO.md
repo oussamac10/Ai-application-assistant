@@ -73,6 +73,11 @@ Empower organizations to create and manage structured, hierarchical form categor
 - [x] 22. Created reusable `ModernSelect` component (`frontend/src/components/ui/ModernSelect.tsx`) with Lucide icons, status badges, sublabels, search filtering, checkmark indicators, outside-click handling, and full keyboard navigation.
 - [x] 23. Replaced native browser `<select>` elements in `OrganizationCategoryManager.tsx` (Icon selector, Parent Category hierarchy selector, and Choose Language to Translate picker) with polished `<ModernSelect>` components.
 - [x] 24. Added unit test suite in `ModernSelect.test.tsx` and verified all portal test suites pass (34/34 tests green).
+- [x] 25. Enhanced PDF field extraction in `backend/app/forms/organization_service.py` to extract authentic German labels from `/TU` alternate name/tooltip or adjacent printed text instead of developer variable names (`chkEinzug` -> `Einzugsbestätigung des Wohnungsgebers nach § 19 Bundesmeldegesetz (BMG)`), skip pushbuttons (`BTDrucken`, `Zurücksetzen`), and detect true `boolean` types.
+- [x] 26. Added Citizen Guidance Translations drawer and 1-click Auto-Translate capability to `FormSchemaReviewStudio.tsx` backed by `POST /api/organizations/current/forms/translate-field`.
+- [x] 27. Replaced all native `<select>` dropdowns across `FormSchemaReviewStudio.tsx`, `FormUploadModal.tsx`, `NewCaseModal.tsx`, and `PublicOrganizationPortal.tsx` with `<ModernSelect>` (supporting `size="sm"` and search).
+- [x] 28. Fixed sidebar layout hierarchy in `Sidebar.tsx` and `FormSchemaReviewStudio.tsx` (`flex flex-col flex-1 overflow-hidden`, `shrink-0` on headers, `h-full` without sticky bugs) preventing header clipping and horizontal overflow.
+- [x] 29. Re-extracted fields on live dev DB form `wohnungsgeberbestaetigung-3a5959e5` and verified with full quality gate: Ruff, Mypy, Pytest on test DB (24 passed), TypeScript, ESLint, Vitest (41 test files, 298 passed).
 
 ---
 

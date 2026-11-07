@@ -202,3 +202,13 @@ class FieldReviewItem(BaseSchema):
     placeholder: str | None = None
     options: list[OptionSchema] = Field(default_factory=list)
     configuration: dict[str, Any] = Field(default_factory=dict)
+
+
+class TranslateFieldRequest(BaseSchema):
+    text: str
+    source_language: str = "de"
+    target_languages: list[str]
+
+
+class TranslateFieldResponse(BaseSchema):
+    translations: dict[str, str]

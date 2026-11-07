@@ -17,6 +17,8 @@ from app.forms.schemas import (
     FormReviewDetailResponse,
     FormReviewUpdateRequest,
     OrganizationFormSummary,
+    TranslateFieldRequest,
+    TranslateFieldResponse,
 )
 from app.organizations.schemas import (
     CandidateInviteRedemptionResponse,
@@ -480,6 +482,23 @@ def clear_organization_form_fields(
 ) -> Any:
     service = OrganizationFormService(db)
     return service.clear_form_fields(user, template_id)
+
+
+@router.post(
+    "/organizations/current/forms/translate-field",
+    response_model=TranslateFieldResponse,
+)
+async def translate_form_field(
+    body: TranslateFieldRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    res = await service.translate_field_label(
+        user, body.text, body.source_language, body.target_languages
+    )
+    return TranslateFieldResponse(translations=res)
 
 
 @router.get("/organizations/current/forms/{template_id}/source-pdf")
