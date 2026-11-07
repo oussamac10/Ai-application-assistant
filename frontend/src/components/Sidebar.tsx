@@ -23,6 +23,10 @@ import { useAuth } from "@/features/auth/context/AuthProvider";
 import { useOrganization } from "@/features/portal/context/OrganizationContext";
 import { useLanguage } from "@/features/form-session/components/LanguageProvider";
 import {
+  resolveThemeConfig,
+  getContrastTextColor,
+} from "@/features/portal/utils/theme";
+import {
   UNIVERSAL_LANGUAGES,
   getLanguageByCode,
 } from "@/features/form-session/utils/languages";
@@ -94,6 +98,12 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     ? "PLATFORM ADMIN"
     : "MEMBER";
 
+  const theme = resolveThemeConfig(org?.ui_theme_config);
+  const isLight = theme.sidebar_theme === "light";
+  const isHeraldic = theme.sidebar_theme === "heraldic";
+  const primaryColor = theme.primary_color;
+  const activeTextColor = getContrastTextColor(primaryColor);
+
   const orgName = org?.name || "Stadtverwaltung Stuttgart — Bürgeramt & Ausländerwesen";
   const [mainTitle, subTitle] = orgName.includes("—")
     ? orgName.split("—").map((s) => s.trim())
@@ -147,10 +157,26 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   ];
 
   const sidebarContent = (
-    <div className="flex h-full flex-col justify-between bg-[#0B0F19] text-slate-200 border-e border-[#161F30]">
+    <div
+      className={`flex h-full flex-col justify-between border-e transition-colors ${
+        isLight
+          ? "bg-white text-slate-800 border-slate-200"
+          : isHeraldic
+          ? "bg-[#0b1329] text-slate-100 border-[#1c2c54]"
+          : "bg-[#0B0F19] text-slate-200 border-[#161F30]"
+      }`}
+    >
       {/* Top Header: Brand & Workspace */}
       <div>
-        <div className="flex h-16 items-center justify-between px-4 border-b border-[#161F30]">
+        <div
+          className={`flex h-16 items-center justify-between px-4 border-b ${
+            isLight
+              ? "border-slate-200"
+              : isHeraldic
+              ? "border-[#1c2c54]"
+              : "border-[#161F30]"
+          }`}
+        >
           <Link href="/portal" className="flex items-center gap-2.5 group min-w-0" title="Go to Authority Portal">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-[#212E4A] p-1 shadow-xs overflow-hidden">
               {org?.logo_storage_path ? (
@@ -166,14 +192,22 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-white tracking-tight truncate">
+                <span
+                  className={`text-xs font-bold tracking-tight truncate ${
+                    isLight ? "text-slate-900" : "text-white"
+                  }`}
+                >
                   {mainTitle}
                 </span>
                 <span className="rounded bg-[#131B2E] border border-[#212E4A] px-1 py-0.2 font-mono text-[8px] font-bold text-emerald-400 shrink-0">
                   {org?.is_verified_government ? "OFFICIAL" : "LIVE"}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-400 truncate font-medium">
+              <div
+                className={`text-[10px] truncate font-medium ${
+                  isLight ? "text-slate-500" : "text-slate-400"
+                }`}
+              >
                 {subTitle}
               </div>
             </div>
@@ -182,14 +216,26 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           {/* Close button for mobile drawer */}
           <button
             onClick={onMobileClose}
-            className="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#131B2E]"
+            className={`lg:hidden p-1 rounded-lg ${
+              isLight
+                ? "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                : "text-slate-400 hover:text-white hover:bg-[#131B2E]"
+            }`}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Workspace Quick Tag */}
-        <div className="px-5 py-2.5 border-b border-[#161F30] bg-[#070A12]/60">
+        <div
+          className={`px-5 py-2.5 border-b ${
+            isLight
+              ? "bg-slate-50 border-slate-200"
+              : isHeraldic
+              ? "bg-[#070e20] border-[#1c2c54]"
+              : "bg-[#070A12]/60 border-[#161F30]"
+          }`}
+        >
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 text-slate-300 font-semibold truncate max-w-[170px]">
               <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -197,7 +243,13 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 {org?.is_verified_government ? "Amtlich verifiziert" : "Official Authority"}
               </span>
             </div>
-            <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-slate-300 bg-[#131B2E] px-1.5 py-0.5 rounded border border-[#212E4A]">
+            <span
+              className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                isLight
+                  ? "bg-white text-slate-700 border-slate-200"
+                  : "bg-[#131B2E] text-slate-300 border-[#212E4A]"
+              }`}
+            >
               {org?.slug ? org.slug.split("-")[0].toUpperCase() : "DE-BW"}
             </span>
           </div>
@@ -207,7 +259,11 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         <nav className="p-3 space-y-5 overflow-y-auto">
           {navLinks.map((group) => (
             <div key={group.group}>
-              <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div
+                className={`px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider ${
+                  isLight ? "text-slate-400" : "text-slate-500"
+                }`}
+              >
                 {group.group}
               </div>
               <div className="space-y-1">
@@ -219,16 +275,25 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                     <Link
                       key={item.href}
                       href={item.href}
+                      style={
+                        active
+                          ? {
+                              backgroundColor: primaryColor,
+                              color: activeTextColor,
+                            }
+                          : undefined
+                      }
                       className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
                         active
-                          ? "bg-[#6551f3] text-white shadow-xs font-bold"
+                          ? "shadow-xs font-bold"
+                          : isLight
+                          ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                           : "text-slate-300 hover:bg-[#131B2E] hover:text-white"
                       }`}
                     >
                       <Icon
-                        className={`w-4 h-4 shrink-0 ${
-                          active ? "text-white" : "text-slate-400"
-                        }`}
+                        className="w-4 h-4 shrink-0"
+                        style={active ? { color: activeTextColor } : undefined}
                       />
                       <span>{item.label}</span>
                     </Link>
@@ -241,7 +306,15 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       </div>
 
       {/* Bottom Footer: Language & User Profile */}
-      <div className="p-3 border-t border-[#161F30] bg-[#070A12]/80 space-y-2">
+      <div
+        className={`p-3 border-t space-y-2 ${
+          isLight
+            ? "border-slate-200 bg-slate-50/80"
+            : isHeraldic
+            ? "border-[#1c2c54] bg-[#070e20]"
+            : "border-[#161F30] bg-[#070A12]/80"
+        }`}
+      >
         {/* Language selector pill */}
         <button
           onClick={() => setLangModalOpen(true)}

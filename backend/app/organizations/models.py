@@ -70,6 +70,7 @@ class Organization(Base):
     supported_languages: Mapped[list[str]] = mapped_column(
         JSON, default=lambda: ["de", "en"], nullable=False
     )
+    ui_theme_config: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

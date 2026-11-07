@@ -19,6 +19,13 @@ import {
   MapPin,
   ExternalLink,
   X,
+  Palette,
+  Sliders,
+  Eye,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
+  Sparkles,
 } from "lucide-react";
 import {
   LanguageSelectionModal,
@@ -29,7 +36,17 @@ import {
   OrganizationMember,
   OrganizationProfileUpdatePayload,
   OrganizationVerificationPayload,
+  UIThemeConfig,
+  SidebarTheme,
+  LayoutDensity,
+  SectionKey,
 } from "../types";
+import {
+  DEFAULT_THEME_CONFIG,
+  POPULAR_AUTHORITY_PALETTES,
+  resolveThemeConfig,
+  getContrastTextColor,
+} from "../utils/theme";
 import {
   getCurrentOrganization,
   inviteOrganizationMember,
@@ -49,10 +66,17 @@ interface Props {
 
 export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
   const { refreshOrganization } = useOrganization();
-  const [activeTab, setActiveTab] = useState<"profile" | "verification" | "team">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "verification" | "team" | "layout">("profile");
   const [org, setOrg] = useState<Organization>(initialOrg);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+
+  // Layout & Theme state
+  const [themeConfig, setThemeConfig] = useState<UIThemeConfig>(() =>
+    resolveThemeConfig(initialOrg.ui_theme_config)
+  );
+  const [savingTheme, setSavingTheme] = useState(false);
+  const [themeSuccessMsg, setThemeSuccessMsg] = useState<string | null>(null);
 
   // Profile Form state
   const [name, setName] = useState(initialOrg.name);
@@ -230,6 +254,38 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
     }
   };
 
+  const handleSaveTheme = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isOwnerOrAdmin) return;
+    setSavingTheme(true);
+    setErrorMsg(null);
+    setThemeSuccessMsg(null);
+    try {
+      const updated = await updateOrganizationProfile({
+        ui_theme_config: themeConfig,
+      });
+      setOrg(updated);
+      onOrgUpdated(updated);
+      refreshOrganization();
+      setThemeSuccessMsg("Layout & Appearance settings saved successfully.");
+      setTimeout(() => setThemeSuccessMsg(null), 4000);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to update layout settings.");
+    } finally {
+      setSavingTheme(false);
+    }
+  };
+
+  const moveSection = (index: number, direction: "up" | "down") => {
+    const currentOrder = [...(themeConfig.section_order || DEFAULT_THEME_CONFIG.section_order)];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentOrder.length) return;
+    const temp = currentOrder[index];
+    currentOrder[index] = currentOrder[targetIndex];
+    currentOrder[targetIndex] = temp;
+    setThemeConfig((prev) => ({ ...prev, section_order: currentOrder }));
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
       {/* Settings Navigation Tabs */}
@@ -272,6 +328,17 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
           <Users className="w-4 h-4" />
           Team & Roles
         </button>
+        <button
+          onClick={() => setActiveTab("layout")}
+          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === "layout"
+              ? "border-indigo-600 text-indigo-700"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <Palette className="w-4 h-4" />
+          Layout & Appearance
+        </button>
       </div>
 
       <div className="p-6 sm:p-8">
@@ -286,6 +353,13 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
           <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3 text-xs text-emerald-800">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{profileSuccessMsg}</span>
+          </div>
+        )}
+
+        {themeSuccessMsg && (
+          <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3 text-xs text-emerald-800">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{themeSuccessMsg}</span>
           </div>
         )}
 
@@ -458,6 +532,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   const info = LANGUAGE_MAP.get(code);
                   const nativeName = info?.native || code;
                   const englishName = info?.name || "";
+
                   return (
                     <span
                       key={code}
@@ -754,6 +829,487 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
               </table>
             </div>
           </div>
+        )}
+
+        {/* TAB 4: Layout & Appearance Customizer */}
+        {activeTab === "layout" && (
+          <form onSubmit={handleSaveTheme} className="space-y-8 max-w-4xl text-start">
+            <div>
+              <div className="flex items-center gap-2">
+                <Palette className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-base font-bold text-slate-900">
+                  System View, Colors & Component Layout
+                </h3>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Customize your municipal authority workspace, heraldic brand colors, component ordering, and public portal appearance.
+              </p>
+            </div>
+
+            {/* 1. Official Authority Brand Colors & Palettes */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Authority Brand Colors</h4>
+                  <p className="text-xs text-slate-500">
+                    Choose your official municipal heraldic color or select from official German authority palettes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setThemeConfig((prev) => ({
+                      ...prev,
+                      primary_color: DEFAULT_THEME_CONFIG.primary_color,
+                      accent_color: DEFAULT_THEME_CONFIG.accent_color,
+                    }))
+                  }
+                  className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 font-semibold"
+                >
+                  <RotateCcw className="w-3 h-3" /> Reset Colors
+                </button>
+              </div>
+
+              {/* Popular Swatches */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                  Preset Authority Palettes:
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {POPULAR_AUTHORITY_PALETTES.map((p) => {
+                    const isSelected =
+                      themeConfig.primary_color?.toLowerCase() === p.primary.toLowerCase();
+                    return (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() =>
+                          setThemeConfig((prev) => ({
+                            ...prev,
+                            primary_color: p.primary,
+                            accent_color: p.accent,
+                          }))
+                        }
+                        className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-all ${
+                          isSelected
+                            ? "border-slate-900 bg-white ring-2 ring-slate-900 shadow-xs"
+                            : "border-slate-200 bg-white hover:border-slate-300 text-slate-700"
+                        }`}
+                      >
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
+                          style={{ backgroundColor: p.primary }}
+                        />
+                        <span>{p.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Custom Hex Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-800">Primary Brand Color (Buttons & Highlights)</label>
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="color"
+                      value={themeConfig.primary_color || "#4f46e5"}
+                      onChange={(e) =>
+                        setThemeConfig((prev) => ({ ...prev, primary_color: e.target.value }))
+                      }
+                      className="h-9 w-9 rounded-xl border border-slate-300 cursor-pointer p-0.5 bg-white"
+                    />
+                    <input
+                      type="text"
+                      value={themeConfig.primary_color || ""}
+                      onChange={(e) =>
+                        setThemeConfig((prev) => ({ ...prev, primary_color: e.target.value }))
+                      }
+                      placeholder="#FEDB00"
+                      className="font-mono text-xs uppercase flex-1 rounded-xl border border-slate-300 px-3 py-2 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-800">Accent / Secondary Color</label>
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="color"
+                      value={themeConfig.accent_color || "#6366f1"}
+                      onChange={(e) =>
+                        setThemeConfig((prev) => ({ ...prev, accent_color: e.target.value }))
+                      }
+                      className="h-9 w-9 rounded-xl border border-slate-300 cursor-pointer p-0.5 bg-white"
+                    />
+                    <input
+                      type="text"
+                      value={themeConfig.accent_color || ""}
+                      onChange={(e) =>
+                        setThemeConfig((prev) => ({ ...prev, accent_color: e.target.value }))
+                      }
+                      placeholder="#3B82F6"
+                      className="font-mono text-xs uppercase flex-1 rounded-xl border border-slate-300 px-3 py-2 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Sidebar & Navigation Appearance */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Sidebar Theme</h4>
+                <p className="text-xs text-slate-500">
+                  Select the visual appearance of the left administrative navigation menu.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  {
+                    id: "dark" as SidebarTheme,
+                    title: "Dark Authority",
+                    desc: "Modern contrast dark slate background",
+                    previewBg: "bg-[#0B0F19]",
+                    previewText: "text-white",
+                  },
+                  {
+                    id: "light" as SidebarTheme,
+                    title: "Municipal Light",
+                    desc: "Classic clean white government style",
+                    previewBg: "bg-white border border-slate-200",
+                    previewText: "text-slate-900",
+                  },
+                  {
+                    id: "heraldic" as SidebarTheme,
+                    title: "Heraldic Tint",
+                    desc: "Deep tone tinted with authority brand color",
+                    previewBg: "bg-[#0b1329]",
+                    previewText: "text-amber-300",
+                  },
+                ].map((st) => {
+                  const isSelected = (themeConfig.sidebar_theme || "dark") === st.id;
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() =>
+                        setThemeConfig((prev) => ({ ...prev, sidebar_theme: st.id }))
+                      }
+                      className={`p-4 rounded-2xl text-start border transition-all ${
+                        isSelected
+                          ? "border-indigo-600 ring-2 ring-indigo-600/30 bg-indigo-50/30"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className={`h-8 w-full rounded-lg mb-2.5 flex items-center px-2.5 gap-1.5 ${st.previewBg}`}>
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                        <span className={`text-[10px] font-bold ${st.previewText}`}>STUTTGART</span>
+                      </div>
+                      <div className="text-xs font-bold text-slate-900">{st.title}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">{st.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Component Ordering on Dashboard */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Dashboard Component Ordering</h4>
+                <p className="text-xs text-slate-500">
+                  Control the visual order in which sections appear on the main Forms & Review Studio portal.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {(themeConfig.section_order || DEFAULT_THEME_CONFIG.section_order).map((sec, idx, arr) => {
+                  const labelMap: Record<SectionKey, { name: string; desc: string }> = {
+                    header: {
+                      name: "Authority Header & Seal",
+                      desc: "Official crest, authority name, verification badge, and contact metadata",
+                    },
+                    metrics: {
+                      name: "Real-time Forms Metrics Strip",
+                      desc: "Summary cards showing total forms, live forms, needs review, and archived",
+                    },
+                    actions: {
+                      name: "Action Bar & PDF Ingestion",
+                      desc: "Upload PDF button and Public Citizen Portal link",
+                    },
+                    forms: {
+                      name: "Official Forms & Review Studio Catalog",
+                      desc: "Full table of administrative templates with search, filters, and actions",
+                    },
+                  };
+
+                  return (
+                    <div
+                      key={sec}
+                      className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/70"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white border border-slate-200 text-xs font-mono font-bold text-slate-700">
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900">{labelMap[sec]?.name}</div>
+                          <div className="text-[11px] text-slate-500">{labelMap[sec]?.desc}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => moveSection(idx, "up")}
+                          disabled={idx === 0}
+                          className="p-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move up"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSection(idx, "down")}
+                          disabled={idx === arr.length - 1}
+                          className="p-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move down"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 4. Component Visibility Toggles */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Component Visibility</h4>
+                <p className="text-xs text-slate-500">
+                  Toggle which elements are visible to your caseworkers and administrators.
+                </p>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Show Real-Time Metrics Strip</div>
+                    <div className="text-[11px] text-slate-500">
+                      Display total forms, published forms, and review count cards on dashboard.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={themeConfig.show_metrics_strip !== false}
+                    onChange={(e) =>
+                      setThemeConfig((prev) => ({ ...prev, show_metrics_strip: e.target.checked }))
+                    }
+                    className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Show Authority Contact & Location Details</div>
+                    <div className="text-[11px] text-slate-500">
+                      Display office address, phone, email, and website on header bar.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={themeConfig.show_authority_metadata !== false}
+                    onChange={(e) =>
+                      setThemeConfig((prev) => ({
+                        ...prev,
+                        show_authority_metadata: e.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Show Public Citizen Portal Link</div>
+                    <div className="text-[11px] text-slate-500">
+                      Display the quick 1-click button to view public citizen intake.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={themeConfig.show_portal_link !== false}
+                    onChange={(e) =>
+                      setThemeConfig((prev) => ({ ...prev, show_portal_link: e.target.checked }))
+                    }
+                    className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 5. Density & Spacing */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Layout Density</h4>
+                <p className="text-xs text-slate-500">
+                  Select interface spacing for your team.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  {
+                    id: "comfortable" as LayoutDensity,
+                    title: "Comfortable (Standard)",
+                    desc: "Spacious padding, large cards, and standard typography",
+                  },
+                  {
+                    id: "compact" as LayoutDensity,
+                    title: "Compact (High-Density)",
+                    desc: "Tight padding and compact tables for high-throughput intake",
+                  },
+                ].map((d) => {
+                  const isSelected = (themeConfig.layout_density || "comfortable") === d.id;
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setThemeConfig((prev) => ({ ...prev, layout_density: d.id }))}
+                      className={`p-3.5 rounded-xl text-start border transition-all ${
+                        isSelected
+                          ? "border-indigo-600 ring-2 ring-indigo-600/30 bg-indigo-50/30 font-bold"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="text-xs text-slate-900">{d.title}</div>
+                      <div className="text-[11px] text-slate-500 font-normal mt-0.5">{d.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 6. Public Citizen Portal Customization */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Public Citizen Guidance & Notices</h4>
+                <p className="text-xs text-slate-500">
+                  Customize the headline and banner shown to applicants on your public portal (`/organizations/{org.slug}`).
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-800">Citizen Welcome Headline</label>
+                  <input
+                    type="text"
+                    value={themeConfig.citizen_welcome_heading || ""}
+                    onChange={(e) =>
+                      setThemeConfig((prev) => ({
+                        ...prev,
+                        citizen_welcome_heading: e.target.value,
+                      }))
+                    }
+                    placeholder="Herzlich willkommen beim Bürgeramt Stuttgart"
+                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-800">Public Notice Banner (Optional alert box)</label>
+                  <input
+                    type="text"
+                    value={themeConfig.citizen_notice_banner || ""}
+                    onChange={(e) =>
+                      setThemeConfig((prev) => ({
+                        ...prev,
+                        citizen_notice_banner: e.target.value,
+                      }))
+                    }
+                    placeholder="Öffnungszeiten: Montag–Freitag 08:00–16:00 Uhr. Barrierefreier Zugang."
+                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Live Interactive Preview Box */}
+            <div className="rounded-2xl border-2 border-indigo-200 bg-linear-to-r from-indigo-50/50 via-white to-slate-50 p-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  <span className="text-xs font-bold text-slate-900">Live Appearance Preview</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                  THEME PREVIEW
+                </span>
+              </div>
+
+              <div className="rounded-xl border border-slate-300 bg-white p-4 shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shadow-2xs"
+                      style={{
+                        backgroundColor: themeConfig.primary_color || "#4f46e5",
+                        color: getContrastTextColor(themeConfig.primary_color || "#4f46e5"),
+                      }}
+                    >
+                      🏛️
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">{org.name}</div>
+                      <div className="text-[10px] text-slate-400">Verified Official Authority</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    style={{
+                      backgroundColor: themeConfig.primary_color || "#4f46e5",
+                      color: getContrastTextColor(themeConfig.primary_color || "#4f46e5"),
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs cursor-default"
+                  >
+                    + Upload PDF
+                  </button>
+                </div>
+
+                {themeConfig.show_metrics_strip !== false && (
+                  <div className="grid grid-cols-4 gap-2 pt-1">
+                    {["Total: 12", "Live: 8", "Review: 2", "Archived: 2"].map((m, i) => (
+                      <div key={i} className="p-2 rounded-lg bg-slate-50 text-[10px] font-semibold text-slate-600 text-center border border-slate-100">
+                        {m}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Save Button */}
+            {isOwnerOrAdmin && (
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={savingTheme}
+                  style={{
+                    backgroundColor: themeConfig.primary_color || "#4f46e5",
+                    color: getContrastTextColor(themeConfig.primary_color || "#4f46e5"),
+                  }}
+                  className="px-6 py-2.5 rounded-xl text-xs font-bold shadow-sm inline-flex items-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{savingTheme ? "Saving Settings..." : "Save Layout & Colors"}</span>
+                </button>
+              </div>
+            )}
+          </form>
         )}
       </div>
 

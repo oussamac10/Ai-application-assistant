@@ -62,7 +62,10 @@ def _create_test_data(db: Session) -> tuple[Organization, FormTemplate, FormVers
         category="residence",
         submission_method="print_and_sign",
         instructions="Please bring your landlord confirmation (Wohnungsgeberbestätigung).",
-        required_documents=["Wohnungsgeberbestätigung", "Personalausweis oder Reisepass"],
+        required_documents=[
+            "Wohnungsgeberbestätigung",
+            "Personalausweis oder Reisepass",
+        ],
     )
     db.add(template)
     db.commit()
@@ -177,6 +180,8 @@ def test_public_form_counter_poster_pdf(db_session: Session) -> None:
     assert res.content.startswith(b"%PDF-")
 
     # Composite route
-    res_comp = client.get(f"/api/public/forms/{org.slug}/{template.key}/counter-poster.pdf")
+    res_comp = client.get(
+        f"/api/public/forms/{org.slug}/{template.key}/counter-poster.pdf"
+    )
     assert res_comp.status_code == 200
     assert res_comp.content.startswith(b"%PDF-")

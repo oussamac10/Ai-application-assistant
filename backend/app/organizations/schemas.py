@@ -25,6 +25,7 @@ class OrganizationRead(BaseModel):
     contact_phone: str | None = None
     official_website_url: str | None = None
     supported_languages: list[str] = ["de", "en"]
+    ui_theme_config: dict[str, Any] | None = None
     created_at: datetime
 
 
@@ -36,6 +37,7 @@ class OrganizationProfileUpdate(BaseModel):
     contact_phone: str | None = Field(default=None, max_length=50)
     official_website_url: str | None = Field(default=None, max_length=500)
     supported_languages: list[str] | None = None
+    ui_theme_config: dict[str, Any] | None = None
 
 
 class OrganizationVerificationRequest(BaseModel):
@@ -162,4 +164,5 @@ class PublicOrganizationDetail(PublicOrganizationSummary):
     contact_email: str | None = None
     contact_phone: str | None = None
     cover_image_storage_path: str | None = None
+    ui_theme_config: dict[str, Any] | None = None
     published_forms: list[PublicPublishedFormItem] = Field(default_factory=list)
