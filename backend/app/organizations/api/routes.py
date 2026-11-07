@@ -21,6 +21,9 @@ from app.organizations.schemas import (
     CaseCreateRequest,
     CaseRead,
     CaseUpdateRequest,
+    OrganizationCategoryCreate,
+    OrganizationCategoryRead,
+    OrganizationCategoryUpdate,
     OrganizationCreateRequest,
     OrganizationMemberInvite,
     OrganizationMemberRead,
@@ -275,6 +278,7 @@ async def upload_organization_form(
     file: UploadFile = File(...),
     name: str = Form(...),
     category: str = Form("general"),
+    category_id: str | None = Form(None),
     submission_method: str = Form("print_and_sign"),
     instructions: str | None = Form(None),
     required_documents: str | None = Form(None),
@@ -300,6 +304,7 @@ async def upload_organization_form(
         filename=file.filename or "form.pdf",
         name=name,
         category=category,
+        category_id=category_id,
         submission_method=submission_method,
         instructions=instructions,
         required_documents=docs_list,
@@ -500,6 +505,77 @@ def get_form_page_preview(
     service = OrganizationFormService(db)
     png_bytes = service.get_form_page_preview_png(user, template_id, page_number)
     return Response(content=png_bytes, media_type="image/png")
+
+
+# Organization Categories & Taxonomy Routes (TYPO3-Inspired)
+@router.get(
+    "/organizations/current/categories",
+    response_model=list[OrganizationCategoryRead],
+)
+def list_organization_categories(
+    active_only: bool = False,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    service = OrganizationService(db)
+    return service.list_categories(user, only_active=active_only)
+
+
+@router.post(
+    "/organizations/current/categories",
+    response_model=OrganizationCategoryRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_organization_category(
+    req: OrganizationCategoryCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    return service.create_category(user, req)
+
+
+@router.put(
+    "/organizations/current/categories/{category_id}",
+    response_model=OrganizationCategoryRead,
+)
+def update_organization_category(
+    category_id: str,
+    req: OrganizationCategoryUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    return service.update_category(user, category_id, req)
+
+
+@router.delete(
+    "/organizations/current/categories/{category_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_organization_category(
+    category_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> None:
+    service = OrganizationService(db)
+    service.delete_category(user, category_id)
+
+
+@router.post(
+    "/organizations/current/categories/seed-defaults",
+    response_model=list[OrganizationCategoryRead],
+)
+def seed_default_organization_categories(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    return service.seed_default_categories(user)
 
 
 # Public Citizen Portals & Directory Routes (Phase G3)

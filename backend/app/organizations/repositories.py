@@ -1,9 +1,15 @@
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.organizations.models import Organization, OrganizationCase, OrganizationMember
+from app.organizations.models import (
+    Organization,
+    OrganizationCase,
+    OrganizationCategory,
+    OrganizationMember,
+)
 
 
 class OrganizationRepository:
@@ -191,3 +197,112 @@ class CaseRepository:
         self.db.add(case)
         self.db.flush()
         return case
+
+
+class CategoryRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def list_by_organization(
+        self, organization_id: str, only_active: bool = False
+    ) -> list[OrganizationCategory]:
+        stmt = select(OrganizationCategory).where(
+            OrganizationCategory.organization_id == organization_id
+        )
+        if only_active:
+            stmt = stmt.where(OrganizationCategory.is_active.is_(True))
+        stmt = stmt.order_by(
+            OrganizationCategory.sort_order.asc(),
+            OrganizationCategory.name.asc(),
+        )
+        return list(self.db.execute(stmt).scalars().all())
+
+    def get_by_id(
+        self, organization_id: str, category_id: str
+    ) -> OrganizationCategory | None:
+        stmt = select(OrganizationCategory).where(
+            OrganizationCategory.organization_id == organization_id,
+            OrganizationCategory.id == category_id,
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def get_by_slug(
+        self, organization_id: str, slug: str
+    ) -> OrganizationCategory | None:
+        stmt = select(OrganizationCategory).where(
+            OrganizationCategory.organization_id == organization_id,
+            OrganizationCategory.slug == slug,
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def create(
+        self,
+        organization_id: str,
+        name: str,
+        slug: str,
+        icon: str | None = None,
+        description: str | None = None,
+        parent_id: str | None = None,
+        translations: dict[str, Any] | None = None,
+        sort_order: int = 0,
+        is_active: bool = True,
+    ) -> OrganizationCategory:
+        category = OrganizationCategory(
+            organization_id=organization_id,
+            name=name,
+            slug=slug,
+            icon=icon,
+            description=description,
+            parent_id=parent_id,
+            translations=translations or {},
+            sort_order=sort_order,
+            is_active=is_active,
+        )
+        self.db.add(category)
+        self.db.flush()
+        return category
+
+    def save(self, category: OrganizationCategory) -> OrganizationCategory:
+        self.db.add(category)
+        self.db.flush()
+        return category
+
+    def delete(self, category: OrganizationCategory) -> None:
+        self.db.delete(category)
+        self.db.flush()
+
+    def count_published_forms(self, organization_id: str) -> dict[str, int]:
+        from app.forms.models import FormTemplate, FormVersion
+
+        stmt = (
+            select(
+                FormTemplate.category_id,
+                func.count(FormTemplate.id),
+            )
+            .join(FormVersion, FormVersion.form_template_id == FormTemplate.id)
+            .where(
+                FormTemplate.organization_id == organization_id,
+                FormVersion.status == "published",
+                FormTemplate.category_id.is_not(None),
+            )
+            .group_by(FormTemplate.category_id)
+        )
+        rows = self.db.execute(stmt).all()
+        return {str(cat_id): int(count) for cat_id, count in rows if cat_id}
+
+    def count_all_forms(self, organization_id: str) -> dict[str, int]:
+        from app.forms.models import FormTemplate
+
+        stmt = (
+            select(
+                FormTemplate.category_id,
+                func.count(FormTemplate.id),
+            )
+            .where(
+                FormTemplate.organization_id == organization_id,
+                FormTemplate.category_id.is_not(None),
+            )
+            .group_by(FormTemplate.category_id)
+        )
+        rows = self.db.execute(stmt).all()
+        return {str(cat_id): int(count) for cat_id, count in rows if cat_id}

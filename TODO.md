@@ -13,40 +13,53 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 
 ## Current Task
 
-**Phase G5-AI: Semantic Intelligence, Vector Search & Auto-Mapping (`pgvector` + Multilingual Embeddings)**
+**Phase G3-CAT: TYPO3-Inspired Multilingual Form Categories & Citizen Guidance Language Filtering**
 
 ### 7-Line Business Decision Summary
-- **Feature:** Phase G5-AI — PostgreSQL `pgvector` Semantic Intelligence Pipeline (Review Studio AI Schema Auto-Mapper, Multilingual Natural-Language Form Finder, Profile Vault 2.0 Semantic Fill, and Gemini 2.0 Flash Plain-Language Bureaucracy Explanations).
-- **Customer problem:** Municipal caseworkers spend hours manually mapping OCR boxes on long PDFs to schema keys; foreign citizens cannot find forms because they don't know German bureaucratic names (*Amtsdeutsch*); complex legal terms confuse applicants.
-- **Expected value:** Reduces form configuration time from 20 minutes to <2 minutes per form (90% reduction); enables citizens of all 8 languages to find official German forms using everyday native phrasing; eliminates field confusion with instant plain-language explanations.
-- **Estimated development effort:** ~2 solo-developer build days across PostgreSQL `pgvector` migration, `EmbeddingService` (Google `text-embedding-004` & local `bge-m3`), Review Studio auto-mapping endpoint, and multilingual form search.
-- **Operating impact:** Embeddings run in PostgreSQL with HNSW cosine index (`<=>`) in `<10ms` at negligible cost (~€0.000016 per 50-field form); zero external vector SaaS dependencies (Pinecone/Milvus); 100% GDPR compliant and on-premise capable.
-- **Monetization potential:** Core enterprise/agency differentiator: turns the Review Studio into a magical 1-click publishing workflow and drives citizen adoption across multilingual communities.
-- **Recommendation:** `Build now` — Extremely high user experience value, zero ongoing infrastructure overhead, and perfect synergy with PostgreSQL 16.
+- **Feature:** TYPO3-Inspired Multilingual Form Categories & Taxonomy Engine with Citizen Guidance Language Filtering.
+- **Customer problem:** Municipalities publish dozens of diverse administrative forms (housing, civil status, immigration, taxation, social welfare) in a flat, unorganized catalog; foreign citizens speaking 8+ languages cannot browse or locate relevant procedures without scrolling through long German titles.
+- **Expected value:** Reduces form discovery time for citizens by 70%; enables structured municipal taxonomies; delivers native-language category navigation across all 8 supported languages without manual translation overhead.
+- **Estimated development effort:** ~0.5–1 solo-developer build day across Alembic migration, FastAPI category CRUD & public endpoints, pre-seeded multilingual taxonomies, Review Studio / Upload category selector, and Public Portal responsive multilingual category pills.
+- **Operating impact:** Negligible: pure relational PostgreSQL query + JSONB translations; zero external paid API calls or cloud overhead; 100% GDPR compliant.
+- **Monetization potential:** High agency/municipal value: essential capability for municipal onboarding, government verifications, and enterprise multi-department deployments.
+- **Recommendation:** `Build now` — Essential UX pillar requested directly by user, inspired by enterprise TYPO3 standard, and completely aligns with our multilingual government SaaS model.
 
 ### Goal
-Equip the platform with native PostgreSQL vector search (`pgvector`) to power 4 breakthrough capabilities: (1) instant AI schema auto-mapping in Review Studio, (2) cross-lingual form discovery in citizen native languages, (3) semantic Profile Vault pre-filling, and (4) Gemini 2.0 Flash plain-language field explanations.
+Empower organizations to create and manage structured, hierarchical form categories inspired by TYPO3 (`sys_category`) with full translation support across all Supported Guidance Languages for Citizens, assign forms to categories in upload & review workflows, and allow citizens to filter forms on public portals (e.g. `/organizations/first-f95b49`) with dynamic category labels matching their selected guidance language.
 
 ### Acceptance Criteria
-1. PostgreSQL 16 `pgvector` extension enabled via Alembic migration, creating `embedding_vectors` table with `vector(768)` / `vector(1024)` and HNSW cosine index (`<=>`).
-2. `EmbeddingService` implemented with clean provider abstraction: Google `text-embedding-004` (cloud standard) and local `fastembed` (`BAAI/bge-m3`, sovereign on-premise).
-3. Backend provides `POST /api/organizations/{org_id}/forms/{form_id}/auto-map` returning high-confidence canonical key predictions and top-3 suggestions for detected OCR bounding boxes in `<2s`.
-4. Review Studio UI displays 1-click "Auto-Map Fields" action with visual confidence tags and dropdown review.
-5. Multilingual Natural-Language Form Finder endpoint `GET /api/public/forms/search?q=...&lang=...` retrieves relevant German administrative templates from native queries (Arabic, Turkish, Ukrainian, etc.).
-6. Gemini 2.0 Flash explanation endpoint generates 2-sentence plain-language definitions and document readiness checklists for complicated bureaucratic terms.
-7. Automated tests pass with zero live paid AI calls using mock embedding and test fixtures on `ai_form_assistant_test` DB.
+1. Database schema migration:
+   - Create `organization_categories` table (`id`, `organization_id`, `name`, `slug`, `icon`, `description`, `parent_id` self-referencing hierarchy, `translations` JSONB, `sort_order`, `is_active`, timestamps, unique `(organization_id, slug)`).
+   - Add `category_id` (FK to `organization_categories.id`, `ondelete="SET NULL"`) to `form_templates`.
+2. Backend API routes & service:
+   - `GET /api/organizations/{org_id}/categories` (list categories with form counts).
+   - `POST /api/organizations/{org_id}/categories` (create category with multilingual translations).
+   - `PUT /api/organizations/{org_id}/categories/{cat_id}` (update category details & translations).
+   - `DELETE /api/organizations/{org_id}/categories/{cat_id}` (delete category safely).
+   - Update `GET /api/public/organizations/{slug}` to return `categories` (with form counts and translations) and populate `category_id` on each published form.
+   - Support updating `category_id` on form templates via Review Studio update endpoint.
+   - Pre-seed official German municipal starter categories ("Wohnen & Meldewesen", "Familie & Kinder", "Ausländerwesen & Aufenthalt", "Arbeit & Gewerbe", "Kfz & Mobilität", "Soziales & Gesundheit") with verified 8-language translations for new/existing organizations.
+3. Organization Workspace Frontend:
+   - "Categories & Taxonomy" management tab in Organization Settings (`/account`).
+   - Category selector in `FormUploadModal.tsx` and `FormSchemaReviewStudio.tsx` (under General Details & Rules).
+4. Public Citizen Portal Frontend (`/organizations/[slug]`):
+   - Category filter pills/tabs above the forms catalog (e.g. `All (12)`, `Wohnen & Meldewesen (5)`, `Familie (3)`, etc.).
+   - Dynamic multilingual translation of category titles based on the citizen's selected guidance language (`userLanguage`).
+   - Clicking a category pill filters forms instantly and updates counts.
+5. All automated tests pass (Ruff, Mypy, Pytest on `ai_form_assistant_test` DB, TypeScript, Vitest).
 
 ### Planned Steps
-- [ ] 1. Create Alembic migration enabling `pgvector` and defining `embedding_vectors` table with HNSW index and tenant isolation.
-- [ ] 2. Implement `backend/app/ai/embedding_service.py` with `EmbeddingProvider` protocol, `GoogleEmbeddingProvider`, and `FastEmbedProvider`.
-- [ ] 3. Seed canonical field dictionary embeddings (250+ administrative keys across personal, address, employment, family, and landlord domains).
-- [ ] 4. Implement Review Studio auto-mapper service and endpoint `POST /api/organizations/{org_id}/forms/{form_id}/auto-map`.
-- [ ] 5. Implement multilingual form vector search in `backend/app/forms/public_service.py`.
-- [ ] 6. Implement Gemini 2.0 Flash plain-language field explanation helper with prompt isolation and document checklist generation.
-- [ ] 7. Integrate "Auto-Map Fields" button and confidence badges into `FormSchemaReviewStudio.tsx`.
-- [ ] 8. Write comprehensive backend tests for vector search, schema auto-mapping, and tenant isolation targeting `ai_form_assistant_test` DB.
-- [ ] 9. Write frontend tests for auto-mapper interactions in Review Studio.
-- [ ] 10. Run full verification gate: Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest.
+- [x] 1. Create Alembic migration for `organization_categories` table and `form_templates.category_id` foreign key.
+- [x] 2. Update SQLAlchemy models in `backend/app/organizations/models.py` and `backend/app/forms/models.py`.
+- [x] 3. Implement category schemas, repository, service methods, and starter categories seeder with translations in 8 guidance languages (`de`, `en`, `ar`, `fr`, `tr`, `uk`, `es`, `ru`).
+- [x] 4. Add FastAPI router endpoints for organization category CRUD and update public organization response in `PublicFormService` / `OrganizationService`.
+- [x] 5. Update form review update payload to support `category_id`.
+- [x] 6. Update frontend types and API client functions in `frontend/src/features/portal/`.
+- [x] 7. Update `FormUploadModal.tsx` and `FormSchemaReviewStudio.tsx` to let users choose a category.
+- [x] 8. Implement "Categories & Taxonomy" tab in `OrganizationSettings.tsx`.
+- [x] 9. Implement multilingual category filter pills in `PublicOrganizationPortal.tsx` with instant language translation.
+- [x] 10. Write backend and frontend tests verifying category creation, assignment, public portal filtering, and multilingual display.
+- [x] 11. Run full verification gate: Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, Vitest.
 
 ---
 

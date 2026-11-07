@@ -36,6 +36,12 @@ class FormTemplate(Base):
         nullable=False,
         index=True,
     )
+    category_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("organization_categories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     submission_method: Mapped[str] = mapped_column(
         String(50),
         default="print_and_sign",
@@ -62,6 +68,7 @@ class FormTemplate(Base):
         # Protect template deletion from silently cascading to versions
     )
     organization: Mapped[Any | None] = relationship("Organization")
+    category_rel: Mapped[Any | None] = relationship("OrganizationCategory")
 
 
 class FormVersion(Base):

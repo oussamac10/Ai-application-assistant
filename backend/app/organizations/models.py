@@ -90,6 +90,12 @@ class Organization(Base):
     cases: Mapped[list["OrganizationCase"]] = relationship(
         "OrganizationCase", back_populates="organization", cascade="all, delete-orphan"
     )
+    categories: Mapped[list["OrganizationCategory"]] = relationship(
+        "OrganizationCategory",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        order_by="OrganizationCategory.sort_order.asc()",
+    )
 
 
 class OrganizationMember(Base):
@@ -204,4 +210,60 @@ class OrganizationCase(Base):
 
     organization: Mapped["Organization"] = relationship(
         "Organization", back_populates="cases"
+    )
+
+
+class OrganizationCategory(Base):
+    __tablename__ = "organization_categories"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+        index=True,
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    slug: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    icon: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parent_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("organization_categories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    translations: Mapped[dict[str, Any]] = mapped_column(
+        JSON, default=dict, server_default="{}", nullable=False
+    )
+    sort_order: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    organization: Mapped["Organization"] = relationship(
+        "Organization", back_populates="categories"
+    )
+    parent: Mapped[Any | None] = relationship(
+        "OrganizationCategory", remote_side=[id], backref="children"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "slug", name="uq_org_categories_org_slug"),
     )

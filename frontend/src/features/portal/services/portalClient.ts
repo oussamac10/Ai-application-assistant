@@ -8,6 +8,9 @@ import {
   FormReviewDetail,
   FormReviewUpdatePayload,
   Organization,
+  OrganizationCategory,
+  OrganizationCategoryCreatePayload,
+  OrganizationCategoryUpdatePayload,
   OrganizationFormSummary,
   OrganizationMember,
   OrganizationProfileUpdatePayload,
@@ -611,4 +614,92 @@ export async function getPublicFormByIdentifier(
 
 export function getFormPagePreviewUrl(templateId: string, pageNumber: number): string {
   return `/api/organizations/current/forms/${templateId}/pages/${pageNumber}/preview`;
+}
+
+// Category Taxonomy Client Methods (TYPO3-Inspired)
+export async function listOrganizationCategories(activeOnly = false): Promise<OrganizationCategory[]> {
+  const url = `/api/organizations/current/categories${activeOnly ? "?active_only=true" : ""}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to load categories.");
+  }
+  return res.json();
+}
+
+export async function createOrganizationCategory(
+  payload: OrganizationCategoryCreatePayload
+): Promise<OrganizationCategory> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations/current/categories", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create category.");
+  }
+  return res.json();
+}
+
+export async function updateOrganizationCategory(
+  categoryId: string,
+  payload: OrganizationCategoryUpdatePayload
+): Promise<OrganizationCategory> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/categories/${categoryId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update category.");
+  }
+  return res.json();
+}
+
+export async function deleteOrganizationCategory(categoryId: string): Promise<void> {
+  const csrf = getCsrfToken();
+  const res = await fetch(`/api/organizations/current/categories/${categoryId}`, {
+    method: "DELETE",
+    headers: {
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to delete category.");
+  }
+}
+
+export async function seedDefaultOrganizationCategories(): Promise<OrganizationCategory[]> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations/current/categories/seed-defaults", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to seed default categories.");
+  }
+  return res.json();
 }

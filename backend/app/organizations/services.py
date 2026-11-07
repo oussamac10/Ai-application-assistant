@@ -13,24 +13,33 @@ from app.auth.models import User
 from app.auth.repositories import UserRepository
 from app.forms.models import FormTemplate, FormVersion
 from app.forms.repositories import FormRepository
+from app.organizations.default_categories import DEFAULT_STARTER_CATEGORIES
 from app.organizations.errors import (
     CaseNotFoundError,
     InvalidInviteTokenError,
     OrganizationQuotaExceededError,
 )
 from app.organizations.models import Organization, OrganizationCase, OrganizationMember
-from app.organizations.repositories import CaseRepository, OrganizationRepository
+from app.organizations.repositories import (
+    CaseRepository,
+    CategoryRepository,
+    OrganizationRepository,
+)
 from app.organizations.schemas import (
     CandidateInviteRedemptionResponse,
     CaseCreateRequest,
     CaseRead,
     CaseUpdateRequest,
+    OrganizationCategoryCreate,
+    OrganizationCategoryRead,
+    OrganizationCategoryUpdate,
     OrganizationMemberInvite,
     OrganizationMemberRead,
     OrganizationMemberRoleUpdate,
     OrganizationProfileUpdate,
     OrganizationRead,
     OrganizationVerificationRequest,
+    PublicCategoryItem,
     PublicOrganizationDetail,
     PublicOrganizationSummary,
     PublicPublishedFormItem,
@@ -648,6 +657,194 @@ class OrganizationService:
             )
         return results
 
+    # Category Taxonomy Service Methods (TYPO3-Inspired)
+    def list_categories(
+        self, user: User, only_active: bool = False
+    ) -> list[OrganizationCategoryRead]:
+        org, _ = self.ensure_default_organization(user)
+        cat_repo = CategoryRepository(self.db)
+        categories = cat_repo.list_by_organization(org.id, only_active=only_active)
+        if not categories:
+            for default_cat in DEFAULT_STARTER_CATEGORIES:
+                cat_repo.create(
+                    organization_id=org.id,
+                    name=default_cat["name"],
+                    slug=default_cat["slug"],
+                    icon=default_cat["icon"],
+                    sort_order=default_cat["sort_order"],
+                    description=default_cat.get("description"),
+                    translations=default_cat.get("translations", {}),
+                )
+            self.db.commit()
+            categories = cat_repo.list_by_organization(org.id, only_active=only_active)
+
+        counts = cat_repo.count_all_forms(org.id)
+        return [
+            OrganizationCategoryRead(
+                id=c.id,
+                organization_id=c.organization_id,
+                name=c.name,
+                slug=c.slug,
+                icon=c.icon,
+                description=c.description,
+                parent_id=c.parent_id,
+                translations=c.translations or {},
+                sort_order=c.sort_order,
+                is_active=c.is_active,
+                forms_count=counts.get(c.id, 0),
+                created_at=c.created_at,
+                updated_at=c.updated_at,
+            )
+            for c in categories
+        ]
+
+    def create_category(
+        self, user: User, req: OrganizationCategoryCreate
+    ) -> OrganizationCategoryRead:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ("owner", "admin", "form_editor"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization owners, admins, and form editors can create categories.",
+            )
+        cat_repo = CategoryRepository(self.db)
+        clean_name = req.name.strip()
+        slug = (
+            req.slug.strip()
+            if req.slug
+            else SLUG_CLEAN_REGEX.sub("-", clean_name.lower()).strip("-")
+        )
+        existing = cat_repo.get_by_slug(org.id, slug)
+        if existing:
+            slug = f"{slug}-{str(uuid.uuid4())[:4]}"
+
+        category = cat_repo.create(
+            organization_id=org.id,
+            name=clean_name,
+            slug=slug,
+            icon=req.icon.strip() if req.icon else None,
+            description=req.description.strip() if req.description else None,
+            parent_id=req.parent_id if req.parent_id else None,
+            translations=req.translations or {},
+            sort_order=req.sort_order,
+            is_active=req.is_active,
+        )
+        self.db.commit()
+        return OrganizationCategoryRead(
+            id=category.id,
+            organization_id=category.organization_id,
+            name=category.name,
+            slug=category.slug,
+            icon=category.icon,
+            description=category.description,
+            parent_id=category.parent_id,
+            translations=category.translations or {},
+            sort_order=category.sort_order,
+            is_active=category.is_active,
+            forms_count=0,
+            created_at=category.created_at,
+            updated_at=category.updated_at,
+        )
+
+    def update_category(
+        self, user: User, category_id: str, req: OrganizationCategoryUpdate
+    ) -> OrganizationCategoryRead:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ("owner", "admin", "form_editor"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization owners, admins, and form editors can edit categories.",
+            )
+        cat_repo = CategoryRepository(self.db)
+        category = cat_repo.get_by_id(org.id, category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Category '{category_id}' not found.",
+            )
+
+        if req.name is not None and req.name.strip():
+            category.name = req.name.strip()
+        if req.slug is not None and req.slug.strip():
+            category.slug = SLUG_CLEAN_REGEX.sub("-", req.slug.strip().lower()).strip(
+                "-"
+            )
+        if req.icon is not None:
+            category.icon = req.icon.strip() or None
+        if req.description is not None:
+            category.description = req.description.strip() or None
+        if req.parent_id is not None:
+            category.parent_id = req.parent_id if req.parent_id != "none" else None
+        if req.translations is not None:
+            category.translations = req.translations
+        if req.sort_order is not None:
+            category.sort_order = req.sort_order
+        if req.is_active is not None:
+            category.is_active = req.is_active
+
+        self.db.commit()
+        counts = cat_repo.count_all_forms(org.id)
+        return OrganizationCategoryRead(
+            id=category.id,
+            organization_id=category.organization_id,
+            name=category.name,
+            slug=category.slug,
+            icon=category.icon,
+            description=category.description,
+            parent_id=category.parent_id,
+            translations=category.translations or {},
+            sort_order=category.sort_order,
+            is_active=category.is_active,
+            forms_count=counts.get(category.id, 0),
+            created_at=category.created_at,
+            updated_at=category.updated_at,
+        )
+
+    def delete_category(self, user: User, category_id: str) -> None:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ("owner", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization owners and admins can delete categories.",
+            )
+        cat_repo = CategoryRepository(self.db)
+        category = cat_repo.get_by_id(org.id, category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Category '{category_id}' not found.",
+            )
+        self.db.query(FormTemplate).filter(
+            FormTemplate.organization_id == org.id,
+            FormTemplate.category_id == category.id,
+        ).update({"category_id": None})
+
+        cat_repo.delete(category)
+        self.db.commit()
+
+    def seed_default_categories(self, user: User) -> list[OrganizationCategoryRead]:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ("owner", "admin", "form_editor"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization staff can seed categories.",
+            )
+        cat_repo = CategoryRepository(self.db)
+        for default_cat in DEFAULT_STARTER_CATEGORIES:
+            existing = cat_repo.get_by_slug(org.id, default_cat["slug"])
+            if not existing:
+                cat_repo.create(
+                    organization_id=org.id,
+                    name=default_cat["name"],
+                    slug=default_cat["slug"],
+                    icon=default_cat["icon"],
+                    sort_order=default_cat["sort_order"],
+                    description=default_cat.get("description"),
+                    translations=default_cat.get("translations", {}),
+                )
+        self.db.commit()
+        return self.list_categories(user)
+
     def get_public_organization_by_slug(self, slug: str) -> PublicOrganizationDetail:
         org = self.org_repo.get_by_slug(slug)
         if not org:
@@ -655,6 +852,25 @@ class OrganizationService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Organization with slug '{slug}' was not found.",
             )
+
+        cat_repo = CategoryRepository(self.db)
+        categories_db = cat_repo.list_by_organization(org.id, only_active=True)
+        if not categories_db:
+            for default_cat in DEFAULT_STARTER_CATEGORIES:
+                cat_repo.create(
+                    organization_id=org.id,
+                    name=default_cat["name"],
+                    slug=default_cat["slug"],
+                    icon=default_cat["icon"],
+                    sort_order=default_cat["sort_order"],
+                    description=default_cat.get("description"),
+                    translations=default_cat.get("translations", {}),
+                )
+            self.db.commit()
+            categories_db = cat_repo.list_by_organization(org.id, only_active=True)
+
+        cat_by_id = {c.id: c for c in categories_db}
+        cat_by_slug = {c.slug.lower(): c for c in categories_db}
 
         stmt = (
             select(FormTemplate, FormVersion)
@@ -667,7 +883,17 @@ class OrganizationService:
         )
         rows = self.db.execute(stmt).all()
         published_forms: list[PublicPublishedFormItem] = []
+        needs_commit = False
+
         for template, version in rows:
+            cat_obj = None
+            if template.category_id and template.category_id in cat_by_id:
+                cat_obj = cat_by_id[template.category_id]
+            elif template.category and template.category.lower() in cat_by_slug:
+                cat_obj = cat_by_slug[template.category.lower()]
+                template.category_id = cat_obj.id
+                needs_commit = True
+
             fields_count = len(version.fields) if version.fields else 0
             published_forms.append(
                 PublicPublishedFormItem(
@@ -676,6 +902,11 @@ class OrganizationService:
                     name=template.name,
                     description=template.description,
                     category=template.category,
+                    category_id=cat_obj.id if cat_obj else template.category_id,
+                    category_slug=cat_obj.slug
+                    if cat_obj
+                    else (template.category or "general"),
+                    category_name=cat_obj.name if cat_obj else template.category,
                     submission_method=template.submission_method,
                     instructions=template.instructions,
                     required_documents=template.required_documents or [],
@@ -690,6 +921,25 @@ class OrganizationService:
                     ),
                 )
             )
+
+        if needs_commit:
+            self.db.commit()
+
+        counts_by_cat = cat_repo.count_published_forms(org.id)
+        public_categories = [
+            PublicCategoryItem(
+                id=c.id,
+                name=c.name,
+                slug=c.slug,
+                icon=c.icon,
+                description=c.description,
+                parent_id=c.parent_id,
+                translations=c.translations or {},
+                sort_order=c.sort_order,
+                forms_count=counts_by_cat.get(c.id, 0),
+            )
+            for c in categories_db
+        ]
 
         return PublicOrganizationDetail(
             id=org.id,
@@ -708,6 +958,7 @@ class OrganizationService:
             contact_phone=org.contact_phone,
             cover_image_storage_path=org.cover_image_storage_path,
             ui_theme_config=getattr(org, "ui_theme_config", None),
+            categories=public_categories,
             published_forms=published_forms,
         )
 

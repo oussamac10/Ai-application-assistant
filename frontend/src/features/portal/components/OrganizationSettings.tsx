@@ -29,7 +29,9 @@ import {
   Search,
   Lock,
   FileText,
+  FolderTree,
 } from "lucide-react";
+import { OrganizationCategoryManager } from "./OrganizationCategoryManager";
 import {
   LanguageSelectionModal,
   LANGUAGE_MAP,
@@ -69,7 +71,7 @@ interface Props {
 
 export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
   const { refreshOrganization } = useOrganization();
-  const [activeTab, setActiveTab] = useState<"profile" | "verification" | "team" | "layout">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "verification" | "team" | "layout" | "categories">("profile");
   const [org, setOrg] = useState<Organization>(initialOrg);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -341,6 +343,17 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
         >
           <Palette className="w-4 h-4" />
           Layout & Appearance
+        </button>
+        <button
+          onClick={() => setActiveTab("categories")}
+          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === "categories"
+              ? "border-indigo-600 text-indigo-700"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <FolderTree className="w-4 h-4" />
+          Categories & Taxonomy
         </button>
       </div>
 
@@ -1618,6 +1631,11 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
               </div>
             )}
           </form>
+        )}
+
+        {/* TAB 5: Categories & Taxonomy (TYPO3-Inspired) */}
+        {activeTab === "categories" && (
+          <OrganizationCategoryManager />
         )}
       </div>
 

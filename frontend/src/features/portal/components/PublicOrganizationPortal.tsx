@@ -22,8 +22,9 @@ import {
   QrCode,
 } from "lucide-react";
 import { ShareFormModal } from "./ShareFormModal";
+import { CategoryIcon } from "./CategoryIcon";
 import { getPublicOrganizationBySlug } from "../services/portalClient";
-import { PublicOrganizationDetail, PublicPublishedFormItem } from "../types";
+import { PublicOrganizationDetail, PublicPublishedFormItem, PublicCategoryItem } from "../types";
 import { createSession, ApiError } from "@/features/form-session/services/apiClient";
 import { setSessionToken } from "@/features/form-session/services/sessionCredentials";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
@@ -43,6 +44,7 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>("all");
   const [citizenLanguage, setCitizenLanguage] = useState(locale || "en");
 
   // Keep citizenLanguage in sync with active UI locale
@@ -56,6 +58,33 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
   const [startingFormId, setStartingFormId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [sharingForm, setSharingForm] = useState<PublicPublishedFormItem | null>(null);
+
+  const ALL_FORMS_LABELS: Record<string, string> = {
+    de: "Alle Formulare",
+    en: "All Forms",
+    ar: "جميع النماذج",
+    fr: "Tous les formulaires",
+    tr: "Tüm Formlar",
+    uk: "Всі форми",
+    es: "Todos los formularios",
+    ru: "Все формы",
+    it: "Tutti i moduli",
+    pl: "Wszystkie formularze",
+  };
+
+  const getCategoryLabel = (cat: PublicCategoryItem): string => {
+    const lang = citizenLanguage;
+    if (cat.translations && cat.translations[lang]?.name) {
+      return cat.translations[lang].name;
+    }
+    if (cat.translations?.en?.name) {
+      return cat.translations.en.name;
+    }
+    if (cat.translations?.de?.name) {
+      return cat.translations.de.name;
+    }
+    return cat.name;
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -73,6 +102,21 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
   const filteredForms = useMemo(() => {
     if (!org) return [];
     return org.published_forms.filter((f) => {
+      // 1. Category Filter
+      if (selectedCategorySlug !== "all") {
+        const matchesId =
+          f.category_id &&
+          org.categories?.some(
+            (c) => c.slug === selectedCategorySlug && c.id === f.category_id
+          );
+        const matchesSlug =
+          f.category_slug === selectedCategorySlug ||
+          (f.category && f.category.toLowerCase() === selectedCategorySlug.toLowerCase());
+        if (!matchesId && !matchesSlug) {
+          return false;
+        }
+      }
+      // 2. Search Query Filter
       if (searchQuery.trim().length > 0) {
         const q = searchQuery.toLowerCase();
         const matchesName = f.name.toLowerCase().includes(q);
@@ -82,7 +126,7 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
       }
       return true;
     });
-  }, [org, searchQuery]);
+  }, [org, selectedCategorySlug, searchQuery]);
 
   const handleStartForm = async (form: PublicPublishedFormItem) => {
     try {
@@ -299,6 +343,83 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
           </div>
         </div>
 
+        {/* Category Filter Pills (TYPO3-Inspired Multilingual Taxonomy) */}
+        {org.categories && org.categories.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Filter by Category:
+              </span>
+              {selectedCategorySlug !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategorySlug("all")}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  Show All ({org.published_forms.length})
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {/* All Forms Pill */}
+              <button
+                type="button"
+                onClick={() => setSelectedCategorySlug("all")}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  selectedCategorySlug === "all"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>{ALL_FORMS_LABELS[citizenLanguage] || ALL_FORMS_LABELS.en}</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    selectedCategorySlug === "all"
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {org.published_forms.length}
+                </span>
+              </button>
+
+              {/* Individual Category Pills */}
+              {org.categories.map((cat) => {
+                const isSelected = selectedCategorySlug === cat.slug;
+                const label = getCategoryLabel(cat);
+                const count = cat.forms_count;
+
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedCategorySlug(cat.slug)}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs"
+                    }`}
+                  >
+                    <CategoryIcon name={cat.icon} className="w-3.5 h-3.5" />
+                    <span>{label}</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                        isSelected
+                          ? "bg-white/20 text-white"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Search & Category Filter */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
           <div className="relative w-full sm:w-80">
@@ -335,9 +456,16 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                   <div>
                     {/* Tags row */}
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        Official Form
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100">
+                          Official Form
+                        </span>
+                        {form.category_name && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            {form.category_name}
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[11px] font-mono text-slate-400">
                         {form.fields_count} Questions
                       </span>

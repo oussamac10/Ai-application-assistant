@@ -146,12 +146,68 @@ export interface PlanInfo {
 
 export type FormLifecycleStatus = 'draft' | 'needs_review' | 'published' | 'archived';
 
+export interface CategoryTranslation {
+  name: string;
+  description?: string | null;
+}
+
+export interface OrganizationCategory {
+  id: string;
+  organization_id: string;
+  name: string;
+  slug: string;
+  icon?: string | null;
+  description?: string | null;
+  parent_id?: string | null;
+  translations: Record<string, CategoryTranslation>;
+  sort_order: number;
+  is_active: boolean;
+  forms_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizationCategoryCreatePayload {
+  name: string;
+  slug?: string;
+  icon?: string | null;
+  description?: string | null;
+  parent_id?: string | null;
+  translations?: Record<string, CategoryTranslation>;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface OrganizationCategoryUpdatePayload {
+  name?: string;
+  slug?: string;
+  icon?: string | null;
+  description?: string | null;
+  parent_id?: string | null;
+  translations?: Record<string, CategoryTranslation>;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface PublicCategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  icon?: string | null;
+  description?: string | null;
+  parent_id?: string | null;
+  translations: Record<string, CategoryTranslation>;
+  sort_order: number;
+  forms_count: number;
+}
+
 export interface OrganizationFormSummary {
   id: string;
   key: string;
   name: string;
   description?: string | null;
   category: string;
+  category_id?: string | null;
   submissionMethod: string;
   instructions?: string | null;
   requiredDocuments: string[];
@@ -198,6 +254,7 @@ export interface FormReviewDetail {
   name: string;
   description?: string | null;
   category: string;
+  category_id?: string | null;
   submissionMethod: string;
   instructions?: string | null;
   requiredDocuments: string[];
@@ -215,6 +272,7 @@ export interface FormReviewUpdatePayload {
   name?: string;
   description?: string;
   category?: string;
+  category_id?: string | null;
   submissionMethod?: string;
   instructions?: string;
   requiredDocuments?: string[];
@@ -227,6 +285,9 @@ export interface PublicPublishedFormItem {
   name: string;
   description?: string | null;
   category: string;
+  category_id?: string | null;
+  category_slug?: string | null;
+  category_name?: string | null;
   submission_method: string;
   instructions?: string | null;
   required_documents: string[];
@@ -258,6 +319,7 @@ export interface PublicOrganizationDetail extends PublicOrganizationSummary {
   contact_phone?: string | null;
   cover_image_storage_path?: string | null;
   ui_theme_config?: UIThemeConfig | null;
+  categories?: PublicCategoryItem[];
   published_forms: PublicPublishedFormItem[];
 }
 

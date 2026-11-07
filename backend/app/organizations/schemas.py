@@ -127,6 +127,56 @@ class OrganizationCreateRequest(BaseModel):
     official_website_url: str | None = Field(default=None, max_length=500)
 
 
+# Organization Category Schemas (TYPO3-Inspired Taxonomy Engine)
+class OrganizationCategoryBase(BaseModel):
+    name: str = Field(..., min_length=2, max_length=150)
+    slug: str | None = Field(default=None, max_length=150)
+    icon: str | None = Field(default=None, max_length=50)
+    description: str | None = None
+    parent_id: str | None = None
+    translations: dict[str, dict[str, str]] = Field(default_factory=dict)
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class OrganizationCategoryCreate(OrganizationCategoryBase):
+    pass
+
+
+class OrganizationCategoryUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=150)
+    slug: str | None = Field(default=None, max_length=150)
+    icon: str | None = Field(default=None, max_length=50)
+    description: str | None = None
+    parent_id: str | None = None
+    translations: dict[str, dict[str, str]] | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class OrganizationCategoryRead(OrganizationCategoryBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    organization_id: str
+    slug: str
+    forms_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class PublicCategoryItem(BaseModel):
+    id: str
+    name: str
+    slug: str
+    icon: str | None = None
+    description: str | None = None
+    parent_id: str | None = None
+    translations: dict[str, dict[str, str]] = Field(default_factory=dict)
+    sort_order: int = 0
+    forms_count: int = 0
+
+
 # Public Portal & Directory Schemas (Phase G3)
 class PublicPublishedFormItem(BaseModel):
     id: str
@@ -134,6 +184,9 @@ class PublicPublishedFormItem(BaseModel):
     name: str
     description: str | None = None
     category: str = "general"
+    category_id: str | None = None
+    category_slug: str | None = None
+    category_name: str | None = None
     submission_method: str = "print_and_sign"
     instructions: str | None = None
     required_documents: list[str] = Field(default_factory=list)
@@ -165,4 +218,5 @@ class PublicOrganizationDetail(PublicOrganizationSummary):
     contact_phone: str | None = None
     cover_image_storage_path: str | None = None
     ui_theme_config: dict[str, Any] | None = None
+    categories: list[PublicCategoryItem] = Field(default_factory=list)
     published_forms: list[PublicPublishedFormItem] = Field(default_factory=list)

@@ -378,6 +378,7 @@ class OrganizationFormService:
                     name=tmpl.name,
                     description=tmpl.description,
                     category=tmpl.category,
+                    category_id=tmpl.category_id,
                     submission_method=tmpl.submission_method,
                     instructions=tmpl.instructions,
                     required_documents=tmpl.required_documents or [],
@@ -407,6 +408,7 @@ class OrganizationFormService:
         filename: str,
         name: str,
         category: str = "general",
+        category_id: str | None = None,
         submission_method: str = "print_and_sign",
         instructions: str | None = None,
         required_documents: list[str] | None = None,
@@ -443,8 +445,19 @@ class OrganizationFormService:
         base_slug = slugify(clean_name)
         unique_key = f"{base_slug}-{doc_uuid[:8]}"
 
+        assigned_cat_id = None
+        if category_id:
+            from app.organizations.repositories import CategoryRepository
+
+            cat_repo = CategoryRepository(self.db)
+            cat = cat_repo.get_by_id(org.id, category_id)
+            if cat:
+                assigned_cat_id = cat.id
+                category = cat.slug
+
         template = FormTemplate(
             organization_id=org.id,
+            category_id=assigned_cat_id,
             key=unique_key,
             name=clean_name,
             description=None,
@@ -703,6 +716,7 @@ class OrganizationFormService:
             name=template.name,
             description=template.description,
             category=template.category,
+            category_id=template.category_id,
             submission_method=template.submission_method,
             instructions=template.instructions,
             required_documents=template.required_documents or [],
@@ -730,6 +744,18 @@ class OrganizationFormService:
             template.description = req.description.strip() or None
         if req.category is not None and req.category.strip():
             template.category = req.category.strip()
+        if req.category_id is not None:
+            if not req.category_id or req.category_id.lower() in ("none", "null", ""):
+                template.category_id = None
+            else:
+                from app.organizations.repositories import CategoryRepository
+
+                cat_repo = CategoryRepository(self.db)
+                cat = cat_repo.get_by_id(org.id, req.category_id)
+                if cat:
+                    template.category_id = cat.id
+                    if not req.category:
+                        template.category = cat.slug
         if req.submission_method is not None and req.submission_method.strip():
             template.submission_method = req.submission_method.strip()
         if req.instructions is not None:

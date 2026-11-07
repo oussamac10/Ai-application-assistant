@@ -133,6 +133,7 @@ class OrganizationFormSummary(BaseSchema):
     name: str
     description: str | None = None
     category: str = "general"
+    category_id: str | None = None
     submission_method: str = "print_and_sign"
     instructions: str | None = None
     required_documents: list[str] = Field(default_factory=list)
@@ -153,6 +154,7 @@ class FormReviewDetailResponse(BaseSchema):
     name: str
     description: str | None = None
     category: str = "general"
+    category_id: str | None = None
     submission_method: str = "print_and_sign"
     instructions: str | None = None
     required_documents: list[str] = Field(default_factory=list)
@@ -170,6 +172,7 @@ class FormReviewUpdateRequest(BaseSchema):
     name: str | None = None
     description: str | None = None
     category: str | None = None
+    category_id: str | None = None
     submission_method: str | None = None
     instructions: str | None = None
     required_documents: list[str] | None = None

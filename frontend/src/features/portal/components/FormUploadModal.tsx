@@ -12,8 +12,8 @@ import {
   Loader2,
   Building2,
 } from "lucide-react";
-import { uploadOrganizationForm } from "../services/portalClient";
-import { FormReviewDetail } from "../types";
+import { uploadOrganizationForm, listOrganizationCategories } from "../services/portalClient";
+import { FormReviewDetail, OrganizationCategory } from "../types";
 
 interface FormUploadModalProps {
   isOpen: boolean;
@@ -30,6 +30,8 @@ export function FormUploadModal({
   const [name, setName] = useState("");
   const [key, setKey] = useState("");
   const [category, setCategory] = useState("general");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [categories, setCategories] = useState<OrganizationCategory[]>([]);
   const [submissionMethod, setSubmissionMethod] = useState("print_and_sign");
   const [instructions, setInstructions] = useState("");
   const [requiredDocs, setRequiredDocs] = useState<string[]>([]);
@@ -38,6 +40,20 @@ export function FormUploadModal({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      listOrganizationCategories(true)
+        .then((cats) => {
+          setCategories(cats);
+          if (cats.length > 0 && !selectedCategoryId) {
+            setSelectedCategoryId(cats[0].id);
+            setCategory(cats[0].slug);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, selectedCategoryId]);
 
   if (!isOpen) return null;
 
@@ -108,6 +124,9 @@ export function FormUploadModal({
       formData.append("name", name.trim());
       if (key.trim()) formData.append("key", key.trim());
       formData.append("category", category);
+      if (selectedCategoryId) {
+        formData.append("category_id", selectedCategoryId);
+      }
       formData.append("submission_method", submissionMethod);
       if (instructions.trim()) formData.append("instructions", instructions.trim());
       formData.append("required_documents", JSON.stringify(requiredDocs));
@@ -274,6 +293,32 @@ export function FormUploadModal({
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-mono text-xs"
               />
             </div>
+          </div>
+
+          {/* Form Category (TYPO3-Inspired Taxonomy) */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Official Category / Department
+            </label>
+            <select
+              value={selectedCategoryId}
+              onChange={(e) => {
+                const catId = e.target.value;
+                setSelectedCategoryId(catId);
+                const found = categories.find((c) => c.id === catId);
+                if (found) setCategory(found.slug);
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 bg-white"
+            >
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.translations?.en?.name ? `(${c.translations.en.name})` : ""}
+                </option>
+              ))}
+              {categories.length === 0 && (
+                <option value="">General Administrative Services</option>
+              )}
+            </select>
           </div>
 
           {/* Instructions for Applicant */}
