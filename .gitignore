@@ -75,3 +75,4 @@ postgres_data/
 
 # Local Claude Code permission settings
 .claude/settings.json
+graphify-out/
