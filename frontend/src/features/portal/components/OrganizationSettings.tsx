@@ -1633,9 +1633,9 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
           </form>
         )}
 
-        {/* TAB 5: Categories & Taxonomy (TYPO3-Inspired) */}
+        {/* TAB 5: Categories & Taxonomy */}
         {activeTab === "categories" && (
-          <OrganizationCategoryManager />
+          <OrganizationCategoryManager supportedLanguages={supportedLanguages} />
         )}
       </div>
 

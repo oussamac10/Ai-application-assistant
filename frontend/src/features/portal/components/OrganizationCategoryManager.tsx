@@ -24,6 +24,7 @@ import {
   getCategoryForms,
   assignCategoryForms,
   listOrganizationForms,
+  getCurrentOrganization,
 } from "../services/portalClient";
 import {
   OrganizationCategory,
@@ -32,6 +33,7 @@ import {
 } from "../types";
 import { CategoryIcon } from "./CategoryIcon";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
+import { LANGUAGE_MAP } from "./LanguageSelectionModal";
 
 const AVAILABLE_ICONS = [
   { id: "Home", label: "Home / Housing" },
@@ -48,12 +50,19 @@ const AVAILABLE_ICONS = [
   { id: "Sparkles", label: "Special / Highlight" },
 ];
 
-export function OrganizationCategoryManager() {
+export interface OrganizationCategoryManagerProps {
+  supportedLanguages?: string[];
+}
+
+export function OrganizationCategoryManager({
+  supportedLanguages: propSupportedLanguages,
+}: OrganizationCategoryManagerProps = {}) {
   const [categories, setCategories] = useState<OrganizationCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [fetchedSupportedLanguages, setFetchedSupportedLanguages] = useState<string[]>([]);
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -66,9 +75,9 @@ export function OrganizationCategoryManager() {
   const [sortOrder, setSortOrder] = useState(0);
   const [isActive, setIsActive] = useState(true);
   const [translations, setTranslations] = useState<Record<string, CategoryTranslation>>({});
-  const [activeLangTab, setActiveLangTab] = useState("en");
+  const [selectedTranslationLang, setSelectedTranslationLang] = useState<string>("");
 
-  // Assigned Forms Modal State (TYPO3 sys_category record relations)
+  // Assigned Forms Modal State (record relations)
   const [assignedFormsModalCat, setAssignedFormsModalCat] = useState<OrganizationCategory | null>(null);
   const [allOrgForms, setAllOrgForms] = useState<OrganizationFormSummary[]>([]);
   const [selectedFormIds, setSelectedFormIds] = useState<string[]>([]);
@@ -76,7 +85,56 @@ export function OrganizationCategoryManager() {
   const [savingAssignedForms, setSavingAssignedForms] = useState(false);
   const [formFilterQuery, setFormFilterQuery] = useState("");
 
-  const guidanceLanguages = useMemo(() => UNIVERSAL_LANGUAGES.slice(0, 8), []);
+  const effectiveLanguageCodes = useMemo(() => {
+    if (propSupportedLanguages && propSupportedLanguages.length > 0) {
+      return propSupportedLanguages;
+    }
+    if (fetchedSupportedLanguages.length > 0) {
+      return fetchedSupportedLanguages;
+    }
+    return ["de", "en"];
+  }, [propSupportedLanguages, fetchedSupportedLanguages]);
+
+  const supportedLanguageOptions = useMemo(() => {
+    return effectiveLanguageCodes.map((code) => {
+      const fromMap = LANGUAGE_MAP.get(code);
+      if (fromMap) {
+        return {
+          code,
+          name: fromMap.name,
+          nativeName: fromMap.native || fromMap.name,
+        };
+      }
+      const fromUniversal = UNIVERSAL_LANGUAGES.find((l) => l.code === code);
+      if (fromUniversal) {
+        return {
+          code,
+          name: fromUniversal.englishName,
+          nativeName: fromUniversal.nativeName || fromUniversal.englishName,
+        };
+      }
+      return {
+        code,
+        name: code.toUpperCase(),
+        nativeName: code.toUpperCase(),
+      };
+    });
+  }, [effectiveLanguageCodes]);
+
+  const activeLangOption = useMemo(() => {
+    if (!selectedTranslationLang) return null;
+    return (
+      supportedLanguageOptions.find((l) => l.code === selectedTranslationLang) || {
+        code: selectedTranslationLang,
+        name: selectedTranslationLang.toUpperCase(),
+        nativeName: selectedTranslationLang.toUpperCase(),
+      }
+    );
+  }, [selectedTranslationLang, supportedLanguageOptions]);
+
+  const configuredLanguageCodes = useMemo(() => {
+    return Object.keys(translations);
+  }, [translations]);
 
   const openAssignedFormsModal = async (cat: OrganizationCategory) => {
     setAssignedFormsModalCat(cat);
@@ -135,7 +193,16 @@ export function OrganizationCategoryManager() {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+    if (!propSupportedLanguages || propSupportedLanguages.length === 0) {
+      getCurrentOrganization()
+        .then((org) => {
+          if (org?.supported_languages && org.supported_languages.length > 0) {
+            setFetchedSupportedLanguages(org.supported_languages);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [propSupportedLanguages]);
 
   const openCreateModal = () => {
     setEditingCategory(null);
@@ -147,7 +214,7 @@ export function OrganizationCategoryManager() {
     setSortOrder((categories.length + 1) * 10);
     setIsActive(true);
     setTranslations({});
-    setActiveLangTab("en");
+    setSelectedTranslationLang("");
     setModalOpen(true);
   };
 
@@ -160,8 +227,14 @@ export function OrganizationCategoryManager() {
     setParentId(cat.parent_id || "");
     setSortOrder(cat.sort_order);
     setIsActive(cat.is_active);
-    setTranslations(cat.translations ? { ...cat.translations } : {});
-    setActiveLangTab("en");
+    const existing = cat.translations ? { ...cat.translations } : {};
+    setTranslations(existing);
+    const existingCodes = Object.keys(existing);
+    const firstMatch =
+      existingCodes.find((c) => effectiveLanguageCodes.includes(c)) ||
+      existingCodes[0] ||
+      "";
+    setSelectedTranslationLang(firstMatch);
     setModalOpen(true);
   };
 
@@ -193,6 +266,17 @@ export function OrganizationCategoryManager() {
       setActionLoading(true);
       setError(null);
 
+      // Clean translations: only save entries that have a non-empty name
+      const cleanedTranslations: Record<string, CategoryTranslation> = {};
+      for (const [code, tr] of Object.entries(translations)) {
+        if (tr && tr.name && tr.name.trim()) {
+          cleanedTranslations[code] = {
+            name: tr.name.trim(),
+            description: tr.description?.trim() || null,
+          };
+        }
+      }
+
       const payload = {
         name: name.trim(),
         slug: slug.trim() || undefined,
@@ -201,7 +285,7 @@ export function OrganizationCategoryManager() {
         parent_id: parentId && parentId !== "none" ? parentId : null,
         sort_order: sortOrder,
         is_active: isActive,
-        translations,
+        translations: cleanedTranslations,
       };
 
       if (editingCategory) {
@@ -231,6 +315,28 @@ export function OrganizationCategoryManager() {
         description: field === "description" ? val : prev[lang]?.description || null,
       },
     }));
+  };
+
+  const handleSelectLanguage = (langCode: string) => {
+    setSelectedTranslationLang(langCode);
+    if (langCode && !translations[langCode]) {
+      setTranslations((prev) => ({
+        ...prev,
+        [langCode]: { name: "", description: "" },
+      }));
+    }
+  };
+
+  const handleRemoveTranslation = (langCode: string) => {
+    setTranslations((prev) => {
+      const next = { ...prev };
+      delete next[langCode];
+      return next;
+    });
+    if (selectedTranslationLang === langCode) {
+      const remaining = Object.keys(translations).filter((c) => c !== langCode);
+      setSelectedTranslationLang(remaining[0] || "");
+    }
   };
 
   return (
@@ -379,7 +485,7 @@ export function OrganizationCategoryManager() {
                   <div className="flex items-center gap-1">
                     <Globe className="w-3 h-3 text-slate-400" />
                     <span className="font-semibold text-slate-500 text-[10px]">
-                      {translatedCount} / {guidanceLanguages.length} Languages
+                      {translatedCount} / {supportedLanguageOptions.length} Languages
                     </span>
                   </div>
                 </div>
@@ -421,10 +527,11 @@ export function OrganizationCategoryManager() {
             <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="category-primary-name" className="block text-xs font-semibold text-slate-700 mb-1">
                     Category Name (Primary) *
                   </label>
                   <input
+                    id="category-primary-name"
                     type="text"
                     required
                     value={name}
@@ -445,10 +552,11 @@ export function OrganizationCategoryManager() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="category-slug" className="block text-xs font-semibold text-slate-700 mb-1">
                     Slug / URL Identifier
                   </label>
                   <input
+                    id="category-slug"
                     type="text"
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
@@ -524,7 +632,7 @@ export function OrganizationCategoryManager() {
 
               {/* Multilingual Guidance Translations (Supported Languages) */}
               <div className="pt-3 border-t border-slate-200">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-2">
                   <div className="flex items-center gap-1.5">
                     <Globe className="w-4 h-4 text-blue-600" />
                     <span className="text-xs font-bold text-slate-800">
@@ -532,67 +640,153 @@ export function OrganizationCategoryManager() {
                     </span>
                   </div>
                   <span className="text-[11px] text-slate-400">
-                    Shown when citizens select their guidance language
+                    Based on Supported Guidance Languages ({supportedLanguageOptions.length})
                   </span>
                 </div>
 
-                {/* Language Switcher Tabs */}
-                <div className="flex flex-wrap gap-1 mb-3 bg-slate-100 p-1 rounded-xl">
-                  {guidanceLanguages.map((lang) => {
-                    const hasTranslation = Boolean(translations[lang.code]?.name);
-                    return (
-                      <button
-                        key={lang.code}
-                        type="button"
-                        onClick={() => setActiveLangTab(lang.code)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                          activeLangTab === lang.code
-                            ? "bg-white text-blue-700 shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        <span className="uppercase text-[10px] font-mono">{lang.code}</span>
-                        <span>{lang.nativeName}</span>
-                        {hasTranslation && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        )}
-                      </button>
-                    );
-                  })}
+                <p className="text-[11px] text-slate-500 mb-3">
+                  Translate this category for citizens who select a different guidance language. Choose a language from your organization’s supported languages to add or edit its translation.
+                </p>
+
+                {/* Language Picker Dropdown */}
+                <div className="mb-3">
+                  <label htmlFor="translation-lang-select" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Choose Language to Translate
+                  </label>
+                  <select
+                    id="translation-lang-select"
+                    value={selectedTranslationLang}
+                    onChange={(e) => handleSelectLanguage(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="">-- Choose a supported language to translate --</option>
+                    {supportedLanguageOptions.map((lang) => {
+                      const isTranslated = Boolean(translations[lang.code]?.name?.trim());
+                      return (
+                        <option key={lang.code} value={lang.code}>
+                          {lang.nativeName} ({lang.name}) — {lang.code.toUpperCase()}
+                          {isTranslated ? " (Added)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
+
+                {/* Configured Translation Badges / Selector (Only added languages!) */}
+                {configuredLanguageCodes.length > 0 && (
+                  <div className="mb-3">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                      Added Translations ({configuredLanguageCodes.length})
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {configuredLanguageCodes.map((code) => {
+                        const opt = supportedLanguageOptions.find((l) => l.code === code);
+                        const label = opt ? `${opt.nativeName} (${code.toUpperCase()})` : code.toUpperCase();
+                        const isSelected = selectedTranslationLang === code;
+                        const hasName = Boolean(translations[code]?.name?.trim());
+
+                        return (
+                          <div
+                            key={code}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border ${
+                              isSelected
+                                ? "bg-blue-50 text-blue-700 border-blue-300 shadow-2xs"
+                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTranslationLang(code)}
+                              className="flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <span>{label}</span>
+                              {hasName && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Translated" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTranslation(code)}
+                              className="text-slate-400 hover:text-red-600 p-0.5 rounded cursor-pointer transition-colors"
+                              title="Remove translation"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Active Language Translation Input */}
-                <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Translated Category Name ({activeLangTab.toUpperCase()})
-                    </label>
-                    <input
-                      type="text"
-                      value={translations[activeLangTab]?.name || ""}
-                      onChange={(e) =>
-                        handleTranslationChange(activeLangTab, "name", e.target.value)
-                      }
-                      placeholder={`e.g. Translated title in ${activeLangTab}...`}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
-                    />
-                  </div>
+                {selectedTranslationLang && activeLangOption ? (
+                  <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-mono text-[10px] font-bold uppercase">
+                          {activeLangOption.code}
+                        </span>
+                        <span className="text-xs font-bold text-slate-800">
+                          {activeLangOption.nativeName}
+                          {activeLangOption.name && activeLangOption.name !== activeLangOption.nativeName
+                            ? ` (${activeLangOption.name})`
+                            : ""}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTranslation(selectedTranslationLang)}
+                        aria-label={`Remove ${activeLangOption.code.toUpperCase()} translation`}
+                        title="Remove active translation"
+                        className="text-[11px] text-red-600 hover:text-red-700 font-medium inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Remove</span>
+                      </button>
+                    </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Translated Description ({activeLangTab.toUpperCase()})
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={translations[activeLangTab]?.description || ""}
-                      onChange={(e) =>
-                        handleTranslationChange(activeLangTab, "description", e.target.value)
-                      }
-                      placeholder={`Short explanation for citizens in ${activeLangTab}...`}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
-                    />
+                    <div>
+                      <label htmlFor="translated-category-name" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Translated Category Name ({activeLangOption.code.toUpperCase()}) *
+                      </label>
+                      <input
+                        id="translated-category-name"
+                        type="text"
+                        value={translations[selectedTranslationLang]?.name || ""}
+                        onChange={(e) =>
+                          handleTranslationChange(selectedTranslationLang, "name", e.target.value)
+                        }
+                        placeholder={`e.g. Translated title in ${activeLangOption.name}...`}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="translated-category-description" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Translated Description ({activeLangOption.code.toUpperCase()})
+                      </label>
+                      <textarea
+                        id="translated-category-description"
+                        rows={2}
+                        value={translations[selectedTranslationLang]?.description || ""}
+                        onChange={(e) =>
+                          handleTranslationChange(selectedTranslationLang, "description", e.target.value)
+                        }
+                        placeholder={`Short explanation for citizens in ${activeLangOption.name}...`}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                      />
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center bg-slate-50/50">
+                    <Globe className="w-5 h-5 text-slate-400 mx-auto mb-1.5" />
+                    <p className="text-xs font-semibold text-slate-700">No language selected</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Select a supported language from the dropdown above to add citizen guidance translations.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Modal Actions */}
