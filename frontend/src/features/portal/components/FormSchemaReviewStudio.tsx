@@ -8,25 +8,16 @@ import {
   Save,
   Plus,
   Trash2,
-  ChevronUp,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   AlertCircle,
   Sparkles,
-  ExternalLink,
   ShieldCheck,
   Loader2,
   FolderArchive,
   Layers,
   Check,
-  Crosshair,
-  ZoomIn,
-  ZoomOut,
-  Target,
   MoreVertical,
   Columns2,
-  Globe,
 } from "lucide-react";
 import {
   getFormReview,
@@ -47,7 +38,12 @@ import {
 } from "../services/portalClient";
 import { FormReviewDetail, FormFieldItem, OrganizationCategory } from "../types";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
-import { ModernSelect } from "@/components/ui/ModernSelect";
+import {
+  ReviewStudioAddFieldModal,
+  ReviewStudioCanvas,
+  ReviewStudioFieldCard,
+  ReviewStudioMetadataTab,
+} from "./review-studio";
 
 interface FormSchemaReviewStudioProps {
   templateId: string;
@@ -55,32 +51,6 @@ interface FormSchemaReviewStudioProps {
   onPublished?: (updated: FormReviewDetail) => void;
   canEdit?: boolean;
 }
-
-const FIELD_TYPE_OPTIONS = [
-  { value: "string", label: "Text / String" },
-  { value: "date", label: "Date (ISO 8601)" },
-  { value: "choice", label: "Choice / Dropdown / Radio" },
-  { value: "number", label: "Number / Currency" },
-  { value: "boolean", label: "Checkbox / Boolean" },
-  { value: "signature", label: "Signature / Biometric Pad" },
-];
-
-const CANONICAL_VAULT_KEYS = [
-  { key: "personal.first_name", label: "First Name (personal.first_name)" },
-  { key: "personal.last_name", label: "Last Name (personal.last_name)" },
-  { key: "personal.date_of_birth", label: "Date of Birth (personal.date_of_birth)" },
-  { key: "personal.place_of_birth", label: "Place of Birth (personal.place_of_birth)" },
-  { key: "personal.nationality", label: "Nationality (personal.nationality)" },
-  { key: "contact.email", label: "Email Address (contact.email)" },
-  { key: "contact.phone", label: "Phone Number (contact.phone)" },
-  { key: "residence.street_and_number", label: "Street & Number / Anschrift (residence.street_and_number)" },
-  { key: "residence.postal_code", label: "Postal Code (residence.postal_code)" },
-  { key: "residence.city", label: "City (residence.city)" },
-  { key: "residence.country", label: "Country (residence.country)" },
-  { key: "financial.iban", label: "IBAN (financial.iban)" },
-  { key: "residence.move_in_date", label: "Move-in Date (residence.move_in_date)" },
-  { key: "signature.applicant", label: "Applicant Signature (signature.applicant)" },
-];
 
 export function FormSchemaReviewStudio({
   templateId,
@@ -284,31 +254,34 @@ export function FormSchemaReviewStudio({
     }
   };
 
-  const handleFieldChange = (
-    fieldId: string,
-    updates: Partial<FormFieldItem> & { label?: string; helpText?: string }
-  ) => {
-    setFields((prev) =>
-      prev.map((f) => {
-        if (f.id !== fieldId) return f;
-        const updated = { ...f, ...updates };
-        if (updates.label !== undefined) {
-          const srcLang = review?.sourceLanguage || "de";
-          const trans = [...(updated.translations || [])];
-          const srcIndex = trans.findIndex((t) => t.language === srcLang);
-          if (srcIndex >= 0) {
-            trans[srcIndex] = { ...trans[srcIndex], label: updates.label };
-          } else if (trans.length > 0) {
-            trans[0] = { ...trans[0], label: updates.label };
-          } else {
-            trans.push({ language: srcLang, label: updates.label });
+  const handleFieldChange = useCallback(
+    (
+      fieldId: string,
+      updates: Partial<FormFieldItem> & { label?: string; helpText?: string }
+    ) => {
+      setFields((prev) =>
+        prev.map((f) => {
+          if (f.id !== fieldId) return f;
+          const updated = { ...f, ...updates };
+          if (updates.label !== undefined) {
+            const srcLang = review?.sourceLanguage || "de";
+            const trans = [...(updated.translations || [])];
+            const srcIndex = trans.findIndex((t) => t.language === srcLang);
+            if (srcIndex >= 0) {
+              trans[srcIndex] = { ...trans[srcIndex], label: updates.label };
+            } else if (trans.length > 0) {
+              trans[0] = { ...trans[0], label: updates.label };
+            } else {
+              trans.push({ language: srcLang, label: updates.label });
+            }
+            updated.translations = trans;
           }
-          updated.translations = trans;
-        }
-        return updated;
-      })
-    );
-  };
+          return updated;
+        })
+      );
+    },
+    [review?.sourceLanguage]
+  );
 
   const handleFieldTranslationChange = (
     fieldId: string,
@@ -698,7 +671,7 @@ export function FormSchemaReviewStudio({
       window.removeEventListener("mousemove", handleWindowMouseMove);
       window.removeEventListener("mouseup", handleWindowMouseUp);
     };
-  }, [interaction, activePage, fields, review, templateId, pickingFieldForLocation]);
+  }, [interaction, activePage, fields, review, templateId, pickingFieldForLocation, handleFieldChange]);
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!canEdit) return;
@@ -1008,417 +981,56 @@ export function FormSchemaReviewStudio({
       {/* Main Dual-Pane Studio Body */}
       <div className="flex-1 flex min-w-0 w-full overflow-hidden">
         {/* Left Pane: Interactive Visual PDF Canvas & Placement Studio */}
-        <div
-          className={`${
-            paneView === "fields"
-              ? "hidden"
-              : paneView === "canvas"
-              ? "w-full"
-              : "w-1/2"
-          } min-w-0 border-r border-slate-200 bg-slate-900 flex flex-col overflow-hidden`}
-        >
-          {/* Top Controls Toolbar */}
-          <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center justify-between text-xs text-slate-300 font-medium shrink-0 min-w-0 gap-2">
-            {/* Page navigation */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="font-semibold text-white">Page</span>
-              <div className="inline-flex items-center rounded-lg bg-slate-700 p-0.5 border border-slate-600">
-                <button
-                  type="button"
-                  disabled={activePage <= 1}
-                  onClick={() => setActivePage((p) => Math.max(1, p - 1))}
-                  className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-600 disabled:opacity-30"
-                  title="Previous Page"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <span className="px-2 text-xs font-mono font-bold text-white">
-                  {activePage} / {review.pageCount || 1}
-                </span>
-                <button
-                  type="button"
-                  disabled={activePage >= (review.pageCount || 1)}
-                  onClick={() => setActivePage((p) => Math.min(review.pageCount || 1, p + 1))}
-                  className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-600 disabled:opacity-30"
-                  title="Next Page"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Middle: Canvas interaction hint */}
-            {paneView === "canvas" && (
-              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-300 font-medium truncate">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                <span className="truncate">Drag empty space to create • Drag boxes to move or resize</span>
-              </div>
-            )}
-            {paneView === "split" && (
-              <div className="hidden 2xl:flex items-center gap-1.5 text-[11px] text-slate-400 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                <span className="truncate">Drag to place or move</span>
-              </div>
-            )}
-
-            {/* Right: Zoom & Open PDF */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => setZoomScale((z) => Math.max(0.7, Math.round((z - 0.15) * 100) / 100))}
-                className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white"
-                title="Zoom Out"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <span className="font-mono text-[11px] text-slate-400 w-10 text-center">
-                {Math.round(zoomScale * 100)}%
-              </span>
-              <button
-                type="button"
-                onClick={() => setZoomScale((z) => Math.min(1.8, Math.round((z + 0.15) * 100) / 100))}
-                className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white"
-                title="Zoom In"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <a
-                href={pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white ml-1"
-                title="Open PDF in New Window"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-
-          {/* Explicit Pick Location Guidance Banner */}
-          {pickingFieldForLocation && (
-            <div className="px-4 py-2 bg-[#6551f3] text-white text-xs font-semibold flex items-center justify-between shrink-0 shadow-md">
-              <span className="flex items-center gap-2">
-                <Target className="w-4 h-4 animate-spin text-white" />
-                {pickingFieldForLocation === "new"
-                  ? "Click or drag directly on the PDF to choose the place for the new field."
-                  : `Click or drag directly on the PDF to set the position for "${fields.find((f) => f.id === pickingFieldForLocation)?.translations?.[0]?.label || "field"}"`}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (pickingFieldForLocation === "new") {
-                    setShowAddField(true);
-                  }
-                  setPickingFieldForLocation(null);
-                }}
-                className="text-xs bg-indigo-700 hover:bg-indigo-800 text-white px-2.5 py-1 rounded underline font-medium"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-
-          {/* Canvas Viewport */}
-          <div
-            ref={pdfContainerRef}
-            className="flex-1 overflow-auto p-4 flex items-start justify-center bg-slate-900 select-none"
-          >
-            <div
-              className="relative bg-white rounded shadow-2xl transition-transform origin-top cursor-crosshair select-none"
-              style={{
-                transform: `scale(${zoomScale})`,
-                width: "100%",
-                maxWidth: "600px",
-              }}
-              onMouseDown={handleCanvasMouseDown}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                ref={pdfImgRef}
-                src={getFormPagePreviewUrl(templateId, activePage)}
-                alt={`Official PDF Page ${activePage}`}
-                className="w-full h-auto block select-none pointer-events-none"
-                draggable={false}
-              />
-
-              {/* Render field bounding boxes for active page */}
-              {fields
-                .map((field, idx) => ({ field, idx }))
-                .filter(({ field }) => {
-                  const fPage =
-                    typeof field.configuration?.page === "number"
-                      ? field.configuration.page
-                      : 1;
-                  return fPage === activePage && Array.isArray(field.configuration?.bbox);
-                })
-                .map(({ field, idx }) => {
-                  const bbox = field.configuration.bbox as [number, number, number, number];
-                  const curPageDims =
-                    review.pageDimensions?.find((p) => p.page === activePage) || {
-                      width: 595,
-                      height: 842,
-                    };
-                  const topPct = (bbox[1] / curPageDims.height) * 100;
-                  const leftPct = (bbox[0] / curPageDims.width) * 100;
-                  const widthPct = ((bbox[2] - bbox[0]) / curPageDims.width) * 100;
-                  const heightPct = ((bbox[3] - bbox[1]) / curPageDims.height) * 100;
-                  const isHighlighted = highlightedFieldId === field.id;
-                  const isCurrentlyMoving =
-                    interaction?.type === "move" && interaction?.fieldId === field.id;
-                  const primaryLabel = field.translations?.[0]?.label || field.key;
-                  const isSmallBox = field.fieldType === "boolean" || widthPct < 8 || heightPct < 3.5;
-
-                  return (
-                    <div
-                      key={field.id}
-                      onMouseDown={(e) => {
-                        if (!canEdit) return;
-                        e.stopPropagation();
-                        setHighlightedFieldId(field.id);
-                        document
-                          .getElementById(`field-card-${field.id}`)
-                          ?.scrollIntoView({ behavior: "smooth", block: "center" });
-
-                        const initial = [...bbox] as [number, number, number, number];
-                        setInteraction({
-                          type: "move",
-                          fieldId: field.id,
-                          initialBbox: initial,
-                          startClientX: e.clientX,
-                          startClientY: e.clientY,
-                          currentClientX: e.clientX,
-                          currentClientY: e.clientY,
-                        });
-                      }}
-                      style={{
-                        top: `${topPct}%`,
-                        left: `${leftPct}%`,
-                        width: `${widthPct}%`,
-                        height: `${heightPct}%`,
-                      }}
-                      className={`absolute transition-colors select-none group ${
-                        isSmallBox
-                          ? "rounded-xs border-[1.5px]"
-                          : "rounded border-2 p-0.5 overflow-hidden flex items-start"
-                      } ${
-                        isCurrentlyMoving
-                          ? "border-[#6551f3] bg-[#6551f3]/35 shadow-lg z-30 cursor-grabbing"
-                          : isHighlighted
-                          ? "border-[#6551f3] bg-[#6551f3]/25 shadow-[0_0_0_3px_rgba(101,81,243,0.35)] z-20 cursor-grab"
-                          : isSmallBox
-                          ? "border-indigo-500/80 bg-indigo-500/10 hover:border-indigo-600 hover:bg-indigo-500/25 z-10 cursor-grab"
-                          : "border-indigo-500/80 bg-indigo-500/15 hover:border-indigo-600 hover:bg-indigo-500/25 z-10 cursor-grab"
-                      }`}
-                      title={`[${idx + 1}] ${primaryLabel} (Drag to move, use handles to resize)`}
-                    >
-                      {/* For small boxes / checkboxes, render a neat badge above the box instead of smashing text inside */}
-                      {isSmallBox ? (
-                        <>
-                          {/* Tiny index tag floating above */}
-                          <span
-                            className={`absolute -top-3.5 -start-1 text-[8px] font-mono font-bold px-1 py-0.2 rounded-xs shadow-2xs pointer-events-none select-none transition-all z-20 ${
-                              isHighlighted
-                                ? "bg-[#6551f3] text-white ring-1 ring-white/50"
-                                : "bg-slate-900/85 text-white group-hover:bg-indigo-600"
-                            }`}
-                          >
-                            {idx + 1}
-                          </span>
-
-                          {/* Floating full label tooltip on highlight or hover */}
-                          <div
-                            className={`absolute -top-7 start-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium shadow-md pointer-events-none select-none z-40 transition-all ${
-                              isHighlighted
-                                ? "flex items-center gap-1 bg-[#6551f3] text-white"
-                                : "hidden group-hover:flex items-center gap-1 bg-slate-900/90 text-white"
-                            }`}
-                          >
-                            <span className="font-mono font-bold">[{idx + 1}]</span>
-                            <span className="max-w-[180px] truncate">{primaryLabel}</span>
-                          </div>
-                        </>
-                      ) : (
-                        <span
-                          className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-full leading-tight select-none pointer-events-none ${
-                            isHighlighted
-                              ? "bg-[#6551f3] text-white"
-                              : "bg-indigo-900/80 text-white group-hover:bg-indigo-600"
-                          }`}
-                        >
-                          [{idx + 1}] {primaryLabel}
-                        </span>
-                      )}
-
-                      {/* Delete button on highlighted box */}
-                      {isHighlighted && canEdit && (
-                        <button
-                          type="button"
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteField(field.id);
-                          }}
-                          className={`absolute ${isSmallBox ? "-top-2.5 -right-2.5 w-4 h-4" : "-top-3 -right-3 w-5 h-5"} rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg z-50 cursor-pointer transition-transform hover:scale-125`}
-                          title="Delete Field (or press Delete/Backspace)"
-                        >
-                          <Trash2 className={isSmallBox ? "w-2.5 h-2.5" : "w-3 h-3"} />
-                        </button>
-                      )}
-
-                      {/* Resize handles shown when field is highlighted */}
-                      {isHighlighted && canEdit && (
-                        <>
-                          {/* Bottom-right handle */}
-                          <div
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              const initial = [...bbox] as [number, number, number, number];
-                              setInteraction({
-                                type: "resize",
-                                fieldId: field.id,
-                                handle: "se",
-                                initialBbox: initial,
-                                startClientX: e.clientX,
-                                startClientY: e.clientY,
-                                currentClientX: e.clientX,
-                                currentClientY: e.clientY,
-                              });
-                            }}
-                            className={`absolute -bottom-1 -right-1 ${isSmallBox ? "w-2 h-2" : "w-3 h-3"} bg-white border-2 border-[#6551f3] rounded-xs cursor-se-resize shadow-md z-30 hover:scale-125 transition-transform`}
-                            title="Drag to resize width and height"
-                          />
-                          {!isSmallBox && (
-                            <>
-                              {/* Right edge handle */}
-                              <div
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                  const initial = [...bbox] as [number, number, number, number];
-                                  setInteraction({
-                                    type: "resize",
-                                    fieldId: field.id,
-                                    handle: "e",
-                                    initialBbox: initial,
-                                    startClientX: e.clientX,
-                                    startClientY: e.clientY,
-                                    currentClientX: e.clientX,
-                                    currentClientY: e.clientY,
-                                  });
-                                }}
-                                className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-2 h-4 bg-white border-2 border-[#6551f3] rounded-xs cursor-ew-resize shadow-md z-30 hover:scale-125 transition-transform"
-                                title="Drag to adjust width"
-                              />
-                              {/* Bottom edge handle */}
-                              <div
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                  const initial = [...bbox] as [number, number, number, number];
-                                  setInteraction({
-                                    type: "resize",
-                                    fieldId: field.id,
-                                    handle: "s",
-                                    initialBbox: initial,
-                                    startClientX: e.clientX,
-                                    startClientY: e.clientY,
-                                    currentClientX: e.clientX,
-                                    currentClientY: e.clientY,
-                                  });
-                                }}
-                                className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border-2 border-[#6551f3] rounded-xs cursor-ns-resize shadow-md z-30 hover:scale-125 transition-transform"
-                                title="Drag to adjust height"
-                              />
-                              {/* Top-left handle */}
-                              <div
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                  const initial = [...bbox] as [number, number, number, number];
-                                  setInteraction({
-                                    type: "resize",
-                                    fieldId: field.id,
-                                    handle: "nw",
-                                    initialBbox: initial,
-                                    startClientX: e.clientX,
-                                    startClientY: e.clientY,
-                                    currentClientX: e.clientX,
-                                    currentClientY: e.clientY,
-                                  });
-                                }}
-                                className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-nw-resize shadow-md z-30 hover:scale-125 transition-transform"
-                                title="Drag to resize"
-                              />
-                              {/* Top-right handle */}
-                              <div
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                  const initial = [...bbox] as [number, number, number, number];
-                                  setInteraction({
-                                    type: "resize",
-                                    fieldId: field.id,
-                                    handle: "ne",
-                                    initialBbox: initial,
-                                    startClientX: e.clientX,
-                                    startClientY: e.clientY,
-                                    currentClientX: e.clientX,
-                                    currentClientY: e.clientY,
-                                  });
-                                }}
-                                className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-ne-resize shadow-md z-30 hover:scale-125 transition-transform"
-                                title="Drag to resize"
-                              />
-                              {/* Bottom-left handle */}
-                              <div
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                  const initial = [...bbox] as [number, number, number, number];
-                                  setInteraction({
-                                    type: "resize",
-                                    fieldId: field.id,
-                                    handle: "sw",
-                                    initialBbox: initial,
-                                    startClientX: e.clientX,
-                                    startClientY: e.clientY,
-                                    currentClientX: e.clientX,
-                                    currentClientY: e.clientY,
-                                  });
-                                }}
-                                className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-sw-resize shadow-md z-30 hover:scale-125 transition-transform"
-                                title="Drag to resize"
-                              />
-                            </>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-
-              {/* Active Drawing Dragging Box Indicator */}
-              {interaction?.type === "draw" && pdfImgRef.current && (() => {
-                const rect = pdfImgRef.current.getBoundingClientRect();
-                const leftPx = Math.min(interaction.startClientX, interaction.currentClientX) - rect.left;
-                const topPx = Math.min(interaction.startClientY, interaction.currentClientY) - rect.top;
-                const widthPx = Math.abs(interaction.currentClientX - interaction.startClientX);
-                const heightPx = Math.abs(interaction.currentClientY - interaction.startClientY);
-
-                return (
-                  <div
-                    style={{
-                      top: `${topPx}px`,
-                      left: `${leftPx}px`,
-                      width: `${widthPx}px`,
-                      height: `${heightPx}px`,
-                    }}
-                    className="absolute border-2 border-dashed border-[#6551f3] bg-[#6551f3]/25 pointer-events-none z-30 flex items-center justify-center"
-                  >
-                    <span className="bg-[#6551f3] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
-                      New Input Box
-                    </span>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
+        <ReviewStudioCanvas
+          paneView={paneView}
+          templateId={templateId}
+          activePage={activePage}
+          setActivePage={setActivePage}
+          pageCount={review.pageCount || 1}
+          zoomScale={zoomScale}
+          setZoomScale={setZoomScale}
+          pdfUrl={pdfUrl}
+          pdfContainerRef={pdfContainerRef}
+          pdfImgRef={pdfImgRef}
+          canEdit={canEdit}
+          pickingFieldForLocation={pickingFieldForLocation}
+          onCancelPickingLocation={() => {
+            if (pickingFieldForLocation === "new") {
+              setShowAddField(true);
+            }
+            setPickingFieldForLocation(null);
+          }}
+          fields={fields}
+          highlightedFieldId={highlightedFieldId}
+          onSelectField={(id) => setHighlightedFieldId(id)}
+          onDeleteField={handleDeleteField}
+          pageDimensions={review.pageDimensions}
+          interaction={interaction}
+          onStartDraw={handleCanvasMouseDown}
+          onStartMove={(e, fieldId, initialBbox) => {
+            setInteraction({
+              type: "move",
+              fieldId,
+              initialBbox,
+              startClientX: e.clientX,
+              startClientY: e.clientY,
+              currentClientX: e.clientX,
+              currentClientY: e.clientY,
+            });
+          }}
+          onStartResize={(e, fieldId, handle, initialBbox) => {
+            setInteraction({
+              type: "resize",
+              fieldId,
+              handle,
+              initialBbox,
+              startClientX: e.clientX,
+              startClientY: e.clientY,
+              currentClientX: e.clientX,
+              currentClientY: e.clientY,
+            });
+          }}
+        />
 
         {/* Right Pane: Schema Fields Editor & Review */}
         <div
@@ -1612,665 +1224,92 @@ export function FormSchemaReviewStudio({
                     const hasBbox = Array.isArray(field.configuration?.bbox);
 
                     return (
-                      <div
+                      <ReviewStudioFieldCard
                         key={field.id}
-                        id={`field-card-${field.id}`}
-                        onClick={() => {
-                          setHighlightedFieldId(field.id);
-                          if (hasBbox && typeof fPage === "number") {
-                            setActivePage(fPage);
+                        field={field}
+                        index={idx}
+                        totalFields={fields.length}
+                        canEdit={canEdit}
+                        isHighlighted={highlightedFieldId === field.id}
+                        sourceLanguage={review.sourceLanguage || "de"}
+                        supportedLanguages={supportedLanguages}
+                        expandedTranslationsFieldId={expandedTranslationsFieldId}
+                        setExpandedTranslationsFieldId={
+                          setExpandedTranslationsFieldId
+                        }
+                        activeTranslationLang={activeTranslationLang}
+                        setActiveTranslationLang={setActiveTranslationLang}
+                        translatingFieldId={translatingFieldId}
+                        onSelectField={(fieldId, page) => {
+                          setHighlightedFieldId(fieldId);
+                          if (typeof page === "number") {
+                            setActivePage(page);
                           }
                         }}
-                        className={`p-4 rounded-xl border transition-all shadow-xs group cursor-pointer ${
-                          isHighlighted
-                            ? "border-[#6551f3] bg-indigo-50/20 ring-2 ring-[#6551f3]/30"
-                            : "border-slate-200 hover:border-blue-300 bg-white"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center ${
-                                isHighlighted
-                                  ? "bg-[#6551f3] text-white"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
-                              {idx + 1}
-                            </span>
-                            <input
-                              type="text"
-                              disabled={!canEdit}
-                              value={primaryLabel}
-                              onChange={(e) =>
-                                handleFieldChange(field.id, { label: e.target.value })
-                              }
-                              className="text-sm font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none px-1 py-0.5"
-                            />
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            {canEdit && (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={idx === 0}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleMoveField(idx, "up");
-                                  }}
-                                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-20 ml-1 cursor-pointer"
-                                  title="Move Up"
-                                >
-                                  <ChevronUp className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={idx === fields.length - 1}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleMoveField(idx, "down");
-                                  }}
-                                  className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-20 cursor-pointer"
-                                  title="Move Down"
-                                >
-                                  <ChevronDown className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteField(field.id);
-                                  }}
-                                  className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 ml-1 cursor-pointer"
-                                  title="Delete Field"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Field Parameters Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
-                          {/* Type */}
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                              Input Type
-                            </label>
-                            <ModernSelect
-                              disabled={!canEdit}
-                              value={field.fieldType}
-                              onChange={(val) =>
-                                handleFieldChange(field.id, { fieldType: val })
-                              }
-                              options={FIELD_TYPE_OPTIONS}
-                              size="sm"
-                              aria-label="Input Type"
-                            />
-                          </div>
-
-                          {/* Requirement */}
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                              Requirement
-                            </label>
-                            <ModernSelect
-                              disabled={!canEdit}
-                              value={isRequired ? "required" : "optional"}
-                              onChange={(val) =>
-                                handleFieldChange(field.id, {
-                                  requiredness: val,
-                                  required: val === "required",
-                                })
-                              }
-                              options={[
-                                { value: "required", label: "Required for Citizen" },
-                                { value: "optional", label: "Optional" },
-                              ]}
-                              size="sm"
-                              aria-label="Requirement"
-                            />
-                          </div>
-
-                          {/* Profile Vault Mapping */}
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                              Profile Vault Pre-fill
-                            </label>
-                            <ModernSelect
-                              disabled={!canEdit}
-                              value={field.questionKey || ""}
-                              onChange={(val) =>
-                                handleFieldChange(field.id, {
-                                  questionKey: val || null,
-                                })
-                              }
-                              options={[
-                                { value: "", label: "No prefill (custom field)" },
-                                ...CANONICAL_VAULT_KEYS.map((k) => ({
-                                  value: k.key,
-                                  label: k.label,
-                                })),
-                              ]}
-                              searchable
-                              searchPlaceholder="Search vault keys..."
-                              size="sm"
-                              aria-label="Profile Vault Pre-fill"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Citizen Guidance Translations Toggle Bar */}
-                        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedTranslationsFieldId(
-                                expandedTranslationsFieldId === field.id
-                                  ? null
-                                  : field.id
-                              );
-                            }}
-                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
-                          >
-                            <Globe className="w-3.5 h-3.5" />
-                            <span>Citizen Guidance Translations</span>
-                            <span className="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded-full border border-indigo-200">
-                              {field.translations?.length || 1}
-                            </span>
-                            <ChevronDown
-                              className={`w-3.5 h-3.5 transition-transform ${
-                                expandedTranslationsFieldId === field.id
-                                  ? "rotate-180"
-                                  : ""
-                              }`}
-                            />
-                          </button>
-
-                          {canEdit && (
-                            <button
-                              type="button"
-                              disabled={translatingFieldId === field.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAutoTranslateField(field.id);
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 rounded-lg transition disabled:opacity-50 cursor-pointer"
-                              title="Auto-translate to all supported citizen guidance languages"
-                            >
-                              {translatingFieldId === field.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                              )}
-                              <span>Auto-Translate All</span>
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Expandable Multilingual Translations Drawer */}
-                        {expandedTranslationsFieldId === field.id && (
-                          <div
-                            className="mt-3 p-3 bg-slate-50/80 rounded-xl border border-slate-200 space-y-3"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                Guidance Language for Citizens
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                Original Form: {review.sourceLanguage?.toUpperCase() || "DE"}
-                              </span>
-                            </div>
-
-                            {/* Language Tabs */}
-                            <div className="flex flex-wrap gap-1.5">
-                              {supportedLanguages.map((code) => {
-                                const langObj = UNIVERSAL_LANGUAGES.find(
-                                  (l) => l.code === code
-                                );
-                                const label = langObj
-                                  ? `${langObj.nativeName} (${code.toUpperCase()})`
-                                  : code.toUpperCase();
-                                const isSelected = activeTranslationLang === code;
-                                const transForCode = field.translations?.find(
-                                  (t) => t.language === code
-                                );
-                                const hasTranslation = Boolean(
-                                  transForCode?.label?.trim()
-                                );
-
-                                return (
-                                  <button
-                                    key={code}
-                                    type="button"
-                                    onClick={() => setActiveTranslationLang(code)}
-                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition border cursor-pointer ${
-                                      isSelected
-                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
-                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                    }`}
-                                  >
-                                    <span>{label}</span>
-                                    {hasTranslation && (
-                                      <span
-                                        className={`w-1.5 h-1.5 rounded-full ${
-                                          isSelected ? "bg-white" : "bg-emerald-500"
-                                        }`}
-                                      />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* Active Language Editor */}
-                            {(() => {
-                              const activeLangObj = UNIVERSAL_LANGUAGES.find(
-                                (l) => l.code === activeTranslationLang
-                              );
-                              const isRtl = activeLangObj?.dir === "rtl";
-                              const currentTrans = field.translations?.find(
-                                (t) => t.language === activeTranslationLang
-                              );
-                              const currentTransVal = currentTrans?.label || "";
-                              const isSourceLang =
-                                activeTranslationLang ===
-                                (review.sourceLanguage || "de");
-
-                              return (
-                                <div className="space-y-2 pt-1">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-slate-700">
-                                      Question Label in{" "}
-                                      {activeLangObj?.englishName ||
-                                        activeTranslationLang.toUpperCase()}{" "}
-                                      {isRtl ? "(RTL)" : ""}
-                                    </label>
-                                    {canEdit && !isSourceLang && (
-                                      <button
-                                        type="button"
-                                        disabled={
-                                          translatingFieldId === field.id
-                                        }
-                                        onClick={() =>
-                                          handleAutoTranslateField(
-                                            field.id,
-                                            activeTranslationLang
-                                          )
-                                        }
-                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 cursor-pointer"
-                                      >
-                                        {translatingFieldId === field.id ? (
-                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <Sparkles className="w-3 h-3 text-indigo-500" />
-                                        )}
-                                        <span>Auto-Translate This</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                  <input
-                                    type="text"
-                                    disabled={!canEdit}
-                                    dir={isRtl ? "rtl" : "ltr"}
-                                    value={currentTransVal}
-                                    onChange={(e) =>
-                                      handleFieldTranslationChange(
-                                        field.id,
-                                        activeTranslationLang,
-                                        e.target.value
-                                      )
-                                    }
-                                    placeholder={
-                                      isSourceLang
-                                        ? primaryLabel
-                                        : `Enter translated label in ${
-                                            activeLangObj?.englishName ||
-                                            activeTranslationLang
-                                          }...`
-                                    }
-                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  />
-                                  <p className="text-[10px] text-slate-400">
-                                    Citizens completing the form in{" "}
-                                    {activeLangObj?.nativeName ||
-                                      activeTranslationLang}{" "}
-                                    will see this exact question prompt.
-                                  </p>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        )}
-
-                        {/* Internal Technical Key */}
-                        <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                          <span>AcroForm Key: {field.key}</span>
-                          <span>Page {fPage}</span>
-                        </div>
-                      </div>
+                        onFieldChange={handleFieldChange}
+                        onFieldTranslationChange={handleFieldTranslationChange}
+                        onAutoTranslateField={handleAutoTranslateField}
+                        onMoveField={handleMoveField}
+                        onDeleteField={handleDeleteField}
+                      />
                     );
                   })
                 )}
               </div>
             ) : (
               /* General Metadata Tab */
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Official Form Title *
-                  </label>
-                  <input
-                    type="text"
-                    disabled={!canEdit}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Official Category / Department (Taxonomy)
-                  </label>
-                  <ModernSelect
-                    disabled={!canEdit}
-                    value={categoryId || ""}
-                    onChange={(val) => {
-                      setCategoryId(val || null);
-                      const found = availableCategories.find((c) => c.id === val);
-                      if (found) setCategory(found.slug);
-                      else if (!val) setCategory("general");
-                    }}
-                    options={[
-                      { value: "", label: "Uncategorized / General Services" },
-                      ...availableCategories.map((c) => ({
-                        value: c.id,
-                        label: `${c.name}${c.translations?.en?.name ? ` (${c.translations.en.name})` : ""}`,
-                      })),
-                    ]}
-                    placeholder="Select category..."
-                    searchable={availableCategories.length > 5}
-                    searchPlaceholder="Search categories..."
-                    aria-label="Official Category / Department"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Official Guidance & Instructions for Citizen
-                  </label>
-                  <textarea
-                    rows={3}
-                    disabled={!canEdit}
-                    value={instructions}
-                    onChange={(e) => setInstructions(e.target.value)}
-                    placeholder="e.g. Please ensure all personal and address information matches your official passport or identification."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Required Documents / Evidence Checklist */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Required Evidence / Documents Checklist
-                    </label>
-                    <span className="text-xs text-slate-400">
-                      Shown to citizens before starting application
-                    </span>
-                  </div>
-
-                  {canEdit && (
-                    <div className="flex gap-2 mb-3">
-                      <input
-                        type="text"
-                        value={newDocInput}
-                        onChange={(e) => setNewDocInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddDoc();
-                          }
-                        }}
-                        placeholder="e.g. Valid Passport, Identity Card, or Proof of Address"
-                        className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddDoc}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" /> Add Item
-                      </button>
-                    </div>
-                  )}
-
-                  {requiredDocs.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic py-2">
-                      No required evidence documents added yet.
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {requiredDocs.map((doc, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-700"
-                        >
-                          <span className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0">
-                              {idx + 1}
-                            </span>
-                            <span>{doc}</span>
-                          </span>
-                          {canEdit && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveDoc(idx)}
-                              className="text-slate-400 hover:text-red-500 p-1 cursor-pointer transition-colors"
-                              title="Remove item"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Internal Verification & Audit Notes
-                  </label>
-                  <textarea
-                    rows={2}
-                    disabled={!canEdit}
-                    value={reviewNotes}
-                    onChange={(e) => setReviewNotes(e.target.value)}
-                    placeholder="e.g. Verified by Review Officer against official guidelines."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
+              <ReviewStudioMetadataTab
+                canEdit={canEdit}
+                name={name}
+                setName={setName}
+                category={category}
+                setCategory={setCategory}
+                categoryId={categoryId}
+                setCategoryId={setCategoryId}
+                availableCategories={availableCategories}
+                instructions={instructions}
+                setInstructions={setInstructions}
+                requiredDocs={requiredDocs}
+                newDocInput={newDocInput}
+                setNewDocInput={setNewDocInput}
+                handleAddDoc={handleAddDoc}
+                handleRemoveDoc={handleRemoveDoc}
+                reviewNotes={reviewNotes}
+                setReviewNotes={setReviewNotes}
+              />
             )}
           </div>
         </div>
       </div>
 
       {/* Add Field Modal */}
-      {showAddField && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Add Field to Form Schema</h3>
-              {newFieldBbox && (
-                <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-mono font-semibold flex items-center gap-1">
-                  <Target className="w-3 h-3 text-indigo-600" /> Page {newFieldPage} Box Placed
-                </span>
-              )}
-            </div>
-
-            {/* PDF Placement Card */}
-            <div className="p-3 rounded-xl bg-indigo-50/80 border border-indigo-100 text-indigo-900 text-xs flex items-center justify-between">
-              <div>
-                <span className="font-semibold text-xs flex items-center gap-1.5 text-indigo-900">
-                  <Target className="w-3.5 h-3.5 text-indigo-600" />
-                  PDF Position: Page {newFieldPage}
-                </span>
-                {newFieldBbox ? (
-                  <p className="text-[11px] text-indigo-600 font-mono mt-0.5">
-                    X: {Math.round(newFieldBbox[0])}, Y: {Math.round(newFieldBbox[1])}, W: {Math.round(newFieldBbox[2] - newFieldBbox[0])}, H: {Math.round(newFieldBbox[3] - newFieldBbox[1])} pt
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-indigo-500 mt-0.5">
-                    Click &apos;Pick on PDF&apos; to choose where this field goes.
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddField(false);
-                  setPickingFieldForLocation("new");
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0 ml-2"
-                title="Click or drag directly on the PDF to choose where this field goes"
-              >
-                <Crosshair className="w-3.5 h-3.5" />
-                {newFieldBbox ? "Change on PDF" : "Pick on PDF"}
-              </button>
-            </div>
-
-            {modalError && (
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{modalError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleCreateField} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Question Label *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newFieldLabel}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const oldSlug = newFieldLabel.toLowerCase().replace(/[^a-z0-9]+/g, "_");
-                    setNewFieldLabel(val);
-                    if (!newFieldKey || newFieldKey === oldSlug) {
-                      setNewFieldKey(val.toLowerCase().replace(/[^a-z0-9]+/g, "_"));
-                    }
-                  }}
-                  placeholder="e.g. First Name / Given Name"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Technical Identifier / Key
-                </label>
-                <input
-                  type="text"
-                  value={newFieldKey}
-                  onChange={(e) => setNewFieldKey(e.target.value)}
-                  placeholder="e.g. applicant_first_name"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Input Type
-                  </label>
-                  <ModernSelect
-                    value={newFieldType}
-                    onChange={(val) => setNewFieldType(val)}
-                    options={FIELD_TYPE_OPTIONS}
-                    size="sm"
-                    aria-label="Input Type"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Requirement
-                  </label>
-                  <ModernSelect
-                    value={newFieldRequired ? "yes" : "no"}
-                    onChange={(val) => setNewFieldRequired(val === "yes")}
-                    options={[
-                      { value: "yes", label: "Required" },
-                      { value: "no", label: "Optional" },
-                    ]}
-                    size="sm"
-                    aria-label="Requirement"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Profile Vault Pre-fill Mapping
-                </label>
-                <ModernSelect
-                  value={newFieldQuestionKey}
-                  onChange={(val) => setNewFieldQuestionKey(val)}
-                  options={[
-                    { value: "", label: "None (custom)" },
-                    ...CANONICAL_VAULT_KEYS.map((k) => ({
-                      value: k.key,
-                      label: k.label,
-                    })),
-                  ]}
-                  searchable
-                  searchPlaceholder="Search vault keys..."
-                  size="sm"
-                  aria-label="Profile Vault Pre-fill Mapping"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  disabled={addingField}
-                  onClick={() => {
-                    setShowAddField(false);
-                    setNewFieldBbox(null);
-                    setModalError(null);
-                  }}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800 font-medium disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={addingField || !newFieldLabel.trim()}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50"
-                >
-                  {addingField ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Adding Field...
-                    </>
-                  ) : (
-                    "Add Field"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ReviewStudioAddFieldModal
+        showAddField={showAddField}
+        onClose={() => {
+          setShowAddField(false);
+          setNewFieldBbox(null);
+          setModalError(null);
+        }}
+        onSubmit={handleCreateField}
+        addingField={addingField}
+        modalError={modalError}
+        newFieldLabel={newFieldLabel}
+        setNewFieldLabel={setNewFieldLabel}
+        newFieldKey={newFieldKey}
+        setNewFieldKey={setNewFieldKey}
+        newFieldType={newFieldType}
+        setNewFieldType={setNewFieldType}
+        newFieldRequired={newFieldRequired}
+        setNewFieldRequired={setNewFieldRequired}
+        newFieldQuestionKey={newFieldQuestionKey}
+        setNewFieldQuestionKey={setNewFieldQuestionKey}
+        newFieldBbox={newFieldBbox}
+        newFieldPage={newFieldPage}
+        onPickOnPdf={() => {
+          setShowAddField(false);
+          setPickingFieldForLocation("new");
+        }}
+      />
     </div>
   );
 }

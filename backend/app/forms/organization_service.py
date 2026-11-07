@@ -11,14 +11,12 @@ Empowers municipal and agency staff (Owners, Admins, Form Editors) to:
 from __future__ import annotations
 
 import logging
-import re
 import tempfile
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import fitz  # PyMuPDF
 from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
@@ -26,10 +24,16 @@ from sqlalchemy.orm import Session, joinedload
 from app.auth.models import User
 from app.forms.models import (
     FormField,
-    FormFieldOption,
     FormFieldTranslation,
     FormTemplate,
     FormVersion,
+)
+from app.forms.pdf_field_extractor import (
+    extract_fields_from_pdf_bytes,
+    get_pdf_page_dimensions,
+    insert_extracted_fields,
+    render_pdf_page_png,
+    slugify,
 )
 from app.forms.schemas import (
     FieldCreate,
@@ -49,398 +53,6 @@ from app.sessions.models import FormSession
 from app.storage.factory import get_storage_provider
 
 logger = logging.getLogger(__name__)
-
-# Canonical question key mappings for administrative and official forms
-_KEY_PATTERNS: list[tuple[re.Pattern[str], str, str, str]] = [
-    (
-        re.compile(r"vorname|first_?name", re.IGNORECASE),
-        "First Name",
-        "string",
-        "personal.first_name",
-    ),
-    (
-        re.compile(r"nachname|familienname|last_?name|sur_?name", re.IGNORECASE),
-        "Last Name",
-        "string",
-        "personal.last_name",
-    ),
-    (
-        re.compile(r"geburtsdatum|date_?of_?birth|birth_?date", re.IGNORECASE),
-        "Date of Birth",
-        "date",
-        "person.date_of_birth",
-    ),
-    (
-        re.compile(r"geburtsort|birth_?place", re.IGNORECASE),
-        "Place of Birth",
-        "string",
-        "personal.place_of_birth",
-    ),
-    (
-        re.compile(r"staatsangeh|nationality|citizenship", re.IGNORECASE),
-        "Nationality / Citizenship",
-        "country",
-        "personal.nationality",
-    ),
-    (
-        re.compile(r"e[-_]?mail", re.IGNORECASE),
-        "Email Address",
-        "email",
-        "contact.email",
-    ),
-    (
-        re.compile(r"telefon|phone|mobil|rufnummer", re.IGNORECASE),
-        "Phone Number",
-        "phone",
-        "contact.phone",
-    ),
-    (
-        re.compile(r"anschrift|adresse|address", re.IGNORECASE),
-        "Current Address",
-        "string",
-        "residence.street_and_number",
-    ),
-    (
-        re.compile(r"stra[ßs]e|street", re.IGNORECASE),
-        "Street Address",
-        "string",
-        "address.street",
-    ),
-    (
-        re.compile(r"hausnummer|house_?num", re.IGNORECASE),
-        "House / Building Number",
-        "string",
-        "address.house_number",
-    ),
-    (
-        re.compile(r"postleitzahl|plz|postal_?code|zip", re.IGNORECASE),
-        "Postal / ZIP Code",
-        "string",
-        "address.postal_code",
-    ),
-    (
-        re.compile(r"ort|stadt|city|wohnort", re.IGNORECASE),
-        "City / Town",
-        "string",
-        "address.city",
-    ),
-    (
-        re.compile(r"land|country", re.IGNORECASE),
-        "Country",
-        "country",
-        "address.country",
-    ),
-    (re.compile(r"iban", re.IGNORECASE), "IBAN / Bank Account", "iban", "finance.iban"),
-    (
-        re.compile(r"einzugsdatum|move_?in", re.IGNORECASE),
-        "Move-in Date",
-        "date",
-        "residence.move_in_date",
-    ),
-    (
-        re.compile(r"auszugsdatum|move_?out", re.IGNORECASE),
-        "Move-out Date",
-        "date",
-        "residence.move_out_date",
-    ),
-    (
-        re.compile(r"wohnungsgeber|vermieter|landlord", re.IGNORECASE),
-        "Landlord / Housing Provider",
-        "string",
-        "landlord.name",
-    ),
-    (
-        re.compile(r"unterschrift|signature", re.IGNORECASE),
-        "Signature",
-        "signature",
-        "signature.applicant",
-    ),
-]
-
-
-def clean_label_text(text: str) -> str:
-    """Strips leading/trailing colons, asterisks, hyphens, and redundant whitespace."""
-    if not text:
-        return ""
-    t = text.strip()
-    t = re.sub(r"[\s\:\*\-\_]+$", "", t)
-    t = re.sub(r"^[\s\:\*\-\_]+", "", t)
-    t = re.sub(r"\s+", " ", t)
-    return t.strip()
-
-
-def extract_nearby_text_for_widget(page: fitz.Page, rect: fitz.Rect, ftype: str) -> str:
-    """Extracts adjacent printed text on the PDF page near the widget rectangle."""
-    words = page.get_text("words")
-    if not words:
-        return ""
-
-    if ftype in ("boolean", "choice"):
-        # For checkboxes or radio buttons, label is almost always directly to the right on the same line
-        same_line_right = [
-            w[4]
-            for w in words
-            if abs(w[1] - rect.y0) < 14 and rect.x1 <= w[0] < rect.x1 + 420
-        ]
-        if same_line_right:
-            return " ".join(same_line_right)
-
-        # Fallback: text immediately above
-        above = [
-            w[4]
-            for w in words
-            if 0 <= rect.y0 - w[3] < 22 and abs(w[0] - rect.x0) < 150
-        ]
-        if above:
-            return " ".join(above)
-    else:
-        # For text inputs, text is typically directly above the input box
-        above = [
-            w[4]
-            for w in words
-            if 0 <= rect.y0 - w[3] < 28 and rect.x0 - 50 <= w[0] <= rect.x1 + 50
-        ]
-        if above:
-            return " ".join(above)
-
-        # Or text on the left of the input box
-        left = [
-            w[4]
-            for w in words
-            if abs(w[1] - rect.y0) < 14 and rect.x0 - 260 <= w[0] < rect.x0
-        ]
-        if left:
-            return " ".join(left)
-
-    return ""
-
-
-def extract_widget_metadata(
-    page: fitz.Page, widget: fitz.Widget
-) -> tuple[str, str, str | None, str] | None:
-    """Extracts (label, field_type, question_key, requiredness) for an AcroForm widget.
-
-    Returns None if the widget is a non-input pushbutton (Print, Reset, Submit).
-    """
-    ftype_raw = (widget.field_type_string or "text").lower()
-    field_name = widget.field_name or ""
-
-    # Skip pushbuttons (Print, Reset, Clear, Submit)
-    if ftype_raw == "button" or field_name.lower().startswith(("bt", "btn", "button")):
-        return None
-
-    # Determine baseline field type
-    if (
-        "check" in ftype_raw
-        or "radio" in ftype_raw
-        or field_name.lower().startswith(("chk", "rad"))
-    ):
-        field_type = "boolean"
-    elif "signature" in ftype_raw or "sig" in field_name.lower():
-        field_type = "signature"
-    elif "choice" in ftype_raw:
-        field_type = "choice"
-    else:
-        field_type = "string"
-
-    # 1. Prefer explicit PDF Alternate Field Name / Label (/TU)
-    explicit_label = clean_label_text(
-        getattr(widget, "field_label", None)
-        or getattr(widget, "field_alt_text", None)
-        or ""
-    )
-
-    # 2. If no explicit label or it's just the raw variable name, inspect adjacent visual text
-    visual_label = ""
-    if not explicit_label or explicit_label.lower() == field_name.lower():
-        visual_label = clean_label_text(
-            extract_nearby_text_for_widget(page, widget.rect, field_type)
-        )
-
-    if explicit_label and explicit_label.lower() != field_name.lower():
-        detected_label = explicit_label
-    elif visual_label:
-        detected_label = visual_label
-    else:
-        # Strip common programmer prefixes (chk, txt, rad) and split camelCase
-        name_clean = re.sub(r"^(chk|txt|btn|rad)_?", "", field_name, flags=re.I)
-        name_clean = re.sub(r"([a-z])([A-Z])", r"\1 \2", name_clean)
-        name_clean = re.sub(r"[_\-]+", " ", name_clean).strip()
-        detected_label = name_clean.title() if name_clean else field_name
-
-    # Refine field type for string fields
-    if field_type == "string":
-        if re.search(r"datum|date|am_?$", detected_label, re.I) or re.search(
-            r"datum|date", field_name, re.I
-        ):
-            field_type = "date"
-        elif (
-            re.search(r"e[-_]?mail", detected_label, re.I)
-            or "mail" in field_name.lower()
-        ):
-            field_type = "email"
-        elif (
-            re.search(r"telefon|phone|mobil", detected_label, re.I)
-            or "phone" in field_name.lower()
-        ):
-            field_type = "phone"
-        elif re.search(r"iban", detected_label, re.I) or "iban" in field_name.lower():
-            field_type = "iban"
-        elif re.search(r"unterschrift|signature", detected_label, re.I):
-            field_type = "signature"
-
-    # Question key mapping (for Profile Vault prefill)
-    question_key: str | None = None
-    for pattern, _, expected_type, qkey in _KEY_PATTERNS:
-        # Only map question key if field types are compatible (e.g. string with string, date with date)
-        if field_type == expected_type and (
-            pattern.search(detected_label) or pattern.search(field_name)
-        ):
-            question_key = qkey
-            break
-
-    requiredness = (
-        "optional" if field_type in ("email", "phone", "iban") else "required"
-    )
-
-    return detected_label, field_type, question_key, requiredness
-
-
-def infer_field_metadata(
-    raw_name: str, field_type_str: str
-) -> tuple[str, str, str | None, str]:
-    """Infers (clean_label, field_type, question_key, requiredness) from prompt text or field name."""
-    clean_label = clean_label_text(raw_name)
-    ftype = "string"
-    if "check" in field_type_str.lower() or "radio" in field_type_str.lower():
-        ftype = "boolean"
-    elif "choice" in field_type_str.lower():
-        ftype = "choice"
-    elif "signature" in field_type_str.lower():
-        ftype = "signature"
-
-    # Check for question key and type refinements
-    qkey: str | None = None
-    for pattern, _, expected_type, key in _KEY_PATTERNS:
-        if pattern.search(clean_label):
-            if ftype == "string":
-                ftype = expected_type
-            qkey = key
-            break
-
-    # If raw_name is just an ASCII identifier without spaces (e.g. first_name), humanize it
-    if re.match(r"^[a-zA-Z0-9_\-]+$", clean_label):
-        clean_label = re.sub(r"[_\-]+", " ", clean_label).strip()
-        if clean_label:
-            clean_label = clean_label[0].upper() + clean_label[1:]
-
-    req = "optional" if ftype in ("email", "phone", "iban") else "required"
-    return clean_label or "Feld", ftype, qkey, req
-
-
-def slugify(text: str) -> str:
-    s = text.lower().strip()
-    s = re.sub(r"[^\w\s-]", "", s)
-    s = re.sub(r"[\s_-]+", "-", s)
-    return s.strip("-") or "form"
-
-
-def extract_fields_from_pdf_layout(doc: fitz.Document) -> list[dict[str, Any]]:
-    """Extracts field prompts and bounding boxes from flat PDF text and drawn rectangles.
-
-    Guarantees 100% fidelity to the actual document: never invents missing fields.
-    """
-    fields: list[dict[str, Any]] = []
-    for page_idx, page in enumerate(doc):
-        # 1. Collect drawn vector rectangles (input boxes)
-        drawings = page.get_drawings()
-        rect_boxes: list[fitz.Rect] = []
-        for d in drawings:
-            r = d.get("rect")
-            if (
-                r
-                and r.width > 40
-                and 10 < r.height < 180
-                and r.width < page.rect.width * 0.98
-            ):
-                rect_boxes.append(r)
-
-        # 2. Inspect text blocks (or fallback to OCR for scanned documents / raster images)
-        blocks = page.get_text("blocks")
-        if not blocks:
-            try:
-                tp = page.get_textpage_ocr(language="eng+deu+fra+spa", dpi=150)
-                blocks = tp.extractBLOCKS()
-            except Exception as e:
-                logger.warning("OCR fallback on page %d failed: %s", page_idx, e)
-                blocks = []
-        for b in blocks:
-            if b[6] != 0:  # text block only
-                continue
-            text = b[4].strip()
-            lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
-            for line in lines:
-                is_prompt = (
-                    line.endswith(":")
-                    or line.endswith("*")
-                    or line.endswith("*:")
-                    or any(p[0].search(line) for p in _KEY_PATTERNS)
-                )
-                if not is_prompt or len(line) > 90:
-                    continue
-
-                label, ftype, qkey, req = infer_field_metadata(line, "text")
-                bx0, by0, bx1, by1 = b[0], b[1], b[2], b[3]
-
-                # Match nearest drawn box below or to the right
-                matched_box: fitz.Rect | None = None
-                min_dist = float("inf")
-                for r in rect_boxes:
-                    if r.y0 >= by0 and (r.y0 - by1) < 55 and abs(r.x0 - bx0) < 140:
-                        dist = r.y0 - by1
-                        if dist < min_dist:
-                            min_dist = dist
-                            matched_box = r
-                    elif abs(r.y0 - by0) < 25 and r.x0 >= bx0 and (r.x0 - bx1) < 70:
-                        dist = r.x0 - bx1
-                        if dist < min_dist:
-                            min_dist = dist
-                            matched_box = r
-
-                if matched_box:
-                    bbox = [
-                        round(float(matched_box.x0), 1),
-                        round(float(matched_box.y0), 1),
-                        round(float(matched_box.x1), 1),
-                        round(float(matched_box.y1), 1),
-                    ]
-                else:
-                    bbox = [
-                        round(float(bx0), 1),
-                        round(float(by1 + 2), 1),
-                        round(float(min(page.rect.width - 50, bx0 + 380)), 1),
-                        round(float(by1 + 26), 1),
-                    ]
-
-                clean_lbl = line.rstrip(":* ").strip()
-                fkey = slugify(clean_lbl) or f"field_{len(fields) + 1}"
-                existing_keys = {f["key"] for f in fields}
-                if fkey in existing_keys:
-                    fkey = f"{fkey}_{len(fields) + 1}"
-
-                fields.append(
-                    {
-                        "key": fkey,
-                        "label": clean_lbl,
-                        "field_type": ftype,
-                        "question_key": qkey,
-                        "requiredness": req,
-                        "options": [],
-                        "bbox": bbox,
-                        "page": page_idx + 1,
-                    }
-                )
-    return fields
 
 
 class OrganizationFormService:
@@ -652,56 +264,7 @@ class OrganizationFormService:
 
     def _extract_fields_from_pdf_bytes(self, pdf_bytes: bytes) -> list[dict[str, Any]]:
         """Extracts candidate fields from interactive AcroForms or layout text."""
-        extracted_fields: list[dict[str, Any]] = []
-        try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            for page_idx, page in enumerate(doc):
-                for widget in page.widgets():
-                    if not widget.field_name:
-                        continue
-                    meta = extract_widget_metadata(page, widget)
-                    if not meta:
-                        continue  # e.g. pushbuttons like Print or Reset
-                    label, ftype, qkey, req = meta
-
-                    options: list[str] = []
-                    if hasattr(widget, "choice_values") and widget.choice_values:
-                        options = list(widget.choice_values)
-
-                    rect = widget.rect
-                    bbox = [
-                        round(float(rect.x0), 1),
-                        round(float(rect.y0), 1),
-                        round(float(rect.x1), 1),
-                        round(float(rect.y1), 1),
-                    ]
-
-                    extracted_fields.append(
-                        {
-                            "key": slugify(widget.field_name),
-                            "label": label,
-                            "field_type": ftype,
-                            "question_key": qkey,
-                            "requiredness": req,
-                            "options": options,
-                            "bbox": bbox,
-                            "page": page_idx + 1,
-                        }
-                    )
-            doc.close()
-        except Exception as e:
-            logger.warning("PyMuPDF widget extraction encountered an error: %s", e)
-
-        # Fallback: if no interactive AcroForm widgets found, extract layout-based fields from text and drawn boxes
-        if not extracted_fields:
-            try:
-                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-                extracted_fields = extract_fields_from_pdf_layout(doc)
-                doc.close()
-            except Exception as e:
-                logger.warning("PyMuPDF layout-based field extraction error: %s", e)
-
-        return extracted_fields
+        return extract_fields_from_pdf_bytes(pdf_bytes)
 
     def _insert_extracted_fields(
         self,
@@ -710,57 +273,7 @@ class OrganizationFormService:
         source_language: str = "de",
     ) -> None:
         """Inserts extracted fields into database with unique keys and source translation."""
-        current_max_pos = (
-            self.db.query(func.max(FormField.position))
-            .filter(FormField.form_version_id == version_id)
-            .scalar()
-            or 0
-        )
-        existing_keys = {
-            f.key
-            for f in self.db.query(FormField.key)
-            .filter(FormField.form_version_id == version_id)
-            .all()
-        }
-
-        for idx, f in enumerate(extracted_fields):
-            base_key = f["key"]
-            candidate_key = base_key
-            suffix = 2
-            while candidate_key in existing_keys:
-                candidate_key = f"{base_key}_{suffix}"
-                suffix += 1
-            existing_keys.add(candidate_key)
-
-            form_field = FormField(
-                form_version_id=version_id,
-                key=candidate_key,
-                field_type=f["field_type"],
-                required=f["requiredness"] == "required",
-                requiredness=f["requiredness"],
-                position=current_max_pos + idx + 1,
-                question_key=f["question_key"],
-                configuration={"bbox": f.get("bbox"), "page": f.get("page", 1)},
-            )
-            self.db.add(form_field)
-            self.db.flush()
-
-            # Translation for source language (e.g. de)
-            trans = FormFieldTranslation(
-                form_field_id=form_field.id,
-                language=source_language,
-                label=f["label"],
-            )
-            self.db.add(trans)
-
-            # Options if choice field
-            for opt_idx, opt_val in enumerate(f.get("options", [])):
-                opt = FormFieldOption(
-                    form_field_id=form_field.id,
-                    value=opt_val,
-                    position=opt_idx + 1,
-                )
-                self.db.add(opt)
+        insert_extracted_fields(self.db, version_id, extracted_fields, source_language)
 
     def auto_detect_fields(
         self, user: User, template_id: str
@@ -875,17 +388,7 @@ class OrganizationFormService:
                 pdf_bytes = self.storage.get_bytes(
                     latest_version.source_pdf_storage_path
                 )
-                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-                page_count = len(doc)
-                page_dimensions = [
-                    {
-                        "page": idx + 1,
-                        "width": round(float(p.rect.width), 1),
-                        "height": round(float(p.rect.height), 1),
-                    }
-                    for idx, p in enumerate(doc)
-                ]
-                doc.close()
+                page_count, page_dimensions = get_pdf_page_dimensions(pdf_bytes)
             except Exception as e:
                 logger.warning("Could not read PDF page dimensions: %s", e)
 
@@ -1499,6 +1002,37 @@ class OrganizationFormService:
                 detail="Cannot publish a form with zero questions. Add at least one field.",
             )
 
+        # Enforce published template slot limits per organization subscription plan
+        if latest_version.status != "published":
+            published_templates_count = (
+                self.db.query(func.count(FormTemplate.id.distinct()))
+                .join(FormVersion, FormTemplate.id == FormVersion.form_template_id)
+                .filter(
+                    FormTemplate.organization_id == org.id,
+                    FormVersion.status == "published",
+                )
+                .scalar()
+                or 0
+            )
+            tier_limits: dict[str, int] = {
+                "free": 5,
+                "starter": 5,
+                "agency_starter": 5,
+                "pro": 25,
+                "agency_pro": 25,
+                "enterprise": 200,
+            }
+            max_templates = tier_limits.get(org.billing_plan.lower(), 25)
+            if published_templates_count >= max_templates:
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail=(
+                        f"Publishing slot limit reached for your '{org.billing_plan}' plan "
+                        f"({published_templates_count}/{max_templates} active templates). "
+                        "Please upgrade your workspace plan to publish more form templates."
+                    ),
+                )
+
         latest_version.status = "published"
         latest_version.published_at = func.now()
         self.db.commit()
@@ -1544,19 +1078,13 @@ class OrganizationFormService:
             )
 
         pdf_bytes = self.storage.get_bytes(latest_version.source_pdf_storage_path)
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        if page_number < 1 or page_number > len(doc):
-            doc.close()
+        try:
+            return render_pdf_page_png(pdf_bytes, page_number)
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid page number {page_number}. Document has {len(doc)} pages.",
-            )
-
-        page = doc[page_number - 1]
-        pix = page.get_pixmap(dpi=150)
-        png_bytes: bytes = bytes(pix.tobytes("png"))
-        doc.close()
-        return png_bytes
+                detail=str(e),
+            ) from e
 
     async def translate_field_label(
         self,
@@ -1637,22 +1165,43 @@ class OrganizationFormService:
 
         from app.ai.factory import build_provider
         from app.ai.text_translation import translate_text
+        from app.translation.memory import TranslationMemoryService
 
-        ai_provider = build_provider()
+        tm_service = TranslationMemoryService(self.db)
         results: dict[str, str] = {}
 
-        for target_lang in target_languages:
-            target_lang = target_lang.strip().lower()
-            if target_lang == source_language.lower():
-                results[target_lang] = clean_text
-                continue
+        # 1. Lookup in Translation Memory (0ms, €0 COGS cache)
+        cached_translations = tm_service.get_translations(
+            clean_text, source_language, target_languages
+        )
+        for t_lang, t_val in cached_translations.items():
+            results[t_lang] = t_val
 
+        # 2. Determine which languages still need translation
+        remaining_languages = [
+            lang
+            for lang in target_languages
+            if lang.strip().lower() not in results
+            and lang.strip().lower() != source_language.lower()
+        ]
+
+        if not remaining_languages:
+            for target_lang in target_languages:
+                if target_lang.strip().lower() == source_language.lower():
+                    results[target_lang.strip().lower()] = clean_text
+            return results
+
+        ai_provider = build_provider()
+        new_translations_to_cache: dict[str, str] = {}
+
+        for target_lang in remaining_languages:
+            target_lang = target_lang.strip().lower()
             try:
                 res = await translate_text(
                     ai_provider, clean_text, source_language, target_lang
                 )
                 if res.translated_text and res.translated_text != clean_text:
-                    results[target_lang] = res.translated_text
+                    translated_val = res.translated_text
                 else:
                     matched = None
                     text_lower = clean_text.lower()
@@ -1660,11 +1209,24 @@ class OrganizationFormService:
                         if keyword in text_lower:
                             matched = trans
                             break
-                    results[target_lang] = (
-                        matched or f"[{target_lang.upper()}] {clean_text}"
-                    )
+                    translated_val = matched or f"[{target_lang.upper()}] {clean_text}"
+                results[target_lang] = translated_val
+                new_translations_to_cache[target_lang] = translated_val
             except Exception as e:
                 logger.warning("Field translation to %s failed: %s", target_lang, e)
                 results[target_lang] = clean_text
+
+        # 3. Store newly translated terms into Translation Memory
+        if new_translations_to_cache:
+            tm_service.bulk_save_translations(
+                text=clean_text,
+                source_language=source_language,
+                translations=new_translations_to_cache,
+                provider="gemini",
+            )
+
+        for target_lang in target_languages:
+            if target_lang.strip().lower() == source_language.lower():
+                results[target_lang.strip().lower()] = clean_text
 
         return results

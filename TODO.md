@@ -13,40 +13,40 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 
 ## Current Task
 
-**Phase G3-CAT: TYPO3-Inspired Multilingual Form Categories & Citizen Guidance Language Filtering**
+**Codebase Architecture Modularization, Translation Memory & Quality Gate**
 
 ### 7-Line Business Decision Summary
-- **Feature:** TYPO3-Inspired Multilingual Form Categories & Taxonomy Engine with Citizen Guidance Language Filtering.
-- **Customer problem:** Municipalities publish dozens of diverse administrative forms (housing, civil status, immigration, taxation, social welfare) in a flat, unorganized catalog; foreign citizens speaking 8+ languages cannot browse or locate relevant procedures without scrolling through long German titles.
-- **Expected value:** Reduces form discovery time for citizens by 70%; enables structured municipal taxonomies; delivers native-language category navigation across all 8 supported languages without manual translation overhead.
-- **Estimated development effort:** ~0.5–1 solo-developer build day across Alembic migration, FastAPI category CRUD & public endpoints, pre-seeded multilingual taxonomies, Review Studio / Upload category selector, and Public Portal responsive multilingual category pills.
-- **Operating impact:** Negligible: pure relational PostgreSQL query + JSONB translations; zero external paid API calls or cloud overhead; 100% GDPR compliant.
-- **Monetization potential:** High agency/municipal value: essential capability for municipal onboarding, government verifications, and enterprise multi-department deployments.
-- **Recommendation:** `Build now` — Essential UX pillar requested directly by user, inspired by enterprise TYPO3 standard, and completely aligns with our multilingual government SaaS model.
+- **Feature:** Decompose backend and frontend monoliths (`organization_service.py` and `FormSchemaReviewStudio.tsx`), add platform Translation Memory cache, and implement template publishing slot guardrails.
+- **Customer problem:** High file coupling and monolithic services slow down development, risk cross-layer regressions, and waste AI translation spend on recurring municipal form questions.
+- **Expected value:** Reduces code blast radius; cuts redundant Gemini translation calls by ~70% via Translation Memory; prevents tenant slot overruns.
+- **Estimated development effort:** ~1 solo-developer day across modular decomposition, translation memory caching, slot enforcement, and quality gates.
+- **Operating impact:** Reduces translation API COGS to near-zero for standard municipal questions; 100% GDPR-compliant.
+- **Monetization potential:** Protects gross margin and enforces active template limits per subscription plan.
+- **Recommendation:** `Build now` — Requested by user to achieve 100% clean, modular, and maintainable project state.
 
 ### Goal
-Empower organizations to create and manage structured, hierarchical form categories inspired by TYPO3 (`sys_category`) with full translation support across all Supported Guidance Languages for Citizens, assign forms to categories in upload & review workflows, and allow citizens to filter forms on public portals (e.g. `/organizations/first-f95b49`) with dynamic category labels matching their selected guidance language.
+Refactor massive files (`organization_service.py` 1,670 lines, `FormSchemaReviewStudio.tsx` 2,276 lines) into clean, focused sub-modules, add a persistent Translation Memory cache for identical field translations, enforce template publishing slot limits, and verify all tests green.
 
 ### Acceptance Criteria
-1. Database schema migration:
-   - Create `organization_categories` table (`id`, `organization_id`, `name`, `slug`, `icon`, `description`, `parent_id` self-referencing hierarchy, `translations` JSONB, `sort_order`, `is_active`, timestamps, unique `(organization_id, slug)`).
-   - Add `category_id` (FK to `organization_categories.id`, `ondelete="SET NULL"`) to `form_templates`.
-2. Backend API routes & service:
-   - `GET /api/organizations/{org_id}/categories` (list categories with form counts).
-   - `POST /api/organizations/{org_id}/categories` (create category with multilingual translations).
-   - `PUT /api/organizations/{org_id}/categories/{cat_id}` (update category details & translations).
-   - `DELETE /api/organizations/{org_id}/categories/{cat_id}` (delete category safely).
-   - Update `GET /api/public/organizations/{slug}` to return `categories` (with form counts and translations) and populate `category_id` on each published form.
-   - Support updating `category_id` on form templates via Review Studio update endpoint.
-   - Pre-seed official German municipal starter categories ("Wohnen & Meldewesen", "Familie & Kinder", "Ausländerwesen & Aufenthalt", "Arbeit & Gewerbe", "Kfz & Mobilität", "Soziales & Gesundheit") with verified 8-language translations for new/existing organizations.
-3. Organization Workspace Frontend:
-   - "Categories & Taxonomy" management tab in Organization Settings (`/account`).
-   - Category selector in `FormUploadModal.tsx` and `FormSchemaReviewStudio.tsx` (under General Details & Rules).
-4. Public Citizen Portal Frontend (`/organizations/[slug]`):
-   - Category filter pills/tabs above the forms catalog (e.g. `All (12)`, `Wohnen & Meldewesen (5)`, `Familie (3)`, etc.).
-   - Dynamic multilingual translation of category titles based on the citizen's selected guidance language (`userLanguage`).
-   - Clicking a category pill filters forms instantly and updates counts.
-5. All automated tests pass (Ruff, Mypy, Pytest on `ai_form_assistant_test` DB, TypeScript, Vitest).
+1. Backend modularization: Extract PDF parsing into `backend/app/forms/pdf_field_extractor.py` without breaking existing routes or tests.
+2. Frontend modularization: Split `FormSchemaReviewStudio.tsx` into `ReviewStudioCanvas.tsx`, `ReviewStudioFieldCard.tsx`, `ReviewStudioMetadataTab.tsx`, and `ReviewStudioAddFieldModal.tsx`.
+3. Fix all ESLint warnings in frontend.
+4. Persistent Translation Memory: Add database-backed caching for field translations so recurring German questions are retrieved in 0ms with €0 AI cost.
+5. Template slot guardrails: Enforce active published template allowance per organization tier.
+6. All automated quality checks pass: Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, and Vitest.
+7. Run `graphify update .` to update the AST knowledge graph.
+
+### Planned Steps
+- [x] 1. Extract PDF field parsing logic from `organization_service.py` into `backend/app/forms/pdf_field_extractor.py` and verify all tests pass.
+- [x] 2. Implement `TranslationMemory` service and table (`backend/app/translation/memory.py`) to cache source_text_hash + source_lang + target_lang translations.
+- [x] 3. Integrate `TranslationMemory` into `translate_field_label` in `OrganizationFormService`.
+- [x] 4. Add template slot publishing allowance check in `OrganizationFormService.publish_form`.
+- [x] 5. Decompose `FormSchemaReviewStudio.tsx` into modular sub-components in `frontend/src/features/portal/components/review-studio/`.
+- [x] 6. Fix ESLint missing dependency warning in review studio.
+- [x] 7. Add unit tests for `pdf_field_extractor.py` and `TranslationMemory`.
+- [x] 8. Run full verification gate: Ruff, Mypy, Pytest on `ai_form_assistant_test`, TypeScript, ESLint, Vitest.
+- [x] 9. Update knowledge graph via `graphify update .`.
+- [x] 10. Commit and merge to `main`.
 
 ### Planned Steps
 - [x] 1. Create Alembic migration for `organization_categories` table and `form_templates.category_id` foreign key.
