@@ -26,6 +26,9 @@ import {
   ArrowDown,
   RotateCcw,
   Sparkles,
+  Search,
+  Lock,
+  FileText,
 } from "lucide-react";
 import {
   LanguageSelectionModal,
@@ -1240,55 +1243,330 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             </div>
 
             {/* Live Interactive Preview Box */}
-            <div className="rounded-2xl border-2 border-indigo-200 bg-linear-to-r from-indigo-50/50 via-white to-slate-50 p-6 space-y-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-indigo-600" />
                   <span className="text-xs font-bold text-slate-900">Live Appearance Preview</span>
+                  <span className="hidden sm:inline text-[11px] text-slate-500 font-normal">
+                    — Updates automatically as you adjust colors, sidebar, and layout
+                  </span>
                 </div>
-                <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                  THEME PREVIEW
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    LIVE PREVIEW
+                  </span>
+                </div>
               </div>
 
-              <div className="rounded-xl border border-slate-300 bg-white p-4 shadow-sm space-y-3">
-                <div className="flex items-center justify-between border-b pb-3 border-slate-100">
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shadow-2xs"
-                      style={{
-                        backgroundColor: themeConfig.primary_color || "#4f46e5",
-                        color: getContrastTextColor(themeConfig.primary_color || "#4f46e5"),
-                      }}
-                    >
-                      🏛️
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-900">{org.name}</div>
-                      <div className="text-[10px] text-slate-400">Verified Official Authority</div>
-                    </div>
+              {/* Realistic Desktop App / Browser Frame */}
+              <div className="rounded-xl border border-slate-300 bg-white shadow-md overflow-hidden text-start">
+                {/* Window Chrome Header */}
+                <div className="h-8 bg-slate-100 border-b border-slate-200 px-3 flex items-center justify-between select-none">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                   </div>
-                  <button
-                    type="button"
-                    style={{
-                      backgroundColor: themeConfig.primary_color || "#4f46e5",
-                      color: getContrastTextColor(themeConfig.primary_color || "#4f46e5"),
-                    }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs cursor-default"
-                  >
-                    + Upload PDF
-                  </button>
+                  <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-md bg-white border border-slate-200/80 text-[10px] text-slate-600 font-mono shadow-2xs">
+                    <Lock className="w-2.5 h-2.5 text-slate-400" />
+                    <span>amt.formflow.de/portal/{org.slug}</span>
+                  </div>
+                  <div className="text-[10px] font-semibold text-slate-400">
+                    {themeConfig.layout_density === "compact" ? "Compact" : "Comfortable"}
+                  </div>
                 </div>
 
-                {themeConfig.show_metrics_strip !== false && (
-                  <div className="grid grid-cols-4 gap-2 pt-1">
-                    {["Total: 12", "Live: 8", "Review: 2", "Archived: 2"].map((m, i) => (
-                      <div key={i} className="p-2 rounded-lg bg-slate-50 text-[10px] font-semibold text-slate-600 text-center border border-slate-100">
-                        {m}
+                {/* Application Workspace inside Window */}
+                <div className="flex min-h-[350px]">
+                  {/* Miniature Sidebar */}
+                  <div
+                    className="w-44 shrink-0 p-3 flex flex-col justify-between border-r transition-colors"
+                    style={{
+                      backgroundColor:
+                        themeConfig.sidebar_theme === "dark"
+                          ? "#0B0F19"
+                          : themeConfig.sidebar_theme === "heraldic"
+                          ? (themeConfig.primary_color || "#1E3A8A") + "15"
+                          : "#FFFFFF",
+                      borderColor:
+                        themeConfig.sidebar_theme === "dark"
+                          ? "#1E293B"
+                          : themeConfig.sidebar_theme === "heraldic"
+                          ? (themeConfig.primary_color || "#1E3A8A") + "30"
+                          : "#E2E8F0",
+                      color:
+                        themeConfig.sidebar_theme === "dark"
+                          ? "#F8FAFC"
+                          : "#0F172A",
+                    }}
+                  >
+                    <div className="space-y-4">
+                      {/* Logo & Org Name */}
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 shadow-2xs flex items-center justify-center shrink-0 overflow-hidden">
+                          {org.logo_storage_path ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={`/api/organizations/${org.id}/logo?v=${logoVersion}`}
+                              alt="Emblem"
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <Building2 className="w-3.5 h-3.5 text-slate-700" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold truncate leading-tight">
+                            {org.name.split("—")[0].trim()}
+                          </div>
+                          <div className="text-[9px] opacity-60 leading-tight">Behörden-Portal</div>
+                        </div>
                       </div>
-                    ))}
+
+                      {/* Mini Nav Links */}
+                      <div className="space-y-1">
+                        <div
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-2xs cursor-default"
+                          style={{
+                            backgroundColor: themeConfig.primary_color || "#4F46E5",
+                            color: getContrastTextColor(themeConfig.primary_color || "#4F46E5"),
+                          }}
+                        >
+                          <FileText className="w-3 h-3" />
+                          <span>Workspace & Forms</span>
+                        </div>
+                        <div
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px] font-medium opacity-70 ${
+                            themeConfig.sidebar_theme === "dark" ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                          }`}
+                        >
+                          <Users className="w-3 h-3" />
+                          <span>Cases & Intake</span>
+                        </div>
+                        <div
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px] font-medium opacity-70 ${
+                            themeConfig.sidebar_theme === "dark" ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                          }`}
+                        >
+                          <Globe className="w-3 h-3" />
+                          <span>Public Portal</span>
+                        </div>
+                        <div
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px] font-medium opacity-70 ${
+                            themeConfig.sidebar_theme === "dark" ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                          }`}
+                        >
+                          <Sliders className="w-3 h-3" />
+                          <span>Settings</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* User Mini Profile */}
+                    <div className="pt-3 border-t border-slate-200/30 flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-slate-300 flex items-center justify-center text-[9px] font-bold text-slate-700">
+                        A
+                      </div>
+                      <div className="min-w-0 text-[9px] opacity-75 truncate">
+                        Sachbearbeiter (Admin)
+                      </div>
+                    </div>
                   </div>
-                )}
+
+                  {/* Miniature Workspace Content Canvas */}
+                  <div className="flex-1 bg-slate-50/60 p-4 space-y-3 overflow-hidden">
+                    {/* Notice Banner */}
+                    {themeConfig.citizen_notice_banner && (
+                      <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[10px] text-amber-900 flex items-center gap-2 shadow-2xs">
+                        <AlertCircle className="w-3 h-3 shrink-0 text-amber-600" />
+                        <span className="font-medium truncate">{themeConfig.citizen_notice_banner}</span>
+                      </div>
+                    )}
+
+                    {/* Section Ordering Dynamic Renderer */}
+                    {(themeConfig.section_order || ["header", "metrics", "actions", "forms"]).map((sec) => {
+                      if (sec === "header") {
+                        return (
+                          <div
+                            key="header"
+                            className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg border border-slate-200 bg-white p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                                {org.logo_storage_path ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element */
+                                  <img
+                                    src={`/api/organizations/${org.id}/logo?v=${logoVersion}`}
+                                    alt="Logo"
+                                    className="w-full h-full object-contain"
+                                  />
+                                ) : (
+                                  <Building2 className="w-4 h-4 text-slate-700" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <div className="text-xs font-bold text-slate-900 truncate">{org.name}</div>
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-700 border border-emerald-200">
+                                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
+                                    Verified
+                                  </span>
+                                </div>
+                                {themeConfig.show_authority_metadata !== false && (
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                                    <span className="flex items-center gap-0.5">
+                                      <MapPin className="w-2.5 h-2.5" /> Stuttgart, Germany
+                                    </span>
+                                    <span className="flex items-center gap-0.5">
+                                      <Globe className="w-2.5 h-2.5" /> stuttgart.de
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {themeConfig.show_portal_link !== false && (
+                                <div className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-[10px] font-semibold text-slate-700 shadow-2xs flex items-center gap-1">
+                                  <Globe className="w-2.5 h-2.5 text-slate-400" />
+                                  <span>Portal</span>
+                                  <ExternalLink className="w-2 h-2 text-slate-300" />
+                                </div>
+                              )}
+                              <div
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-bold shadow-2xs flex items-center gap-1 cursor-default"
+                                style={{
+                                  backgroundColor: themeConfig.primary_color || "#4F46E5",
+                                  color: getContrastTextColor(themeConfig.primary_color || "#4F46E5"),
+                                }}
+                              >
+                                <Upload className="w-2.5 h-2.5" />
+                                <span>Upload PDF</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (sec === "metrics" && themeConfig.show_metrics_strip !== false) {
+                        return (
+                          <div key="metrics" className="grid grid-cols-4 gap-2">
+                            {[
+                              { label: "Total Forms", val: "12", color: themeConfig.primary_color || "#4F46E5" },
+                              { label: "Live in Portal", val: "8", color: "#059669" },
+                              { label: "Needs Review", val: "2", color: "#D97706" },
+                              { label: "Archived", val: "2", color: "#64748B" },
+                            ].map((m, i) => (
+                              <div
+                                key={i}
+                                className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs text-start relative overflow-hidden"
+                              >
+                                <div
+                                  className="absolute top-0 left-0 right-0 h-0.5"
+                                  style={{ backgroundColor: m.color }}
+                                />
+                                <div className="text-[9px] font-medium text-slate-500">{m.label}</div>
+                                <div className="text-sm font-bold text-slate-900 mt-0.5">{m.val}</div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      if (sec === "actions") {
+                        return (
+                          <div key="actions" className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[10px] text-slate-400 w-44 shadow-2xs">
+                              <Search className="w-3 h-3 text-slate-400" />
+                              <span>Search forms...</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span
+                                className="px-2 py-0.5 rounded-md text-[9px] font-bold shadow-2xs"
+                                style={{
+                                  backgroundColor: themeConfig.primary_color || "#4F46E5",
+                                  color: getContrastTextColor(themeConfig.primary_color || "#4F46E5"),
+                                }}
+                              >
+                                All (12)
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md text-[9px] font-medium text-slate-600 bg-white border border-slate-200">
+                                Live
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md text-[9px] font-medium text-slate-600 bg-white border border-slate-200">
+                                Review
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (sec === "forms") {
+                        return (
+                          <div
+                            key="forms"
+                            className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden"
+                          >
+                            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                              <span>Official Form Template</span>
+                              <span>Status & Fields</span>
+                            </div>
+                            <div className="divide-y divide-slate-100 text-[10px]">
+                              <div className="px-3 py-1.5 flex items-center justify-between hover:bg-slate-50/50">
+                                <div>
+                                  <div className="font-semibold text-slate-800">
+                                    Wohnungsgeberbestätigung (§ 19 BMG)
+                                  </div>
+                                  <div className="text-[9px] text-slate-400">Meldeamt • PDF Ingested</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] text-slate-400">8 Felder</span>
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    Live
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="px-3 py-1.5 flex items-center justify-between hover:bg-slate-50/50">
+                                <div>
+                                  <div className="font-semibold text-slate-800">
+                                    Antrag auf Erteilung eines Aufenthaltstitels
+                                  </div>
+                                  <div className="text-[9px] text-slate-400">Ausländerwesen • Fast-track</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] text-slate-400">14 Felder</span>
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    Review
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="px-3 py-1.5 flex items-center justify-between hover:bg-slate-50/50">
+                                <div>
+                                  <div className="font-semibold text-slate-800">
+                                    Gewerbeanmeldung (GewA 1)
+                                  </div>
+                                  <div className="text-[9px] text-slate-400">Wirtschaftsförderung</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] text-slate-400">11 Felder</span>
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    Live
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
 
