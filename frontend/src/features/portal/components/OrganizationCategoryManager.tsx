@@ -32,6 +32,7 @@ import {
   OrganizationFormSummary,
 } from "../types";
 import { CategoryIcon } from "./CategoryIcon";
+import { ModernSelect, ModernSelectOption } from "@/components/ui/ModernSelect";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
 import { LANGUAGE_MAP } from "./LanguageSelectionModal";
 
@@ -339,6 +340,70 @@ export function OrganizationCategoryManager({
     }
   };
 
+  const iconOptions: ModernSelectOption[] = useMemo(
+    () =>
+      AVAILABLE_ICONS.map((ic) => ({
+        value: ic.id,
+        label: ic.label,
+        icon: <CategoryIcon icon={ic.id} className="w-4 h-4 text-blue-600" />,
+      })),
+    []
+  );
+
+  const parentCategoryOptions: ModernSelectOption[] = useMemo(
+    () => [
+      {
+        value: "",
+        label: "None (Top-Level Category)",
+        icon: <FolderTree className="w-4 h-4 text-slate-400" />,
+      },
+      ...categories
+        .filter((c) => !editingCategory || c.id !== editingCategory.id)
+        .map((c) => ({
+          value: c.id,
+          label: c.name,
+          sublabel: c.description || undefined,
+          icon: (
+            <CategoryIcon
+              icon={c.icon || "Layers"}
+              className="w-4 h-4 text-indigo-600"
+            />
+          ),
+        })),
+    ],
+    [categories, editingCategory]
+  );
+
+  const languageTranslateOptions: ModernSelectOption[] = useMemo(
+    () => [
+      {
+        value: "",
+        label: "-- Choose a supported language to translate --",
+      },
+      ...supportedLanguageOptions.map((lang) => {
+        const isTranslated = Boolean(translations[lang.code]?.name?.trim());
+        return {
+          value: lang.code,
+          label: `${lang.nativeName} (${lang.name})`,
+          sublabel: lang.code.toUpperCase(),
+          badge: (
+            <span
+              className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                isTranslated
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-slate-100 text-slate-600 border border-slate-200"
+              }`}
+            >
+              {lang.code.toUpperCase()}
+              {isTranslated ? " ✓ Added" : ""}
+            </span>
+          ),
+        };
+      }),
+    ],
+    [supportedLanguageOptions, translations]
+  );
+
   return (
     <div className="space-y-6">
       {/* Header bar */}
@@ -568,40 +633,35 @@ export function OrganizationCategoryManager({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="category-icon-select" className="block text-xs font-semibold text-slate-700 mb-1">
                     Icon
                   </label>
-                  <select
+                  <ModernSelect
+                    id="category-icon-select"
                     value={icon}
-                    onChange={(e) => setIcon(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white"
-                  >
-                    {AVAILABLE_ICONS.map((ic) => (
-                      <option key={ic.id} value={ic.id}>
-                        {ic.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setIcon(val)}
+                    options={iconOptions}
+                    placeholder="Select icon..."
+                    searchable
+                    searchPlaceholder="Search icons..."
+                    aria-label="Icon"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="category-parent-select" className="block text-xs font-semibold text-slate-700 mb-1">
                     Parent Category (Hierarchy)
                   </label>
-                  <select
+                  <ModernSelect
+                    id="category-parent-select"
                     value={parentId}
-                    onChange={(e) => setParentId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white"
-                  >
-                    <option value="">None (Top-Level Category)</option>
-                    {categories
-                      .filter((c) => !editingCategory || c.id !== editingCategory.id)
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                  </select>
+                    onChange={(val) => setParentId(val)}
+                    options={parentCategoryOptions}
+                    placeholder="None (Top-Level Category)"
+                    searchable={parentCategoryOptions.length > 6}
+                    searchPlaceholder="Search parent categories..."
+                    aria-label="Parent Category (Hierarchy)"
+                  />
                 </div>
 
                 <div>
@@ -653,23 +713,16 @@ export function OrganizationCategoryManager({
                   <label htmlFor="translation-lang-select" className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Choose Language to Translate
                   </label>
-                  <select
+                  <ModernSelect
                     id="translation-lang-select"
                     value={selectedTranslationLang}
-                    onChange={(e) => handleSelectLanguage(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="">-- Choose a supported language to translate --</option>
-                    {supportedLanguageOptions.map((lang) => {
-                      const isTranslated = Boolean(translations[lang.code]?.name?.trim());
-                      return (
-                        <option key={lang.code} value={lang.code}>
-                          {lang.nativeName} ({lang.name}) — {lang.code.toUpperCase()}
-                          {isTranslated ? " (Added)" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
+                    onChange={(val) => handleSelectLanguage(val)}
+                    options={languageTranslateOptions}
+                    placeholder="-- Choose a supported language to translate --"
+                    searchable={languageTranslateOptions.length > 5}
+                    searchPlaceholder="Search supported languages..."
+                    aria-label="Choose Language to Translate"
+                  />
                 </div>
 
                 {/* Configured Translation Badges / Selector (Only added languages!) */}

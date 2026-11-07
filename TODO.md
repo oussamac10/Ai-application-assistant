@@ -66,6 +66,13 @@ Empower organizations to create and manage structured, hierarchical form categor
 - [x] 15. Add TYPO3-style assigned form relation management modal inside `OrganizationCategoryManager.tsx`.
 - [x] 16. Verify with backend pytest on isolated test DB and Vitest suites (288/288 frontend tests passing).
 - [x] 17. Removed "Load Default German Categories" button, auto-seeding logic, and hardcoded starter categories backend module; organizations now maintain custom taxonomy independently.
+- [x] 18. Removed "TYPO3 MODEL" pill badge and references from categories management UI.
+- [x] 19. Linked category translations to organization's supported languages with on-demand language selection.
+- [x] 20. Fixed sidebar layout width overflow and viewport overlap bug in `Sidebar.tsx` and `FormSchemaReviewStudio.tsx`.
+- [x] 21. Localized boolean buttons in `FieldRenderer.tsx` (`نعم`/`لا` for Arabic, `Ja`/`Nein` for German, etc.) and persisted field translations in `FormSchemaReviewStudio.tsx`.
+- [x] 22. Created reusable `ModernSelect` component (`frontend/src/components/ui/ModernSelect.tsx`) with Lucide icons, status badges, sublabels, search filtering, checkmark indicators, outside-click handling, and full keyboard navigation.
+- [x] 23. Replaced native browser `<select>` elements in `OrganizationCategoryManager.tsx` (Icon selector, Parent Category hierarchy selector, and Choose Language to Translate picker) with polished `<ModernSelect>` components.
+- [x] 24. Added unit test suite in `ModernSelect.test.tsx` and verified all portal test suites pass (34/34 tests green).
 
 ---
 
