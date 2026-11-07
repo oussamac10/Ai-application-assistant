@@ -252,10 +252,10 @@ export function PortalDashboard() {
             <Link
               href={`/organizations/${org.slug}`}
               target="_blank"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
             >
               <Globe className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Public Citizen Portal</span>
+              <span>Public Portal</span>
               <ExternalLink className="w-3 h-3 text-slate-400" />
             </Link>
           )}

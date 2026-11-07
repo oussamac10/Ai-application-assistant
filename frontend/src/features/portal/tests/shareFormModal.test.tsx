@@ -66,7 +66,7 @@ describe("ShareFormModal (Phase G4)", () => {
     );
 
     // Verify embed code snippet
-    expect(screen.getByText(/Fill in your language/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Anmeldung einer Wohnung/i).length).toBeGreaterThanOrEqual(2);
   });
 
   it("copies direct permalink to clipboard on button click", async () => {

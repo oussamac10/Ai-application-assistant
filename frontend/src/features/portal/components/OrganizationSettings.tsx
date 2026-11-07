@@ -390,7 +390,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                 {isOwnerOrAdmin && (
                   <label className="mt-2 block text-center cursor-pointer">
                     <span className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
-                      {uploadingLogo ? "Uploading..." : "Upload Logo (SVG / PNG)"}
+                      {uploadingLogo ? "Uploading..." : "Upload Logo"}
                     </span>
                     <input
                       type="file"
@@ -521,10 +521,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   <button
                     type="button"
                     onClick={() => setIsLanguageModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3.5 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors self-start sm:self-auto shadow-2xs"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors self-start sm:self-auto shadow-2xs"
                   >
                     <Globe className="w-3.5 h-3.5" />
-                    Manage Languages ({supportedLanguages.length})
+                    Languages ({supportedLanguages.length})
                   </button>
                 )}
               </div>
@@ -571,10 +571,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                 <button
                   type="submit"
                   disabled={savingProfile}
-                  className="btn-primary py-2.5 px-5 text-xs font-bold inline-flex items-center gap-2"
+                  className="btn-primary py-2 px-5 text-xs font-bold inline-flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
-                  {savingProfile ? "Saving Changes..." : "Save Workspace Profile"}
+                  {savingProfile ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             )}
@@ -1610,10 +1610,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     backgroundColor: themeConfig.primary_color || "#4f46e5",
                     color: getContrastTextColor(themeConfig.primary_color || "#4f46e5"),
                   }}
-                  className="px-6 py-2.5 rounded-xl text-xs font-bold shadow-sm inline-flex items-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+                  className="px-5 py-2 rounded-xl text-xs font-bold shadow-sm inline-flex items-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{savingTheme ? "Saving Settings..." : "Save Layout & Colors"}</span>
+                  <span>{savingTheme ? "Saving..." : "Save Changes"}</span>
                 </button>
               </div>
             )}

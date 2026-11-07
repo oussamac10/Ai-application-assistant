@@ -46,8 +46,8 @@ export function ShareFormModal({
   const qrSvgUrl = `/api/public/forms/${form.key}/qr?format=svg`;
   const counterPosterPdfUrl = `/api/public/forms/${form.key}/counter-poster.pdf`;
 
-  const embedSnippet = `<a href="${fullShareUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:12px;font-family:sans-serif;font-size:14px;font-weight:bold;">
-  <span>📝 ${form.name} (Fill in your language)</span>
+  const embedSnippet = `<a href="${fullShareUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:10px;font-family:sans-serif;font-size:13px;font-weight:600;">
+  <span>${form.name}</span>
 </a>`;
 
   const handleCopyLink = async () => {
@@ -112,7 +112,8 @@ export function ShareFormModal({
             <button
               type="button"
               onClick={handleCopyLink}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0"
+              aria-label="Copy Link"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0"
             >
               {copiedLink ? (
                 <>
@@ -122,7 +123,7 @@ export function ShareFormModal({
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Copy Link</span>
+                  <span>Copy<span className="sr-only"> Link</span></span>
                 </>
               )}
             </button>
@@ -168,7 +169,7 @@ export function ShareFormModal({
                 className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs transition-colors"
               >
                 <Download className="w-3.5 h-3.5 text-blue-600" />
-                <span><span className="sr-only">Download </span>PNG (300 DPI)</span>
+                <span><span className="sr-only">Download </span>PNG</span>
               </a>
               <a
                 href={qrSvgUrl}
@@ -176,7 +177,7 @@ export function ShareFormModal({
                 className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs transition-colors"
               >
                 <FileDown className="w-3.5 h-3.5 text-indigo-600" />
-                <span><span className="sr-only">Download </span>SVG (Vector)</span>
+                <span><span className="sr-only">Download </span>SVG</span>
               </a>
             </div>
           </div>
@@ -200,7 +201,7 @@ export function ShareFormModal({
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
-            <span><span className="sr-only">Download </span>Poster PDF</span>
+            <span><span className="sr-only">Download </span>Poster<span className="sr-only"> PDF</span></span>
           </a>
         </div>
 
