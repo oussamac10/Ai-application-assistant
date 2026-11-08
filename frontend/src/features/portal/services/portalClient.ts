@@ -18,6 +18,8 @@ import {
   PublicOrganizationDetail,
   PublicOrganizationSummary,
   PublicFormDetail,
+  AutoMapResponse,
+  FormSemanticSearchResult,
 } from "../types";
 
 export async function getCurrentOrganization(): Promise<Organization> {
@@ -788,4 +790,70 @@ export async function translateFormFieldLabel(
   }
   const data = await res.json();
   return data.translations || {};
+}
+
+// Phase G5-AI: Semantic Auto-Mapper & Form Search
+export async function autoMapFormFields(
+  templateId: string
+): Promise<AutoMapResponse> {
+  const csrf = getCsrfToken();
+  const res = await fetch(
+    `/api/organizations/current/forms/${templateId}/auto-map`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "x-csrf-token": csrf } : {}),
+      },
+      credentials: "include",
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to auto-map form fields.");
+  }
+  return res.json();
+}
+
+export async function applyAutoMapFormFields(
+  templateId: string,
+  mappings: Array<{ field_id: string; question_key: string }>
+): Promise<{ success: boolean; updated_fields_count: number }> {
+  const csrf = getCsrfToken();
+  const res = await fetch(
+    `/api/organizations/current/forms/${templateId}/auto-map/apply`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "x-csrf-token": csrf } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify({ mappings }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to apply auto-mapped fields.");
+  }
+  return res.json();
+}
+
+export async function semanticSearchOrganizationForms(
+  orgSlug: string,
+  query: string
+): Promise<FormSemanticSearchResult[]> {
+  const qs = new URLSearchParams({ q: query });
+  const res = await fetch(
+    `/api/public/organizations/${orgSlug}/forms/semantic-search?${qs.toString()}`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to search forms semantically.");
+  }
+  return res.json();
 }

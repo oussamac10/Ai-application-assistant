@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_user, verify_csrf
 from app.auth.models import User
 from app.database.session import get_db
+from app.forms.auto_mapper import SchemaAutoMapperService
 from app.forms.organization_service import OrganizationFormService
 from app.forms.schemas import (
     CategoryFormsAssignRequest,
@@ -20,7 +21,11 @@ from app.forms.schemas import (
     TranslateFieldRequest,
     TranslateFieldResponse,
 )
+from app.forms.semantic_search import MultilingualSemanticSearchService
 from app.organizations.schemas import (
+    ApplyAutoMapRequestSchema,
+    ApplyAutoMapResponseSchema,
+    AutoMapResponseSchema,
     CandidateInviteRedemptionResponse,
     CaseCreateRequest,
     CaseRead,
@@ -673,3 +678,89 @@ def get_public_organization_logo(
         content=content,
         media_type=media_type,
     )
+
+
+# Phase G5-AI: Semantic Auto-Mapping & Cross-Lingual Search Routes
+@router.post(
+    "/organizations/current/forms/{template_id}/auto-map",
+    response_model=AutoMapResponseSchema,
+)
+async def auto_map_form_fields(
+    template_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    org_service = OrganizationFormService(db)
+    org, _ = org_service._require_org_editor(user)
+    mapper = SchemaAutoMapperService(db)
+    results = await mapper.auto_map_fields(org.id, template_id)
+    mapped_count = sum(1 for r in results if r.suggested_question_key is not None)
+    return {
+        "template_id": template_id,
+        "total_fields": len(results),
+        "mapped_fields_count": mapped_count,
+        "suggestions": [
+            {
+                "field_id": r.field_id,
+                "field_key": r.field_key,
+                "field_label": r.field_label,
+                "current_question_key": r.current_question_key,
+                "suggested_question_key": r.suggested_question_key,
+                "confidence": r.confidence,
+                "match_reason": r.match_reason,
+                "alternatives": [
+                    {"key": a.key, "label": a.label, "confidence": a.confidence}
+                    for a in r.alternatives
+                ],
+            }
+            for r in results
+        ],
+    }
+
+
+@router.post(
+    "/organizations/current/forms/{template_id}/auto-map/apply",
+    response_model=ApplyAutoMapResponseSchema,
+)
+def apply_auto_mapped_fields(
+    template_id: str,
+    req: ApplyAutoMapRequestSchema,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    org_service = OrganizationFormService(db)
+    org, _ = org_service._require_org_editor(user)
+    mapper = SchemaAutoMapperService(db)
+    count = mapper.apply_auto_mappings(
+        org.id, template_id, [m.model_dump() for m in req.mappings]
+    )
+    return {"success": True, "updated_fields_count": count}
+
+
+@router.get(
+    "/public/organizations/{slug}/forms/semantic-search",
+    response_model=list[dict[str, Any]],
+)
+async def search_public_organization_forms(
+    slug: str,
+    q: str,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+) -> Any:
+    search_service = MultilingualSemanticSearchService(db)
+    results = await search_service.search_organization_forms(slug, q, limit=limit)
+    return [
+        {
+            "template_id": r.template_id,
+            "key": r.key,
+            "title": r.title,
+            "description": r.description,
+            "category_slug": r.category_slug,
+            "category_name": r.category_name,
+            "relevance_score": r.relevance_score,
+            "match_type": r.match_type,
+            "matched_reason": r.matched_reason,
+        }
+        for r in results
+    ]

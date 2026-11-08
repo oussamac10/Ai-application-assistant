@@ -220,3 +220,42 @@ class PublicOrganizationDetail(PublicOrganizationSummary):
     ui_theme_config: dict[str, Any] | None = None
     categories: list[PublicCategoryItem] = Field(default_factory=list)
     published_forms: list[PublicPublishedFormItem] = Field(default_factory=list)
+
+
+# Phase G5-AI: Semantic Auto-Mapper Schemas
+class AutoMapAlternativeSchema(BaseModel):
+    key: str
+    label: str
+    confidence: float
+
+
+class AutoMapFieldResultSchema(BaseModel):
+    field_id: str
+    field_key: str
+    field_label: str
+    current_question_key: str | None = None
+    suggested_question_key: str | None = None
+    confidence: float
+    match_reason: str
+    alternatives: list[AutoMapAlternativeSchema] = Field(default_factory=list)
+
+
+class AutoMapResponseSchema(BaseModel):
+    template_id: str
+    total_fields: int
+    mapped_fields_count: int
+    suggestions: list[AutoMapFieldResultSchema]
+
+
+class ApplyAutoMapItem(BaseModel):
+    field_id: str
+    question_key: str
+
+
+class ApplyAutoMapRequestSchema(BaseModel):
+    mappings: list[ApplyAutoMapItem]
+
+
+class ApplyAutoMapResponseSchema(BaseModel):
+    success: bool
+    updated_fields_count: int

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { ModernSelect } from "@/components/ui/ModernSelect";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
-import type { FormFieldItem } from "../../types";
+import type { AutoMapFieldResult, FormFieldItem } from "../../types";
 import { CANONICAL_VAULT_KEYS, FIELD_TYPE_OPTIONS } from "./constants";
 
 export interface ReviewStudioFieldCardProps {
@@ -22,6 +22,7 @@ export interface ReviewStudioFieldCardProps {
   isHighlighted: boolean;
   sourceLanguage: string;
   supportedLanguages: string[];
+  autoMapSuggestion?: AutoMapFieldResult;
   expandedTranslationsFieldId: string | null;
   setExpandedTranslationsFieldId: (id: string | null) => void;
   activeTranslationLang: string;
@@ -50,6 +51,7 @@ export function ReviewStudioFieldCard({
   isHighlighted,
   sourceLanguage,
   supportedLanguages,
+  autoMapSuggestion,
   expandedTranslationsFieldId,
   setExpandedTranslationsFieldId,
   activeTranslationLang,
@@ -210,6 +212,30 @@ export function ReviewStudioFieldCard({
             size="sm"
             aria-label="Profile Vault Pre-fill"
           />
+          {autoMapSuggestion && autoMapSuggestion.suggested_question_key && (
+            <div className="mt-1.5 flex items-center justify-between text-[11px] bg-indigo-50/90 border border-indigo-200 px-2 py-1 rounded-lg">
+              <span className="text-indigo-800 flex items-center gap-1 font-medium truncate mr-1">
+                <Sparkles className="w-3 h-3 text-indigo-600 shrink-0" />
+                <span className="truncate">
+                  AI: <code className="font-mono text-indigo-950 font-bold">{autoMapSuggestion.suggested_question_key}</code> ({Math.round(autoMapSuggestion.confidence * 100)}%)
+                </span>
+              </span>
+              {canEdit && field.questionKey !== autoMapSuggestion.suggested_question_key && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onFieldChange(field.id, {
+                      questionKey: autoMapSuggestion.suggested_question_key,
+                    })
+                  }
+                  className="shrink-0 text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-white border border-indigo-200 px-1.5 py-0.5 rounded cursor-pointer transition-colors shadow-2xs"
+                  title={autoMapSuggestion.match_reason}
+                >
+                  Apply
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

@@ -35,8 +35,15 @@ import {
   listOrganizationCategories,
   getCurrentOrganization,
   translateFormFieldLabel,
+  autoMapFormFields,
+  applyAutoMapFormFields,
 } from "../services/portalClient";
-import { FormReviewDetail, FormFieldItem, OrganizationCategory } from "../types";
+import {
+  FormReviewDetail,
+  FormFieldItem,
+  OrganizationCategory,
+  AutoMapResponse,
+} from "../types";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
 import {
   ReviewStudioAddFieldModal,
@@ -64,6 +71,9 @@ export function FormSchemaReviewStudio({
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [autoDetecting, setAutoDetecting] = useState(false);
+  const [autoMapping, setAutoMapping] = useState(false);
+  const [autoMapResults, setAutoMapResults] = useState<AutoMapResponse | null>(null);
+  const [applyingAutoMap, setApplyingAutoMap] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -251,6 +261,70 @@ export function FormSchemaReviewStudio({
       setError(msg);
     } finally {
       setAutoDetecting(false);
+    }
+  };
+
+  const handleRunAutoMap = async () => {
+    try {
+      setAutoMapping(true);
+      setError(null);
+      const result = await autoMapFormFields(templateId);
+      setAutoMapResults(result);
+      if (result.suggestions.length > 0) {
+        setSuccessMessage(
+          `AI Auto-Map suggested canonical mappings for ${result.suggestions.length} of ${result.total_fields} fields.`
+        );
+      } else {
+        setSuccessMessage(
+          "Auto-Map analyzed the form fields, but found no new high-confidence mappings."
+        );
+      }
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to run schema auto-map";
+      setError(msg);
+    } finally {
+      setAutoMapping(false);
+    }
+  };
+
+  const handleApplyAllAutoMaps = async () => {
+    if (!autoMapResults || autoMapResults.suggestions.length === 0) return;
+    try {
+      setApplyingAutoMap(true);
+      setError(null);
+      const mappings = autoMapResults.suggestions
+        .filter((s) => Boolean(s.suggested_question_key))
+        .map((s) => ({
+          field_id: s.field_id,
+          question_key: s.suggested_question_key!,
+        }));
+
+      if (mappings.length === 0) return;
+
+      await applyAutoMapFormFields(templateId, mappings);
+
+      setFields((prev) =>
+        prev.map((f) => {
+          const match = mappings.find((m) => m.field_id === f.id);
+          if (match) {
+            return { ...f, questionKey: match.question_key };
+          }
+          return f;
+        })
+      );
+      setSuccessMessage(
+        `Successfully applied ${mappings.length} canonical Profile Vault mappings.`
+      );
+      setAutoMapResults(null);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to apply auto-mapped keys";
+      setError(msg);
+    } finally {
+      setApplyingAutoMap(false);
     }
   };
 
@@ -1091,6 +1165,21 @@ export function FormSchemaReviewStudio({
                   <span>Add Field</span>
                 </button>
 
+                <button
+                  type="button"
+                  onClick={handleRunAutoMap}
+                  disabled={autoMapping || fields.length === 0}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                  title="Automatically map detected form fields to canonical citizen vault keys"
+                >
+                  {autoMapping ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  <span>Auto-Map Schema</span>
+                </button>
+
                 {/* Schema Tools & Options Dropdown */}
                 <div ref={toolsMenuRef} className="relative">
                   <button
@@ -1111,6 +1200,24 @@ export function FormSchemaReviewStudio({
                       role="menu"
                       className="absolute right-0 mt-1.5 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-lg ring-1 ring-black/5 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs font-medium"
                     >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setShowToolsMenu(false);
+                          handleRunAutoMap();
+                        }}
+                        disabled={autoMapping || fields.length === 0}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {autoMapping ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                        ) : (
+                          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        )}
+                        <span>AI Auto-Map Schema</span>
+                      </button>
+
                       <button
                         type="button"
                         role="menuitem"
@@ -1167,6 +1274,46 @@ export function FormSchemaReviewStudio({
                     </p>
                   </div>
                 </div>
+
+                {autoMapResults && (
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-start gap-2.5">
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-emerald-950">
+                          AI Auto-Mapping Ready: {autoMapResults.suggestions.length} of {autoMapResults.total_fields} fields matched
+                        </span>
+                        <p className="text-emerald-700 text-[11px] mt-0.5">
+                          Review suggestions below. Apply all canonical vault keys at once, or accept them individually.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {autoMapResults.suggestions.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleApplyAllAutoMaps}
+                          disabled={applyingAutoMap}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {applyingAutoMap ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5" />
+                          )}
+                          <span>Apply All ({autoMapResults.suggestions.length})</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setAutoMapResults(null)}
+                        className="px-2.5 py-1.5 rounded-lg border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-medium transition-colors cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {fields.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
@@ -1231,6 +1378,9 @@ export function FormSchemaReviewStudio({
                         totalFields={fields.length}
                         canEdit={canEdit}
                         isHighlighted={highlightedFieldId === field.id}
+                        autoMapSuggestion={autoMapResults?.suggestions.find(
+                          (s) => s.field_id === field.id
+                        )}
                         sourceLanguage={review.sourceLanguage || "de"}
                         supportedLanguages={supportedLanguages}
                         expandedTranslationsFieldId={expandedTranslationsFieldId}

@@ -352,5 +352,42 @@ export interface PublicFormDetail {
   counter_poster_pdf_url: string;
 }
 
+// Phase G5-AI: Semantic Auto-Mapper & Form Search
+export interface AutoMapAlternative {
+  key: string;
+  label: string;
+  confidence: number;
+}
+
+export interface AutoMapFieldResult {
+  field_id: string;
+  field_key: string;
+  field_label: string;
+  current_question_key?: string | null;
+  suggested_question_key?: string | null;
+  confidence: number;
+  match_reason: string;
+  alternatives: AutoMapAlternative[];
+}
+
+export interface AutoMapResponse {
+  template_id: string;
+  total_fields: number;
+  mapped_fields_count: number;
+  suggestions: AutoMapFieldResult[];
+}
+
+export interface FormSemanticSearchResult {
+  template_id: string;
+  key: string;
+  title: string;
+  description?: string | null;
+  category_slug?: string | null;
+  category_name?: string | null;
+  relevance_score: number;
+  match_type: "semantic" | "keyword" | "exact";
+  matched_reason: string;
+}
+
 
 

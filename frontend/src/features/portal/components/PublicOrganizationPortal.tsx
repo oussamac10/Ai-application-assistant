@@ -23,8 +23,16 @@ import {
 } from "lucide-react";
 import { ShareFormModal } from "./ShareFormModal";
 import { CategoryIcon } from "./CategoryIcon";
-import { getPublicOrganizationBySlug } from "../services/portalClient";
-import { PublicOrganizationDetail, PublicPublishedFormItem, PublicCategoryItem } from "../types";
+import {
+  getPublicOrganizationBySlug,
+  semanticSearchOrganizationForms,
+} from "../services/portalClient";
+import {
+  PublicOrganizationDetail,
+  PublicPublishedFormItem,
+  PublicCategoryItem,
+  FormSemanticSearchResult,
+} from "../types";
 import { createSession, ApiError } from "@/features/form-session/services/apiClient";
 import { setSessionToken } from "@/features/form-session/services/sessionCredentials";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
@@ -33,6 +41,10 @@ import { ModernSelect } from "@/components/ui/ModernSelect";
 
 interface PublicOrganizationPortalProps {
   slug: string;
+}
+
+export interface EnhancedFormItem extends PublicPublishedFormItem {
+  semantic_match?: FormSemanticSearchResult;
 }
 
 export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps) {
@@ -48,12 +60,41 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>("all");
   const [citizenLanguage, setCitizenLanguage] = useState(locale || "en");
 
+  // Semantic search states (Phase G5-AI)
+  const [semanticResults, setSemanticResults] = useState<FormSemanticSearchResult[] | null>(null);
+  const [isSearchingSemantically, setIsSearchingSemantically] = useState(false);
+
   // Keep citizenLanguage in sync with active UI locale
   useEffect(() => {
     if (locale) {
       setCitizenLanguage(locale);
     }
   }, [locale]);
+
+  // Debounced semantic search across multilingual municipal forms
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 2) {
+      setSemanticResults(null);
+      setIsSearchingSemantically(false);
+      return;
+    }
+
+    setIsSearchingSemantically(true);
+    const timer = setTimeout(async () => {
+      try {
+        const results = await semanticSearchOrganizationForms(slug, trimmed);
+        setSemanticResults(results);
+      } catch (err) {
+        console.error("Semantic search failed:", err);
+        setSemanticResults(null);
+      } finally {
+        setIsSearchingSemantically(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, slug]);
 
   // Starting session state
   const [startingFormId, setStartingFormId] = useState<string | null>(null);
@@ -100,9 +141,20 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
       .finally(() => setLoading(false));
   }, [slug]);
 
-  const filteredForms = useMemo(() => {
+  const filteredForms = useMemo<EnhancedFormItem[]>(() => {
     if (!org) return [];
-    return org.published_forms.filter((f) => {
+
+    const semanticMap = new Map<string, FormSemanticSearchResult>();
+    if (semanticResults && semanticResults.length > 0) {
+      for (const res of semanticResults) {
+        semanticMap.set(res.template_id, res);
+        semanticMap.set(res.key, res);
+      }
+    }
+
+    const items: EnhancedFormItem[] = [];
+
+    for (const f of org.published_forms) {
       // 1. Category Filter
       if (selectedCategorySlug !== "all") {
         const matchesId =
@@ -114,20 +166,39 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
           f.category_slug === selectedCategorySlug ||
           (f.category && f.category.toLowerCase() === selectedCategorySlug.toLowerCase());
         if (!matchesId && !matchesSlug) {
-          return false;
+          continue;
         }
       }
+
       // 2. Search Query Filter
       if (searchQuery.trim().length > 0) {
+        const sem = semanticMap.get(f.id) || semanticMap.get(f.key);
         const q = searchQuery.toLowerCase();
         const matchesName = f.name.toLowerCase().includes(q);
         const matchesDesc = (f.description || "").toLowerCase().includes(q);
         const matchesKey = f.key.toLowerCase().includes(q);
-        return matchesName || matchesDesc || matchesKey;
+
+        if (sem) {
+          items.push({ ...f, semantic_match: sem });
+        } else if (matchesName || matchesDesc || matchesKey) {
+          items.push(f);
+        }
+      } else {
+        items.push(f);
       }
-      return true;
-    });
-  }, [org, selectedCategorySlug, searchQuery]);
+    }
+
+    // Sort items: semantic matches first (by relevance_score desc)
+    if (searchQuery.trim().length > 0) {
+      items.sort((a, b) => {
+        const scoreA = a.semantic_match ? a.semantic_match.relevance_score : 0;
+        const scoreB = b.semantic_match ? b.semantic_match.relevance_score : 0;
+        return scoreB - scoreA;
+      });
+    }
+
+    return items;
+  }, [org, selectedCategorySlug, searchQuery, semanticResults]);
 
   const handleStartForm = async (form: PublicPublishedFormItem) => {
     try {
@@ -423,16 +494,39 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
         {/* Search & Category Filter */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-          <div className="relative w-full sm:w-80">
-            <Search className="pointer-events-none absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+          <div className="relative w-full sm:w-96">
+            {isSearchingSemantically ? (
+              <Loader2 className="pointer-events-none absolute left-3 top-2.5 w-4 h-4 text-indigo-600 animate-spin" />
+            ) : (
+              <Search className="pointer-events-none absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+            )}
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search forms, permits, or topics..."
-              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/15"
+              placeholder="Search in your language (e.g. moving, permit, تسجيل)..."
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-8 text-xs text-slate-900 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
             />
+            {searchQuery.trim().length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
           </div>
+
+          {searchQuery.trim().length >= 2 && (
+            <div className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-xl shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="font-semibold">
+                Multilingual AI Semantic Search Active
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Forms Catalog Grid */}
@@ -466,6 +560,15 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                             {form.category_name}
                           </span>
                         )}
+                        {form.semantic_match && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200"
+                            title={form.semantic_match.matched_reason}
+                          >
+                            <Sparkles className="w-3 h-3 text-amber-600" />
+                            <span>Match {Math.round(form.semantic_match.relevance_score * 100)}%</span>
+                          </span>
+                        )}
                       </div>
                       <span className="text-[11px] font-mono text-slate-400">
                         {form.fields_count} Questions
@@ -480,6 +583,13 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                       <p className="mt-2 text-xs text-slate-500 line-clamp-2">
                         {form.instructions}
                       </p>
+                    )}
+
+                    {form.semantic_match && form.semantic_match.matched_reason && (
+                      <div className="mt-2.5 p-2 rounded-lg bg-amber-50/70 border border-amber-200/60 text-[11px] text-amber-900 flex items-start gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <span>{form.semantic_match.matched_reason}</span>
+                      </div>
                     )}
 
                     {/* Required Documents Checklist Preview */}

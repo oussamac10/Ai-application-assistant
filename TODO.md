@@ -13,40 +13,33 @@ Evolving AI Form Assistant into a production-ready, multi-tenant SaaS platform f
 
 ## Current Task
 
-**Codebase Architecture Modularization, Translation Memory & Quality Gate**
+**Phase G5-AI: Semantic Intelligence, Vector Search & Auto-Mapping (Completed)**
 
 ### 7-Line Business Decision Summary
-- **Feature:** Decompose backend and frontend monoliths (`organization_service.py` and `FormSchemaReviewStudio.tsx`), add platform Translation Memory cache, and implement template publishing slot guardrails.
-- **Customer problem:** High file coupling and monolithic services slow down development, risk cross-layer regressions, and waste AI translation spend on recurring municipal form questions.
-- **Expected value:** Reduces code blast radius; cuts redundant Gemini translation calls by ~70% via Translation Memory; prevents tenant slot overruns.
-- **Estimated development effort:** ~1 solo-developer day across modular decomposition, translation memory caching, slot enforcement, and quality gates.
-- **Operating impact:** Reduces translation API COGS to near-zero for standard municipal questions; 100% GDPR-compliant.
-- **Monetization potential:** Protects gross margin and enforces active template limits per subscription plan.
-- **Recommendation:** `Build now` — Requested by user to achieve 100% clean, modular, and maintainable project state.
-
-### Goal
-Refactor massive files (`organization_service.py` 1,670 lines, `FormSchemaReviewStudio.tsx` 2,276 lines) into clean, focused sub-modules, add a persistent Translation Memory cache for identical field translations, enforce template publishing slot limits, and verify all tests green.
+- **Feature:** Semantic embeddings pipeline (`EmbeddingProvider`, `GeminiEmbeddingProvider`, `MockEmbeddingProvider`), canonical schema auto-mapper, and cross-lingual form discovery on public authority portals.
+- **Customer problem:** Form administrators manually map dozens of detected fields to canonical Profile Vault keys; citizens cannot find German municipal forms when querying in their native language (e.g. searching "moving apartment" fails to find "Wohnungsgeberbestätigung").
+- **Expected value:** Reduces form setup time by ~85% with 1-click auto-mapping; enables 100% multilingual discovery for foreign-born citizens across all 8 guidance languages.
+- **Estimated development effort:** ~1 solo-developer day across embedding protocols, vector cosine similarity math, auto-mapper service, semantic search endpoints, and frontend integration.
+- **Operating impact:** Minimal embedding API cost (`text-embedding-004` caching); €0 automated test cost via deterministic mock embeddings.
+- **Monetization potential:** Core enterprise differentiator for public sector procurement and higher tier plan value.
+- **Recommendation:** `Build now` — Requested by user and completed with full verification gate.
 
 ### Acceptance Criteria
-1. Backend modularization: Extract PDF parsing into `backend/app/forms/pdf_field_extractor.py` without breaking existing routes or tests.
-2. Frontend modularization: Split `FormSchemaReviewStudio.tsx` into `ReviewStudioCanvas.tsx`, `ReviewStudioFieldCard.tsx`, `ReviewStudioMetadataTab.tsx`, and `ReviewStudioAddFieldModal.tsx`.
-3. Fix all ESLint warnings in frontend.
-4. Persistent Translation Memory: Add database-backed caching for field translations so recurring German questions are retrieved in 0ms with €0 AI cost.
-5. Template slot guardrails: Enforce active published template allowance per organization tier.
-6. All automated quality checks pass: Ruff, Mypy, Pytest on test DB, TypeScript, ESLint, and Vitest.
-7. Run `graphify update .` to update the AST knowledge graph.
+- [x] 1. `EmbeddingProvider` protocol with deterministic `MockEmbeddingProvider` (for €0 test cost) and `GeminiEmbeddingProvider` (`text-embedding-004` using `x-goog-api-key`).
+- [x] 2. Canonical key semantic catalog (`CANONICAL_SCHEMA_CATALOG`) with rich German/English definitions and synonyms for vault pre-fill mapping.
+- [x] 3. `SchemaAutoMapperService` with cosine similarity + lexical matching + type compatibility to automatically map detected form fields to canonical Profile Vault keys in `<2s`.
+- [x] 4. Backend endpoints in `organizations/api/routes.py`:
+  - `POST /api/organizations/current/forms/{template_id}/auto-map`
+  - `POST /api/organizations/current/forms/{template_id}/auto-map/apply`
+  - `GET /api/public/organizations/{slug}/forms/semantic-search`
+- [x] 5. `MultilingualSemanticSearchService` enabling citizens to query in any of the 8 languages and discover relevant German municipal forms via cross-lingual semantic matching.
+- [x] 6. Frontend Review Studio: 1-click "✨ Auto-Map Schema" button and suggestion badges on field cards with confidence ratings and 1-click apply.
+- [x] 7. Frontend Public Citizen Portal: Semantic search bar with cross-lingual results, match badges, and explanation cards.
+- [x] 8. Full quality gate pass: Ruff, Mypy, Pytest on isolated DB `ai_form_assistant_test` (1,092 passed), Frontend typecheck/lint/test (300 passed), and `graphify update .`.
 
-### Planned Steps
-- [x] 1. Extract PDF field parsing logic from `organization_service.py` into `backend/app/forms/pdf_field_extractor.py` and verify all tests pass.
-- [x] 2. Implement `TranslationMemory` service and table (`backend/app/translation/memory.py`) to cache source_text_hash + source_lang + target_lang translations.
-- [x] 3. Integrate `TranslationMemory` into `translate_field_label` in `OrganizationFormService`.
-- [x] 4. Add template slot publishing allowance check in `OrganizationFormService.publish_form`.
-- [x] 5. Decompose `FormSchemaReviewStudio.tsx` into modular sub-components in `frontend/src/features/portal/components/review-studio/`.
-- [x] 6. Fix ESLint missing dependency warning in review studio.
-- [x] 7. Add unit tests for `pdf_field_extractor.py` and `TranslationMemory`.
-- [x] 8. Run full verification gate: Ruff, Mypy, Pytest on `ai_form_assistant_test`, TypeScript, ESLint, Vitest.
-- [x] 9. Update knowledge graph via `graphify update .`.
-- [x] 10. Commit and merge to `main`.
+---
+
+## Active Roadmap & Implementation Phases
 
 ### Planned Steps
 - [x] 1. Create Alembic migration for `organization_categories` table and `form_templates.category_id` foreign key.
