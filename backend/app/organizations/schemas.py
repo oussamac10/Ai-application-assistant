@@ -79,7 +79,8 @@ class CaseCreateRequest(BaseModel):
 
 class CaseUpdateRequest(BaseModel):
     status: str | None = Field(
-        default=None, pattern="^(invited|in_progress|awaiting_review|completed)$"
+        default=None,
+        pattern="^(invited|in_progress|awaiting_review|completed|revoked)$",
     )
     notes: str | None = None
 
@@ -100,10 +101,60 @@ class CaseRead(BaseModel):
     notes: str | None = None
     created_at: datetime
     updated_at: datetime
+    invite_expires_at: datetime | None = None
+    otp_verified_at: datetime | None = None
+    last_accessed_at: datetime | None = None
+    revoked_at: datetime | None = None
+    resend_count: int = 0
+    last_resent_at: datetime | None = None
+    completed_at: datetime | None = None
     invite_token: str | None = None
     total_fields: int = 0
     answered_fields: int = 0
     progress_percent: int = 0
+
+
+class CandidateInviteOrganizationBranding(BaseModel):
+    id: str
+    name: str
+    slug: str
+    organization_type: str = "government"
+    verification_status: str = "unverified"
+    is_verified_government: bool = False
+    description: str | None = None
+    has_logo: bool = False
+    office_address: str | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    official_website_url: str | None = None
+    ui_theme_config: dict[str, Any] | None = None
+
+
+class CandidateInviteInspectResponse(BaseModel):
+    case_public_id: str
+    candidate_name: str
+    masked_email: str
+    form_title: str
+    form_description: str | None = None
+    form_version_id: str
+    user_language: str
+    source_language: str
+    status: str
+    otp_verified: bool = False
+    required_documents: list[str] = Field(default_factory=list)
+    submission_method: str = "print_and_sign"
+    instructions: str | None = None
+    organization: CandidateInviteOrganizationBranding
+
+
+class CandidateInviteOtpSendResponse(BaseModel):
+    sent: bool = True
+    masked_email: str
+    expires_in_seconds: int = 600
+
+
+class CandidateInviteOtpVerifyRequest(BaseModel):
+    otp_code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
 class CandidateInviteRedemptionResponse(BaseModel):
@@ -117,6 +168,10 @@ class CandidateInviteRedemptionResponse(BaseModel):
     user_language: str
     source_language: str
     status: str
+    required_documents: list[str] = Field(default_factory=list)
+    submission_method: str = "print_and_sign"
+    instructions: str | None = None
+    organization: CandidateInviteOrganizationBranding | None = None
 
 
 class OrganizationCreateRequest(BaseModel):

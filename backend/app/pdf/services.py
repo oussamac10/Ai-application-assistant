@@ -48,6 +48,16 @@ class PDFExportService:
         self.renderer = PypdfRenderer()
         self.validator = PDFExportValidator()
 
+    def _sync_linked_case_on_export(self, session: FormSession) -> None:
+        from app.organizations.repositories import CaseRepository
+
+        linked_case = CaseRepository(self.db).get_by_form_session_id(session.id)
+        if linked_case and linked_case.status != "revoked":
+            linked_case.completed_at = datetime.now(UTC)
+            if linked_case.status in ("invited", "in_progress"):
+                linked_case.status = "awaiting_review"
+            self.db.add(linked_case)
+
     def _verify_ownership(
         self,
         session: FormSession,
@@ -309,6 +319,7 @@ class PDFExportService:
             export.file_size = render_result.file_size
             export.checksum = checksum
             export.completed_at = datetime.now(UTC)
+            self._sync_linked_case_on_export(session)
             self.db.commit()
 
         except SignatureRenderError as e:
@@ -470,6 +481,7 @@ class PDFExportService:
             export.file_size = render_result.file_size
             export.checksum = checksum
             export.completed_at = datetime.now(UTC)
+            self._sync_linked_case_on_export(session)
             self.db.commit()
         except SignatureRenderError as e:
             export.status = "failed"

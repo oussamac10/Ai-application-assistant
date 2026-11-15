@@ -12,7 +12,22 @@ import { createExport, downloadExportBlob, getSession, getSummary, ExportRespons
 import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { claimApplication } from "@/features/applications/services/applicationsClient";
 import { ExportAccountGateModal } from "@/features/applications/components/ExportAccountGateModal";
-import { Lock, Check, ClipboardCheck, FileDown, Download, Loader2 } from "lucide-react";
+import { Lock, Check, ClipboardCheck, FileDown, Download, Loader2, Landmark, Send, FileText } from "lucide-react";
+
+function formatSubmissionChannelLabel(method: string): string {
+  switch (method) {
+    case "in_person":
+      return "In-Person Appointment";
+    case "online":
+      return "Online Portal Upload";
+    case "postal_mail":
+      return "Postal Mail";
+    case "print_and_sign":
+      return "Print & Sign";
+    default:
+      return method.replace(/_/g, " ");
+  }
+}
 
 type ExportState = "ready" | "creating_export" | "export_ready" | "downloading" | "download_failed" | "export_expired" | "token_missing";
 
@@ -39,6 +54,11 @@ export default function SessionComplete() {
   const [checkedIds, setCheckedIds] = useState<Record<string, boolean>>({});
   const [canResign, setCanResign] = useState<boolean>(false);
   const [canRetry, setCanRetry] = useState<boolean>(true);
+  const [submissionMethod, setSubmissionMethod] = useState<string>("print_and_sign");
+  const [submissionInstructions, setSubmissionInstructions] = useState<string | null>(null);
+  const [sessionRequiredDocs, setSessionRequiredDocs] = useState<string[]>([]);
+  const [isSponsoredCase, setIsSponsoredCase] = useState<boolean>(false);
+  const [organizationName, setOrganizationName] = useState<string | null>(null);
 
   // Auto-claim session when authenticated user visits complete page with an anonymous session token
   useEffect(() => {
@@ -59,6 +79,13 @@ export default function SessionComplete() {
         const session = await getSession(sessionId);
         if (!cancelled) {
           setExportSupported(session.exportSupported ?? true);
+          if (session.submissionMethod) {
+            setSubmissionMethod(session.submissionMethod);
+          }
+          setSubmissionInstructions(session.instructions ?? null);
+          setSessionRequiredDocs(session.requiredDocuments ?? []);
+          setIsSponsoredCase(Boolean(session.isSponsoredCase));
+          setOrganizationName(session.organizationName ?? null);
         }
         try {
           const summary = await getSummary(sessionId);
@@ -95,7 +122,7 @@ export default function SessionComplete() {
   };
 
   const handleGeneratePdf = async () => {
-    if (!auth?.user) {
+    if (!auth?.user && !isSponsoredCase) {
       setIsExportGateOpen(true);
       return;
     }
@@ -293,6 +320,58 @@ export default function SessionComplete() {
               </div>
             )}
 
+            {(submissionInstructions || sessionRequiredDocs.length > 0) && (
+              <div
+                data-testid="submission-instructions-card"
+                className="mt-5 w-full rounded-2xl border border-emerald-500/30 bg-[#0A0E17] p-5 text-start space-y-3.5 shadow-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
+                  <div className="flex items-center gap-2">
+                    <Send className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <h2 className="text-sm font-bold text-white">
+                      Official Submission Instructions
+                    </h2>
+                  </div>
+                  <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-400">
+                    {formatSubmissionChannelLabel(submissionMethod)}
+                  </span>
+                </div>
+
+                {organizationName && (
+                  <div className="flex items-center gap-2 text-xs text-slate-300">
+                    <Landmark className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <span>
+                      Sponsored intake prepared with{" "}
+                      <strong className="text-white">{organizationName}</strong>
+                    </span>
+                  </div>
+                )}
+
+                {submissionInstructions && (
+                  <p className="text-xs leading-relaxed text-slate-300">
+                    {submissionInstructions}
+                  </p>
+                )}
+
+                {sessionRequiredDocs.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-400">
+                      <FileText className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                      <span>Supporting Documents to Attach</span>
+                    </div>
+                    <ul className="space-y-1.5 text-xs text-slate-300">
+                      {sessionRequiredDocs.map((docName, idx) => (
+                        <li key={`${idx}-${docName}`} className="flex items-start gap-2">
+                          <Check className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                          <span>{docName}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="my-6 w-full border-t border-white/10" />
 
             <p className="text-sm leading-relaxed text-slate-300">
@@ -316,7 +395,7 @@ export default function SessionComplete() {
 
             {/* Interactive Actions */}
             <div className="mt-7 w-full space-y-3">
-              {!auth?.user && exportSupported === true && exportState === "ready" && (
+              {!auth?.user && !isSponsoredCase && exportSupported === true && exportState === "ready" && (
                 <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-slate-200 text-start">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-slate-950">
                     <Lock className="h-3.5 w-3.5" />

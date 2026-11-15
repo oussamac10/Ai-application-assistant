@@ -49,14 +49,14 @@
   - **Feature 4: Plain-Language Field Explanations & Document Readiness**: Grounded Gemini 2.0 Flash / 1.5 Flash micro-explanations for complex bureaucratic terminology (*Amtsdeutsch*) with actionable document checklists (e.g. required certificates, landlord confirmations) in all 8 languages.
   - **Hybrid AI Architecture**: Cloud-first with Google `text-embedding-004` & Gemini 2.0 Flash (`x-goog-api-key`), with seamless air-gapped sovereign on-premise fallback using `BAAI/bge-m3` via `fastembed` + local `Ollama` for strict German public sector compliance.
 
-### Phase G5 — Private Invitations & Email Verification
+### Phase G5 — Private Invitations & Email Verification (`Completed`)
 - **Objectives:** Allow case managers to invite specific citizens to fill out private administrative forms with strict identity protection.
 - **Scope:**
-  - Private invitation engine with cryptographically secure tokens, expiration dates, and revocation.
-  - Email verification challenge (magic link or one-time 6-digit code) before unlocking form questions.
-  - Audit logging of access attempts and completion timestamps.
+  - Private invitation engine with cryptographically secure tokens, expiration dates, rotation, and revocation.
+  - Email verification challenge (one-time 6-digit code with attempt lockout and single-use session token unlock) before unlocking form questions.
+  - Zero-PII audit logging of access, resend, OTP verification, revocation, and completion timestamps.
 
-### Phase G6 — Multilingual Citizen Guided Intake & Official PDF Export
+### Phase G6 — Multilingual Citizen Guided Intake & Official PDF Export (`Completed`)
 - **Objectives:** Empower citizens to complete forms in their preferred language while producing an official, structurally accurate completed PDF in the required authority language.
 - **Scope:**
   - 3-language model (`sourceLanguage`, `userLanguage`, `outputLanguage`) across 8 full UI languages (`en, de, fr, ar, tr, uk, es, ru`).

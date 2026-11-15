@@ -166,36 +166,111 @@ describe("B2B & B2G Platform — Portal & Case Management", () => {
     });
   });
 
-  it("handles candidate magic-link redemption and intake landing", async () => {
-    vi.spyOn(portalClient, "redeemCandidateInvite").mockResolvedValue({
-      session_id: "sess-abc-789",
-      session_token: "raw-token-12345",
-      case_public_id: "pub-case-789",
-      candidate_name: "Alexey Naval",
-      candidate_email: "alexey@example.com",
-      form_title: "Antrag auf Erteilung eines Aufenthaltstitels",
-      form_version_id: "ver-aufenthalt-1",
-      user_language: "uk",
-      source_language: "de",
-      status: "in_progress",
-    });
+  it("handles candidate email OTP inspection, branding, checklist, verification, and intake launch", async () => {
+    sessionStorage.clear();
+
+    const inspectSpy = vi
+      .spyOn(portalClient, "inspectCandidateInvite")
+      .mockResolvedValue({
+        case_public_id: "pub-case-789",
+        candidate_name: "Alexey Naval",
+        masked_email: "a***@example.com",
+        form_title: "Antrag auf Erteilung eines Aufenthaltstitels",
+        form_description: "Residence permit application",
+        form_version_id: "ver-aufenthalt-1",
+        user_language: "uk",
+        source_language: "de",
+        status: "invited",
+        otp_verified: false,
+        required_documents: ["Valid passport", "Signed rental lease"],
+        submission_method: "in_person",
+        instructions: "Bring original passport to the appointment.",
+        organization: {
+          id: "org-99",
+          name: "Berlin Global Mobility GmbH",
+          slug: "berlin-global-mobility",
+          organization_type: "business",
+          verification_status: "verified_official",
+          is_verified_government: true,
+          description: "International talent relocation desk",
+          has_logo: true,
+          office_address: "Friedrichstr. 110, Berlin",
+          contact_email: "care@berlin-mobility.example",
+          contact_phone: "+49 30 900123",
+          official_website_url: "https://berlin-mobility.example",
+          ui_theme_config: { primary_color: "#10b981" },
+        },
+      });
+
+    const sendOtpSpy = vi
+      .spyOn(portalClient, "sendCandidateInviteOtp")
+      .mockResolvedValue({
+        sent: true,
+        masked_email: "a***@example.com",
+        expires_in_seconds: 600,
+      });
+
+    const verifyOtpSpy = vi
+      .spyOn(portalClient, "verifyCandidateInviteOtp")
+      .mockResolvedValue({
+        session_id: "sess-abc-789",
+        session_token: "raw-token-12345",
+        case_public_id: "pub-case-789",
+        candidate_name: "Alexey Naval",
+        candidate_email: "alexey@example.com",
+        form_title: "Antrag auf Erteilung eines Aufenthaltstitels",
+        form_version_id: "ver-aufenthalt-1",
+        user_language: "uk",
+        source_language: "de",
+        status: "in_progress",
+      });
 
     render(<CandidateIntakeLanding token="valid-token-123" />);
 
     await waitFor(() => {
       expect(screen.getByText("Alexey Naval")).toBeDefined();
-      expect(screen.getByText("Antrag auf Erteilung eines Aufenthaltstitels")).toBeDefined();
+      expect(
+        screen.getAllByText("Berlin Global Mobility GmbH").length
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    expect(inspectSpy).toHaveBeenCalledWith("valid-token-123");
+    expect(screen.getByText("Friedrichstr. 110, Berlin")).toBeDefined();
+    expect(screen.getByText("care@berlin-mobility.example")).toBeDefined();
+    expect(screen.getByTestId("invite-required-documents")).toBeDefined();
+    expect(screen.getByText("Valid passport")).toBeDefined();
+    expect(screen.getByText("a***@example.com")).toBeDefined();
+
+    // Form start is gated until email OTP verification succeeds
+    expect(screen.queryByText("startAssistedSession")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("send-invite-otp-btn"));
+    await waitFor(() => {
+      expect(sendOtpSpy).toHaveBeenCalledWith("valid-token-123");
+      expect(screen.getByTestId("invite-otp-input")).toBeDefined();
+    });
+
+    fireEvent.change(screen.getByTestId("invite-otp-input"), {
+      target: { value: "654321" },
+    });
+    fireEvent.click(screen.getByTestId("verify-invite-otp-btn"));
+
+    await waitFor(() => {
+      expect(verifyOtpSpy).toHaveBeenCalledWith("valid-token-123", "654321");
+      expect(screen.getByText("startAssistedSession")).toBeDefined();
     });
 
     // Candidate clicks start application
-    const startBtn = screen.getByText("startAssistedSession");
-    fireEvent.click(startBtn);
+    fireEvent.click(screen.getByText("startAssistedSession"));
 
+    expect(sessionStorage.getItem("session-token:sess-abc-789")).toBe(
+      "raw-token-12345"
+    );
     expect(pushMock).toHaveBeenCalledWith("/application/session/sess-abc-789");
   });
 
   it("renders expired or invalid error message on invalid candidate token", async () => {
-    vi.spyOn(portalClient, "redeemCandidateInvite").mockRejectedValue(
+    vi.spyOn(portalClient, "inspectCandidateInvite").mockRejectedValue(
       new Error("Invalid or expired candidate invite link.")
     );
 
@@ -205,6 +280,61 @@ describe("B2B & B2G Platform — Portal & Case Management", () => {
       expect(screen.getByText(/Invite Link Expired or Invalid/i)).toBeDefined();
       expect(screen.getByText(/Invalid or expired candidate invite link/i)).toBeDefined();
     });
+  });
+
+  it("manages candidate invites in PortalDashboard with resend and revoke actions", async () => {
+    vi.spyOn(portalClient, "getCurrentOrganization").mockResolvedValue(mockOrg);
+    vi.spyOn(portalClient, "listOrganizationForms").mockResolvedValue(mockForms);
+    vi.spyOn(portalClient, "listCases").mockResolvedValue(mockCases);
+
+    const resentCase: Case = {
+      ...mockCases[0],
+      invite_token: "rotated-invite-token-999",
+      resend_count: 1,
+    };
+    const revokedCase: Case = {
+      ...mockCases[0],
+      status: "revoked",
+      revoked_at: "2026-11-15T12:00:00Z",
+    };
+
+    const resendSpy = vi
+      .spyOn(portalClient, "resendCaseInvite")
+      .mockResolvedValue(resentCase);
+    const revokeSpy = vi
+      .spyOn(portalClient, "revokeCaseInvite")
+      .mockResolvedValue(revokedCase);
+
+    render(<PortalDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("portal-tab-cases")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByTestId("portal-tab-cases"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("portal-cases-workspace")).toBeDefined();
+      expect(screen.getByText("Dr. Sarah Connor")).toBeDefined();
+    });
+
+    // Resend rotated invite link -> opens InviteSuccessModal
+    fireEvent.click(screen.getByTestId("resend-case-case-pub-1"));
+    await waitFor(() => {
+      expect(resendSpy).toHaveBeenCalledWith("case-pub-1");
+      expect(screen.getByText("inviteModalTitle")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText("done"));
+
+    // Revoke invite link -> marks status Revoked
+    fireEvent.click(screen.getByTestId("revoke-case-case-pub-1"));
+    await waitFor(() => {
+      expect(revokeSpy).toHaveBeenCalledWith("case-pub-1");
+    });
+
+    const row = screen.getByTestId("case-row-case-pub-1");
+    expect(row.textContent).toContain("Revoked");
   });
 
   it("applies authority ui_theme_config hiding metrics strip and showing custom notice banner", async () => {

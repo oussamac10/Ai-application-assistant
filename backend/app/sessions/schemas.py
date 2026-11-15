@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import computed_field
+from pydantic import Field, computed_field
 
 from app.forms.schemas import BaseSchema
 
@@ -24,6 +24,13 @@ class SessionResponse(BaseSchema):
     form_origin: str
     export_supported: bool
     progress_percentage: int = 0
+    form_title: str | None = None
+    form_description: str | None = None
+    required_documents: list[str] = Field(default_factory=list)
+    submission_method: str = "print_and_sign"
+    instructions: str | None = None
+    is_sponsored_case: bool = False
+    organization_name: str | None = None
 
     @computed_field
     def session_id(self) -> str:

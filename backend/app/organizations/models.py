@@ -186,9 +186,34 @@ class OrganizationCase(Base):
     invite_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    otp_code_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    otp_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    otp_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    otp_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_accessed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    resend_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    last_resent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     status: Mapped[str] = mapped_column(
         String(30), default="invited", nullable=False, index=True
-    )  # invited, in_progress, awaiting_review, completed
+    )  # invited, in_progress, awaiting_review, completed, revoked
     form_session_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey("form_sessions.id", ondelete="SET NULL"),

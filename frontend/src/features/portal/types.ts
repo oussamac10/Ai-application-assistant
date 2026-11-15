@@ -66,7 +66,12 @@ export interface OrganizationVerificationPayload {
   notes?: string;
 }
 
-export type CaseStatus = "invited" | "in_progress" | "awaiting_review" | "completed";
+export type CaseStatus =
+  | "invited"
+  | "in_progress"
+  | "awaiting_review"
+  | "completed"
+  | "revoked";
 
 export interface Case {
   id: string;
@@ -82,6 +87,13 @@ export interface Case {
   notes?: string | null;
   created_at: string;
   updated_at: string;
+  invite_expires_at?: string | null;
+  otp_verified_at?: string | null;
+  last_accessed_at?: string | null;
+  revoked_at?: string | null;
+  resend_count?: number;
+  last_resent_at?: string | null;
+  completed_at?: string | null;
   invite_token?: string | null;
   total_fields: number;
   answered_fields: number;
@@ -101,6 +113,45 @@ export interface CaseUpdatePayload {
   notes?: string;
 }
 
+export interface CandidateInviteOrganizationBranding {
+  id: string;
+  name: string;
+  slug: string;
+  organization_type: string;
+  verification_status: string;
+  is_verified_government: boolean;
+  description?: string | null;
+  has_logo: boolean;
+  office_address?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  official_website_url?: string | null;
+  ui_theme_config?: UIThemeConfig | null;
+}
+
+export interface CandidateInviteInspectInfo {
+  case_public_id: string;
+  candidate_name: string;
+  masked_email: string;
+  form_title: string;
+  form_description?: string | null;
+  form_version_id: string;
+  user_language: string;
+  source_language: string;
+  status: string;
+  otp_verified: boolean;
+  required_documents: string[];
+  submission_method: string;
+  instructions?: string | null;
+  organization: CandidateInviteOrganizationBranding;
+}
+
+export interface CandidateInviteOtpSendResponse {
+  sent: boolean;
+  masked_email: string;
+  expires_in_seconds: number;
+}
+
 export interface CandidateIntakeInfo {
   session_id: string;
   session_token: string;
@@ -112,6 +163,10 @@ export interface CandidateIntakeInfo {
   user_language: string;
   source_language: string;
   status: string;
+  required_documents?: string[];
+  submission_method?: string;
+  instructions?: string | null;
+  organization?: CandidateInviteOrganizationBranding | null;
 }
 
 export interface PublishedFormSummary {

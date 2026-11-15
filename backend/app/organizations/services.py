@@ -1,3 +1,5 @@
+import hmac
+import logging
 import re
 import secrets
 import tempfile
@@ -9,6 +11,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.auth.email_provider import EmailProvider, get_email_provider
 from app.auth.models import User
 from app.auth.repositories import UserRepository
 from app.forms.models import FormTemplate, FormVersion
@@ -25,6 +28,9 @@ from app.organizations.repositories import (
     OrganizationRepository,
 )
 from app.organizations.schemas import (
+    CandidateInviteInspectResponse,
+    CandidateInviteOrganizationBranding,
+    CandidateInviteOtpSendResponse,
     CandidateInviteRedemptionResponse,
     CaseCreateRequest,
     CaseRead,
@@ -48,11 +54,27 @@ from app.sessions.security import generate_ownership_token, hash_ownership_token
 from app.sessions.services import compute_session_progress_percentage
 from app.storage.factory import get_storage_provider
 
+logger = logging.getLogger(__name__)
 SLUG_CLEAN_REGEX = re.compile(r"[^a-z0-9]+")
+_OTP_TTL_SECONDS = 600
+_OTP_MAX_ATTEMPTS = 5
+
+
+def _mask_email(email: str) -> str:
+    """Mask email local part for unauthenticated invite inspection."""
+    raw = (email or "").strip()
+    if "@" not in raw:
+        return "***"
+    local, domain = raw.split("@", 1)
+    if len(local) <= 2:
+        masked_local = f"{local[0]}***" if local else "***"
+    else:
+        masked_local = f"{local[0]}***{local[-1]}"
+    return f"{masked_local}@{domain}"
 
 
 class OrganizationService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, email_provider: EmailProvider | None = None):
         self.db = db
         self.org_repo = OrganizationRepository(db)
         self.case_repo = CaseRepository(db)
@@ -60,6 +82,9 @@ class OrganizationService:
         self.session_repo = SessionRepository(db)
         self.user_repo = UserRepository(db)
         self.cat_repo = CategoryRepository(db)
+        self.email_provider: EmailProvider = (
+            email_provider if email_provider is not None else get_email_provider()
+        )
 
     def create_organization_for_user(
         self,
@@ -465,9 +490,11 @@ class OrganizationService:
 
         form_name = version.template.name if version.template else "Application"
 
-        # 3. Generate candidate magic invite token & session token hash
+        # 3. Generate candidate invite token separately from the initial session ownership token
+        # so the raw URL invite token can NEVER unlock /api/form-sessions/* directly before OTP.
         raw_invite_token = generate_ownership_token()
-        token_hash = hash_ownership_token(raw_invite_token)
+        invite_hash = hash_ownership_token(raw_invite_token)
+        initial_session_hash = hash_ownership_token(generate_ownership_token())
 
         output_lang = (
             version.supported_output_languages[0]
@@ -485,7 +512,7 @@ class OrganizationService:
             output_language=output_lang,
             total_required_fields=total_required,
             expires_at=expires_at,
-            ownership_token_hash=token_hash,
+            ownership_token_hash=initial_session_hash,
             user_id=None,
         )
 
@@ -496,15 +523,104 @@ class OrganizationService:
             candidate_name=request.candidate_name,
             candidate_email=str(request.candidate_email),
             form_session_id=form_session.id,
-            invite_token_hash=token_hash,
+            invite_token_hash=invite_hash,
             invite_expires_at=datetime.now(UTC) + timedelta(days=14),
             notes=request.notes,
         )
         self.db.commit()
 
+        try:
+            self.email_provider.send_candidate_invite(
+                recipient=case.candidate_email,
+                invite_token=raw_invite_token,
+                organization_name=org.name,
+                form_title=form_name,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Candidate invite email dispatch failed (%s); case=%s",
+                type(exc).__name__,
+                case.public_id,
+            )
+
+        self._log_case_audit("invite_created", case, actor_user_id=user.id)
+
         case_dto = self._enrich_case(case, version_title=form_name)
         case_dto.invite_token = raw_invite_token
         return case_dto, raw_invite_token
+
+    def _log_case_audit(
+        self,
+        action: str,
+        case: OrganizationCase,
+        actor_user_id: str | None = None,
+    ) -> None:
+        """Emit a zero-PII audit log entry for invite & OTP lifecycle events."""
+        logger.info(
+            "case_audit action=%s case_public_id=%s org_id=%s status=%s actor_user_id=%s",
+            action,
+            case.public_id,
+            case.organization_id,
+            case.status,
+            actor_user_id or "candidate",
+        )
+
+    @staticmethod
+    def _build_invite_branding(
+        org: Organization,
+    ) -> CandidateInviteOrganizationBranding:
+        return CandidateInviteOrganizationBranding(
+            id=org.id,
+            name=org.name,
+            slug=org.slug,
+            organization_type=org.organization_type,
+            verification_status=org.verification_status,
+            is_verified_government=org.is_verified_government,
+            description=org.description,
+            has_logo=bool(org.logo_storage_path),
+            office_address=org.office_address,
+            contact_email=org.contact_email,
+            contact_phone=org.contact_phone,
+            official_website_url=org.official_website_url,
+            ui_theme_config=org.ui_theme_config,
+        )
+
+    @staticmethod
+    def _extract_template_metadata(
+        version: FormVersion | None,
+    ) -> tuple[str, str | None, list[str], str, str | None]:
+        template = version.template if version else None
+        if not template:
+            return (
+                "Official Administrative Form",
+                None,
+                [],
+                "print_and_sign",
+                None,
+            )
+        return (
+            template.name,
+            template.description,
+            list(template.required_documents or []),
+            template.submission_method or "print_and_sign",
+            template.instructions,
+        )
+
+    def _get_active_invite_case(self, raw_token: str) -> OrganizationCase:
+        cleaned = (raw_token or "").strip()
+        if not cleaned:
+            raise InvalidInviteTokenError("Invalid or expired candidate invite link.")
+        token_hash = hash_ownership_token(cleaned)
+        case = self.case_repo.get_by_invite_token_hash(token_hash)
+        if not case:
+            raise InvalidInviteTokenError("Invalid or expired candidate invite link.")
+        if case.status == "revoked" or case.revoked_at is not None:
+            raise InvalidInviteTokenError(
+                "This invitation link has been revoked by your case coordinator."
+            )
+        if case.invite_expires_at and case.invite_expires_at < datetime.now(UTC):
+            raise InvalidInviteTokenError("This invitation link has expired.")
+        return case
 
     def list_cases(self, user: User) -> list[CaseRead]:
         org, _ = self.ensure_default_organization(user)
@@ -528,6 +644,13 @@ class OrganizationService:
 
         if updates.status is not None:
             case.status = updates.status
+            if updates.status == "completed" and case.completed_at is None:
+                case.completed_at = datetime.now(UTC)
+            elif updates.status == "revoked" and case.revoked_at is None:
+                case.revoked_at = datetime.now(UTC)
+                case.invite_token_hash = None
+                case.otp_code_hash = None
+                case.otp_expires_at = None
         if updates.notes is not None:
             case.notes = updates.notes
 
@@ -535,36 +658,143 @@ class OrganizationService:
         self.db.commit()
         return self._enrich_case(case)
 
-    def redeem_candidate_invite(
+    def inspect_candidate_invite(
         self, raw_token: str
-    ) -> CandidateInviteRedemptionResponse:
-        token_hash = hash_ownership_token(raw_token)
-        case = self.case_repo.get_by_invite_token_hash(token_hash)
-        if not case:
-            raise InvalidInviteTokenError("Invalid or expired candidate invite link.")
-
-        if case.invite_expires_at and case.invite_expires_at < datetime.now(UTC):
-            raise InvalidInviteTokenError("This invitation link has expired.")
-
+    ) -> CandidateInviteInspectResponse:
+        case = self._get_active_invite_case(raw_token)
         session = self.session_repo.get_session_by_id(case.form_session_id or "")
         if not session:
             raise InvalidInviteTokenError("Associated form session is not available.")
+        org = self.org_repo.get(case.organization_id)
+        if not org:
+            raise InvalidInviteTokenError("Associated organization is not available.")
 
-        if case.status == "invited":
-            case.status = "in_progress"
-            self.case_repo.save(case)
-            self.db.commit()
+        case.last_accessed_at = datetime.now(UTC)
+        self.case_repo.save(case)
+        self.db.commit()
+        self._log_case_audit("invite_inspected", case)
 
         version = self.form_repo.get_version(case.form_version_id)
-        title = (
-            version.template.name
-            if version and version.template
-            else "Official Administrative Form"
+        title, description, req_docs, sub_method, instructions = (
+            self._extract_template_metadata(version)
+        )
+        return CandidateInviteInspectResponse(
+            case_public_id=case.public_id,
+            candidate_name=case.candidate_name,
+            masked_email=_mask_email(case.candidate_email),
+            form_title=title,
+            form_description=description,
+            form_version_id=case.form_version_id,
+            user_language=session.user_language,
+            source_language=session.source_language,
+            status=case.status,
+            otp_verified=case.otp_verified_at is not None,
+            required_documents=req_docs,
+            submission_method=sub_method,
+            instructions=instructions,
+            organization=self._build_invite_branding(org),
+        )
+
+    def send_candidate_invite_otp(
+        self, raw_token: str
+    ) -> CandidateInviteOtpSendResponse:
+        case = self._get_active_invite_case(raw_token)
+        org = self.org_repo.get(case.organization_id)
+        if not org:
+            raise InvalidInviteTokenError("Associated organization is not available.")
+        version = self.form_repo.get_version(case.form_version_id)
+        title, _, _, _, _ = self._extract_template_metadata(version)
+
+        otp_code = f"{secrets.randbelow(1_000_000):06d}"
+        case.otp_code_hash = hash_ownership_token(f"{case.id}:{otp_code}")
+        case.otp_expires_at = datetime.now(UTC) + timedelta(seconds=_OTP_TTL_SECONDS)
+        case.otp_attempts = 0
+        self.case_repo.save(case)
+        self.db.commit()
+
+        self.email_provider.send_candidate_otp(
+            recipient=case.candidate_email,
+            otp_code=otp_code,
+            organization_name=org.name,
+            form_title=title,
+        )
+        self._log_case_audit("invite_otp_sent", case)
+
+        return CandidateInviteOtpSendResponse(
+            sent=True,
+            masked_email=_mask_email(case.candidate_email),
+            expires_in_seconds=_OTP_TTL_SECONDS,
+        )
+
+    def verify_candidate_invite_otp(
+        self, raw_token: str, otp_code: str
+    ) -> CandidateInviteRedemptionResponse:
+        case = self._get_active_invite_case(raw_token)
+        session = self.session_repo.get_session_by_id(case.form_session_id or "")
+        if not session:
+            raise InvalidInviteTokenError("Associated form session is not available.")
+        org = self.org_repo.get(case.organization_id)
+        if not org:
+            raise InvalidInviteTokenError("Associated organization is not available.")
+
+        now = datetime.now(UTC)
+        if (
+            not case.otp_code_hash
+            or not case.otp_expires_at
+            or case.otp_expires_at < now
+        ):
+            raise InvalidInviteTokenError(
+                "Verification code expired or not requested. Please request a new code."
+            )
+
+        if (case.otp_attempts or 0) >= _OTP_MAX_ATTEMPTS:
+            case.otp_code_hash = None
+            self.case_repo.save(case)
+            self.db.commit()
+            raise InvalidInviteTokenError(
+                "Too many incorrect verification attempts. Please request a new code."
+            )
+
+        candidate_hash = hash_ownership_token(f"{case.id}:{otp_code.strip()}")
+        if not hmac.compare_digest(candidate_hash, case.otp_code_hash):
+            case.otp_attempts = (case.otp_attempts or 0) + 1
+            if case.otp_attempts >= _OTP_MAX_ATTEMPTS:
+                case.otp_code_hash = None
+            self.case_repo.save(case)
+            # Commit BEFORE raising so brute-force counter persists across HTTP requests.
+            self.db.commit()
+            self._log_case_audit("invite_otp_failed", case)
+            raise InvalidInviteTokenError(
+                "Invalid verification code. Please check your email and try again."
+            )
+
+        raw_session_token = generate_ownership_token()
+        session.ownership_token_hash = hash_ownership_token(raw_session_token)
+        if session.status == "cancelled":
+            session.status = "in_progress" if session.answers else "session_created"
+            session.cancelled_at = None
+
+        case.otp_code_hash = None
+        case.otp_expires_at = None
+        case.otp_attempts = 0
+        case.otp_verified_at = now
+        case.last_accessed_at = now
+        if case.status == "invited":
+            case.status = "in_progress"
+
+        self.case_repo.save(case)
+        self.db.add(session)
+        self.db.commit()
+        self._log_case_audit("invite_otp_verified", case)
+
+        version = self.form_repo.get_version(case.form_version_id)
+        title, _, req_docs, sub_method, instructions = self._extract_template_metadata(
+            version
         )
 
         return CandidateInviteRedemptionResponse(
             session_id=session.public_id,
-            session_token=raw_token,
+            session_token=raw_session_token,
             case_public_id=case.public_id,
             candidate_name=case.candidate_name,
             candidate_email=case.candidate_email,
@@ -573,7 +803,118 @@ class OrganizationService:
             user_language=session.user_language,
             source_language=session.source_language,
             status=case.status,
+            required_documents=req_docs,
+            submission_method=sub_method,
+            instructions=instructions,
+            organization=self._build_invite_branding(org),
         )
+
+    def revoke_case_invite(self, user: User, public_id: str) -> CaseRead:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ("owner", "admin", "case_manager"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only case managers and admins can revoke candidate invites.",
+            )
+
+        case = self.case_repo.get_by_public_id(public_id)
+        if not case or case.organization_id != org.id:
+            raise CaseNotFoundError(f"Case with ID '{public_id}' not found.")
+        if case.status == "completed":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Completed cases cannot be revoked.",
+            )
+
+        now = datetime.now(UTC)
+        case.invite_token_hash = None
+        case.otp_code_hash = None
+        case.otp_expires_at = None
+        case.otp_attempts = 0
+        case.revoked_at = now
+        case.status = "revoked"
+
+        if case.form_session_id:
+            session = self.session_repo.get_session_by_id(case.form_session_id)
+            if session and session.user_id is None and session.status != "completed":
+                session.ownership_token_hash = None
+                session.status = "cancelled"
+                session.cancelled_at = now
+                self.db.add(session)
+
+        self.case_repo.save(case)
+        self.db.commit()
+        self._log_case_audit("invite_revoked", case, actor_user_id=user.id)
+        return self._enrich_case(case)
+
+    def resend_case_invite(self, user: User, public_id: str) -> tuple[CaseRead, str]:
+        org, member = self.ensure_default_organization(user)
+        if member.role not in ("owner", "admin", "case_manager"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only case managers and admins can resend candidate invites.",
+            )
+
+        case = self.case_repo.get_by_public_id(public_id)
+        if not case or case.organization_id != org.id:
+            raise CaseNotFoundError(f"Case with ID '{public_id}' not found.")
+        if case.status == "completed":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Completed cases cannot be resent.",
+            )
+
+        now = datetime.now(UTC)
+        raw_invite_token = generate_ownership_token()
+        case.invite_token_hash = hash_ownership_token(raw_invite_token)
+        case.invite_expires_at = now + timedelta(days=14)
+        case.revoked_at = None
+        case.otp_code_hash = None
+        case.otp_expires_at = None
+        case.otp_attempts = 0
+        case.otp_verified_at = None
+        case.resend_count = (case.resend_count or 0) + 1
+        case.last_resent_at = now
+
+        session = (
+            self.session_repo.get_session_by_id(case.form_session_id)
+            if case.form_session_id
+            else None
+        )
+        if session and session.user_id is None:
+            session.ownership_token_hash = hash_ownership_token(
+                generate_ownership_token()
+            )
+            session.expires_at = now + timedelta(days=30)
+            if session.status in ("cancelled", "expired"):
+                session.status = "in_progress" if session.answers else "session_created"
+                session.cancelled_at = None
+            self.db.add(session)
+
+        case.status = "in_progress" if (session and session.answers) else "invited"
+        self.case_repo.save(case)
+        self.db.commit()
+
+        version = self.form_repo.get_version(case.form_version_id)
+        form_name, _, _, _, _ = self._extract_template_metadata(version)
+        try:
+            self.email_provider.send_candidate_invite(
+                recipient=case.candidate_email,
+                invite_token=raw_invite_token,
+                organization_name=org.name,
+                form_title=form_name,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Candidate invite resend email failed (%s); case=%s",
+                type(exc).__name__,
+                case.public_id,
+            )
+
+        self._log_case_audit("invite_resent", case, actor_user_id=user.id)
+        case_dto = self._enrich_case(case, version_title=form_name)
+        case_dto.invite_token = raw_invite_token
+        return case_dto, raw_invite_token
 
     def _enrich_case(
         self, case: OrganizationCase, version_title: str | None = None
@@ -616,6 +957,13 @@ class OrganizationService:
             notes=case.notes,
             created_at=case.created_at,
             updated_at=case.updated_at,
+            invite_expires_at=case.invite_expires_at,
+            otp_verified_at=case.otp_verified_at,
+            last_accessed_at=case.last_accessed_at,
+            revoked_at=case.revoked_at,
+            resend_count=case.resend_count or 0,
+            last_resent_at=case.last_resent_at,
+            completed_at=case.completed_at,
             total_fields=total_fields,
             answered_fields=answered_fields,
             progress_percent=progress,

@@ -2,7 +2,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core.config import settings
 from app.forms.repositories import FormRepository
@@ -76,6 +76,43 @@ def compute_session_progress_percentage(session: FormSession) -> int:
 
 
 def to_session_response_dict(session: FormSession) -> dict[str, Any]:
+    version = getattr(session, "version", None)
+    template = getattr(version, "template", None) if version is not None else None
+    form_title = getattr(template, "name", None) if template is not None else None
+    form_description = (
+        getattr(template, "description", None) if template is not None else None
+    )
+    raw_req_docs = (
+        getattr(template, "required_documents", None) if template is not None else None
+    )
+    required_documents = list(raw_req_docs) if isinstance(raw_req_docs, list) else []
+    submission_method = (
+        getattr(template, "submission_method", None) if template is not None else None
+    ) or "print_and_sign"
+    instructions = (
+        getattr(template, "instructions", None) if template is not None else None
+    )
+
+    is_sponsored_case = False
+    organization_name: str | None = None
+    db = object_session(session)
+    if db is not None and getattr(session, "id", None):
+        from app.organizations.models import Organization, OrganizationCase
+
+        case = (
+            db.query(OrganizationCase)
+            .filter(
+                OrganizationCase.form_session_id == session.id,
+                OrganizationCase.status != "revoked",
+            )
+            .first()
+        )
+        if case is not None:
+            is_sponsored_case = True
+            org = db.get(Organization, case.organization_id)
+            if org is not None:
+                organization_name = org.name
+
     return {
         "public_id": session.public_id,
         "form_version_id": session.form_version_id,
@@ -90,6 +127,13 @@ def to_session_response_dict(session: FormSession) -> dict[str, Any]:
         "form_origin": session.form_origin,
         "export_supported": session.export_supported,
         "progress_percentage": compute_session_progress_percentage(session),
+        "form_title": form_title,
+        "form_description": form_description,
+        "required_documents": required_documents,
+        "submission_method": submission_method,
+        "instructions": instructions,
+        "is_sponsored_case": is_sponsored_case,
+        "organization_name": organization_name,
     }
 
 

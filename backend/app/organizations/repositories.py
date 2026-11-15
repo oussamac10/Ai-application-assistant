@@ -176,6 +176,12 @@ class CaseRepository:
         )
         return self.db.execute(stmt).scalar_one_or_none()
 
+    def get_by_form_session_id(self, form_session_id: str) -> OrganizationCase | None:
+        stmt = select(OrganizationCase).where(
+            OrganizationCase.form_session_id == form_session_id
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
     def list_by_organization(self, organization_id: str) -> list[OrganizationCase]:
         stmt = (
             select(OrganizationCase)

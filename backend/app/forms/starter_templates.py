@@ -59,6 +59,11 @@ def provision_starter_templates_for_organization(
             description=spec.get("description"),
         )
         template.organization_id = org.id
+        template.submission_method = str(
+            spec.get("submission_method", "print_and_sign")
+        )
+        template.instructions = spec.get("instructions")
+        template.required_documents = list(spec.get("required_documents", []))
         db.flush()
 
         version = form_service.create_draft_version(

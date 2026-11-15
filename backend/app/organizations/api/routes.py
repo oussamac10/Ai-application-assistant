@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_user, verify_csrf
 from app.auth.models import User
+from app.core.rate_limit import rate_limit_auth
 from app.database.session import get_db
 from app.forms.auto_mapper import SchemaAutoMapperService
 from app.forms.organization_service import OrganizationFormService
@@ -26,6 +27,9 @@ from app.organizations.schemas import (
     ApplyAutoMapRequestSchema,
     ApplyAutoMapResponseSchema,
     AutoMapResponseSchema,
+    CandidateInviteInspectResponse,
+    CandidateInviteOtpSendResponse,
+    CandidateInviteOtpVerifyRequest,
     CandidateInviteRedemptionResponse,
     CaseCreateRequest,
     CaseRead,
@@ -255,15 +259,63 @@ def update_case(
     return service.update_case(user, public_id, body)
 
 
-@router.get(
-    "/cases/invite/{raw_token}", response_model=CandidateInviteRedemptionResponse
-)
-def redeem_candidate_invite(
+@router.post("/cases/{public_id}/revoke-invite", response_model=CaseRead)
+def revoke_case_invite(
+    public_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    return service.revoke_case_invite(user, public_id)
+
+
+@router.post("/cases/{public_id}/resend-invite", response_model=CaseRead)
+def resend_case_invite(
+    public_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationService(db)
+    case_dto, _ = service.resend_case_invite(user, public_id)
+    return case_dto
+
+
+@router.get("/cases/invite/{raw_token}", response_model=CandidateInviteInspectResponse)
+def inspect_candidate_invite(
     raw_token: str,
     db: Session = Depends(get_db),
 ) -> Any:
     service = OrganizationService(db)
-    return service.redeem_candidate_invite(raw_token)
+    return service.inspect_candidate_invite(raw_token)
+
+
+@router.post(
+    "/cases/invite/{raw_token}/send-otp",
+    response_model=CandidateInviteOtpSendResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
+def send_candidate_invite_otp(
+    raw_token: str,
+    db: Session = Depends(get_db),
+) -> Any:
+    service = OrganizationService(db)
+    return service.send_candidate_invite_otp(raw_token)
+
+
+@router.post(
+    "/cases/invite/{raw_token}/verify-otp",
+    response_model=CandidateInviteRedemptionResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
+def verify_candidate_invite_otp(
+    raw_token: str,
+    body: CandidateInviteOtpVerifyRequest,
+    db: Session = Depends(get_db),
+) -> Any:
+    service = OrganizationService(db)
+    return service.verify_candidate_invite_otp(raw_token, body.otp_code)
 
 
 # Organization Forms & Schema Review Routes (Phase G2)

@@ -1634,6 +1634,14 @@ class AnswerService:
 
         session.status = "ready_for_export"
         session.completed_at = datetime.now(UTC)
+
+        from app.organizations.repositories import CaseRepository
+
+        linked_case = CaseRepository(self.db).get_by_form_session_id(session.id)
+        if linked_case and linked_case.status in ("invited", "in_progress"):
+            linked_case.status = "awaiting_review"
+            self.db.add(linked_case)
+
         self.db.commit()
 
         return session

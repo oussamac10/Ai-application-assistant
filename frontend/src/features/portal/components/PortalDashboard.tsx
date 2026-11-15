@@ -10,8 +10,12 @@ import {
   updateFormCategory,
   autoCategorizeForms,
   provisionStarterTemplates,
+  listCases,
+  revokeCaseInvite,
+  resendCaseInvite,
 } from "../services/portalClient";
 import {
+  Case,
   Organization,
   OrganizationFormSummary,
   OrganizationCategory,
@@ -19,6 +23,8 @@ import {
 import { FormUploadModal } from "./FormUploadModal";
 import { FormSchemaReviewStudio } from "./FormSchemaReviewStudio";
 import { ShareFormModal } from "./ShareFormModal";
+import { NewCaseModal } from "./NewCaseModal";
+import { InviteSuccessModal } from "./InviteSuccessModal";
 import { CategoryIcon } from "./CategoryIcon";
 import {
   FileText,
@@ -42,6 +48,11 @@ import {
   Tag,
   Folder,
   Loader2,
+  UserPlus,
+  Users,
+  Ban,
+  Send,
+  KeyRound,
 } from "lucide-react";
 import {
   resolveThemeConfig,
@@ -60,6 +71,17 @@ export function PortalDashboard() {
   const [loading, setLoading] = useState(true);
   const [loadingForms, setLoadingForms] = useState(false);
 
+  // Workspace tabs & Candidate Intakes state
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"forms" | "cases">("forms");
+  const [cases, setCases] = useState<Case[]>([]);
+  const [loadingCases, setLoadingCases] = useState(false);
+  const [caseStatusFilter, setCaseStatusFilter] = useState<string>("all");
+  const [caseSearchQuery, setCaseSearchQuery] = useState("");
+  const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState(false);
+  const [createdOrResentCase, setCreatedOrResentCase] = useState<Case | null>(null);
+  const [caseActionLoadingId, setCaseActionLoadingId] = useState<string | null>(null);
+  const [caseActionError, setCaseActionError] = useState<string | null>(null);
+
   // Forms filter & search state
   const [formSearchQuery, setFormSearchQuery] = useState("");
   const [formStatusFilter, setFormStatusFilter] = useState<string>("all");
@@ -73,16 +95,64 @@ export function PortalDashboard() {
       getCurrentOrganization(),
       listOrganizationForms().catch(() => []),
       listOrganizationCategories().catch(() => []),
+      typeof listCases === "function"
+        ? Promise.resolve(listCases()).catch(() => [])
+        : Promise.resolve([]),
     ])
-      .then(([orgData, formsData, catsData]) => {
+      .then(([orgData, formsData, catsData, casesData]) => {
         setOrg(orgData);
         setForms(formsData);
         setCategories(catsData);
+        setCases(Array.isArray(casesData) ? casesData : []);
       })
       .catch((err) => {
         console.error("Workspace load error:", err);
       })
       .finally(() => setLoading(false));
+  };
+
+  const fetchCases = () => {
+    if (typeof listCases !== "function") return;
+    setLoadingCases(true);
+    Promise.resolve(listCases())
+      .then((data) => setCases(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Cases load error:", err))
+      .finally(() => setLoadingCases(false));
+  };
+
+  const handleRevokeCase = async (publicId: string) => {
+    setCaseActionLoadingId(publicId);
+    setCaseActionError(null);
+    try {
+      const updated = await revokeCaseInvite(publicId);
+      setCases((prev) =>
+        prev.map((c) => (c.public_id === publicId ? updated : c))
+      );
+    } catch (err: unknown) {
+      setCaseActionError(
+        err instanceof Error ? err.message : "Failed to revoke invite link."
+      );
+    } finally {
+      setCaseActionLoadingId(null);
+    }
+  };
+
+  const handleResendCase = async (publicId: string) => {
+    setCaseActionLoadingId(publicId);
+    setCaseActionError(null);
+    try {
+      const updated = await resendCaseInvite(publicId);
+      setCases((prev) =>
+        prev.map((c) => (c.public_id === publicId ? updated : c))
+      );
+      setCreatedOrResentCase(updated);
+    } catch (err: unknown) {
+      setCaseActionError(
+        err instanceof Error ? err.message : "Failed to resend candidate invite."
+      );
+    } finally {
+      setCaseActionLoadingId(null);
+    }
   };
 
   const fetchCategories = () => {
@@ -197,6 +267,22 @@ export function PortalDashboard() {
     });
   }, [forms, formStatusFilter, categoryFilter, formSearchQuery]);
 
+  const filteredCases = useMemo(() => {
+    return cases.filter((c) => {
+      if (caseStatusFilter !== "all" && c.status !== caseStatusFilter) {
+        return false;
+      }
+      if (caseSearchQuery.trim().length > 0) {
+        const q = caseSearchQuery.toLowerCase();
+        const matchesName = c.candidate_name.toLowerCase().includes(q);
+        const matchesEmail = c.candidate_email.toLowerCase().includes(q);
+        const matchesForm = (c.form_title || "").toLowerCase().includes(q);
+        return matchesName || matchesEmail || matchesForm;
+      }
+      return true;
+    });
+  }, [cases, caseStatusFilter, caseSearchQuery]);
+
   // If Review Studio is open, take over the view
   if (selectedTemplateIdForReview) {
     return (
@@ -254,7 +340,11 @@ export function PortalDashboard() {
         <span className="text-slate-600">/</span>
         <span className="text-slate-300 font-medium">Workspace</span>
         <span className="text-slate-600">/</span>
-        <span className="text-emerald-400 font-semibold font-mono">Official Forms & Studio</span>
+        <span className="text-emerald-400 font-semibold font-mono">
+          {activeWorkspaceTab === "forms"
+            ? "Official Forms & Studio"
+            : "Candidate Intakes & Invites"}
+        </span>
       </div>
 
       {/* Official Government Authority Header */}
@@ -360,6 +450,15 @@ export function PortalDashboard() {
           )}
           <button
             type="button"
+            data-testid="new-intake-header-btn"
+            onClick={() => setIsNewCaseModalOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>New Intake</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setIsUploadFormOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_-3px_rgba(16,185,129,0.35)] active:scale-[0.98] transition-all cursor-pointer"
           >
@@ -367,6 +466,55 @@ export function PortalDashboard() {
             <span>Upload PDF</span>
           </button>
         </div>
+      </div>
+
+      {/* Workspace View Switcher */}
+      <div className="pt-4 mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          data-testid="portal-tab-forms"
+          onClick={() => setActiveWorkspaceTab("forms")}
+          className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer ${
+            activeWorkspaceTab === "forms"
+              ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+              : "border border-slate-800 bg-[#0A0E17] text-slate-300 hover:bg-slate-800 hover:text-white"
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Official Forms &amp; Studio</span>
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono ${
+              activeWorkspaceTab === "forms"
+                ? "bg-slate-950/20 text-slate-950 font-bold"
+                : "bg-slate-800 text-slate-400"
+            }`}
+          >
+            {forms.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          data-testid="portal-tab-cases"
+          onClick={() => setActiveWorkspaceTab("cases")}
+          className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer ${
+            activeWorkspaceTab === "cases"
+              ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+              : "border border-slate-800 bg-[#0A0E17] text-slate-300 hover:bg-slate-800 hover:text-white"
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span>Candidate Intakes &amp; Invites</span>
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono ${
+              activeWorkspaceTab === "cases"
+                ? "bg-slate-950/20 text-slate-950 font-bold"
+                : "bg-slate-800 text-slate-400"
+            }`}
+          >
+            {cases.length}
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -816,6 +964,260 @@ export function PortalDashboard() {
     </div>
   );
 
+  const renderCasesWorkspace = () => {
+    const invitedCount = cases.filter((c) => c.status === "invited").length;
+    const inProgressCount = cases.filter((c) => c.status === "in_progress").length;
+    const completedCount = cases.filter(
+      (c) => c.status === "awaiting_review" || c.status === "completed"
+    ).length;
+
+    return (
+      <div className="space-y-5" data-testid="portal-cases-workspace">
+        {/* Candidate Intakes Summary Strip */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl border border-slate-800 border-t-2 border-t-emerald-500/60 bg-[#0F1522] p-4 sm:p-5 shadow-card">
+            <div className="text-xs font-medium text-slate-400">Total Intakes</div>
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-mono">
+              {cases.length}
+            </div>
+            <div className="mt-1 text-[11px] font-mono text-slate-500">ALL CANDIDATES</div>
+          </div>
+          <div className="rounded-2xl border border-slate-800 border-t-2 border-t-amber-500 bg-[#0F1522] p-4 sm:p-5 shadow-card">
+            <div className="text-xs font-medium text-slate-400">Invited</div>
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-amber-400 font-mono">
+              {invitedCount}
+            </div>
+            <div className="mt-1 text-[11px] font-mono text-amber-400/80">AWAITING OTP</div>
+          </div>
+          <div className="rounded-2xl border border-slate-800 border-t-2 border-t-emerald-500 bg-[#0F1522] p-4 sm:p-5 shadow-card">
+            <div className="text-xs font-medium text-slate-400">In Progress</div>
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-400 font-mono">
+              {inProgressCount}
+            </div>
+            <div className="mt-1 text-[11px] font-mono text-emerald-400/80">EMAIL VERIFIED</div>
+          </div>
+          <div className="rounded-2xl border border-slate-800 border-t-2 border-t-slate-600 bg-[#0F1522] p-4 sm:p-5 shadow-card">
+            <div className="text-xs font-medium text-slate-400">Completed / Review</div>
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-mono">
+              {completedCount}
+            </div>
+            <div className="mt-1 text-[11px] font-mono text-slate-500">READY</div>
+          </div>
+        </div>
+
+        {/* Filter & Action Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { id: "all", label: "All" },
+              { id: "invited", label: "Invited" },
+              { id: "in_progress", label: "In Progress" },
+              { id: "awaiting_review", label: "Awaiting Review" },
+              { id: "completed", label: "Completed" },
+              { id: "revoked", label: "Revoked" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setCaseStatusFilter(tab.id)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                  caseStatusFilter === tab.id
+                    ? "bg-emerald-500 text-slate-950 font-bold"
+                    : "bg-[#0F1522] text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-72">
+              <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-slate-500">
+                <Search className="w-3.5 h-3.5" />
+              </div>
+              <input
+                type="text"
+                value={caseSearchQuery}
+                onChange={(e) => setCaseSearchQuery(e.target.value)}
+                placeholder="Search candidates, emails, or forms..."
+                className="w-full rounded-xl border border-slate-800 bg-[#0A0E17] py-1.5 ps-8 pe-3 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={fetchCases}
+              disabled={loadingCases}
+              className="rounded-xl border border-slate-800 bg-[#0F1522] px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {loadingCases ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+        </div>
+
+        {caseActionError && (
+          <div
+            role="alert"
+            className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-200 flex items-center justify-between gap-2"
+          >
+            <span>{caseActionError}</span>
+            <button
+              type="button"
+              onClick={() => setCaseActionError(null)}
+              className="text-rose-300 hover:text-white font-bold cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {filteredCases.length === 0 ? (
+          <div className="rounded-2xl border border-slate-800 bg-[#0F1522] p-10 text-center shadow-card">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+              <Users className="w-6 h-6" />
+            </div>
+            <h3 className="mt-3 text-sm font-bold text-white">
+              No candidate intakes found
+            </h3>
+            <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
+              Send a private, email-verified form invite to an applicant in any of 8 languages.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsNewCaseModalOpen(true)}
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition-colors cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>New Intake</span>
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-800 bg-[#0F1522] overflow-hidden shadow-card">
+            <div className="divide-y divide-slate-800">
+              {filteredCases.map((c) => {
+                const isBusy = caseActionLoadingId === c.public_id;
+                const statusBadge =
+                  c.status === "revoked"
+                    ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                    : c.status === "completed" || c.status === "awaiting_review"
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                    : c.status === "in_progress"
+                    ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
+                    : "border-amber-500/30 bg-amber-500/10 text-amber-300";
+
+                const statusLabel =
+                  c.status === "revoked"
+                    ? "Revoked"
+                    : c.status === "awaiting_review"
+                    ? "Awaiting Review"
+                    : c.status === "in_progress"
+                    ? "In Progress"
+                    : c.status === "completed"
+                    ? "Completed"
+                    : "Invited";
+
+                return (
+                  <div
+                    key={c.public_id}
+                    data-testid={`case-row-${c.public_id}`}
+                    className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-[#151D2E]/50 transition-colors"
+                  >
+                    <div className="min-w-0 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-bold text-white truncate">
+                          {c.candidate_name}
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider ${statusBadge}`}
+                        >
+                          {statusLabel}
+                        </span>
+                        {c.otp_verified_at && c.status !== "revoked" && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                            <KeyRound className="w-3 h-3" />
+                            Email Verified
+                          </span>
+                        )}
+                        {(c.resend_count || 0) > 0 && (
+                          <span className="text-[10px] font-mono text-slate-400">
+                            Resent {c.resend_count}x
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
+                        <bdi className="font-mono text-slate-300">
+                          {c.candidate_email}
+                        </bdi>
+                        <span>•</span>
+                        <span className="text-slate-300">
+                          {c.form_title || c.form_version_id}
+                        </span>
+                      </div>
+
+                      {c.notes && (
+                        <p className="text-xs text-slate-500 truncate">
+                          {c.notes}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 shrink-0">
+                      <div className="w-40 space-y-1">
+                        <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                          <span>Progress</span>
+                          <span className="text-white font-bold">
+                            {c.answered_fields}/{c.total_fields} ({c.progress_percent}%)
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-emerald-500 transition-all"
+                            style={{ width: `${c.progress_percent}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          data-testid={`resend-case-${c.public_id}`}
+                          disabled={c.status === "completed" || isBusy}
+                          onClick={() => handleResendCase(c.public_id)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40 transition-colors cursor-pointer"
+                        >
+                          {isBusy ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Send className="w-3.5 h-3.5 text-emerald-400" />
+                          )}
+                          <span>Resend Link</span>
+                        </button>
+
+                        {c.status !== "revoked" && c.status !== "completed" && (
+                          <button
+                            type="button"
+                            data-testid={`revoke-case-${c.public_id}`}
+                            disabled={isBusy}
+                            onClick={() => handleRevokeCase(c.public_id)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-40 transition-colors cursor-pointer"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                            <span>Revoke</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
       className={`mx-auto max-w-7xl px-4 ${
@@ -824,11 +1226,15 @@ export function PortalDashboard() {
     >
       {(theme.section_order || ["header", "metrics", "actions", "forms"]).map((sec) => {
         if (sec === "header") return <React.Fragment key="header">{renderHeader()}</React.Fragment>;
-        if (sec === "metrics") return <React.Fragment key="metrics">{renderMetrics()}</React.Fragment>;
-        if (sec === "actions") return <React.Fragment key="actions">{renderActions()}</React.Fragment>;
-        if (sec === "forms") return <React.Fragment key="forms">{renderForms()}</React.Fragment>;
+        if (activeWorkspaceTab === "forms") {
+          if (sec === "metrics") return <React.Fragment key="metrics">{renderMetrics()}</React.Fragment>;
+          if (sec === "actions") return <React.Fragment key="actions">{renderActions()}</React.Fragment>;
+          if (sec === "forms") return <React.Fragment key="forms">{renderForms()}</React.Fragment>;
+        }
         return null;
       })}
+
+      {activeWorkspaceTab === "cases" && renderCasesWorkspace()}
 
       {/* Modals */}
       <FormUploadModal
@@ -852,6 +1258,25 @@ export function PortalDashboard() {
             status: sharingForm.status,
           }}
           orgSlug={org?.slug}
+        />
+      )}
+
+      {isNewCaseModalOpen && (
+        <NewCaseModal
+          isOpen={isNewCaseModalOpen}
+          onClose={() => setIsNewCaseModalOpen(false)}
+          onCaseCreated={(newCase) => {
+            setCases((prev) => [newCase, ...prev]);
+            setCreatedOrResentCase(newCase);
+            setActiveWorkspaceTab("cases");
+          }}
+        />
+      )}
+
+      {createdOrResentCase && (
+        <InviteSuccessModal
+          caseData={createdOrResentCase}
+          onClose={() => setCreatedOrResentCase(null)}
         />
       )}
     </div>

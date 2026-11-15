@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   startSession,
+  getSession,
   getCurrentField,
   fetchSessionPagePreviewBlob,
   skipField,
@@ -48,6 +49,9 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  ClipboardCheck,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { prefillSessionFromVault } from "@/features/profile-vault/services/vaultClient";
@@ -91,6 +95,9 @@ export default function GuidedSession() {
     null,
   );
   const [isSaveResumeOpen, setIsSaveResumeOpen] = useState<boolean>(false);
+  const [requiredDocuments, setRequiredDocuments] = useState<string[]>([]);
+  const [prepDocsChecked, setPrepDocsChecked] = useState<Record<number, boolean>>({});
+  const [prepBannerExpanded, setPrepBannerExpanded] = useState<boolean>(false);
   const [slideDirection, setSlideDirection] = useState<"forward" | "backward">("forward");
   const lastPosRef = useRef<number>(0);
   const pagePreviewUrlsRef = useRef<Record<number, string>>({});
@@ -206,6 +213,20 @@ export default function GuidedSession() {
           await startSession(sessionId);
         } catch (err: any) {
           if (err.status !== 409) throw err;
+        }
+
+        try {
+          if (typeof getSession === "function") {
+            Promise.resolve(getSession(sessionId))
+              .then((sessionMeta) => {
+                if (sessionMeta?.requiredDocuments?.length) {
+                  setRequiredDocuments(sessionMeta.requiredDocuments);
+                }
+              })
+              .catch(() => {});
+          }
+        } catch {
+          // Ignored when test mocks omit optional getSession metadata helper
         }
 
         await fetchNextQuestion();
@@ -540,6 +561,58 @@ export default function GuidedSession() {
               totalCount={total}
               progressPercent={progressPercent}
             />
+
+            {requiredDocuments.length > 0 && (
+              <div
+                data-testid="session-required-documents-banner"
+                className="mb-4 rounded-xl border border-white/10 bg-[#0F1522] px-4 py-3 shadow-2xs text-start"
+              >
+                <button
+                  type="button"
+                  onClick={() => setPrepBannerExpanded((prev) => !prev)}
+                  className="w-full flex items-center justify-between gap-3 text-xs font-semibold text-slate-200 cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <ClipboardCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>
+                      Supporting Documents Checklist ({requiredDocuments.length})
+                    </span>
+                  </span>
+                  {prepBannerExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                  )}
+                </button>
+                {prepBannerExpanded && (
+                  <ul className="mt-3 pt-3 border-t border-white/[0.08] space-y-2">
+                    {requiredDocuments.map((docName, idx) => {
+                      const isChecked = Boolean(prepDocsChecked[idx]);
+                      return (
+                        <li key={`${idx}-${docName}`}>
+                          <label className="flex items-start gap-2.5 text-xs text-slate-300 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() =>
+                                setPrepDocsChecked((prev) => ({
+                                  ...prev,
+                                  [idx]: !prev[idx],
+                                }))
+                              }
+                              className="mt-0.5 h-3.5 w-3.5 rounded border-white/20 bg-[#0A0E17] text-emerald-500 accent-emerald-500 shrink-0 cursor-pointer"
+                            />
+                            <span className={isChecked ? "line-through text-emerald-400/80" : ""}>
+                              {docName}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
 
             {auth?.user && (
               <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-emerald-500/30 bg-[#0F1522] px-4 py-3 shadow-2xs text-start">

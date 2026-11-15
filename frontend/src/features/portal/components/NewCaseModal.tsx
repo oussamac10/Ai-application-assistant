@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { getPublishedForms, PublishedForm } from "@/features/form-session/services/apiClient";
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
 import { ModernSelect } from "@/components/ui/ModernSelect";
-import { createCase } from "../services/portalClient";
+import { createCase, listOrganizationForms } from "../services/portalClient";
 import { Case } from "../types";
 import { X, Loader2 } from "lucide-react";
 
@@ -60,29 +60,63 @@ export function NewCaseModal({
 
   useEffect(() => {
     if (!isOpen) return;
+    let cancelled = false;
     setLoadingTemplates(true);
-    getPublishedForms()
-      .then((forms) => {
-        const officialForms = forms.filter(
-          (f) =>
+    Promise.all([
+      listOrganizationForms().catch(() => []),
+      getPublishedForms().catch(() => []),
+    ])
+      .then(([orgForms, globalForms]) => {
+        if (cancelled) return;
+        const merged: PublishedForm[] = [];
+        const seenIds = new Set<string>();
+
+        for (const f of orgForms) {
+          if (f.status === "published" && f.activeVersionId && !seenIds.has(f.activeVersionId)) {
+            seenIds.add(f.activeVersionId);
+            merged.push({
+              id: f.activeVersionId,
+              templateKey: f.key,
+              name: f.name,
+              description: f.description ?? null,
+              versionNumber: f.versionNumber,
+              sourceLanguage: "en",
+              supportedOutputLanguages: ["en"],
+            });
+          }
+        }
+
+        for (const f of globalForms) {
+          if (
+            !seenIds.has(f.id) &&
             !f.name?.toLowerCase().includes("signature demo") &&
             !f.name?.toLowerCase().includes("development")
-        );
-        setTemplates(officialForms);
-        if (officialForms.length > 0) {
+          ) {
+            seenIds.add(f.id);
+            merged.push(f);
+          }
+        }
+
+        setTemplates(merged);
+        if (merged.length > 0) {
           // Default to residence permit / aufenthaltstitel if present, else first form
-          const permit = officialForms.find(
+          const permit = merged.find(
             (f) =>
               f.name?.toLowerCase().includes("aufenthalt") ||
               f.templateKey?.toLowerCase().includes("aufenthalt")
           );
-          setSelectedFormId(permit ? permit.id : officialForms[0].id);
+          setSelectedFormId(permit ? permit.id : merged[0].id);
         }
       })
       .catch((err) => {
         console.error("Failed to fetch templates:", err);
       })
-      .finally(() => setLoadingTemplates(false));
+      .finally(() => {
+        if (!cancelled) setLoadingTemplates(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;

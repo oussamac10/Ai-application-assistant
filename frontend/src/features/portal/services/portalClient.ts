@@ -1,6 +1,8 @@
 import { getCsrfToken } from "@/features/auth/services/csrf";
 import {
   CandidateIntakeInfo,
+  CandidateInviteInspectInfo,
+  CandidateInviteOtpSendResponse,
   Case,
   CaseCreatePayload,
   CaseUpdatePayload,
@@ -252,9 +254,9 @@ export async function updateCase(
   return res.json();
 }
 
-export async function redeemCandidateInvite(
+export async function inspectCandidateInvite(
   token: string
-): Promise<CandidateIntakeInfo> {
+): Promise<CandidateInviteInspectInfo> {
   const res = await fetch(`/api/cases/invite/${encodeURIComponent(token)}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -262,6 +264,86 @@ export async function redeemCandidateInvite(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Invalid or expired candidate invite link.");
+  }
+  return res.json();
+}
+
+export async function sendCandidateInviteOtp(
+  token: string
+): Promise<CandidateInviteOtpSendResponse> {
+  const res = await fetch(
+    `/api/cases/invite/${encodeURIComponent(token)}/send-otp`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      err.detail || "Failed to send verification code. Please try again."
+    );
+  }
+  return res.json();
+}
+
+export async function verifyCandidateInviteOtp(
+  token: string,
+  otpCode: string
+): Promise<CandidateIntakeInfo> {
+  const res = await fetch(
+    `/api/cases/invite/${encodeURIComponent(token)}/verify-otp`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ otp_code: otpCode }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      err.detail || "Invalid or expired verification code. Please try again."
+    );
+  }
+  return res.json();
+}
+
+export async function revokeCaseInvite(publicId: string): Promise<Case> {
+  const csrf = getCsrfToken();
+  const res = await fetch(
+    `/api/cases/${encodeURIComponent(publicId)}/revoke-invite`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "x-csrf-token": csrf } : {}),
+      },
+      credentials: "include",
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to revoke invite link.");
+  }
+  return res.json();
+}
+
+export async function resendCaseInvite(publicId: string): Promise<Case> {
+  const csrf = getCsrfToken();
+  const res = await fetch(
+    `/api/cases/${encodeURIComponent(publicId)}/resend-invite`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "x-csrf-token": csrf } : {}),
+      },
+      credentials: "include",
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to resend candidate invite.");
   }
   return res.json();
 }

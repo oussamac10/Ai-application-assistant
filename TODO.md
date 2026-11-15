@@ -25,7 +25,7 @@ Production-ready, multilingual SaaS platform for **B2B relocation agencies, inte
 - **Quality Gates (Verified)**:
   - **Dual-Theme System (Aikido Obsidian Dark + Daylight Light Mode)**: Added flash-free `ThemeProvider` (`formflow-theme`), `ThemeToggle` (`Sun`/`Moon` icon & segmented pill in `Navbar`, `Sidebar`, and `AppShell` mobile bar), `html.light` WCAG 2.2 AA CSS variable + `[data-theme-locked="dark"]` surface/contrast engine, and 8-locale `nav.*` translation parity (`ThemeProvider.test.tsx` 4 tests passing).
   - **Aikido-Inspired Obsidian & Emerald Frontend Overhaul**: Unified dark obsidian (`#0A0E17` / `#0F1522`) & emerald (`#10B981`) design system with `prefers-reduced-motion`-safe scan/reveal animations, rebuilt obsidian error/loading/not-found boundaries, and international worldwide copy/defaults across all portals, modals, auth/account, and guided session pages.
-  - Single Alembic head (`g8b9c0d1e2f3`), `ruff check/format`, `mypy app` (236 files), `pytest` on `ai_form_assistant_test` (1,092 passed, 1 skipped), `tsc --noEmit`, `next lint`, `vitest run` (45 files, 312 passed), `next build`, Playwright E2E `user-accounts-persistent-sessions-flow.spec.ts` (2 passed).
+  - Single Alembic head (`h9c0d1e2f3a4`), `ruff check/format`, `mypy app` (237 files), `pytest` on `ai_form_assistant_test` (1,106 passed, 1 skipped), `tsc --noEmit`, `next lint`, `vitest run` (45 files, 314 passed), `next build`, Playwright E2E `user-accounts-persistent-sessions-flow.spec.ts` (2 passed).
 
 ---
 
@@ -36,10 +36,13 @@ Production-ready, multilingual SaaS platform for **B2B relocation agencies, inte
 - [x] **1.2 `<60s` Trial Onboarding**: Added `backend/app/forms/starter_templates.py` + `POST /api/organizations/current/forms/starter-templates` + 1-click **"Load 3 German Starter Templates"** empty-state action in `PortalDashboard.tsx` (*Anmeldung*, *Wohnungsgeberbestätigung*, *Aufenthaltstitel*).
 - [x] **1.3 Playwright E2E Verification**: Updated `frontend/e2e/user-accounts-persistent-sessions-flow.spec.ts` to match current UI (`2 passed` in `11.9s`).
 
-### Step 2 — Agency Sales Essentials
-- [ ] **2.1 Private Invite Email / OTP Verification (`G5`)**: Require recipient email verification (magic link or 6-digit OTP) before unlocking sensitive private forms, plus case-manager link revocation/resend/audit trail.
-- [ ] **2.2 Pre-Form Document Checklist & Submission Instructions (`G6`)**: Show required supporting documents before Q&A starts and form-specific submission steps after PDF export.
-- [ ] **2.3 White-Label Invite Experience**: Display the agency's logo, brand name, and contact details on `/portal/invite/[token]`.
+### Step 2 — Agency Sales Essentials (Completed)
+- **Goal**: Harden private candidate invite links with 6-digit email OTP verification, case-manager revoke/resend/audit controls, pre-form document checklists & post-export submission instructions, and white-label agency branding on `/portal/invite/[token]`.
+- **Completed & Verified**:
+  - [x] **2.1 Private Invite Email / OTP Verification (`G5`)**: Require 6-digit email OTP verification (`POST /api/cases/invite/{token}/send-otp` & `/verify-otp`, 10-min TTL, 5-attempt lockout, single-use replay protection) before unlocking private forms, plus case-manager `/revoke-invite` and `/resend-invite` endpoints, **Candidate Intakes & Invites** UI controls in `PortalDashboard.tsx`, `NewCaseModal.tsx` org/catalog form merging, and zero-PII audit timestamps & logs (`alembic` `h9c0d1e2f3a4`).
+  - [x] **2.2 Pre-Form Document Checklist & Submission Instructions (`G6`)**: Populated `required_documents`, `submission_method`, and `instructions` on starter/German templates and `SessionResponse`, added collapsible pre-form checklist banner in `GuidedSession`, and rendered **Official Submission Instructions** + frictionless export (bypassing `ExportAccountGateModal` for `isSponsoredCase`) on `SessionComplete`.
+  - [x] **2.3 White-Label Invite Experience**: Rendered agency logo (`/api/organizations/{id}/logo`), brand name, verified authority badge, theme accent, coordinator contact footer with RTL `<bdi>` isolation, pre-form document checklist, and fixed `setSessionToken` session storage on `CandidateIntakeLanding.tsx`.
+- **Verification**: `ruff check .`, `ruff format --check .`, `mypy app` (237 files), isolated `pytest` (`ai_form_assistant_test`: `1,106 passed, 1 skipped`), `npm run typecheck`, `npm run lint`, `vitest run` (`45 files, 314 passed`), `npm run build`, Playwright E2E `user-accounts-persistent-sessions-flow.spec.ts` (`2 passed`), `graphify update .`.
 
 ### Step 3 — EU Production Deployment & First 5 Paying Agencies
 - [ ] **3.1 Production Hardening**: Non-root multi-stage Dockerfiles, EU hosting, automated encrypted Postgres backups, Sentry EU alerting, and paid EU Gemini/Vertex routing.

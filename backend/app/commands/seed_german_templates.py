@@ -53,6 +53,13 @@ GERMAN_TEMPLATE_SPECS: list[dict[str, Any]] = [
         "name": "Anmeldung bei der Meldebehörde",
         "subtitle_de": "Wohnsitzanmeldung gemäß § 17 Bundesmeldegesetz (BMG)",
         "description": "City residence registration (Anmeldung) for newcomers moving into an apartment in Germany.",
+        "submission_method": "in_person",
+        "required_documents": [
+            "Valid passport or national ID card (Personalausweis / Reisepass)",
+            "Signed Landlord Confirmation of Residence (Wohnungsgeberbestätigung, § 19 BMG)",
+            "Visa / residence permit page (if non-EU citizen)",
+        ],
+        "instructions": "Print and sign the completed Anmeldung PDF, attach the signed Wohnungsgeberbestätigung from your landlord, and bring your passport to your booked Bürgeramt / Einwohnermeldeamt appointment within 14 days of moving in.",
         "fields": [
             _field_def(
                 key="first_name",
@@ -130,6 +137,12 @@ GERMAN_TEMPLATE_SPECS: list[dict[str, Any]] = [
         "name": "Wohnungsgeberbestätigung (§ 19 BMG)",
         "subtitle_de": "Bestätigung des Wohnungsgebers zur Vorlage bei der Meldebehörde",
         "description": "Mandatory landlord residence confirmation required for city registration (Anmeldung).",
+        "submission_method": "print_and_sign",
+        "required_documents": [
+            "Signed lease agreement (Mietvertrag) showing move-in date and apartment address",
+            "Landlord / property manager full name and postal address",
+        ],
+        "instructions": "Download the pre-filled PDF and send it to your landlord or housing provider (Wohnungsgeber) to sign and date. Present the signed original together with your Anmeldung at your Bürgeramt appointment.",
         "fields": [
             _field_def(
                 key="landlord_name",
@@ -834,6 +847,15 @@ GERMAN_TEMPLATE_SPECS: list[dict[str, Any]] = [
         "name": "Antrag auf Erteilung / Verlängerung eines Aufenthaltstitels",
         "subtitle_de": "Aufenthaltsgesetz (AufenthG) — Erteilung / Verlängerung (Blaue Karte EU, Aufenthaltserlaubnis)",
         "description": "Official German Residence Permit & EU Blue Card application for international professionals and relocation.",
+        "submission_method": "in_person",
+        "required_documents": [
+            "Valid passport (with current entry visa or previous residence permit)",
+            "Signed employment contract (Arbeitsvertrag) & Declaration of Employment (Erklärung zum Beschäftigungsverhältnis)",
+            "Recognized university degree (anabin / ZAB) if applying for EU Blue Card",
+            "City registration certificate (Anmeldebestätigung) & rental contract",
+            "Biometric passport photo & proof of German health insurance coverage",
+        ],
+        "instructions": "Review all confirmed personal, passport, and employer details, download the completed PDF, sign the applicant declaration, and upload or bring the signed form with the supporting originals to your local Ausländerbehörde (Foreigners' Authority) appointment.",
         "fields": [
             _field_def(
                 key="family_name",
@@ -1395,8 +1417,26 @@ def seed_german_templates(
     published_versions: list[FormVersion] = []
 
     for spec in GERMAN_TEMPLATE_SPECS:
+        spec_req_docs = list(spec.get("required_documents", []))
+        spec_sub_method = str(spec.get("submission_method", "print_and_sign"))
+        spec_instructions = spec.get(
+            "instructions",
+            "Review every entry carefully, download your completed PDF, sign where indicated, and submit it along with your supporting identification documents to the relevant office.",
+        )
+
         existing_template = db.query(FormTemplate).filter_by(key=spec["key"]).first()
         if existing_template:
+            if not existing_template.required_documents and spec_req_docs:
+                existing_template.required_documents = spec_req_docs
+            if not existing_template.instructions and spec_instructions:
+                existing_template.instructions = spec_instructions
+            if (
+                existing_template.submission_method == "print_and_sign"
+                and spec_sub_method != "print_and_sign"
+            ):
+                existing_template.submission_method = spec_sub_method
+            db.flush()
+
             published_ver = (
                 db.query(FormVersion)
                 .filter_by(
@@ -1416,6 +1456,10 @@ def seed_german_templates(
                 name=spec["name"],
                 description=spec["description"],
             )
+            template.required_documents = spec_req_docs
+            template.submission_method = spec_sub_method
+            template.instructions = spec_instructions
+            db.flush()
 
         version = service.create_draft_version(
             form_template_id=template.id,

@@ -27,6 +27,13 @@ export const SessionResponseSchema = z.object({
   createdAt: z.string().optional(),
   formOrigin: z.string().optional(),
   exportSupported: z.boolean().optional(),
+  formTitle: z.string().nullable().optional(),
+  formDescription: z.string().nullable().optional(),
+  requiredDocuments: z.array(z.string()).optional(),
+  submissionMethod: z.string().optional(),
+  instructions: z.string().nullable().optional(),
+  isSponsoredCase: z.boolean().optional(),
+  organizationName: z.string().nullable().optional(),
 });
 
 export type FormSession = z.infer<typeof SessionResponseSchema>;

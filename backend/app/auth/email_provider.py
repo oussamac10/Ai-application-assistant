@@ -45,6 +45,22 @@ class EmailProvider(Protocol):
 
     def send_password_reset(self, recipient: str, token: str) -> None: ...
 
+    def send_candidate_invite(
+        self,
+        recipient: str,
+        invite_token: str,
+        organization_name: str,
+        form_title: str,
+    ) -> None: ...
+
+    def send_candidate_otp(
+        self,
+        recipient: str,
+        otp_code: str,
+        organization_name: str,
+        form_title: str,
+    ) -> None: ...
+
 
 def _build_action_url(path: str, token: str) -> str:
     base = settings.FRONTEND_PUBLIC_URL.rstrip("/")
@@ -80,6 +96,44 @@ class MockEmailProvider:
             )
         )
         logger.info("Queued transactional email: purpose=password_reset provider=mock")
+
+    def send_candidate_invite(
+        self,
+        recipient: str,
+        invite_token: str,
+        organization_name: str,
+        form_title: str,
+    ) -> None:
+        base = settings.FRONTEND_PUBLIC_URL.rstrip("/")
+        url = f"{base}/portal/invite/{invite_token}"
+        _MOCK_OUTBOX.append(
+            OutboxEmailRecord(
+                purpose="candidate_invite",
+                recipient=recipient,
+                token=invite_token,
+                action_url=url,
+            )
+        )
+        logger.info(
+            "Queued transactional email: purpose=candidate_invite provider=mock"
+        )
+
+    def send_candidate_otp(
+        self,
+        recipient: str,
+        otp_code: str,
+        organization_name: str,
+        form_title: str,
+    ) -> None:
+        _MOCK_OUTBOX.append(
+            OutboxEmailRecord(
+                purpose="candidate_otp",
+                recipient=recipient,
+                token=otp_code,
+                action_url="",
+            )
+        )
+        logger.info("Queued transactional email: purpose=candidate_otp provider=mock")
 
 
 class PostmarkEmailProvider:
@@ -142,6 +196,50 @@ class PostmarkEmailProvider:
             subject="Reset your password — AI Form Assistant",
             text_body=body,
             purpose="password_reset",
+        )
+
+    def send_candidate_invite(
+        self,
+        recipient: str,
+        invite_token: str,
+        organization_name: str,
+        form_title: str,
+    ) -> None:
+        base = settings.FRONTEND_PUBLIC_URL.rstrip("/")
+        action_url = f"{base}/portal/invite/{invite_token}"
+        body = (
+            f"{organization_name} has invited you to complete '{form_title}' "
+            "using AI Form Assistant.\n\n"
+            f"Open your secure intake link:\n{action_url}\n\n"
+            "You will be asked to verify your email with a 6-digit code before starting. "
+            "This invitation expires in 14 days."
+        )
+        self._send(
+            recipient=recipient,
+            subject=f"Application intake invitation from {organization_name}",
+            text_body=body,
+            purpose="candidate_invite",
+        )
+
+    def send_candidate_otp(
+        self,
+        recipient: str,
+        otp_code: str,
+        organization_name: str,
+        form_title: str,
+    ) -> None:
+        body = (
+            f"Your 6-digit verification code for '{form_title}' "
+            f"({organization_name}) is:\n\n"
+            f"{otp_code}\n\n"
+            "This code expires in 10 minutes. If you did not request this code, "
+            "you can safely ignore this email."
+        )
+        self._send(
+            recipient=recipient,
+            subject=f"Your verification code for {organization_name}",
+            text_body=body,
+            purpose="candidate_otp",
         )
 
 

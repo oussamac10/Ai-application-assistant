@@ -152,4 +152,43 @@ describe("SessionComplete — dynamic vs predefined export gating", () => {
     });
     expect(screen.queryByText("exportGateTitle")).not.toBeInTheDocument();
   });
+
+  it("shows official submission instructions and allows direct export without account gate for agency-sponsored cases", async () => {
+    mockUser.mockReturnValue(null);
+    getSessionMock.mockResolvedValue({
+      exportSupported: true,
+      formOrigin: "predefined_template",
+      isSponsoredCase: true,
+      organizationName: "Berlin Global Mobility GmbH",
+      submissionMethod: "in_person",
+      instructions: "Bring signed PDF and passport to your registration appointment.",
+      requiredDocuments: ["Original Passport", "Landlord Confirmation"],
+    });
+    createExportMock.mockResolvedValue({
+      exportId: "export-sponsored-1",
+      downloadUrl: "/api/export/sponsored-1",
+      fileName: "anmeldung.pdf",
+    });
+
+    await renderComplete();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("submission-instructions-card")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("In-Person Appointment")).toBeInTheDocument();
+    expect(
+      screen.getByText("Bring signed PDF and passport to your registration appointment.")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Original Passport")).toBeInTheDocument();
+    expect(screen.getByText("Berlin Global Mobility GmbH")).toBeInTheDocument();
+    expect(screen.queryByText("exportAccountRequiredTitle")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("generatePdf"));
+
+    await waitFor(() => {
+      expect(createExportMock).toHaveBeenCalledWith("session-1");
+    });
+    expect(screen.queryByText("exportGateTitle")).not.toBeInTheDocument();
+  });
 });
