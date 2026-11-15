@@ -34,7 +34,7 @@ export function DeclarationGroup({
       data-testid={`declaration-group-${groupKey}`}
       className="space-y-2.5 border-0 p-0"
     >
-      <legend className="text-sm font-semibold text-slate-800 mb-2">
+      <legend className="text-sm font-semibold text-slate-100 mb-2">
         {label}
       </legend>
 
@@ -49,8 +49,8 @@ export function DeclarationGroup({
               htmlFor={inputId}
               className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors ${
                 child.value === true
-                  ? "border-indigo-500 bg-indigo-50/70"
-                  : "border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50"
+                  ? "border-emerald-500 bg-emerald-500/15 text-white ring-2 ring-emerald-500/20"
+                  : "border-white/10 bg-[#0A0E17] hover:border-emerald-500/40 hover:bg-[#151D2E]"
               }`}
             >
               <input
@@ -63,19 +63,19 @@ export function DeclarationGroup({
                 aria-invalid={showError || undefined}
                 aria-describedby={showError ? errorId : undefined}
                 onChange={(event) => onChange(child.key, event.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 bg-white accent-indigo-600"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-[#0A0E17] accent-emerald-500"
               />
-              <span className="text-sm text-slate-800 leading-snug">
+              <span className="text-sm text-slate-200 leading-snug">
                 {child.label}
                 {child.requiredness === "required" ? (
-                  <span className="ms-1 text-rose-600" aria-hidden="true">
+                  <span className="ms-1 text-rose-400" aria-hidden="true">
                     *
                   </span>
                 ) : null}
                 {child.requiredness !== "unknown" ? (
                   <span
                     data-testid={`declaration-requiredness-${child.key}`}
-                    className="ms-2 rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600"
+                    className="ms-2 rounded border border-white/10 bg-[#151D2E] px-1.5 py-0.5 text-[11px] font-medium text-slate-300"
                   >
                     {child.requiredness === "required"
                       ? t("required")
@@ -90,7 +90,7 @@ export function DeclarationGroup({
                 id={errorId}
                 data-testid={`declaration-error-${child.key}`}
                 role="alert"
-                className="ps-3 text-xs font-medium text-rose-600"
+                className="ps-3 text-xs font-medium text-rose-400"
               >
                 {t("declarationRequired")}
               </p>

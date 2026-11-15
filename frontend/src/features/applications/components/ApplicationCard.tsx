@@ -59,15 +59,15 @@ export default function ApplicationCard({ application, onRename, onDelete }: Pro
 
   const statusColor =
     application.status === "completed"
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
       : application.status === "ready_for_export"
-      ? "bg-sky-50 text-sky-700 border-sky-200"
+      ? "bg-sky-500/10 text-sky-300 border-sky-500/30"
       : application.status === "awaiting_final_confirmation"
-      ? "bg-amber-50 text-amber-800 border-amber-200"
-      : "bg-indigo-50 text-indigo-700 border-indigo-200";
+      ? "bg-amber-500/10 text-amber-200 border-amber-500/30"
+      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
 
   return (
-    <div className="surface-card rounded-2xl p-5 sm:p-6 transition-colors duration-150 hover:border-slate-300">
+    <div className="surface-card rounded-2xl border border-white/10 bg-[#0F1522] p-5 sm:p-6 text-slate-100 transition-colors duration-150 motion-reduce:transition-none hover:border-emerald-500/30">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           {editing ? (
@@ -100,21 +100,21 @@ export default function ApplicationCard({ application, onRename, onDelete }: Pro
             </div>
           ) : (
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-base font-bold text-slate-900 tracking-tight">{application.title}</h2>
+              <h2 className="text-base font-bold text-white tracking-tight">{application.title}</h2>
               <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusColor}`}>
                 {t(`status_${application.status}`)}
               </span>
             </div>
           )}
-          <p className="mt-1 text-xs font-medium text-slate-700">
+          <p className="mt-1 text-xs font-medium text-slate-300">
             {application.formName}
           </p>
-          <p className="mt-1 text-xs text-slate-500 tabular-nums">
+          <p className="mt-1 text-xs text-slate-400 tabular-nums">
             {t("updatedLabel")}: {new Date(application.updatedAt).toLocaleString()}
           </p>
           {!application.exportSupported && (
-            <p className="mt-1.5 text-xs text-amber-800 flex items-center gap-1.5">
-              <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <p className="mt-1.5 text-xs text-amber-200 flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
               <span>{t("exportUnsupported")}</span>
             </p>
           )}
@@ -122,19 +122,19 @@ export default function ApplicationCard({ application, onRename, onDelete }: Pro
 
         {/* Progress indicator */}
         <div className="flex items-center gap-2.5 self-start sm:self-center">
-          <div className="h-1.5 w-24 sm:w-28 overflow-hidden rounded-full bg-slate-100 border border-slate-200">
+          <div className="h-1.5 w-24 sm:w-28 overflow-hidden rounded-full bg-[#0A0E17] border border-white/10">
             <div
-              className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+              className="h-full rounded-full bg-emerald-500 transition-all duration-300 motion-reduce:transition-none"
               style={{ width: `${application.progressPercentage}%` }}
             />
           </div>
-          <span className="text-xs font-semibold text-slate-700 w-9 text-end tabular-nums">
+          <span className="text-xs font-semibold text-slate-200 w-9 text-end tabular-nums">
             {application.progressPercentage}%
           </span>
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2 pt-3.5 border-t border-slate-200">
+      <div className="mt-5 flex flex-wrap items-center gap-2 pt-3.5 border-t border-white/[0.08]">
         <button
           type="button"
           onClick={handleResume}
@@ -156,7 +156,7 @@ export default function ApplicationCard({ application, onRename, onDelete }: Pro
           type="button"
           onClick={handleDelete}
           disabled={busy}
-          className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-40"
+          className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2 text-xs font-semibold text-rose-300 transition-colors motion-reduce:transition-none hover:bg-rose-500/20 hover:text-rose-200 disabled:opacity-40 cursor-pointer"
         >
           {t("delete")}
         </button>

@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useLanguage } from "./LanguageProvider";
+import { Mic, ChevronDown, AlertCircle } from "lucide-react";
 
 const BOOLEAN_LABELS: Record<string, { yes: string; no: string }> = {
   ar: { yes: "نعم", no: "لا" },
@@ -105,7 +106,7 @@ export function FieldRenderer({
             <input
               id={inputId}
               type="text"
-              className={`input-field ${voiceCapableType ? "pe-11" : ""}`}
+              className={`input-field focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500 ${voiceCapableType ? "pe-11" : ""}`}
               placeholder={placeholder}
               value={value}
               required={required}
@@ -121,18 +122,11 @@ export function FieldRenderer({
                 data-testid="voice-dictation-btn"
                 className={`absolute inset-y-1.5 end-1.5 flex items-center justify-center rounded-lg px-2.5 transition ${
                   isListening
-                    ? "bg-rose-100 text-rose-700 border border-rose-300"
-                    : "text-slate-400 hover:bg-slate-100 hover:text-indigo-600"
+                    ? "bg-rose-500/15 text-rose-300 border border-rose-500/40 ring-4 ring-rose-500/20 animate-pulse motion-reduce:animate-none shadow-[0_0_12px_rgba(244,63,94,0.3)]"
+                    : "text-slate-400 hover:bg-emerald-500/15 hover:text-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 }`}
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                  />
-                </svg>
+                <Mic className={`h-4 w-4 ${isListening ? "animate-bounce motion-reduce:animate-none" : ""}`} />
               </button>
             )}
           </div>
@@ -145,7 +139,7 @@ export function FieldRenderer({
             <textarea
               id={inputId}
               rows={4}
-              className="input-field resize-y"
+              className="input-field resize-y focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
               placeholder={placeholder}
               value={value}
               required={required}
@@ -153,7 +147,7 @@ export function FieldRenderer({
               onChange={(e) => onChange(e.target.value)}
             />
             {limit && (
-              <p className="text-end font-mono text-xs tabular-nums text-slate-500">
+              <p className="text-end font-mono text-xs tabular-nums text-slate-400">
                 {value.length} / {limit}
               </p>
             )}
@@ -166,7 +160,7 @@ export function FieldRenderer({
           <input
             id={inputId}
             type="date"
-            className="input-field"
+            className="input-field focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
             value={value}
             required={required}
             aria-describedby={`${helpText ? descId : ""} ${error ? errorId : ""}`}
@@ -180,7 +174,7 @@ export function FieldRenderer({
             id={inputId}
             type="number"
             step="1"
-            className="input-field"
+            className="input-field focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
             placeholder={placeholder}
             value={value}
             required={required}
@@ -195,7 +189,7 @@ export function FieldRenderer({
             id={inputId}
             type="number"
             step="any"
-            className="input-field"
+            className="input-field focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
             placeholder={placeholder}
             value={value}
             required={required}
@@ -209,7 +203,7 @@ export function FieldRenderer({
           <input
             id={inputId}
             type="email"
-            className="input-field"
+            className="input-field focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
             placeholder={placeholder}
             value={value}
             required={required}
@@ -224,7 +218,7 @@ export function FieldRenderer({
           <input
             id={inputId}
             type="tel"
-            className="input-field"
+            className="input-field focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
             placeholder={placeholder}
             value={value}
             required={required}
@@ -251,10 +245,10 @@ export function FieldRenderer({
             <button
               type="button"
               aria-pressed={isActive("true")}
-              className={`flex items-center justify-center gap-2 rounded-xl border py-3.5 px-4 text-sm font-semibold transition-colors ${
+              className={`flex items-center justify-center gap-2 rounded-xl border py-3.5 px-4 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                 isActive("true")
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-900 ring-1 ring-indigo-500/40"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
+                  ? "border-emerald-500 bg-emerald-500/15 text-white ring-2 ring-emerald-500/20 shadow-xs font-bold scale-[1.01]"
+                  : "border-white/10 bg-[#0A0E17] text-slate-300 hover:border-emerald-500/40 hover:bg-[#151D2E] hover:text-white active:scale-[0.99]"
               }`}
               onClick={() => handleBooleanChange("true")}
             >
@@ -263,10 +257,10 @@ export function FieldRenderer({
             <button
               type="button"
               aria-pressed={isActive("false")}
-              className={`flex items-center justify-center gap-2 rounded-xl border py-3.5 px-4 text-sm font-semibold transition-colors ${
+              className={`flex items-center justify-center gap-2 rounded-xl border py-3.5 px-4 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                 isActive("false")
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-900 ring-1 ring-indigo-500/40"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
+                  ? "border-emerald-500 bg-emerald-500/15 text-white ring-2 ring-emerald-500/20 shadow-xs font-bold scale-[1.01]"
+                  : "border-white/10 bg-[#0A0E17] text-slate-300 hover:border-emerald-500/40 hover:bg-[#151D2E] hover:text-white active:scale-[0.99]"
               }`}
               onClick={() => handleBooleanChange("false")}
             >
@@ -281,39 +275,27 @@ export function FieldRenderer({
           <div className="relative">
             <select
               id={inputId}
-              className="input-field pe-10 appearance-none cursor-pointer"
+              className="input-field pe-10 appearance-none cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
               value={value}
               required={required}
               aria-describedby={`${helpText ? descId : ""} ${error ? errorId : ""}`}
               onChange={(e) => onChange(e.target.value)}
             >
-              <option value="" disabled className="text-slate-400 bg-white">
+              <option value="" disabled className="text-slate-500 bg-[#0F1522]">
                 Select an option...
               </option>
               {options.map((opt) => (
                 <option
                   key={opt.value}
                   value={opt.value}
-                  className="bg-white text-slate-900"
+                  className="bg-[#0F1522] text-slate-100"
                 >
                   {opt.label}
                 </option>
               ))}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
+            <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-400">
+              <ChevronDown className="h-4 w-4" />
             </div>
           </div>
         );
@@ -349,15 +331,15 @@ export function FieldRenderer({
               return (
                 <label
                   key={opt.value}
-                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer select-none transition-colors ${
+                  className={`flex items-center gap-3.5 rounded-xl border px-4 py-3 cursor-pointer select-none transition-all duration-150 focus-within:ring-2 focus-within:ring-emerald-500 ${
                     isChecked
-                      ? "border-indigo-500 bg-indigo-50/80 text-indigo-950"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+                      ? "border-emerald-500 bg-emerald-500/15 text-white ring-2 ring-emerald-500/20 shadow-xs font-semibold"
+                      : "border-white/10 bg-[#0A0E17] text-slate-300 hover:border-emerald-500/40 hover:bg-[#151D2E] hover:text-white active:scale-[0.99]"
                   }`}
                 >
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500/30 cursor-pointer accent-indigo-600"
+                    className="h-4 w-4 rounded border-white/20 bg-[#0A0E17] text-emerald-500 focus:ring-emerald-500/30 cursor-pointer accent-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500"
                     checked={isChecked}
                     onChange={(e) =>
                       handleCheckboxChange(opt.value, e.target.checked)
@@ -376,7 +358,7 @@ export function FieldRenderer({
           <input
             id={inputId}
             type="text"
-            className="input-field"
+            className="input-field focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
             placeholder={placeholder || "e.g. 2000 EUR"}
             value={value}
             required={required}
@@ -391,7 +373,7 @@ export function FieldRenderer({
           <textarea
             id={inputId}
             rows={3}
-            className="input-field resize-y"
+            className="input-field resize-y focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
             placeholder={placeholder || "Street, Postal Code, City, Country"}
             value={value}
             required={required}
@@ -405,7 +387,7 @@ export function FieldRenderer({
           <input
             id={inputId}
             type="text"
-            className="input-field"
+            className="input-field focus-visible:ring-2 focus-visible:ring-emerald-500 focus:border-emerald-500"
             placeholder={placeholder}
             value={value}
             required={required}
@@ -419,7 +401,7 @@ export function FieldRenderer({
   return (
     <div className="w-full space-y-2 text-start">
       {helpText && (
-        <p id={descId} className="text-sm text-slate-600 leading-relaxed">
+        <p id={descId} className="text-sm text-slate-400 leading-relaxed">
           {helpText}
         </p>
       )}
@@ -427,22 +409,10 @@ export function FieldRenderer({
       {error && (
         <div
           id={errorId}
-          className="mt-2 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800"
+          className="mt-2 flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200"
           role="alert"
         >
-          <svg
-            className="h-4 w-4 shrink-0 text-rose-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+          <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
           <span>{error}</span>
         </div>
       )}

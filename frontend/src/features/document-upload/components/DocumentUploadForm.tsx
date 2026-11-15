@@ -10,7 +10,7 @@ import { prepareQuestions } from "../../field-detection/services/apiClient";
 import { isDetectionDebugUiEnabled } from "../../field-detection/debugMode";
 import { DocumentUploadResponse } from "../types";
 import { resolveUploadErrorMessage } from "../utils/resolveUploadErrorMessage";
-import { AlertCircle, UploadCloud } from "lucide-react";
+import { AlertCircle, UploadCloud, Loader2 } from "lucide-react";
 
 interface DocumentUploadFormProps {
   currentLocale: string;
@@ -261,9 +261,9 @@ export default function DocumentUploadForm({
         !["review_required", "uncertain", "error"].includes(stage) && (
           <div
             role="alert"
-            className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
+            className="flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"
           >
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -272,10 +272,10 @@ export default function DocumentUploadForm({
         <form onSubmit={handleUploadSubmit} className="space-y-6">
           {/* File Picker Drag-and-Drop */}
           <div
-            className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-indigo-500/30 ${
+            className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 ${
               dragActive
-                ? "border-indigo-600 bg-indigo-50/70"
-                : "border-slate-300 bg-slate-50/60 hover:border-indigo-400 hover:bg-indigo-50/30"
+                ? "border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/20"
+                : "border-white/15 bg-[#0A0E17] hover:border-emerald-500/50 hover:bg-[#151D2E]/80"
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -302,36 +302,36 @@ export default function DocumentUploadForm({
               onChange={handleFileChange}
             />
 
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-indigo-200 bg-white text-indigo-600 shadow-2xs">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-2xs">
               <UploadCloud className="h-6 w-6" aria-hidden="true" />
             </div>
 
             {!file ? (
               <>
-                <p className="mt-4 text-sm font-semibold text-slate-900">
+                <p className="mt-4 text-sm font-semibold text-white">
                   {t("drag_and_drop_instructions") ||
                     "Drag and drop any official PDF form here, or click to browse"}
                 </p>
-                <p className="mt-1.5 text-xs text-slate-500">
+                <p className="mt-1.5 text-xs text-slate-400">
                   {t("maximum_size") || "PDF up to 10MB (max 20 pages) • AcroForm, Digital Text & Scanned PDFs"}
                 </p>
               </>
             ) : (
               <div className="mt-4 w-full max-w-full min-w-0 px-2 space-y-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald-400">
                   {t("selected_file") || "Selected File:"}
                 </p>
-                <p className="text-sm font-semibold text-slate-900 break-all">
+                <p className="text-sm font-semibold text-white break-all">
                   {file.name}
                 </p>
-                <p className="text-xs text-slate-500 tabular-nums">
+                <p className="text-xs text-slate-400 tabular-nums">
                   {file.size < 1024 * 1024
                     ? `${Math.max(0.1, file.size / 1024).toFixed(1)} KB`
                     : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
                 </p>
                 <button
                   type="button"
-                  className="mt-1 inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
+                  className="mt-1 inline-flex items-center justify-center rounded-lg border border-white/15 bg-[#151D2E] px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors hover:border-white/25 hover:bg-[#1E293B] hover:text-white"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveFile();
@@ -347,18 +347,18 @@ export default function DocumentUploadForm({
           {file && (
             <>
               {/* Privacy notice box */}
-              <div className="space-y-3 rounded-xl border border-indigo-200/80 bg-indigo-50/50 p-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-950">
+              <div className="space-y-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-300">
                   {t("privacyNoticeTitle") || "Privacy Notice"}
                 </h3>
-                <p className="text-xs leading-relaxed text-slate-700">
+                <p className="text-xs leading-relaxed text-slate-300">
                   {t("privacyNoticeBody") ||
                     "Your uploaded document remains private and temporary. It will be deleted automatically after 24 hours."}
                 </p>
-                <label className="flex items-center gap-3 cursor-pointer select-none text-slate-900 pt-1">
+                <label className="flex items-center gap-3 cursor-pointer select-none text-slate-100 pt-1">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500/30 cursor-pointer"
+                    className="h-4 w-4 rounded border-white/20 bg-[#0A0E17] text-emerald-500 accent-emerald-500 focus:ring-emerald-500/30 cursor-pointer"
                     checked={privacyAccepted}
                     onChange={(e) => setPrivacyAccepted(e.target.checked)}
                   />
@@ -384,53 +384,135 @@ export default function DocumentUploadForm({
 
       {/* Uploading progress screen */}
       {stage === "uploading" && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-8 space-y-4">
-          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-[#0A0E17] p-8 space-y-4">
+          <div className="w-full bg-[#151D2E] border border-white/[0.08] h-2 rounded-full overflow-hidden">
             <div
-              className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+              className="bg-emerald-500 h-full rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(16,185,129,0.5)]"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-sm font-semibold text-slate-700 tabular-nums">
+          <p className="text-sm font-semibold text-slate-200 tabular-nums">
             {t("uploading") || "Uploading..."} ({uploadProgress}%)
           </p>
         </div>
       )}
 
-      {/* Analyzing loader screen */}
-      {stage === "analyzing" && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-8 space-y-4">
-          <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
-          <p className="text-sm font-semibold text-slate-700">
-            {t("analyzing") || "Reading the document…"}
-          </p>
-        </div>
-      )}
+      {/* Analyzing & Automatic processing screens with Aikido Laser Scan Beam & Field Detection Radar */}
+      {(stage === "analyzing" || stage === "processing") && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-[#0A0E17] p-6 sm:p-8 space-y-5 text-start shadow-2xl relative overflow-hidden">
+          {/* Top Status Header */}
+          <div className="w-full flex items-center justify-between border-b border-white/[0.08] pb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse motion-reduce:animate-none" />
+              <span className="font-mono text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                DOCUMENT SCANNER • PIPELINE ACTIVE
+              </span>
+            </div>
+            <span className="font-mono text-[10px] text-slate-500 uppercase tracking-widest hidden sm:inline-block">
+              300 DPI • ACROFORM HYBRID
+            </span>
+          </div>
 
-      {/* Automatic processing screen */}
-      {stage === "processing" && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-8 space-y-4">
-          <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
-          <p className="text-sm font-semibold text-slate-700">{processingMessage()}</p>
-          {debugUiEnabled && pendingDocumentId && (
-            <a
-              className="text-xs text-slate-500 underline hover:text-slate-800"
-              href={`/application/document/${pendingDocumentId}/detect-fields`}
-            >
-              {t("debug_open_review") || "Open technical review (debug)"}
-            </a>
-          )}
+          {/* Simulated Document Preview Canvas with Sweeping Laser Beam & Pulsating Bounding Boxes */}
+          <div className="relative mx-auto w-full max-w-sm aspect-[1/1.25] bg-[#0F1522] border border-white/10 rounded-xl overflow-hidden shadow-inner p-4 select-none">
+            {/* Subtle background matrix lines */}
+            <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px] opacity-40 pointer-events-none" />
+
+            {/* Document Header Skeleton */}
+            <div className="space-y-1.5 mb-4 relative z-10">
+              <div className="h-2 w-24 bg-slate-700/60 rounded" />
+              <div className="h-1.5 w-40 bg-slate-800/60 rounded" />
+            </div>
+
+            {/* Pulsating Detected Field Bounding Boxes */}
+            <div className="absolute top-[18%] inset-x-4 h-[12%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+              <span className="font-mono text-[9px] font-bold text-emerald-300 tracking-tight">
+                FIELD_01: APPLICANT_NAME
+              </span>
+              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/30">
+                TEXT
+              </span>
+            </div>
+
+            <div className="absolute top-[35%] start-4 w-[43%] h-[11%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+              <span className="font-mono text-[9px] font-bold text-emerald-300 truncate">
+                DOB_DATE
+              </span>
+              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/30 shrink-0">
+                DATE
+              </span>
+            </div>
+
+            <div className="absolute top-[35%] end-4 w-[43%] h-[11%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+              <span className="font-mono text-[9px] font-bold text-emerald-300 truncate">
+                NATIONALITY
+              </span>
+              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/30 shrink-0">
+                ISO
+              </span>
+            </div>
+
+            <div className="absolute top-[52%] inset-x-4 h-[12%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+              <span className="font-mono text-[9px] font-bold text-emerald-300 tracking-tight">
+                FIELD_04: RESIDENCE_ADDRESS
+              </span>
+              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/30">
+                GEO
+              </span>
+            </div>
+
+            <div className="absolute bottom-4 inset-x-4 h-[18%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-[9px] font-bold text-emerald-300 tracking-tight">
+                  FIELD_05: SIGNATURE_PAD
+                </span>
+              </div>
+              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold">
+                BIOMETRIC
+              </span>
+            </div>
+
+            {/* Animated Emerald Laser Scan Beam sweeping down */}
+            <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_16px_#10B981,0_0_8px_#34D399] animate-laser-scan motion-reduce:animate-none pointer-events-none z-20" />
+          </div>
+
+          {/* Progress message and spinner */}
+          <div className="w-full flex flex-col items-center justify-center text-center space-y-2 pt-1">
+            <div className="flex items-center gap-2.5">
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-400 shrink-0" />
+              <p className="text-sm font-semibold text-white tracking-tight">
+                {stage === "analyzing"
+                  ? t("analyzing") || "Reading the document…"
+                  : processingMessage()}
+              </p>
+            </div>
+            {debugUiEnabled && pendingDocumentId && (
+              <a
+                className="text-xs text-emerald-400 hover:text-emerald-300 underline font-mono mt-1"
+                href={`/application/document/${pendingDocumentId}/detect-fields`}
+              >
+                {t("debug_open_review") || "Open technical review (debug)"}
+              </a>
+            )}
+          </div>
+
+          {/* Technical Telemetry Strip */}
+          <div className="w-full flex items-center justify-between text-[10px] font-mono text-slate-500 border-t border-white/[0.08] pt-3">
+            <span>OCR: NATIVE + TESSERACT</span>
+            <span>MODEL: ZERO-PII HYBRID</span>
+            <span className="text-emerald-400">LATENCY &lt; 1.5S</span>
+          </div>
         </div>
       )}
 
       {/* Uncertainty screen */}
       {stage === "uncertain" && (
         <div className="space-y-6">
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-6 space-y-2.5 text-center">
-            <h3 className="text-base font-bold text-amber-900">
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6 space-y-2.5 text-center">
+            <h3 className="text-base font-bold text-amber-200">
               {t("uncertainty_title") || "One section may need confirmation"}
             </h3>
-            <p className="text-sm text-amber-800 leading-relaxed">
+            <p className="text-sm text-amber-200/90 leading-relaxed">
               {t("uncertainty_body") ||
                 "We could not confidently read one part of this form. You can continue with the questions we found."}
             </p>
@@ -458,12 +540,12 @@ export default function DocumentUploadForm({
       {/* Could-not-process screen */}
       {stage === "review_required" && (
         <div className="space-y-6">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center space-y-2.5">
-            <h3 className="text-base font-bold text-slate-900">
+          <div className="rounded-xl border border-white/10 bg-[#0A0E17] p-6 text-center space-y-2.5">
+            <h3 className="text-base font-bold text-white">
               {t("could_not_process_title") ||
                 "We could not confidently process this form"}
             </h3>
-            <p className="text-sm text-slate-600 leading-relaxed">
+            <p className="text-sm text-slate-400 leading-relaxed">
               {uncertainFieldCount > 0
                 ? t("no_usable_questions_body") ||
                   "We found no usable questions in this document. You can try again or upload a different file."
@@ -494,14 +576,14 @@ export default function DocumentUploadForm({
       {/* Error state display screen */}
       {stage === "error" && (
         <div className="space-y-6">
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 shadow-2xs">
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-center space-y-3">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-rose-500/30 bg-[#0F1522] text-rose-400 shadow-2xs">
               <AlertCircle className="h-5 w-5" />
             </div>
-            <h3 className="text-base font-bold text-rose-900">
+            <h3 className="text-base font-bold text-rose-200">
               {t("upload_error_title") || "Upload or Analysis Failed"}
             </h3>
-            <p className="text-sm text-rose-800">{errorMsg}</p>
+            <p className="text-sm text-rose-200/90">{errorMsg}</p>
           </div>
           <button
             type="button"

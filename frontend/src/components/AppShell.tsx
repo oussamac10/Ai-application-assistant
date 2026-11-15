@@ -26,7 +26,7 @@ export default function AppShell({ children }: AppShellProps) {
   // While auth is loading or if user is not authenticated, render standard public layout
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#f8fafc]">
+      <div className="flex min-h-screen flex-col bg-[#0A0E17] text-slate-100">
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />
@@ -40,7 +40,7 @@ export default function AppShell({ children }: AppShellProps) {
     Boolean(pathname?.startsWith("/organizations"));
   if (isMarketingPage) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#f8fafc]">
+      <div className="flex min-h-screen flex-col bg-[#0A0E17] text-slate-100">
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />
@@ -51,7 +51,7 @@ export default function AppShell({ children }: AppShellProps) {
   // SYSTEM LAYOUT FOR LOGGED-IN USERS:
   // Persistent Left Sidebar + Top Mobile App Bar + Full Height System Workspace
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-100/70">
+    <div className="flex h-screen w-full overflow-hidden bg-[#0A0E17] text-slate-100">
       {/* Side Navigation */}
       <Sidebar
         mobileOpen={mobileSidebarOpen}
@@ -61,7 +61,7 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Main System Viewport */}
       <div className="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
         {/* Mobile-only Top Bar */}
-        <header className="lg:hidden flex h-14 items-center justify-between px-4 bg-[#0B0F19] text-white shrink-0 border-b border-[#161F30] shadow-sm">
+        <header className="lg:hidden flex h-14 items-center justify-between px-4 bg-[#0B0F19] text-white shrink-0 border-b border-white/[0.08] shadow-sm">
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(true)}
@@ -80,19 +80,19 @@ export default function AppShell({ children }: AppShellProps) {
               />
             ) : null}
             <span className="text-sm font-bold tracking-tight text-white truncate max-w-[180px]">
-              {org?.name ? org.name.split("—")[0].trim() : "Stadtverwaltung Stuttgart"}
+              {org?.name ? org.name.split("—")[0].trim() : "Organization Workspace"}
             </span>
-            <span className="rounded bg-[#131B2E] border border-[#212E4A] px-1 py-0.2 font-mono text-[9px] font-bold text-emerald-400">
+            <span className="rounded bg-[#131B2E] border border-emerald-500/30 px-1 py-0.2 font-mono text-[9px] font-bold text-emerald-400">
               OFFICIAL
             </span>
           </Link>
-          <div className="w-7 h-7 rounded-full bg-[#6551f3] text-white text-xs font-bold flex items-center justify-center">
+          <div className="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 text-xs font-bold flex items-center justify-center">
             {user.email.charAt(0).toUpperCase()}
           </div>
         </header>
 
         {/* Scrollable System Content Container */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-[#f9f9fb]">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-[#0A0E17] text-slate-100">
           {children}
         </main>
       </div>

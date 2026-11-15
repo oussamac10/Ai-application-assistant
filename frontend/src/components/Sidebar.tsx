@@ -104,10 +104,13 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const primaryColor = theme.primary_color;
   const activeTextColor = getContrastTextColor(primaryColor);
 
-  const orgName = org?.name || "Stadtverwaltung Stuttgart — Bürgeramt & Ausländerwesen";
+  const orgName = org?.name || "Organization Workspace";
+  const defaultSubTitle = org?.organization_type
+    ? `${org.organization_type[0].toUpperCase()}${org.organization_type.slice(1)} Workspace`
+    : "Workspace";
   const [mainTitle, subTitle] = orgName.includes("—")
     ? orgName.split("—").map((s) => s.trim())
-    : [orgName, "Bürgeramt & Ausländerwesen"];
+    : [orgName, defaultSubTitle];
 
   const navLinks = [
     {
@@ -177,8 +180,14 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               : "border-[#161F30]"
           }`}
         >
-          <Link href="/portal" className="flex items-center gap-2.5 group min-w-0 flex-1 overflow-hidden" title="Go to Authority Portal">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white border border-[#212E4A] p-1 shadow-xs overflow-hidden">
+          <Link href="/portal" className="flex items-center gap-2.5 group min-w-0 flex-1 overflow-hidden" title="Go to Organization Portal">
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border p-1 shadow-xs overflow-hidden ${
+                org?.logo_storage_path
+                  ? "bg-white border-white/15"
+                  : "bg-[#131B2E] border-white/15"
+              }`}
+            >
               {org?.logo_storage_path ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -187,7 +196,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <Landmark className="h-5 w-5 text-indigo-600" />
+                <Landmark className="h-5 w-5 text-emerald-400" />
               )}
             </div>
             <div className="min-w-0 flex-1 overflow-hidden">
@@ -240,7 +249,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             <div className="flex items-center gap-1.5 text-slate-300 font-semibold truncate min-w-0">
               <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               <span className="truncate text-[11px] text-emerald-400 min-w-0">
-                {org?.is_verified_government ? "Amtlich verifiziert" : "Official Authority"}
+                {org?.is_verified_government ? "Officially Verified" : "Official Authority"}
               </span>
             </div>
             <span
@@ -250,7 +259,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   : "bg-[#131B2E] text-slate-300 border-[#212E4A]"
               }`}
             >
-              {org?.slug ? org.slug.split("-")[0].toUpperCase() : "DE-BW"}
+              {org?.slug ? org.slug.split("-")[0].toUpperCase() : "PUBLIC"}
             </span>
           </div>
         </div>
@@ -321,10 +330,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#131B2E]/70 hover:bg-[#131B2E] text-slate-300 hover:text-white text-xs font-medium transition-colors"
         >
           <span className="flex items-center gap-2">
-            <Globe className="w-3.5 h-3.5 text-[#A397F8]" />
+            <Globe className="w-3.5 h-3.5 text-emerald-400" />
             <span>{activeLanguage.nativeName}</span>
           </span>
-          <span className="font-mono text-[10px] font-bold text-slate-400 uppercase bg-[#0B0F19] px-1.5 py-0.5 rounded border border-[#161F30]">
+          <span className="font-mono text-[10px] font-bold text-slate-400 uppercase bg-[#0B0F19] px-1.5 py-0.5 rounded border border-white/10">
             {activeLanguage.code}
           </span>
         </button>
@@ -336,14 +345,14 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#131B2E] text-left transition-colors group min-w-0"
           >
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-full bg-[#6551f3] text-white font-bold text-xs flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">
                 {userInitial}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-white truncate">
                   {userDisplayHandle}
                 </p>
-                <p className="text-[10px] text-[#A397F8] font-medium capitalize truncate">
+                <p className="text-[10px] text-emerald-400 font-mono font-medium uppercase truncate">
                   {roleDisplay}
                 </p>
               </div>
@@ -357,16 +366,16 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
           {/* User Menu Dropdown */}
           {userMenuOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-[#1F2937] bg-[#111827] p-2 shadow-xl text-xs space-y-2 z-50">
+            <div className="absolute bottom-full inset-x-0 mb-2 rounded-xl border border-white/10 bg-[#0F1522] p-2 shadow-2xl text-xs space-y-2 z-50">
               <div className="px-1.5 py-1">
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Signed in as</p>
                 <p className="font-semibold text-white truncate text-xs mt-0.5">{user?.email}</p>
               </div>
-              <div className="border-t border-[#1F2937]" />
+              <div className="border-t border-white/10" />
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors text-left font-medium"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors text-left font-medium"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Log out</span>
@@ -378,34 +387,34 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
       {/* Language Selector Modal */}
       {langModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-md p-5 text-slate-900 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="bg-[#0F1522] rounded-2xl border border-white/15 w-full max-w-md p-5 text-slate-100 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-bold text-slate-900">Select Interface Language</h3>
+                <Globe className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-sm font-bold text-white">Select Interface Language</h3>
               </div>
               <button
                 onClick={() => setLangModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="text-slate-400 hover:text-white p-1"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+              <Search className="pointer-events-none absolute start-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
                 value={langSearch}
                 onChange={(e) => setLangSearch(e.target.value)}
                 placeholder="Search languages..."
                 autoFocus
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                className="w-full ps-8 pe-3 py-1.5 rounded-xl border border-white/10 bg-[#0A0E17] text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5 max-h-64 overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-1.5 max-h-64 overflow-y-auto pe-1">
               {filteredLanguages.map((lang) => {
                 const isSelected = locale === lang.code;
                 return (
@@ -418,8 +427,8 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                     }}
                     className={`flex items-center justify-between p-2 rounded-xl text-left text-xs transition-colors border ${
                       isSelected
-                        ? "border-blue-600 bg-blue-50 text-blue-900 font-bold"
-                        : "border-slate-100 bg-slate-50 hover:bg-slate-100 text-slate-700"
+                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 font-bold"
+                        : "border-white/[0.08] bg-[#0A0E17] hover:bg-[#151D2E] text-slate-300 hover:text-white"
                     }`}
                   >
                     <span className="truncate">{lang.nativeName}</span>
@@ -447,10 +456,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
             onClick={onMobileClose}
           />
-          <div className="relative w-64 max-w-[80vw] h-full shadow-2xl z-10">
+          <div className="relative start-0 w-64 max-w-[80vw] h-full shadow-2xl z-10 animate-in slide-in-from-left rtl:slide-in-from-right duration-200">
             {sidebarContent}
           </div>
         </div>

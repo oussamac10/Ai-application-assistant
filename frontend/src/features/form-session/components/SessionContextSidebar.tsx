@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React from "react";
-import { ChevronLeft, ChevronRight, Loader2, Map as MapIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Map as MapIcon, FileText, Languages, Lock } from "lucide-react";
 import { CurrentField } from "../services/apiClient";
 
 interface SessionContextSidebarProps {
@@ -41,48 +41,36 @@ export function SessionContextSidebar({
         {/* Form Info Card */}
         <div className="surface-card rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               Assisted Session
             </span>
-            <span className="text-xs font-mono text-slate-500 tabular-nums">
+            <span className="text-xs font-mono text-slate-400 tabular-nums">
               Step 2 of 4
             </span>
           </div>
 
           <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <svg
-                className="h-4 w-4 text-indigo-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.75}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <FileText className="h-4 w-4 text-emerald-400" />
               Official Form Flow
             </h3>
-            <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+            <p className="mt-1.5 text-xs text-slate-400 leading-relaxed">
               Fill in your answers sequentially. Each response is standardized
               and verified for the official document.
             </p>
           </div>
 
-          <div className="border-t border-slate-200 pt-3.5 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-600">
+          <div className="border-t border-white/10 pt-3.5 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-400">
               <span>Questions Completed</span>
-              <span className="font-bold text-slate-900 tabular-nums">
+              <span className="font-bold text-white tabular-nums">
                 {completed} of {total}
               </span>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+            <div className="h-1.5 w-full rounded-full bg-[#0A0E17] overflow-hidden border border-white/10">
               <div
-                className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+                className="h-full rounded-full bg-emerald-500 transition-all duration-300 shadow-[0_0_10px_rgba(16,185,129,0.45)]"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -96,23 +84,23 @@ export function SessionContextSidebar({
             className="surface-card rounded-2xl p-5 space-y-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5 min-w-0">
-                <MapIcon className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5 min-w-0">
+                <MapIcon className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                 <span className="truncate">Document Placement</span>
               </span>
-              <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0">
+              <div className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-[#0A0E17] p-0.5 shrink-0">
                 {canNavigatePages && (
                   <button
                     type="button"
                     aria-label="Previous PDF page"
                     disabled={activePage <= 1}
                     onClick={() => onChangePreviewPage?.(Math.max(1, activePage - 1))}
-                    className="rounded-md p-1 text-slate-600 hover:bg-white hover:text-slate-900 disabled:opacity-35 cursor-pointer transition-colors"
+                    className="rounded-md p-1 text-slate-300 hover:bg-[#151D2E] hover:text-white disabled:opacity-35 cursor-pointer transition-colors"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
                 )}
-                <span className="px-1.5 text-[11px] font-mono font-semibold text-slate-700 tabular-nums whitespace-nowrap">
+                <span className="px-1.5 text-[11px] font-mono font-semibold text-slate-200 tabular-nums whitespace-nowrap">
                   {totalPages > 1 ? `${activePage} / ${totalPages}` : `Page ${activePage}`}
                 </span>
                 {canNavigatePages && (
@@ -123,7 +111,7 @@ export function SessionContextSidebar({
                     onClick={() =>
                       onChangePreviewPage?.(Math.min(totalPages, activePage + 1))
                     }
-                    className="rounded-md p-1 text-slate-600 hover:bg-white hover:text-slate-900 disabled:opacity-35 cursor-pointer transition-colors"
+                    className="rounded-md p-1 text-slate-300 hover:bg-[#151D2E] hover:text-white disabled:opacity-35 cursor-pointer transition-colors"
                   >
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
@@ -162,7 +150,7 @@ export function SessionContextSidebar({
                       type="button"
                       data-testid="enlarge-pdf-preview"
                       onClick={onOpenZoom}
-                      className="group relative mx-auto block w-full overflow-hidden rounded-xl border border-slate-300 bg-white shadow-xs transition-all hover:border-indigo-500 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="group relative mx-auto block w-full overflow-hidden rounded-xl border border-white/15 bg-white shadow-xs transition-all hover:border-emerald-500 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       title="Click to enlarge official PDF page"
                     >
                       <img
@@ -179,10 +167,10 @@ export function SessionContextSidebar({
                             width: `${widthPct}%`,
                             height: `${heightPct}%`,
                           }}
-                          className="pointer-events-none absolute rounded-[2px] border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all duration-300"
+                          className="pointer-events-none absolute rounded-[2px] border-2 border-emerald-500 bg-emerald-500/25 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none shadow-[0_0_12px_rgba(16,185,129,0.35)] transition-all duration-300"
                         />
                       )}
-                      <span className="absolute bottom-2 end-2 rounded-md bg-slate-900/75 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="absolute bottom-2 end-2 rounded-md border border-white/15 bg-[#0A0E17]/85 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
                         Click to enlarge
                       </span>
                     </button>
@@ -191,7 +179,7 @@ export function SessionContextSidebar({
               }
 
               return (
-                <div className="relative mx-auto h-36 w-28 rounded-lg border border-slate-300 bg-white shadow-2xs overflow-hidden p-2">
+                <div className="relative mx-auto h-36 w-28 rounded-lg border border-white/15 bg-white shadow-2xs overflow-hidden p-2">
                   <div className="h-2 w-12 rounded-[2px] bg-slate-300 mb-2" />
                   <div className="space-y-1.5">
                     <div className="h-1 w-full rounded-[2px] bg-slate-100" />
@@ -207,26 +195,26 @@ export function SessionContextSidebar({
                       left: `${leftPct}%`,
                       width: `${widthPct}%`,
                     }}
-                    className="absolute h-4 rounded-[2px] border-2 border-indigo-600 bg-indigo-500/20 flex items-center px-1 transition-all duration-300"
+                    className="absolute h-4 rounded-[2px] border-2 border-emerald-500 bg-emerald-500/20 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none flex items-center px-1 transition-all duration-300 shadow-[0_0_8px_rgba(16,185,129,0.35)]"
                   >
-                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                   </div>
                 </div>
               );
             })()}
 
-            <p className="text-[11px] text-slate-600 leading-snug text-center break-words">
+            <p className="text-[11px] text-slate-300 leading-snug text-center break-words">
               {currentField.sourceDocumentFilename ? (
                 <>
                   Mapped to{" "}
-                  <span className="font-semibold text-slate-800 break-all">
+                  <span className="font-semibold text-white break-all">
                     {currentField.sourceDocumentFilename}
                   </span>
                 </>
               ) : (
                 <>
                   Active field{" "}
-                  <span className="font-mono font-semibold text-slate-800">
+                  <span className="font-mono font-semibold text-white">
                     #{completed + 1}
                   </span>{" "}
                   on official PDF template
@@ -238,25 +226,13 @@ export function SessionContextSidebar({
 
         {/* Multilingual Normalization Guidance Card */}
         <div className="surface-card rounded-2xl p-5 space-y-2">
-          <div className="flex items-center gap-2 text-indigo-600">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.75}
-                d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
-              />
-            </svg>
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+          <div className="flex items-center gap-2 text-emerald-400">
+            <Languages className="h-4 w-4" />
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
               Multilingual Normalization
             </h4>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-400 leading-relaxed">
             Answer in your own language. Your original wording is preserved
             while canonical dates, currencies, and choices are formatted for the
             target form.
@@ -264,24 +240,12 @@ export function SessionContextSidebar({
         </div>
 
         {/* Privacy Card */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3 shadow-2xs">
-          <div className="h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.75}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
-            </svg>
+        <div className="rounded-xl border border-white/10 bg-[#0F1522] p-4 flex items-center gap-3 shadow-2xs">
+          <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <Lock className="h-4 w-4" />
           </div>
-          <div className="text-xs text-slate-600 leading-snug">
-            <span className="font-semibold text-slate-900 block">
+          <div className="text-xs text-slate-400 leading-snug">
+            <span className="font-semibold text-white block">
               Zero-Retention Guarantee
             </span>
             Your session is temporary and protected by ownership credentials.
@@ -294,36 +258,36 @@ export function SessionContextSidebar({
           <div
             data-testid="pdf-preview-modal"
             onClick={onCloseZoom}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#0F1522] shadow-2xl"
             >
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-3.5">
                 <div className="space-y-0.5 text-start min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-400">
                     Official Document Placement • Page {activePage}
                     {totalPages > 1 ? ` of ${totalPages}` : ""}
                   </p>
-                  <p className="text-sm font-bold text-slate-900 truncate">
+                  <p className="text-sm font-bold text-white truncate">
                     {currentField.label}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   {canNavigatePages && (
-                    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                    <div className="inline-flex items-center rounded-lg border border-white/10 bg-[#0A0E17] p-0.5">
                       <button
                         type="button"
                         aria-label="Previous page"
                         disabled={activePage <= 1}
                         onClick={() => onChangePreviewPage?.(Math.max(1, activePage - 1))}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white disabled:opacity-40 cursor-pointer"
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-200 hover:bg-[#151D2E] hover:text-white disabled:opacity-40 cursor-pointer"
                       >
                         <ChevronLeft className="h-3.5 w-3.5" />
                         Prev
                       </button>
-                      <span className="px-2 text-xs font-mono font-semibold text-slate-700 tabular-nums">
+                      <span className="px-2 text-xs font-mono font-semibold text-slate-200 tabular-nums">
                         {activePage} / {totalPages}
                       </span>
                       <button
@@ -333,7 +297,7 @@ export function SessionContextSidebar({
                         onClick={() =>
                           onChangePreviewPage?.(Math.min(totalPages, activePage + 1))
                         }
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white disabled:opacity-40 cursor-pointer"
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-200 hover:bg-[#151D2E] hover:text-white disabled:opacity-40 cursor-pointer"
                       >
                         Next
                         <ChevronRight className="h-3.5 w-3.5" />
@@ -344,7 +308,7 @@ export function SessionContextSidebar({
                     <button
                       type="button"
                       onClick={() => onChangePreviewPage(fieldPage)}
-                      className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 cursor-pointer"
+                      className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 cursor-pointer"
                     >
                       Go to field (p. {fieldPage})
                     </button>
@@ -352,19 +316,19 @@ export function SessionContextSidebar({
                   <button
                     type="button"
                     onClick={onCloseZoom}
-                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                    className="rounded-lg border border-white/15 bg-[#151D2E] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-[#1E293B] hover:text-white cursor-pointer"
                   >
                     Close
                   </button>
                 </div>
               </div>
-              <div className="overflow-y-auto p-4 sm:p-6 bg-slate-100/70">
+              <div className="overflow-y-auto p-4 sm:p-6 bg-[#0A0E17]">
                 {(() => {
                   const previewUrl = pagePreviewUrls[activePage];
                   if (!previewUrl) {
                     return (
-                      <div className="flex flex-col items-center justify-center py-20 text-slate-500 gap-2">
-                        <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                      <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
                         <span className="text-xs font-medium">
                           Loading page {activePage} preview...
                         </span>
@@ -393,7 +357,7 @@ export function SessionContextSidebar({
                     : 5;
 
                   return (
-                    <div className="relative mx-auto w-fit h-fit rounded-lg border border-slate-300 bg-white shadow-md">
+                    <div className="relative mx-auto w-fit h-fit rounded-lg border border-white/15 bg-white shadow-md">
                       <img
                         src={previewUrl}
                         alt={`Official PDF page ${activePage} enlarged`}
@@ -407,7 +371,7 @@ export function SessionContextSidebar({
                             width: `${widthPct}%`,
                             height: `${heightPct}%`,
                           }}
-                          className="pointer-events-none absolute rounded-[2px] border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_4px_rgba(79,70,229,0.28)]"
+                          className="pointer-events-none absolute rounded-[2px] border-2 border-emerald-500 bg-emerald-500/25 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none shadow-[0_0_16px_rgba(16,185,129,0.4)]"
                         />
                       )}
                     </div>

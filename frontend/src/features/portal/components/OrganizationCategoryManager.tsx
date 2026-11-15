@@ -345,7 +345,7 @@ export function OrganizationCategoryManager({
       AVAILABLE_ICONS.map((ic) => ({
         value: ic.id,
         label: ic.label,
-        icon: <CategoryIcon icon={ic.id} className="w-4 h-4 text-blue-600" />,
+        icon: <CategoryIcon icon={ic.id} className="w-4 h-4 text-emerald-400" />,
       })),
     []
   );
@@ -366,7 +366,7 @@ export function OrganizationCategoryManager({
           icon: (
             <CategoryIcon
               icon={c.icon || "Layers"}
-              className="w-4 h-4 text-indigo-600"
+              className="w-4 h-4 text-emerald-400"
             />
           ),
         })),
@@ -390,8 +390,8 @@ export function OrganizationCategoryManager({
             <span
               className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                 isTranslated
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  : "bg-slate-100 text-slate-600 border border-slate-200"
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                  : "bg-[#151D2E] text-slate-400 border border-white/10"
               }`}
             >
               {lang.code.toUpperCase()}
@@ -405,16 +405,16 @@ export function OrganizationCategoryManager({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-100">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-white/10">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-slate-900">
+            <h2 className="text-base font-bold text-white">
               Form Categories & Taxonomy
             </h2>
           </div>
-          <p className="text-xs text-slate-500 mt-1 max-w-xl">
+          <p className="text-xs text-slate-400 mt-1 max-w-xl">
             Structure your official forms into hierarchical categories. Each category supports verified multilingual translations across all citizen guidance languages.
           </p>
         </div>
@@ -423,7 +423,7 @@ export function OrganizationCategoryManager({
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-bold text-slate-950 shadow-xs transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>New Category</span>
@@ -432,38 +432,38 @@ export function OrganizationCategoryManager({
       </div>
 
       {error && (
-        <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between text-xs text-red-800">
+        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between text-xs text-rose-200">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
             <span>{error}</span>
           </div>
-          <button onClick={() => setError(null)} className="text-red-500 font-bold ml-2">✕</button>
+          <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-300 font-bold ms-2 cursor-pointer">✕</button>
         </div>
       )}
 
       {successMsg && (
-        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs text-emerald-800">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-xs text-emerald-300">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center space-y-3">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-          <p className="text-xs text-slate-500">Loading categories & taxonomy...</p>
+          <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+          <p className="text-xs text-slate-400">Loading categories & taxonomy...</p>
         </div>
       ) : categories.length === 0 ? (
-        <div className="py-12 border-2 border-dashed border-slate-200 rounded-2xl text-center p-8 bg-slate-50/50">
-          <FolderTree className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-sm font-bold text-slate-800">No Categories Defined</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto mb-4">
+        <div className="py-12 border-2 border-dashed border-white/10 rounded-2xl text-center p-8 bg-[#0A0E17]">
+          <FolderTree className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+          <h3 className="text-sm font-bold text-white">No Categories Defined</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto mb-4">
             You haven&apos;t created any categories yet. Create categories to organize your official administrative forms.
           </p>
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-bold hover:bg-emerald-400 transition-colors shadow-xs cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Create Your First Category</span>
@@ -480,18 +480,18 @@ export function OrganizationCategoryManager({
             return (
               <div
                 key={cat.id}
-                className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs hover:border-blue-200 hover:shadow-xs transition-all flex flex-col justify-between"
+                className="bg-[#0F1522] border border-white/10 rounded-2xl p-5 shadow-2xs hover:border-emerald-500/40 hover:shadow-xs transition-all flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0">
-                        <CategoryIcon name={cat.icon} className="w-5 h-5 text-indigo-600" />
+                      <div className="w-10 h-10 rounded-xl bg-[#0A0E17] border border-white/10 text-slate-200 flex items-center justify-center shrink-0">
+                        <CategoryIcon name={cat.icon} className="w-5 h-5 text-emerald-400" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-slate-900">{cat.name}</h4>
-                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                          <h4 className="text-sm font-bold text-white">{cat.name}</h4>
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#151D2E] text-slate-300 border border-white/10">
                             {cat.slug}
                           </span>
                         </div>
@@ -508,7 +508,7 @@ export function OrganizationCategoryManager({
                       <button
                         type="button"
                         onClick={() => openEditModal(cat)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
                         title="Edit Category"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -516,7 +516,7 @@ export function OrganizationCategoryManager({
                       <button
                         type="button"
                         onClick={() => handleDelete(cat)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                         title="Delete Category"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -525,31 +525,31 @@ export function OrganizationCategoryManager({
                   </div>
 
                   {cat.description && (
-                    <p className="text-xs text-slate-500 line-clamp-2 mt-1">
+                    <p className="text-xs text-slate-400 line-clamp-2 mt-1">
                       {cat.description}
                     </p>
                   )}
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                <div className="mt-4 pt-3 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-2 text-[11px]">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => openAssignedFormsModal(cat)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold transition-colors cursor-pointer border border-indigo-200/80"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-semibold transition-colors cursor-pointer border border-emerald-500/30"
                       title="Manage assigned official administrative forms"
                     >
-                      <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
                       <span>{cat.forms_count} {cat.forms_count === 1 ? "Form" : "Forms"}</span>
-                      <span className="text-[10px] text-indigo-500 font-normal">Manage</span>
+                      <span className="text-[10px] text-emerald-300/80 font-normal">Manage</span>
                     </button>
                     <span className="text-slate-400">Order: {cat.sort_order}</span>
                   </div>
 
                   {/* Language Badges */}
                   <div className="flex items-center gap-1">
-                    <Globe className="w-3 h-3 text-slate-400" />
-                    <span className="font-semibold text-slate-500 text-[10px]">
+                    <Globe className="w-3 h-3 text-slate-500" />
+                    <span className="font-semibold text-slate-400 text-[10px]">
                       {translatedCount} / {supportedLanguageOptions.length} Languages
                     </span>
                   </div>
@@ -562,19 +562,19 @@ export function OrganizationCategoryManager({
 
       {/* CREATE / EDIT CATEGORY MODAL */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#060910]/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-[#0F1522] rounded-2xl shadow-2xl border border-white/10 text-slate-100 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#0A0E17]/60">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
                   <FolderTree className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-white">
                     {editingCategory ? "Edit Category & Translations" : "Create Official Category"}
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-400">
                     Flexible hierarchical taxonomy for official forms
                   </p>
                 </div>
@@ -582,7 +582,7 @@ export function OrganizationCategoryManager({
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#151D2E] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -592,7 +592,7 @@ export function OrganizationCategoryManager({
             <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="category-primary-name" className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="category-primary-name" className="block text-xs font-semibold text-slate-200 mb-1">
                     Category Name (Primary) *
                   </label>
                   <input
@@ -612,12 +612,12 @@ export function OrganizationCategoryManager({
                       }
                     }}
                     placeholder="e.g. Wohnen & Meldewesen"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                    className="w-full px-3 py-2 rounded-xl border border-white/10 bg-[#0A0E17] text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="category-slug" className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="category-slug" className="block text-xs font-semibold text-slate-200 mb-1">
                     Slug / URL Identifier
                   </label>
                   <input
@@ -626,14 +626,14 @@ export function OrganizationCategoryManager({
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
                     placeholder="e.g. housing-residence"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                    className="w-full px-3 py-2 rounded-xl border border-white/10 bg-[#0A0E17] text-xs font-mono text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="category-icon-select" className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="category-icon-select" className="block text-xs font-semibold text-slate-200 mb-1">
                     Icon
                   </label>
                   <ModernSelect
@@ -649,7 +649,7 @@ export function OrganizationCategoryManager({
                 </div>
 
                 <div>
-                  <label htmlFor="category-parent-select" className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="category-parent-select" className="block text-xs font-semibold text-slate-200 mb-1">
                     Parent Category (Hierarchy)
                   </label>
                   <ModernSelect
@@ -665,20 +665,20 @@ export function OrganizationCategoryManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-200 mb-1">
                     Sort Order
                   </label>
                   <input
                     type="number"
                     value={sortOrder}
                     onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                    className="w-full px-3 py-2 rounded-xl border border-white/10 bg-[#0A0E17] text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-200 mb-1">
                   Default Description
                 </label>
                 <textarea
@@ -686,16 +686,16 @@ export function OrganizationCategoryManager({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Short explanation for citizens and caseworkers..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                  className="w-full px-3 py-2 rounded-xl border border-white/10 bg-[#0A0E17] text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
                 />
               </div>
 
               {/* Multilingual Guidance Translations (Supported Languages) */}
-              <div className="pt-3 border-t border-slate-200">
+              <div className="pt-3 border-t border-white/10">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-2">
                   <div className="flex items-center gap-1.5">
-                    <Globe className="w-4 h-4 text-blue-600" />
-                    <span className="text-xs font-bold text-slate-800">
+                    <Globe className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-bold text-white">
                       Multilingual Citizen Translations
                     </span>
                   </div>
@@ -704,13 +704,13 @@ export function OrganizationCategoryManager({
                   </span>
                 </div>
 
-                <p className="text-[11px] text-slate-500 mb-3">
+                <p className="text-[11px] text-slate-400 mb-3">
                   Translate this category for citizens who select a different guidance language. Choose a language from your organization’s supported languages to add or edit its translation.
                 </p>
 
                 {/* Language Picker Dropdown */}
                 <div className="mb-3">
-                  <label htmlFor="translation-lang-select" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  <label htmlFor="translation-lang-select" className="block text-[11px] font-semibold text-slate-200 mb-1">
                     Choose Language to Translate
                   </label>
                   <ModernSelect
@@ -743,8 +743,8 @@ export function OrganizationCategoryManager({
                             key={code}
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border ${
                               isSelected
-                                ? "bg-blue-50 text-blue-700 border-blue-300 shadow-2xs"
-                                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40 shadow-2xs"
+                                : "bg-[#0A0E17] text-slate-300 border-white/10 hover:bg-[#151D2E]"
                             }`}
                           >
                             <button
@@ -754,13 +754,13 @@ export function OrganizationCategoryManager({
                             >
                               <span>{label}</span>
                               {hasName && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Translated" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Translated" />
                               )}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleRemoveTranslation(code)}
-                              className="text-slate-400 hover:text-red-600 p-0.5 rounded cursor-pointer transition-colors"
+                              className="text-slate-400 hover:text-rose-400 p-0.5 rounded cursor-pointer transition-colors"
                               title="Remove translation"
                             >
                               <X className="w-3 h-3" />
@@ -774,13 +774,13 @@ export function OrganizationCategoryManager({
 
                 {/* Active Language Translation Input */}
                 {selectedTranslationLang && activeLangOption ? (
-                  <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 animate-in fade-in duration-150">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                  <div className="space-y-3 bg-[#0A0E17] p-3.5 rounded-xl border border-white/10 animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-mono text-[10px] font-bold uppercase">
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-mono text-[10px] font-bold uppercase">
                           {activeLangOption.code}
                         </span>
-                        <span className="text-xs font-bold text-slate-800">
+                        <span className="text-xs font-bold text-white">
                           {activeLangOption.nativeName}
                           {activeLangOption.name && activeLangOption.name !== activeLangOption.nativeName
                             ? ` (${activeLangOption.name})`
@@ -792,7 +792,7 @@ export function OrganizationCategoryManager({
                         onClick={() => handleRemoveTranslation(selectedTranslationLang)}
                         aria-label={`Remove ${activeLangOption.code.toUpperCase()} translation`}
                         title="Remove active translation"
-                        className="text-[11px] text-red-600 hover:text-red-700 font-medium inline-flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] text-rose-400 hover:text-rose-300 font-medium inline-flex items-center gap-1 cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
                         <span>Remove</span>
@@ -800,7 +800,7 @@ export function OrganizationCategoryManager({
                     </div>
 
                     <div>
-                      <label htmlFor="translated-category-name" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      <label htmlFor="translated-category-name" className="block text-[11px] font-semibold text-slate-200 mb-1">
                         Translated Category Name ({activeLangOption.code.toUpperCase()}) *
                       </label>
                       <input
@@ -811,12 +811,12 @@ export function OrganizationCategoryManager({
                           handleTranslationChange(selectedTranslationLang, "name", e.target.value)
                         }
                         placeholder={`e.g. Translated title in ${activeLangOption.name}...`}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                        className="w-full px-3 py-2 rounded-lg border border-white/10 text-xs bg-[#0F1522] text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="translated-category-description" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      <label htmlFor="translated-category-description" className="block text-[11px] font-semibold text-slate-200 mb-1">
                         Translated Description ({activeLangOption.code.toUpperCase()})
                       </label>
                       <textarea
@@ -827,15 +827,15 @@ export function OrganizationCategoryManager({
                           handleTranslationChange(selectedTranslationLang, "description", e.target.value)
                         }
                         placeholder={`Short explanation for citizens in ${activeLangOption.name}...`}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                        className="w-full px-3 py-2 rounded-lg border border-white/10 text-xs bg-[#0F1522] text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
                       />
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center bg-slate-50/50">
-                    <Globe className="w-5 h-5 text-slate-400 mx-auto mb-1.5" />
-                    <p className="text-xs font-semibold text-slate-700">No language selected</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                  <div className="p-4 rounded-xl border border-dashed border-white/15 text-center bg-[#0A0E17]">
+                    <Globe className="w-5 h-5 text-slate-500 mx-auto mb-1.5" />
+                    <p className="text-xs font-semibold text-slate-200">No language selected</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
                       Select a supported language from the dropdown above to add citizen guidance translations.
                     </p>
                   </div>
@@ -843,18 +843,18 @@ export function OrganizationCategoryManager({
               </div>
 
               {/* Modal Actions */}
-              <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2.5">
+              <div className="pt-4 border-t border-white/10 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#151D2E] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-bold text-slate-950 shadow-xs transition-colors cursor-pointer"
                 >
                   {actionLoading ? "Saving..." : editingCategory ? "Update Category" : "Create Category"}
                 </button>
@@ -866,18 +866,18 @@ export function OrganizationCategoryManager({
 
       {/* MANAGE ASSIGNED FORMS MODAL (TYPO3 sys_category record relations) */}
       {assignedFormsModalCat && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
-            <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#060910]/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-[#0F1522] rounded-3xl shadow-2xl border border-white/10 text-slate-100 max-w-xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between pb-3 border-b border-white/[0.08]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                  <CategoryIcon icon={assignedFormsModalCat.icon} className="w-5 h-5 text-indigo-600" />
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                  <CategoryIcon icon={assignedFormsModalCat.icon} className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-base font-bold text-white">
                     Assign Forms to &ldquo;{assignedFormsModalCat.name}&rdquo;
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-400">
                     Select official administrative forms that belong to this category.
                   </p>
                 </div>
@@ -885,28 +885,28 @@ export function OrganizationCategoryManager({
               <button
                 type="button"
                 onClick={() => setAssignedFormsModalCat(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-[#151D2E] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+              <Search className="w-3.5 h-3.5 absolute start-3 top-3 text-slate-500" />
               <input
                 type="text"
                 placeholder="Search official administrative forms..."
                 value={formFilterQuery}
                 onChange={(e) => setFormFilterQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
+                className="w-full ps-9 pe-3 py-2 text-xs rounded-xl border border-white/10 bg-[#0A0E17] text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>
 
-            <div className="overflow-y-auto flex-1 divide-y divide-slate-100 max-h-80 pr-1">
+            <div className="overflow-y-auto flex-1 divide-y divide-white/[0.08] max-h-80 pe-1">
               {loadingAssignedForms ? (
                 <div className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mx-auto mb-2" />
-                  <span className="text-xs text-slate-500">Loading organization forms...</span>
+                  <Loader2 className="w-6 h-6 animate-spin text-emerald-400 mx-auto mb-2" />
+                  <span className="text-xs text-slate-400">Loading organization forms...</span>
                 </div>
               ) : filteredOrgForms.length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-400">
@@ -922,7 +922,7 @@ export function OrganizationCategoryManager({
                   return (
                     <label
                       key={form.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors"
+                      className="flex items-center justify-between p-2.5 rounded-xl hover:bg-[#151D2E] cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <input
@@ -935,10 +935,10 @@ export function OrganizationCategoryManager({
                               setSelectedFormIds((prev) => prev.filter((id) => id !== form.id));
                             }
                           }}
-                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          className="h-4 w-4 rounded border-white/20 bg-[#0A0E17] text-emerald-500 focus:ring-emerald-500/30 accent-emerald-500 cursor-pointer"
                         />
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-slate-900 truncate">
+                          <p className="text-xs font-semibold text-white truncate">
                             {form.name}
                           </p>
                           <p className="text-[11px] font-mono text-slate-400 truncate">
@@ -947,7 +947,7 @@ export function OrganizationCategoryManager({
                         </div>
                       </div>
                       {otherCategory && !isChecked && (
-                        <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-[120px]">
+                        <span className="text-[10px] text-slate-300 bg-[#151D2E] border border-white/10 px-2 py-0.5 rounded-md truncate max-w-[120px]">
                           Currently: {otherCategory}
                         </span>
                       )}
@@ -957,15 +957,15 @@ export function OrganizationCategoryManager({
               )}
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <span className="text-xs text-slate-500 font-medium">
+            <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">
+              <span className="text-xs text-slate-400 font-medium">
                 {selectedFormIds.length} forms selected
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setAssignedFormsModalCat(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-[#151D2E] cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
@@ -973,7 +973,7 @@ export function OrganizationCategoryManager({
                   type="button"
                   disabled={savingAssignedForms}
                   onClick={handleSaveAssignedForms}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-xs cursor-pointer transition-colors disabled:opacity-50"
                 >
                   {savingAssignedForms && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Save Relations</span>

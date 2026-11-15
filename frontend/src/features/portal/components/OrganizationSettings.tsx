@@ -292,15 +292,15 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+    <div className="bg-[#0F1522] rounded-2xl border border-white/10 text-slate-100 shadow-xs overflow-hidden">
       {/* Settings Navigation Tabs */}
-      <div className="flex border-b border-slate-200 bg-slate-50/70 px-6 pt-3 gap-6">
+      <div className="flex border-b border-white/10 bg-[#0A0E17]/70 px-6 pt-3 gap-6 overflow-x-auto">
         <button
           onClick={() => setActiveTab("profile")}
-          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${
             activeTab === "profile"
-              ? "border-indigo-600 text-indigo-700"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "border-emerald-500 text-emerald-400"
+              : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
           <Building2 className="w-4 h-4" />
@@ -308,10 +308,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
         </button>
         <button
           onClick={() => setActiveTab("verification")}
-          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${
             activeTab === "verification"
-              ? "border-indigo-600 text-indigo-700"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "border-emerald-500 text-emerald-400"
+              : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
@@ -324,10 +324,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
         </button>
         <button
           onClick={() => setActiveTab("team")}
-          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${
             activeTab === "team"
-              ? "border-indigo-600 text-indigo-700"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "border-emerald-500 text-emerald-400"
+              : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
           <Users className="w-4 h-4" />
@@ -335,10 +335,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
         </button>
         <button
           onClick={() => setActiveTab("layout")}
-          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${
             activeTab === "layout"
-              ? "border-indigo-600 text-indigo-700"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "border-emerald-500 text-emerald-400"
+              : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
           <Palette className="w-4 h-4" />
@@ -346,10 +346,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
         </button>
         <button
           onClick={() => setActiveTab("categories")}
-          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3 text-xs font-bold inline-flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${
             activeTab === "categories"
-              ? "border-indigo-600 text-indigo-700"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "border-emerald-500 text-emerald-400"
+              : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
           <FolderTree className="w-4 h-4" />
@@ -359,22 +359,22 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
       <div className="p-6 sm:p-8">
         {errorMsg && (
-          <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-3 text-xs text-rose-800">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-3 text-xs text-rose-200">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {profileSuccessMsg && (
-          <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3 text-xs text-emerald-800">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-xs text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
             <span>{profileSuccessMsg}</span>
           </div>
         )}
 
         {themeSuccessMsg && (
-          <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3 text-xs text-emerald-800">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-xs text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
             <span>{themeSuccessMsg}</span>
           </div>
         )}
@@ -383,9 +383,15 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
         {activeTab === "profile" && (
           <form onSubmit={handleSaveProfile} className="space-y-8 max-w-3xl">
             {/* Logo & Header Info */}
-            <div className="flex flex-col sm:flex-row items-start gap-6 pb-6 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row items-start gap-6 pb-6 border-b border-white/[0.08]">
               <div className="relative group shrink-0">
-                <div className="w-24 h-24 rounded-2xl border-2 border-slate-200 bg-white flex flex-col items-center justify-center overflow-hidden shadow-2xs p-1.5">
+                <div
+                  className={`w-24 h-24 rounded-2xl border-2 flex flex-col items-center justify-center overflow-hidden shadow-2xs ${
+                    org.logo_storage_path
+                      ? "border-white/20 bg-white p-1"
+                      : "border-white/10 bg-[#151D2E] p-1.5"
+                  }`}
+                >
                   {org.logo_storage_path ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
@@ -394,15 +400,15 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       className="w-full h-full object-contain"
                     />
                   ) : (
-                    <div className="w-full h-full rounded-xl bg-slate-50 flex flex-col items-center justify-center text-slate-400">
-                      <Building className="w-8 h-8 text-slate-400" />
-                      <span className="text-[10px] font-semibold mt-1">No Logo</span>
+                    <div className="w-full h-full rounded-xl bg-[#151D2E] flex flex-col items-center justify-center text-slate-400">
+                      <Building className="w-8 h-8 text-slate-500" />
+                      <span className="text-[10px] font-semibold mt-1 text-slate-400">No Logo</span>
                     </div>
                   )}
                 </div>
                 {isOwnerOrAdmin && (
                   <label className="mt-2 block text-center cursor-pointer">
-                    <span className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+                    <span className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors">
                       {uploadingLogo ? "Uploading..." : "Upload Logo"}
                     </span>
                     <input
@@ -417,11 +423,11 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
               </div>
 
               <div className="space-y-1.5 flex-1 min-w-0 text-start">
-                <h3 className="text-base font-bold text-slate-900 break-words">{org.name}</h3>
-                <p className="text-xs text-slate-500 font-mono break-all">
-                  Slug: <span className="text-indigo-600">/organizations/{org.slug}</span>
+                <h3 className="text-base font-bold text-white break-words">{org.name}</h3>
+                <p className="text-xs text-slate-400 font-mono break-all">
+                  Slug: <span className="text-emerald-400">/organizations/{org.slug}</span>
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   This official identity and logo will appear on your public citizen portal, printable QR counter posters, and PDF instructions.
                 </p>
               </div>
@@ -430,7 +436,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             {/* Editable Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-start">
               <div className="space-y-1.5 sm:col-span-2">
-                <label className="text-xs font-bold text-slate-800">
+                <label className="text-xs font-bold text-slate-200">
                   Official Organization Name
                 </label>
                 <input
@@ -438,13 +444,13 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={!isOwnerOrAdmin}
-                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                  className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none disabled:opacity-60"
                   required
                 />
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
-                <label className="text-xs font-bold text-slate-800">
+                <label className="text-xs font-bold text-slate-200">
                   Description / Citizen Guidance
                 </label>
                 <textarea
@@ -453,66 +459,66 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   disabled={!isOwnerOrAdmin}
                   rows={3}
                   placeholder="e.g. Municipal migration and residence authority for administrative districts."
-                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                  className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none disabled:opacity-60"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-800">Office Address</label>
+                <label className="text-xs font-bold text-slate-200">Office Address</label>
                 <div className="relative">
-                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <MapPin className="w-4 h-4 text-slate-500 absolute start-3 top-3" />
                   <input
                     type="text"
                     value={officeAddress}
                     onChange={(e) => setOfficeAddress(e.target.value)}
                     disabled={!isOwnerOrAdmin}
                     placeholder="e.g. 100 City Hall Plaza, Suite 400"
-                    className="w-full rounded-xl border border-slate-300 pl-9 pr-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#0A0E17] ps-9 pe-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none disabled:opacity-60"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-800">Official Website</label>
+                <label className="text-xs font-bold text-slate-200">Official Website</label>
                 <div className="relative">
-                  <Globe className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Globe className="w-4 h-4 text-slate-500 absolute start-3 top-3" />
                   <input
                     type="url"
                     value={websiteUrl}
                     onChange={(e) => setWebsiteUrl(e.target.value)}
                     disabled={!isOwnerOrAdmin}
                     placeholder="https://www.citygov.example.org"
-                    className="w-full rounded-xl border border-slate-300 pl-9 pr-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#0A0E17] ps-9 pe-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none disabled:opacity-60"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-800">Official Contact Email</label>
+                <label className="text-xs font-bold text-slate-200">Official Contact Email</label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Mail className="w-4 h-4 text-slate-500 absolute start-3 top-3" />
                   <input
                     type="email"
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
                     disabled={!isOwnerOrAdmin}
                     placeholder="citizenservices@citygov.example.org"
-                    className="w-full rounded-xl border border-slate-300 pl-9 pr-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#0A0E17] ps-9 pe-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none disabled:opacity-60"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-800">Contact Phone</label>
+                <label className="text-xs font-bold text-slate-200">Contact Phone</label>
                 <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Phone className="w-4 h-4 text-slate-500 absolute start-3 top-3" />
                   <input
                     type="tel"
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}
                     disabled={!isOwnerOrAdmin}
                     placeholder="+49 711 216 0"
-                    className="w-full rounded-xl border border-slate-300 pl-9 pr-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#0A0E17] ps-9 pe-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none disabled:opacity-60"
                   />
                 </div>
               </div>
@@ -522,11 +528,11 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             <div className="space-y-3 text-start pt-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
-                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Globe className="w-4 h-4 text-indigo-600" />
+                  <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-emerald-400" />
                     Supported Guidance Languages for Citizens
                   </label>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-400">
                     Citizens can choose any of these languages to guide them through your official forms with plain-language explanations.
                   </p>
                 </div>
@@ -534,7 +540,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   <button
                     type="button"
                     onClick={() => setIsLanguageModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors self-start sm:self-auto shadow-2xs"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 transition-colors self-start sm:self-auto shadow-2xs"
                   >
                     <Globe className="w-3.5 h-3.5" />
                     Languages ({supportedLanguages.length})
@@ -552,7 +558,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   return (
                     <span
                       key={code}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0A0E17] px-3 py-1.5 text-xs font-semibold text-slate-200 shadow-2xs"
                     >
                       <span className="font-bold">{nativeName}</span>
                       {englishName && englishName !== nativeName && (
@@ -560,7 +566,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                           ({englishName})
                         </span>
                       )}
-                      <span className="font-mono text-[9px] font-bold uppercase text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded">
+                      <span className="font-mono text-[9px] font-bold uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
                         {code}
                       </span>
                       {isOwnerOrAdmin && supportedLanguages.length > 1 && (
@@ -568,7 +574,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                           type="button"
                           onClick={() => toggleLanguage(code)}
                           title={`Remove ${nativeName}`}
-                          className="ms-0.5 rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                          className="ms-0.5 rounded-full p-0.5 text-slate-400 hover:bg-[#151D2E] hover:text-white transition-colors"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -597,19 +603,19 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
         {/* TAB 2: Official Government Verification */}
         {activeTab === "verification" && (
           <div className="space-y-6 max-w-2xl text-start">
-            <div className="p-5 rounded-2xl border bg-slate-50 flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-xs shrink-0">
+            <div className="p-5 rounded-2xl border border-white/10 bg-[#0A0E17] flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-[#0F1522] border border-white/10 shadow-xs shrink-0">
                 {org.is_verified_government ? (
-                  <ShieldCheck className="w-6 h-6 text-emerald-600" />
+                  <ShieldCheck className="w-6 h-6 text-emerald-400" />
                 ) : org.verification_status === "pending_review" ? (
-                  <Clock className="w-6 h-6 text-amber-600" />
+                  <Clock className="w-6 h-6 text-amber-400" />
                 ) : (
                   <AlertCircle className="w-6 h-6 text-slate-400" />
                 )}
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-slate-900">
+                  <h4 className="text-sm font-bold text-white">
                     {org.is_verified_government
                       ? "Verified Government Authority"
                       : org.verification_status === "pending_review"
@@ -619,16 +625,16 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                       org.is_verified_government
-                        ? "bg-emerald-100 text-emerald-800"
+                        ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
                         : org.verification_status === "pending_review"
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-slate-200 text-slate-700"
+                        ? "bg-amber-500/10 border border-amber-500/30 text-amber-300"
+                        : "bg-[#151D2E] border border-white/10 text-slate-300"
                     }`}
                   >
                     {org.verification_status}
                   </span>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs text-slate-400 leading-relaxed">
                   {org.is_verified_government
                     ? "Your organization is verified as an official municipality or public administration entity. The verified badge is displayed on your public citizen portal and form links."
                     : org.verification_status === "pending_review"
@@ -640,12 +646,12 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
             {!org.is_verified_government && (
               <form onSubmit={handleSubmitVerification} className="space-y-4 pt-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Official Verification Application
                 </h3>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-800">
+                  <label className="text-xs font-bold text-slate-200">
                     Authority / Institution Name
                   </label>
                   <input
@@ -653,12 +659,12 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     value={authorityName}
                     onChange={(e) => setAuthorityName(e.target.value)}
                     required
-                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-800">
+                  <label className="text-xs font-bold text-slate-200">
                     Official Registration / Service ID
                   </label>
                   <input
@@ -667,12 +673,12 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     onChange={(e) => setRegistrationId(e.target.value)}
                     placeholder="e.g. DE-BW-08111000 or Municipal Code"
                     required
-                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-800">
+                  <label className="text-xs font-bold text-slate-200">
                     Official Government / Institutional Domain
                   </label>
                   <input
@@ -681,12 +687,12 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     onChange={(e) => setOfficialDomain(e.target.value)}
                     placeholder="e.g. agency.gov or city.gov"
                     required
-                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-800">
+                  <label className="text-xs font-bold text-slate-200">
                     Submitter Role / Title
                   </label>
                   <input
@@ -695,12 +701,12 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     onChange={(e) => setContactPersonTitle(e.target.value)}
                     placeholder="e.g. Amtsleiter / Department Head"
                     required
-                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-800">
+                  <label className="text-xs font-bold text-slate-200">
                     Additional Notes (Optional)
                   </label>
                   <textarea
@@ -708,7 +714,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     onChange={(e) => setVerificationNotes(e.target.value)}
                     rows={2}
                     placeholder="Provide any public register links or verification documents..."
-                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   />
                 </div>
 
@@ -735,12 +741,12 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-slate-900">Workspace Staff & Roles</h3>
-                  <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
+                  <h3 className="text-base font-bold text-white">Workspace Staff & Roles</h3>
+                  <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
                     {members.length} {members.length === 1 ? "Member" : "Members"}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-400">
                   Assign administrative, form editor, or case management permissions to your team.
                 </p>
               </div>
@@ -757,9 +763,9 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
               )}
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-2xs">
+            <div className="overflow-x-auto border border-white/10 rounded-2xl bg-[#0A0E17] shadow-2xs">
               <table className="w-full text-xs text-start">
-                <thead className="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+                <thead className="bg-[#151D2E]/80 text-slate-300 font-bold border-b border-white/10 uppercase tracking-wider text-[11px]">
                   <tr>
                     <th scope="col" className="py-3.5 px-5 text-start w-5/12">Member</th>
                     <th scope="col" className="py-3.5 px-5 text-start w-3/12">Assigned Role</th>
@@ -769,18 +775,18 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-white/[0.08]">
                   {members.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
+                    <tr key={m.id} className="hover:bg-[#151D2E]/60 transition-colors">
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-indigo-50 to-indigo-100 border border-indigo-200 font-mono text-xs font-bold text-indigo-700">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/30 font-mono text-xs font-bold text-emerald-400">
                             {m.email.charAt(0).toUpperCase()}
                           </span>
                           <div>
-                            <div className="font-semibold text-slate-900">{m.email}</div>
+                            <div className="font-semibold text-slate-100">{m.email}</div>
                             {m.role === "owner" && (
-                              <span className="text-[10px] font-semibold text-indigo-600">
+                              <span className="text-[10px] font-semibold text-emerald-400">
                                 Workspace Creator
                               </span>
                             )}
@@ -792,7 +798,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                           <select
                             value={m.role}
                             onChange={(e) => handleRoleChange(m.user_id, e.target.value)}
-                            className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                            className="bg-[#0F1522] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-200 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                           >
                             <option value="admin">Administrator</option>
                             <option value="form_editor">Form Editor</option>
@@ -800,13 +806,13 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                             <option value="viewer">Viewer (Read-only)</option>
                           </select>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-200 px-3 py-1 text-xs font-bold text-indigo-700">
-                            <span className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                             Owner
                           </span>
                         )}
                       </td>
-                      <td className="py-4 px-5 text-slate-500 font-mono text-[11px]">
+                      <td className="py-4 px-5 text-slate-400 font-mono text-[11px]">
                         {new Date(m.created_at).toLocaleDateString(undefined, {
                           year: "numeric",
                           month: "short",
@@ -819,14 +825,14 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                             <button
                               type="button"
                               onClick={() => handleRemoveMember(m.user_id)}
-                              className="inline-flex items-center gap-1 text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors font-medium"
+                              className="inline-flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 px-2.5 py-1 rounded-lg transition-colors font-medium"
                               title="Remove member from workspace"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                               <span>Remove</span>
                             </button>
                           ) : (
-                            <span className="text-[11px] font-medium text-slate-400 italic">
+                            <span className="text-[11px] font-medium text-slate-500 italic">
                               Primary Owner
                             </span>
                           )}
@@ -836,7 +842,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   ))}
                   {members.length === 0 && !loadingMembers && (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-slate-400">
+                      <td colSpan={4} className="py-8 text-center text-slate-500">
                         No team members registered.
                       </td>
                     </tr>
@@ -852,22 +858,22 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
           <form onSubmit={handleSaveTheme} className="space-y-8 max-w-4xl text-start">
             <div>
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-base font-bold text-slate-900">
+                <Palette className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-base font-bold text-white">
                   System View, Colors & Component Layout
                 </h3>
               </div>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-400">
                 Customize your municipal authority workspace, heraldic brand colors, component ordering, and public portal appearance.
               </p>
             </div>
 
             {/* 1. Official Authority Brand Colors & Palettes */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">Authority Brand Colors</h4>
-                  <p className="text-xs text-slate-500">
+                  <h4 className="text-sm font-bold text-white">Authority Brand Colors</h4>
+                  <p className="text-xs text-slate-400">
                     Choose your official municipal heraldic color or select from official German authority palettes.
                   </p>
                 </div>
@@ -880,7 +886,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       accent_color: DEFAULT_THEME_CONFIG.accent_color,
                     }))
                   }
-                  className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 font-semibold"
+                  className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white font-semibold"
                 >
                   <RotateCcw className="w-3 h-3" /> Reset Colors
                 </button>
@@ -888,7 +894,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
               {/* Popular Swatches */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   Preset Authority Palettes:
                 </span>
                 <div className="flex flex-wrap gap-2">
@@ -908,12 +914,12 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         }
                         className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold border transition-all ${
                           isSelected
-                            ? "border-slate-900 bg-white ring-2 ring-slate-900 shadow-xs"
-                            : "border-slate-200 bg-white hover:border-slate-300 text-slate-700"
+                            ? "border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30 text-white shadow-xs"
+                            : "border-white/10 bg-[#0F1522] hover:border-white/20 text-slate-300"
                         }`}
                       >
                         <span
-                          className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
+                          className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"
                           style={{ backgroundColor: p.primary }}
                         />
                         <span>{p.name}</span>
@@ -926,16 +932,16 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
               {/* Custom Hex Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-800">Primary Brand Color (Buttons & Highlights)</label>
-                  <div className="relative flex items-center rounded-xl border border-slate-300 bg-white shadow-2xs focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-600/20 transition-all p-1.5 gap-2.5">
+                  <label className="text-xs font-bold text-slate-200">Primary Brand Color (Buttons & Highlights)</label>
+                  <div className="relative flex items-center rounded-xl border border-white/10 bg-[#0F1522] shadow-2xs focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all p-1.5 gap-2.5">
                     {/* Seamless Edge-to-Edge Color Swatch */}
                     <label
-                      className="relative w-8 h-8 rounded-lg cursor-pointer shrink-0 overflow-hidden shadow-2xs border border-black/10 hover:scale-105 active:scale-95 transition-transform"
+                      className="relative w-8 h-8 rounded-lg cursor-pointer shrink-0 overflow-hidden shadow-2xs border border-white/20 hover:scale-105 active:scale-95 transition-transform"
                       title="Click to pick a color"
                     >
                       <input
                         type="color"
-                        value={themeConfig.primary_color || "#4F46E5"}
+                        value={themeConfig.primary_color || "#10B981"}
                         onChange={(e) =>
                           setThemeConfig((prev) => ({ ...prev, primary_color: e.target.value }))
                         }
@@ -943,37 +949,37 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       />
                       <div
                         className="w-full h-full transition-colors"
-                        style={{ backgroundColor: themeConfig.primary_color || "#4F46E5" }}
+                        style={{ backgroundColor: themeConfig.primary_color || "#10B981" }}
                       />
                     </label>
 
-                    <div className="flex items-center flex-1 pr-2">
-                      <span className="text-slate-400 font-mono text-xs select-none">#</span>
+                    <div className="flex items-center flex-1 pe-2">
+                      <span className="text-slate-500 font-mono text-xs select-none">#</span>
                       <input
                         type="text"
-                        value={(themeConfig.primary_color || "4F46E5").replace(/^#/, "")}
+                        value={(themeConfig.primary_color || "10B981").replace(/^#/, "")}
                         onChange={(e) => {
                           const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, "").slice(0, 6);
                           setThemeConfig((prev) => ({ ...prev, primary_color: `#${raw}` }));
                         }}
-                        placeholder="4F46E5"
-                        className="w-full font-mono text-xs uppercase text-slate-900 bg-transparent focus:outline-none ps-1 tracking-wider"
+                        placeholder="10B981"
+                        className="w-full font-mono text-xs uppercase text-white bg-transparent focus:outline-none ps-1 tracking-wider"
                       />
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-800">Accent / Secondary Color</label>
-                  <div className="relative flex items-center rounded-xl border border-slate-300 bg-white shadow-2xs focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-600/20 transition-all p-1.5 gap-2.5">
+                  <label className="text-xs font-bold text-slate-200">Accent / Secondary Color</label>
+                  <div className="relative flex items-center rounded-xl border border-white/10 bg-[#0F1522] shadow-2xs focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all p-1.5 gap-2.5">
                     {/* Seamless Edge-to-Edge Color Swatch */}
                     <label
-                      className="relative w-8 h-8 rounded-lg cursor-pointer shrink-0 overflow-hidden shadow-2xs border border-black/10 hover:scale-105 active:scale-95 transition-transform"
+                      className="relative w-8 h-8 rounded-lg cursor-pointer shrink-0 overflow-hidden shadow-2xs border border-white/20 hover:scale-105 active:scale-95 transition-transform"
                       title="Click to pick a color"
                     >
                       <input
                         type="color"
-                        value={themeConfig.accent_color || "#6366F1"}
+                        value={themeConfig.accent_color || "#34D399"}
                         onChange={(e) =>
                           setThemeConfig((prev) => ({ ...prev, accent_color: e.target.value }))
                         }
@@ -981,21 +987,21 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       />
                       <div
                         className="w-full h-full transition-colors"
-                        style={{ backgroundColor: themeConfig.accent_color || "#6366F1" }}
+                        style={{ backgroundColor: themeConfig.accent_color || "#34D399" }}
                       />
                     </label>
 
-                    <div className="flex items-center flex-1 pr-2">
-                      <span className="text-slate-400 font-mono text-xs select-none">#</span>
+                    <div className="flex items-center flex-1 pe-2">
+                      <span className="text-slate-500 font-mono text-xs select-none">#</span>
                       <input
                         type="text"
-                        value={(themeConfig.accent_color || "6366F1").replace(/^#/, "")}
+                        value={(themeConfig.accent_color || "34D399").replace(/^#/, "")}
                         onChange={(e) => {
                           const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, "").slice(0, 6);
                           setThemeConfig((prev) => ({ ...prev, accent_color: `#${raw}` }));
                         }}
-                        placeholder="6366F1"
-                        className="w-full font-mono text-xs uppercase text-slate-900 bg-transparent focus:outline-none ps-1 tracking-wider"
+                        placeholder="34D399"
+                        className="w-full font-mono text-xs uppercase text-white bg-transparent focus:outline-none ps-1 tracking-wider"
                       />
                     </div>
                   </div>
@@ -1004,10 +1010,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             </div>
 
             {/* 2. Sidebar & Navigation Appearance */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
               <div>
-                <h4 className="text-sm font-bold text-slate-900">Sidebar Theme</h4>
-                <p className="text-xs text-slate-500">
+                <h4 className="text-sm font-bold text-white">Sidebar Theme</h4>
+                <p className="text-xs text-slate-400">
                   Select the visual appearance of the left administrative navigation menu.
                 </p>
               </div>
@@ -1018,21 +1024,21 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     id: "dark" as SidebarTheme,
                     title: "Dark Authority",
                     desc: "Modern contrast dark slate background",
-                    previewBg: "bg-[#0B0F19]",
+                    previewBg: "bg-[#0B0F19] border border-white/10",
                     previewText: "text-white",
                   },
                   {
                     id: "light" as SidebarTheme,
                     title: "Municipal Light",
                     desc: "Classic clean white government style",
-                    previewBg: "bg-white border border-slate-200",
-                    previewText: "text-slate-900",
+                    previewBg: "bg-slate-100 border border-slate-300",
+                    previewText: "text-slate-950",
                   },
                   {
                     id: "heraldic" as SidebarTheme,
                     title: "Heraldic Tint",
                     desc: "Deep tone tinted with authority brand color",
-                    previewBg: "bg-[#0b1329]",
+                    previewBg: "bg-[#0b1329] border border-white/10",
                     previewText: "text-amber-300",
                   },
                 ].map((st) => {
@@ -1046,16 +1052,16 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       }
                       className={`p-4 rounded-2xl text-start border transition-all ${
                         isSelected
-                          ? "border-indigo-600 ring-2 ring-indigo-600/30 bg-indigo-50/30"
-                          : "border-slate-200 hover:border-slate-300 bg-white"
+                          ? "border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-500/10"
+                          : "border-white/10 hover:border-white/20 bg-[#0F1522]"
                       }`}
                     >
                       <div className={`h-8 w-full rounded-lg mb-2.5 flex items-center px-2.5 gap-1.5 ${st.previewBg}`}>
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                         <span className={`text-[10px] font-bold ${st.previewText}`}>STUTTGART</span>
                       </div>
-                      <div className="text-xs font-bold text-slate-900">{st.title}</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">{st.desc}</div>
+                      <div className="text-xs font-bold text-white">{st.title}</div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">{st.desc}</div>
                     </button>
                   );
                 })}
@@ -1063,10 +1069,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             </div>
 
             {/* 3. Component Ordering on Dashboard */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
               <div>
-                <h4 className="text-sm font-bold text-slate-900">Dashboard Component Ordering</h4>
-                <p className="text-xs text-slate-500">
+                <h4 className="text-sm font-bold text-white">Dashboard Component Ordering</h4>
+                <p className="text-xs text-slate-400">
                   Control the visual order in which sections appear on the main Forms & Review Studio portal.
                 </p>
               </div>
@@ -1095,15 +1101,15 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   return (
                     <div
                       key={sec}
-                      className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/70"
+                      className="flex items-center justify-between p-3.5 rounded-xl border border-white/10 bg-[#0F1522]"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white border border-slate-200 text-xs font-mono font-bold text-slate-700">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#151D2E] border border-white/10 text-xs font-mono font-bold text-emerald-400">
                           {idx + 1}
                         </span>
                         <div>
-                          <div className="text-xs font-bold text-slate-900">{labelMap[sec]?.name}</div>
-                          <div className="text-[11px] text-slate-500">{labelMap[sec]?.desc}</div>
+                          <div className="text-xs font-bold text-slate-100">{labelMap[sec]?.name}</div>
+                          <div className="text-[11px] text-slate-400">{labelMap[sec]?.desc}</div>
                         </div>
                       </div>
 
@@ -1112,7 +1118,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                           type="button"
                           onClick={() => moveSection(idx, "up")}
                           disabled={idx === 0}
-                          className="p-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="p-1 rounded-lg border border-white/10 bg-[#151D2E] text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                           title="Move up"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
@@ -1121,7 +1127,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                           type="button"
                           onClick={() => moveSection(idx, "down")}
                           disabled={idx === arr.length - 1}
-                          className="p-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="p-1 rounded-lg border border-white/10 bg-[#151D2E] text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                           title="Move down"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
@@ -1134,19 +1140,19 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             </div>
 
             {/* 4. Component Visibility Toggles */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
               <div>
-                <h4 className="text-sm font-bold text-slate-900">Component Visibility</h4>
-                <p className="text-xs text-slate-500">
+                <h4 className="text-sm font-bold text-white">Component Visibility</h4>
+                <p className="text-xs text-slate-400">
                   Toggle which elements are visible to your caseworkers and administrators.
                 </p>
               </div>
 
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-white/[0.08]">
                 <div className="flex items-center justify-between py-3">
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Show Real-Time Metrics Strip</div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-xs font-bold text-slate-100">Show Real-Time Metrics Strip</div>
+                    <div className="text-[11px] text-slate-400">
                       Display total forms, published forms, and review count cards on dashboard.
                     </div>
                   </div>
@@ -1156,14 +1162,14 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     onChange={(e) =>
                       setThemeConfig((prev) => ({ ...prev, show_metrics_strip: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-white/20 bg-[#0F1522] text-emerald-500 accent-emerald-500 focus:ring-emerald-500/30"
                   />
                 </div>
 
                 <div className="flex items-center justify-between py-3">
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Show Authority Contact & Location Details</div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-xs font-bold text-slate-100">Show Authority Contact & Location Details</div>
+                    <div className="text-[11px] text-slate-400">
                       Display office address, phone, email, and website on header bar.
                     </div>
                   </div>
@@ -1176,14 +1182,14 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         show_authority_metadata: e.target.checked,
                       }))
                     }
-                    className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-white/20 bg-[#0F1522] text-emerald-500 accent-emerald-500 focus:ring-emerald-500/30"
                   />
                 </div>
 
                 <div className="flex items-center justify-between py-3">
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Show Public Citizen Portal Link</div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-xs font-bold text-slate-100">Show Public Citizen Portal Link</div>
+                    <div className="text-[11px] text-slate-400">
                       Display the quick 1-click button to view public citizen intake.
                     </div>
                   </div>
@@ -1193,17 +1199,17 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     onChange={(e) =>
                       setThemeConfig((prev) => ({ ...prev, show_portal_link: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-white/20 bg-[#0F1522] text-emerald-500 accent-emerald-500 focus:ring-emerald-500/30"
                   />
                 </div>
               </div>
             </div>
 
             {/* 5. Density & Spacing */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
               <div>
-                <h4 className="text-sm font-bold text-slate-900">Layout Density</h4>
-                <p className="text-xs text-slate-500">
+                <h4 className="text-sm font-bold text-white">Layout Density</h4>
+                <p className="text-xs text-slate-400">
                   Select interface spacing for your team.
                 </p>
               </div>
@@ -1229,12 +1235,12 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       onClick={() => setThemeConfig((prev) => ({ ...prev, layout_density: d.id }))}
                       className={`p-3.5 rounded-xl text-start border transition-all ${
                         isSelected
-                          ? "border-indigo-600 ring-2 ring-indigo-600/30 bg-indigo-50/30 font-bold"
-                          : "border-slate-200 hover:border-slate-300 bg-white"
+                          ? "border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-500/10 font-bold"
+                          : "border-white/10 hover:border-white/20 bg-[#0F1522]"
                       }`}
                     >
-                      <div className="text-xs text-slate-900">{d.title}</div>
-                      <div className="text-[11px] text-slate-500 font-normal mt-0.5">{d.desc}</div>
+                      <div className="text-xs text-white">{d.title}</div>
+                      <div className="text-[11px] text-slate-400 font-normal mt-0.5">{d.desc}</div>
                     </button>
                   );
                 })}
@@ -1242,17 +1248,17 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             </div>
 
             {/* 6. Public Citizen Portal Customization */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
               <div>
-                <h4 className="text-sm font-bold text-slate-900">Public Citizen Guidance & Notices</h4>
-                <p className="text-xs text-slate-500">
+                <h4 className="text-sm font-bold text-white">Public Citizen Guidance & Notices</h4>
+                <p className="text-xs text-slate-400">
                   Customize the headline and banner shown to applicants on your public portal (`/organizations/{org.slug}`).
                 </p>
               </div>
 
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-800">Citizen Welcome Headline</label>
+                  <label className="text-xs font-bold text-slate-200">Citizen Welcome Headline</label>
                   <input
                     type="text"
                     value={themeConfig.citizen_welcome_heading || ""}
@@ -1262,13 +1268,13 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         citizen_welcome_heading: e.target.value,
                       }))
                     }
-                    placeholder="Herzlich willkommen beim Bürgeramt Stuttgart"
-                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    placeholder="Welcome to City Administration & Public Services"
+                    className="w-full rounded-xl border border-white/10 px-3.5 py-2 text-xs bg-[#0F1522] text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-800">Public Notice Banner (Optional alert box)</label>
+                  <label className="text-xs font-bold text-slate-200">Public Notice Banner (Optional alert box)</label>
                   <input
                     type="text"
                     value={themeConfig.citizen_notice_banner || ""}
@@ -1279,24 +1285,24 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       }))
                     }
                     placeholder="Öffnungszeiten: Montag–Freitag 08:00–16:00 Uhr. Barrierefreier Zugang."
-                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-white/10 px-3.5 py-2 text-xs bg-[#0F1522] text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                   />
                 </div>
               </div>
             </div>
 
             {/* Live Interactive Preview Box */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-indigo-600" />
-                  <span className="text-xs font-bold text-slate-900">Live Appearance Preview</span>
-                  <span className="hidden sm:inline text-[11px] text-slate-500 font-normal">
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-white">Live Appearance Preview</span>
+                  <span className="hidden sm:inline text-[11px] text-slate-400 font-normal">
                     — Updates automatically as you adjust colors, sidebar, and layout
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     LIVE PREVIEW
                   </span>
@@ -1304,15 +1310,15 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
               </div>
 
               {/* Realistic Desktop App / Browser Frame */}
-              <div className="rounded-xl border border-slate-300 bg-white shadow-md overflow-hidden text-start">
+              <div className="rounded-xl border border-white/10 bg-[#0F1522] shadow-md overflow-hidden text-start">
                 {/* Window Chrome Header */}
-                <div className="h-8 bg-slate-100 border-b border-slate-200 px-3 flex items-center justify-between select-none">
+                <div className="h-8 bg-[#151D2E] border-b border-white/10 px-3 flex items-center justify-between select-none">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-rose-400" />
                     <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                   </div>
-                  <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-md bg-white border border-slate-200/80 text-[10px] text-slate-600 font-mono shadow-2xs">
+                  <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-md bg-[#0A0E17] border border-white/10 text-[10px] text-slate-300 font-mono shadow-2xs">
                     <Lock className="w-2.5 h-2.5 text-slate-400" />
                     <span>amt.formflow.de/portal/{org.slug}</span>
                   </div>
@@ -1331,24 +1337,30 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         themeConfig.sidebar_theme === "dark"
                           ? "#0B0F19"
                           : themeConfig.sidebar_theme === "heraldic"
-                          ? (themeConfig.primary_color || "#1E3A8A") + "15"
+                          ? (themeConfig.primary_color || "#10B981") + "15"
                           : "#FFFFFF",
                       borderColor:
                         themeConfig.sidebar_theme === "dark"
                           ? "#1E293B"
                           : themeConfig.sidebar_theme === "heraldic"
-                          ? (themeConfig.primary_color || "#1E3A8A") + "30"
+                          ? (themeConfig.primary_color || "#10B981") + "30"
                           : "#E2E8F0",
                       color:
-                        themeConfig.sidebar_theme === "dark"
-                          ? "#F8FAFC"
-                          : "#0F172A",
+                        themeConfig.sidebar_theme === "light"
+                          ? "#0F172A"
+                          : "#F8FAFC",
                     }}
                   >
                     <div className="space-y-4">
                       {/* Logo & Org Name */}
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 shadow-2xs flex items-center justify-center shrink-0 overflow-hidden">
+                        <div
+                          className={`w-7 h-7 rounded-lg border shadow-2xs flex items-center justify-center shrink-0 overflow-hidden ${
+                            org.logo_storage_path
+                              ? "bg-white p-1 border-white/20"
+                              : "bg-[#151D2E] p-0.5 border-white/10"
+                          }`}
+                        >
                           {org.logo_storage_path ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img
@@ -1357,7 +1369,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                               className="w-full h-full object-contain"
                             />
                           ) : (
-                            <Building2 className="w-3.5 h-3.5 text-slate-700" />
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
                           )}
                         </div>
                         <div className="min-w-0">
@@ -1373,8 +1385,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         <div
                           className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-2xs cursor-default"
                           style={{
-                            backgroundColor: themeConfig.primary_color || "#4F46E5",
-                            color: getContrastTextColor(themeConfig.primary_color || "#4F46E5"),
+                            backgroundColor: themeConfig.primary_color || "#10B981",
+                            color: getContrastTextColor(themeConfig.primary_color || "#10B981"),
                           }}
                         >
                           <FileText className="w-3 h-3" />
@@ -1382,7 +1394,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         </div>
                         <div
                           className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px] font-medium opacity-70 ${
-                            themeConfig.sidebar_theme === "dark" ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                            themeConfig.sidebar_theme === "light" ? "hover:bg-slate-100" : "hover:bg-white/5"
                           }`}
                         >
                           <Users className="w-3 h-3" />
@@ -1390,7 +1402,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         </div>
                         <div
                           className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px] font-medium opacity-70 ${
-                            themeConfig.sidebar_theme === "dark" ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                            themeConfig.sidebar_theme === "light" ? "hover:bg-slate-100" : "hover:bg-white/5"
                           }`}
                         >
                           <Globe className="w-3 h-3" />
@@ -1398,7 +1410,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         </div>
                         <div
                           className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px] font-medium opacity-70 ${
-                            themeConfig.sidebar_theme === "dark" ? "hover:bg-slate-800" : "hover:bg-slate-100"
+                            themeConfig.sidebar_theme === "light" ? "hover:bg-slate-100" : "hover:bg-white/5"
                           }`}
                         >
                           <Sliders className="w-3 h-3" />
@@ -1408,8 +1420,18 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     </div>
 
                     {/* User Mini Profile */}
-                    <div className="pt-3 border-t border-slate-200/30 flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-slate-300 flex items-center justify-center text-[9px] font-bold text-slate-700">
+                    <div
+                      className={`pt-3 border-t flex items-center gap-2 ${
+                        themeConfig.sidebar_theme === "light" ? "border-slate-200" : "border-white/10"
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                          themeConfig.sidebar_theme === "light"
+                            ? "bg-slate-200 text-slate-700"
+                            : "bg-white/15 text-slate-200"
+                        }`}
+                      >
                         A
                       </div>
                       <div className="min-w-0 text-[9px] opacity-75 truncate">
@@ -1419,11 +1441,11 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   </div>
 
                   {/* Miniature Workspace Content Canvas */}
-                  <div className="flex-1 bg-slate-50/60 p-4 space-y-3 overflow-hidden">
+                  <div className="flex-1 bg-[#0A0E17] p-4 space-y-3 overflow-hidden">
                     {/* Notice Banner */}
                     {themeConfig.citizen_notice_banner && (
-                      <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[10px] text-amber-900 flex items-center gap-2 shadow-2xs">
-                        <AlertCircle className="w-3 h-3 shrink-0 text-amber-600" />
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[10px] text-amber-200 flex items-center gap-2 shadow-2xs">
+                        <AlertCircle className="w-3 h-3 shrink-0 text-amber-400" />
                         <span className="font-medium truncate">{themeConfig.citizen_notice_banner}</span>
                       </div>
                     )}
@@ -1434,10 +1456,16 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         return (
                           <div
                             key="header"
-                            className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs flex items-center justify-between gap-3"
+                            className="bg-[#0F1522] rounded-xl border border-white/10 p-3 shadow-2xs flex items-center justify-between gap-3"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-8 h-8 rounded-lg border border-slate-200 bg-white p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                              <div
+                                className={`w-8 h-8 rounded-lg border shrink-0 flex items-center justify-center overflow-hidden ${
+                                  org.logo_storage_path
+                                    ? "bg-white p-1 border-white/20"
+                                    : "bg-[#151D2E] p-1 border-white/10"
+                                }`}
+                              >
                                 {org.logo_storage_path ? (
                                   /* eslint-disable-next-line @next/next/no-img-element */
                                   <img
@@ -1446,24 +1474,24 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                                     className="w-full h-full object-contain"
                                   />
                                 ) : (
-                                  <Building2 className="w-4 h-4 text-slate-700" />
+                                  <Building2 className="w-4 h-4 text-slate-400" />
                                 )}
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <div className="text-xs font-bold text-slate-900 truncate">{org.name}</div>
-                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-700 border border-emerald-200">
-                                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
+                                  <div className="text-xs font-bold text-white truncate">{org.name}</div>
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400 border border-emerald-500/30">
+                                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
                                     Verified
                                   </span>
                                 </div>
                                 {themeConfig.show_authority_metadata !== false && (
                                   <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
                                     <span className="flex items-center gap-0.5">
-                                      <MapPin className="w-2.5 h-2.5" /> Stuttgart, Germany
+                                      <MapPin className="w-2.5 h-2.5" /> City Hall, Public Services
                                     </span>
                                     <span className="flex items-center gap-0.5">
-                                      <Globe className="w-2.5 h-2.5" /> stuttgart.de
+                                      <Globe className="w-2.5 h-2.5" /> agency.gov
                                     </span>
                                   </div>
                                 )}
@@ -1472,17 +1500,17 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
                             <div className="flex items-center gap-1.5 shrink-0">
                               {themeConfig.show_portal_link !== false && (
-                                <div className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-[10px] font-semibold text-slate-700 shadow-2xs flex items-center gap-1">
+                                <div className="px-2 py-1 rounded-lg border border-white/10 bg-[#151D2E] text-[10px] font-semibold text-slate-200 shadow-2xs flex items-center gap-1">
                                   <Globe className="w-2.5 h-2.5 text-slate-400" />
                                   <span>Portal</span>
-                                  <ExternalLink className="w-2 h-2 text-slate-300" />
+                                  <ExternalLink className="w-2 h-2 text-slate-500" />
                                 </div>
                               )}
                               <div
                                 className="px-2.5 py-1 rounded-lg text-[10px] font-bold shadow-2xs flex items-center gap-1 cursor-default"
                                 style={{
-                                  backgroundColor: themeConfig.primary_color || "#4F46E5",
-                                  color: getContrastTextColor(themeConfig.primary_color || "#4F46E5"),
+                                  backgroundColor: themeConfig.primary_color || "#10B981",
+                                  color: getContrastTextColor(themeConfig.primary_color || "#10B981"),
                                 }}
                               >
                                 <Upload className="w-2.5 h-2.5" />
@@ -1497,21 +1525,21 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         return (
                           <div key="metrics" className="grid grid-cols-4 gap-2">
                             {[
-                              { label: "Total Forms", val: "12", color: themeConfig.primary_color || "#4F46E5" },
-                              { label: "Live in Portal", val: "8", color: "#059669" },
-                              { label: "Needs Review", val: "2", color: "#D97706" },
+                              { label: "Total Forms", val: "12", color: themeConfig.primary_color || "#10B981" },
+                              { label: "Live in Portal", val: "8", color: "#10B981" },
+                              { label: "Needs Review", val: "2", color: "#F59E0B" },
                               { label: "Archived", val: "2", color: "#64748B" },
                             ].map((m, i) => (
                               <div
                                 key={i}
-                                className="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs text-start relative overflow-hidden"
+                                className="p-2 rounded-xl bg-[#0F1522] border border-white/10 shadow-2xs text-start relative overflow-hidden"
                               >
                                 <div
                                   className="absolute top-0 left-0 right-0 h-0.5"
                                   style={{ backgroundColor: m.color }}
                                 />
-                                <div className="text-[9px] font-medium text-slate-500">{m.label}</div>
-                                <div className="text-sm font-bold text-slate-900 mt-0.5">{m.val}</div>
+                                <div className="text-[9px] font-medium text-slate-400">{m.label}</div>
+                                <div className="text-sm font-bold text-white mt-0.5">{m.val}</div>
                               </div>
                             ))}
                           </div>
@@ -1521,24 +1549,24 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       if (sec === "actions") {
                         return (
                           <div key="actions" className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[10px] text-slate-400 w-44 shadow-2xs">
-                              <Search className="w-3 h-3 text-slate-400" />
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0F1522] border border-white/10 text-[10px] text-slate-400 w-44 shadow-2xs">
+                              <Search className="w-3 h-3 text-slate-500" />
                               <span>Search forms...</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <span
                                 className="px-2 py-0.5 rounded-md text-[9px] font-bold shadow-2xs"
                                 style={{
-                                  backgroundColor: themeConfig.primary_color || "#4F46E5",
-                                  color: getContrastTextColor(themeConfig.primary_color || "#4F46E5"),
+                                  backgroundColor: themeConfig.primary_color || "#10B981",
+                                  color: getContrastTextColor(themeConfig.primary_color || "#10B981"),
                                 }}
                               >
                                 All (12)
                               </span>
-                              <span className="px-2 py-0.5 rounded-md text-[9px] font-medium text-slate-600 bg-white border border-slate-200">
+                              <span className="px-2 py-0.5 rounded-md text-[9px] font-medium text-slate-300 bg-[#0F1522] border border-white/10">
                                 Live
                               </span>
-                              <span className="px-2 py-0.5 rounded-md text-[9px] font-medium text-slate-600 bg-white border border-slate-200">
+                              <span className="px-2 py-0.5 rounded-md text-[9px] font-medium text-slate-300 bg-[#0F1522] border border-white/10">
                                 Review
                               </span>
                             </div>
@@ -1550,53 +1578,53 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         return (
                           <div
                             key="forms"
-                            className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden"
+                            className="bg-[#0F1522] rounded-xl border border-white/10 shadow-2xs overflow-hidden"
                           >
-                            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                            <div className="px-3 py-1.5 bg-[#151D2E] border-b border-white/10 flex items-center justify-between text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                               <span>Official Form Template</span>
                               <span>Status & Fields</span>
                             </div>
-                            <div className="divide-y divide-slate-100 text-[10px]">
-                              <div className="px-3 py-1.5 flex items-center justify-between hover:bg-slate-50/50">
+                            <div className="divide-y divide-white/[0.08] text-[10px]">
+                              <div className="px-3 py-1.5 flex items-center justify-between hover:bg-[#151D2E]/60">
                                 <div>
-                                  <div className="font-semibold text-slate-800">
-                                    Wohnungsgeberbestätigung (§ 19 BMG)
+                                  <div className="font-semibold text-slate-100">
+                                    Landlord Housing Confirmation Form
                                   </div>
-                                  <div className="text-[9px] text-slate-400">Meldeamt • PDF Ingested</div>
+                                  <div className="text-[9px] text-slate-400">Civil Registry • PDF Ingested</div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[9px] text-slate-400">8 Felder</span>
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <span className="text-[9px] text-slate-400">8 Fields</span>
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                                     Live
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="px-3 py-1.5 flex items-center justify-between hover:bg-slate-50/50">
+                              <div className="px-3 py-1.5 flex items-center justify-between hover:bg-[#151D2E]/60">
                                 <div>
-                                  <div className="font-semibold text-slate-800">
-                                    Antrag auf Erteilung eines Aufenthaltstitels
+                                  <div className="font-semibold text-slate-100">
+                                    Residence & Work Permit Application
                                   </div>
-                                  <div className="text-[9px] text-slate-400">Ausländerwesen • Fast-track</div>
+                                  <div className="text-[9px] text-slate-400">Immigration Services • Fast-track</div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[9px] text-slate-400">14 Felder</span>
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                  <span className="text-[9px] text-slate-400">14 Fields</span>
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
                                     Review
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="px-3 py-1.5 flex items-center justify-between hover:bg-slate-50/50">
+                              <div className="px-3 py-1.5 flex items-center justify-between hover:bg-[#151D2E]/60">
                                 <div>
-                                  <div className="font-semibold text-slate-800">
-                                    Gewerbeanmeldung (GewA 1)
+                                  <div className="font-semibold text-slate-100">
+                                    Commercial Business Registration
                                   </div>
-                                  <div className="text-[9px] text-slate-400">Wirtschaftsförderung</div>
+                                  <div className="text-[9px] text-slate-400">Economic Affairs • Verified</div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[9px] text-slate-400">11 Felder</span>
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <span className="text-[9px] text-slate-400">11 Fields</span>
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                                     Live
                                   </span>
                                 </div>
@@ -1620,8 +1648,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   type="submit"
                   disabled={savingTheme}
                   style={{
-                    backgroundColor: themeConfig.primary_color || "#4f46e5",
-                    color: getContrastTextColor(themeConfig.primary_color || "#4f46e5"),
+                    backgroundColor: themeConfig.primary_color || "#10b981",
+                    color: getContrastTextColor(themeConfig.primary_color || "#10b981"),
                   }}
                   className="px-5 py-2 rounded-xl text-xs font-bold shadow-sm inline-flex items-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
                 >
@@ -1641,13 +1669,13 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
       {/* Invite Member Modal */}
       {isInviteModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-xl space-y-4 text-start">
+        <div className="fixed inset-0 z-50 bg-[#060910]/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#0F1522] rounded-2xl border border-white/10 text-slate-100 max-w-md w-full p-6 shadow-xl space-y-4 text-start">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Invite Team Member</h3>
+              <h3 className="text-base font-bold text-white">Invite Team Member</h3>
               <button
                 onClick={() => setIsInviteModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                className="text-slate-400 hover:text-white text-lg font-bold"
               >
                 ×
               </button>
@@ -1655,23 +1683,23 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
             <form onSubmit={handleInviteMember} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-800">Colleague Email</label>
+                <label className="text-xs font-bold text-slate-200">Colleague Email</label>
                 <input
                   type="email"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="colleague@amt.de"
                   required
-                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                  className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-800">Role & Permissions</label>
+                <label className="text-xs font-bold text-slate-200">Role & Permissions</label>
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                  className="w-full rounded-xl border border-white/10 px-3.5 py-2.5 text-xs bg-[#0A0E17] text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
                 >
                   <option value="case_manager">Case Manager (Manage cases & candidate links)</option>
                   <option value="form_editor">Form Editor (Upload & review form schemas)</option>

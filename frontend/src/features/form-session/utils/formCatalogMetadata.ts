@@ -55,7 +55,7 @@ const KNOWN_TEMPLATE_METADATA: Record<string, FormCatalogMeta> = {
   "basic-registration": {
     countryCode: "DE",
     countryName: "Germany / International",
-    authority: "Municipal Citizens' Office (Bürgeramt)",
+    authority: "Municipal Registration Office",
     categoryKey: "civil_registration",
     categoryLabel: "Civil & Municipal Registration",
     formCode: "FORM-REG-01",

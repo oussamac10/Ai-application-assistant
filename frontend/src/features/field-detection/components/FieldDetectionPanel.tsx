@@ -13,6 +13,7 @@ import {
 import { setSessionToken } from "../../form-session/services/sessionCredentials";
 import { ApiError } from "../../form-session/services/apiClient";
 import { DetectedField, FIELD_TYPES, FieldDetectionResultResponse, LOW_CONFIDENCE_THRESHOLD } from "../types";
+import { Loader2 } from "lucide-react";
 
 interface FieldDetectionPanelProps {
   documentId: string;
@@ -171,15 +172,15 @@ export default function FieldDetectionPanel({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 space-y-4">
-        <h2 className="text-xl font-bold text-slate-200">{t("title")}</h2>
+      <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
+        <h2 className="text-xl font-bold text-white">{t("title")}</h2>
         <p className="text-xs leading-relaxed text-slate-400">{t("body")}</p>
 
         {stage === "idle" && (
           <button
             type="button"
             onClick={handleStartDetection}
-            className="w-full rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold shadow-lg shadow-indigo-500/20 transition hover:opacity-95"
+            className="btn-primary w-full py-3.5 text-sm font-bold"
           >
             {t("startDetection")}
           </button>
@@ -187,13 +188,13 @@ export default function FieldDetectionPanel({
 
         {stage === "processing" && (
           <div className="flex items-center justify-center gap-2 py-4">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+            <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
             <span className="text-sm text-slate-400">{t("processing")}</span>
           </div>
         )}
 
         {stage === "failed" && errorMsg && (
-          <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
             {errorMsg}
           </div>
         )}
@@ -203,7 +204,7 @@ export default function FieldDetectionPanel({
         <div className="space-y-4">
           <p className="text-xs italic text-slate-400 px-1">{t("disclaimer")}</p>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 space-y-3">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-3">
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span>{t("fieldCount", { count: result.fieldCount ?? result.fields.length })}</span>
               <span>{t("confirmedCount", { count: confirmedCount })}</span>
@@ -211,7 +212,7 @@ export default function FieldDetectionPanel({
             <button
               type="button"
               onClick={handleConfirmAllHighConfidence}
-              className="w-full rounded-lg bg-slate-800 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+              className="btn-secondary w-full py-2.5 text-xs font-semibold"
             >
               {t("confirmAllHighConfidence")}
             </button>
@@ -220,15 +221,15 @@ export default function FieldDetectionPanel({
           {fieldsByPage.map(([pageNumber, fields]) => (
             <div
               key={pageNumber}
-              className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 space-y-3"
+              className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-3"
             >
-              <h3 className="text-sm font-bold text-slate-300">
+              <h3 className="text-sm font-bold text-white">
                 {t("page", { number: pageNumber })}
               </h3>
               {fields.map((field) => (
                 <div
                   key={field.fieldId}
-                  className="rounded-xl border border-slate-800 bg-slate-900 p-4 space-y-2"
+                  className="rounded-xl border border-white/[0.08] bg-[#0F1522] p-4 space-y-2"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <input
@@ -238,17 +239,17 @@ export default function FieldDetectionPanel({
                         updateLocalField({ ...field, label: e.target.value })
                       }
                       onBlur={(e) => handleLabelChange(field.fieldId, e.target.value)}
-                      className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500"
+                      className="flex-1 rounded-lg border border-white/10 bg-[#0A0E17] px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                       disabled={field.reviewStatus === "rejected"}
                     />
                     <select
                       value={field.fieldType}
                       onChange={(e) => handleTypeChange(field.fieldId, e.target.value)}
-                      className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-100 outline-none focus:border-indigo-500"
+                      className="rounded-lg border border-white/10 bg-[#0A0E17] px-2 py-2 text-xs text-slate-100 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                       disabled={field.reviewStatus === "rejected"}
                     >
                       {FIELD_TYPES.map((type) => (
-                        <option key={type} value={type}>
+                        <option key={type} value={type} className="bg-[#0F1522] text-slate-100">
                           {t(`type_${type}`)}
                         </option>
                       ))}
@@ -260,7 +261,7 @@ export default function FieldDetectionPanel({
                       className={
                         field.confidence < LOW_CONFIDENCE_THRESHOLD
                           ? "text-amber-400 font-semibold"
-                          : "text-slate-500"
+                          : "text-slate-400"
                       }
                     >
                       {t("confidence", { value: Math.round(field.confidence * 100) })}
@@ -268,7 +269,7 @@ export default function FieldDetectionPanel({
                         <span className="ml-1">{t("lowConfidenceWarning")}</span>
                       )}
                     </span>
-                    <span className="rounded-full bg-slate-800 px-2 py-0.5 text-slate-400">
+                    <span className="rounded-full border border-white/10 bg-[#151D2E] px-2 py-0.5 text-slate-300">
                       {t(`status_${field.reviewStatus}`)}
                     </span>
                   </div>
@@ -278,7 +279,7 @@ export default function FieldDetectionPanel({
                       type="button"
                       onClick={() => handleConfirm(field.fieldId)}
                       disabled={field.reviewStatus === "confirmed"}
-                      className="flex-1 rounded-lg bg-emerald-600/20 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-40"
+                      className="flex-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-40"
                     >
                       {t("confirmField")}
                     </button>
@@ -286,7 +287,7 @@ export default function FieldDetectionPanel({
                       type="button"
                       onClick={() => handleReject(field.fieldId)}
                       disabled={field.reviewStatus === "rejected"}
-                      className="flex-1 rounded-lg bg-rose-600/20 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-600/30 disabled:opacity-40"
+                      className="flex-1 rounded-lg border border-rose-500/30 bg-rose-500/15 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/25 disabled:opacity-40"
                     >
                       {t("rejectField")}
                     </button>
@@ -296,11 +297,11 @@ export default function FieldDetectionPanel({
             </div>
           ))}
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 space-y-4">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
             <div className="space-y-2">
               <label
                 htmlFor="output-language-select"
-                className="block text-sm font-semibold tracking-wide text-slate-300"
+                className="block text-sm font-semibold tracking-wide text-slate-200"
               >
                 {t("selectOutputLanguage")}
               </label>
@@ -308,17 +309,17 @@ export default function FieldDetectionPanel({
                 id="output-language-select"
                 value={outputLanguage}
                 onChange={(e) => setOutputLanguage(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3.5 text-base text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                className="w-full rounded-xl border border-white/10 bg-[#0F1522] px-4 py-3.5 text-base text-slate-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
               >
-                <option value="en">English</option>
-                <option value="de">Deutsch</option>
-                <option value="fr">Français</option>
-                <option value="ar">العربية</option>
+                <option value="en" className="bg-[#0F1522] text-slate-100">English</option>
+                <option value="de" className="bg-[#0F1522] text-slate-100">Deutsch</option>
+                <option value="fr" className="bg-[#0F1522] text-slate-100">Français</option>
+                <option value="ar" className="bg-[#0F1522] text-slate-100">العربية</option>
               </select>
             </div>
 
             {errorMsg && (
-              <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
+              <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
                 {errorMsg}
               </div>
             )}
@@ -327,11 +328,11 @@ export default function FieldDetectionPanel({
               type="button"
               disabled={confirmedCount === 0 || creatingSession}
               onClick={handleCreateQuestions}
-              className="w-full rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold shadow-lg shadow-indigo-500/20 transition hover:opacity-95 disabled:opacity-40 disabled:pointer-events-none"
+              className="btn-primary w-full py-3.5 text-sm font-bold"
             >
               {creatingSession ? (
                 <div className="flex items-center justify-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   <span>{t("processing")}</span>
                 </div>
               ) : (

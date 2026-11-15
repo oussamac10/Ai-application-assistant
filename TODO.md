@@ -23,7 +23,8 @@ Production-ready, multilingual SaaS platform for **B2B relocation agencies, inte
 - **B2B Subscription Billing & AI Cost Firewall (`S4`)**:
   - `OrganizationSubscription` & `AIUsageEvent` models, `€0.25/case` circuit breaker (`app/ai/guardrails.py`), Stripe Checkout / Customer Portal / Webhook endpoints (`/api/billing/*`), case quota enforcement (`402 Payment Required`), and `/pricing` + `PortalDashboard.tsx` upgrade UI.
 - **Quality Gates (Verified)**:
-  - Single Alembic head (`g8b9c0d1e2f3`), `ruff check/format`, `mypy app` (236 files), `pytest` on `ai_form_assistant_test` (1,092 passed, 1 skipped), `tsc --noEmit`, `next lint`, `vitest run` (42 files, 300 passed).
+  - **Aikido-Inspired Obsidian & Emerald Frontend Overhaul**: Unified dark obsidian (`#0A0E17` / `#0F1522`) & emerald (`#10B981`) design system with `prefers-reduced-motion`-safe scan/reveal animations, rebuilt obsidian error/loading/not-found boundaries, and international worldwide copy/defaults across all portals, modals, auth/account, and guided session pages (`tsc --noEmit` 0 errors, `next lint` 0 warnings/errors, `vitest run` 44 files / 308 passed, `next build` clean, Playwright `user-accounts-persistent-sessions-flow.spec.ts` 2 passed).
+  - Single Alembic head (`g8b9c0d1e2f3`), `ruff check/format`, `mypy app` (236 files), `pytest` on `ai_form_assistant_test` (1,092 passed, 1 skipped), `tsc --noEmit`, `next lint`, `vitest run` (44 files, 308 passed), `next build`, Playwright E2E `user-accounts-persistent-sessions-flow.spec.ts` (2 passed).
 
 ---
 

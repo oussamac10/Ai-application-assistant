@@ -245,9 +245,9 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
   if (loading) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-        <p className="text-sm font-medium text-slate-600">
+      <div className="min-h-[70vh] bg-[#0A0E17] text-slate-100 flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
+        <p className="text-sm font-medium text-slate-400">
           Loading verified authority portal...
         </p>
       </div>
@@ -256,20 +256,22 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
   if (error || !org) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center max-w-lg mx-auto">
-        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
-          <Building2 className="w-7 h-7" />
+      <div className="min-h-[70vh] bg-[#0A0E17] text-slate-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-lg mx-auto flex flex-col items-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mb-4">
+            <Building2 className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Portal Not Found</h2>
+          <p className="text-sm text-slate-400 mt-2 mb-6">
+            {error || `The requested public portal "${slug}" does not exist or has no active forms.`}
+          </p>
+          <Link
+            href="/organizations"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-sm shadow-sm hover:bg-emerald-400 transition-colors"
+          >
+            <Search className="w-4 h-4" /> Browse Authority Directory
+          </Link>
         </div>
-        <h2 className="text-xl font-bold text-slate-900">Portal Not Found</h2>
-        <p className="text-sm text-slate-500 mt-2 mb-6">
-          {error || `The requested public portal "${slug}" does not exist or has no active forms.`}
-        </p>
-        <Link
-          href="/organizations"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-medium text-sm shadow-sm hover:bg-blue-700 transition-colors"
-        >
-          <Search className="w-4 h-4" /> Browse Authority Directory
-        </Link>
       </div>
     );
   }
@@ -277,20 +279,20 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
   const logoUrl = org.has_logo ? `/api/public/organizations/${org.slug}/logo` : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-screen bg-[#0A0E17] text-slate-100 pb-20">
       {/* Official Government Authority Header Banner */}
-      <section className="bg-white border-b border-slate-200">
+      <section className="bg-[#0F1522] border-b border-white/10">
         <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10">
           {/* Top Breadcrumb & Citizen Free Notice */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <Link
               href="/organizations"
-              className="text-xs font-semibold text-slate-500 hover:text-blue-600 flex items-center gap-1.5 transition-colors"
+              className="text-xs font-semibold text-slate-400 hover:text-emerald-400 flex items-center gap-1.5 transition-colors"
             >
               <span>← All Municipal Authorities & Portals</span>
             </Link>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>100% Free for Citizens & Applicants</span>
             </div>
           </div>
@@ -298,7 +300,13 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="flex items-start sm:items-center gap-4">
               {/* Crest / Logo */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center p-2.5 overflow-hidden shrink-0">
+              <div
+                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border shadow-xs flex items-center justify-center overflow-hidden shrink-0 ${
+                  logoUrl
+                    ? "bg-white border-white/20 p-1.5"
+                    : "bg-[#151D2E] border-white/10 p-2.5"
+                }`}
+              >
                 {logoUrl ? (
                   <img
                     src={logoUrl}
@@ -312,21 +320,21 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
                     {org.name}
                   </h1>
                   {org.is_verified_government && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-xs font-bold border border-emerald-200">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 text-xs font-bold border border-emerald-500/30">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                       Verified Official Authority
                     </span>
                   )}
                 </div>
 
-                <div className="mt-2 flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-slate-500">
+                <div className="mt-2 flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-slate-400">
                   {org.office_address && (
                     <div className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      <MapPin className="w-3.5 h-3.5 text-slate-500" />
                       <span>{org.office_address}</span>
                     </div>
                   )}
@@ -335,7 +343,7 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                       href={org.official_website_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium"
+                      className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium"
                     >
                       <Globe className="w-3.5 h-3.5" />
                       <span>Official Website</span>
@@ -344,8 +352,8 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                   )}
                   {org.contact_email && (
                     <div className="flex items-center gap-1">
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{org.contact_email}</span>
+                      <Mail className="w-3.5 h-3.5 text-slate-500" />
+                      <bdi>{org.contact_email}</bdi>
                     </div>
                   )}
                 </div>
@@ -353,8 +361,8 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
             </div>
 
             {/* Language Selection Card for Citizen */}
-            <div className="w-full md:w-auto bg-slate-50 border border-slate-200 rounded-2xl p-4 shrink-0">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+            <div className="w-full md:w-auto bg-[#0A0E17] border border-white/10 rounded-2xl p-4 shrink-0">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                 Translate Questions Into:
               </label>
               <div className="flex flex-wrap gap-1.5 max-w-xs">
@@ -366,10 +374,10 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                       setCitizenLanguage(lang.code);
                       setLocale(lang.code);
                     }}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       citizenLanguage === lang.code
-                        ? "bg-blue-600 text-white shadow-xs"
-                        : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-200"
+                        ? "bg-emerald-500 text-slate-950 font-bold shadow-xs"
+                        : "bg-[#0F1522] text-slate-300 hover:bg-[#151D2E] hover:text-white border border-white/10"
                     }`}
                   >
                     <span className="font-mono text-[10px] uppercase opacity-75">{lang.code}</span>
@@ -381,7 +389,7 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
           </div>
 
           {org.description && (
-            <p className="mt-6 text-sm text-slate-600 max-w-3xl leading-relaxed border-t border-slate-100 pt-4">
+            <p className="mt-6 text-sm text-slate-300 max-w-3xl leading-relaxed border-t border-white/[0.08] pt-4">
               {org.description}
             </p>
           )}
@@ -391,11 +399,11 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
       {/* Main Content Area: Published Forms Catalog */}
       <main className="max-w-6xl mx-auto px-4 pt-8">
         {startError && (
-          <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between">
+          <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-sm flex items-center justify-between">
             <span>{startError}</span>
             <button
               onClick={() => setStartError(null)}
-              className="text-red-500 font-bold ml-4"
+              className="text-rose-400 hover:text-rose-300 font-bold ms-4 cursor-pointer"
             >
               ✕
             </button>
@@ -403,13 +411,13 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
         )}
 
         {/* Guidance Banner */}
-        <div className="mb-8 rounded-2xl border border-blue-100 bg-linear-to-r from-blue-50/70 via-indigo-50/30 to-white p-5 flex items-start gap-3.5 shadow-2xs">
-          <Sparkles className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-          <div className="text-xs text-slate-700 space-y-1">
-            <span className="font-bold text-slate-900">
+        <div className="mb-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 flex items-start gap-3.5 shadow-2xs">
+          <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-slate-300 space-y-1">
+            <span className="font-bold text-white">
               Multilingual Assistance for Official Administrative Forms:
             </span>
-            <p className="text-slate-600">
+            <p className="text-slate-300">
               Select the administrative form you need below. The assistant will guide you step-by-step in your chosen language, normalize dates, addresses, and family statuses, and generate an official ready-to-sign PDF adhering to German administrative standards.
             </p>
           </div>
@@ -419,14 +427,14 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
         {org.categories && org.categories.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Filter by Category:
               </span>
               {selectedCategorySlug !== "all" && (
                 <button
                   type="button"
                   onClick={() => setSelectedCategorySlug("all")}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
                 >
                   Show All ({org.published_forms.length})
                 </button>
@@ -440,8 +448,8 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                 onClick={() => setSelectedCategorySlug("all")}
                 className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   selectedCategorySlug === "all"
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs"
+                    ? "bg-emerald-500 text-slate-950 shadow-xs"
+                    : "bg-[#0F1522] text-slate-300 hover:bg-[#151D2E] hover:text-white border border-white/10 shadow-2xs"
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -449,8 +457,8 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                 <span
                   className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                     selectedCategorySlug === "all"
-                      ? "bg-white/20 text-white"
-                      : "bg-slate-100 text-slate-600"
+                      ? "bg-slate-950/20 text-slate-950"
+                      : "bg-[#151D2E] text-slate-400"
                   }`}
                 >
                   {org.published_forms.length}
@@ -470,8 +478,8 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                     onClick={() => setSelectedCategorySlug(cat.slug)}
                     className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       isSelected
-                        ? "bg-blue-600 text-white shadow-xs"
-                        : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs"
+                        ? "bg-emerald-500 text-slate-950 shadow-xs"
+                        : "bg-[#0F1522] text-slate-300 hover:bg-[#151D2E] hover:text-white border border-white/10 shadow-2xs"
                     }`}
                   >
                     <CategoryIcon name={cat.icon} className="w-3.5 h-3.5" />
@@ -479,8 +487,8 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                     <span
                       className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                         isSelected
-                          ? "bg-white/20 text-white"
-                          : "bg-slate-100 text-slate-600"
+                          ? "bg-slate-950/20 text-slate-950"
+                          : "bg-[#151D2E] text-slate-400"
                       }`}
                     >
                       {count}
@@ -496,22 +504,22 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
           <div className="relative w-full sm:w-96">
             {isSearchingSemantically ? (
-              <Loader2 className="pointer-events-none absolute left-3 top-2.5 w-4 h-4 text-indigo-600 animate-spin" />
+              <Loader2 className="pointer-events-none absolute start-3 top-2.5 w-4 h-4 text-emerald-400 animate-spin" />
             ) : (
-              <Search className="pointer-events-none absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+              <Search className="pointer-events-none absolute start-3 top-2.5 w-4 h-4 text-slate-500" />
             )}
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search in your language (e.g. moving, permit, تسجيل)..."
-              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-8 text-xs text-slate-900 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
+              className="w-full rounded-xl border border-white/10 bg-[#0F1522] py-2 ps-9 pe-8 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
             />
             {searchQuery.trim().length > 0 && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute end-2.5 top-2.5 text-xs text-slate-400 hover:text-white cursor-pointer"
                 title="Clear search"
               >
                 ✕
@@ -520,8 +528,8 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
           </div>
 
           {searchQuery.trim().length >= 2 && (
-            <div className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-xl shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               <span className="font-semibold">
                 Multilingual AI Semantic Search Active
               </span>
@@ -531,10 +539,10 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
 
         {/* Forms Catalog Grid */}
         {filteredForms.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
-            <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-slate-800">No Forms Found</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+          <div className="rounded-2xl border border-white/10 bg-[#0F1522] p-12 text-center shadow-2xs">
+            <FileText className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-white">No Forms Found</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
               No published forms match your current search query. Try searching for a different keyword.
             </p>
           </div>
@@ -546,26 +554,26 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
               return (
                 <div
                   key={form.id}
-                  className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs hover:shadow-md hover:border-blue-300 transition-all flex flex-col justify-between"
+                  className="rounded-2xl border border-white/10 bg-[#0F1522] p-6 shadow-2xs hover:shadow-md hover:border-emerald-500/40 transition-all flex flex-col justify-between"
                 >
                   <div>
                     {/* Tags row */}
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                           Official Form
                         </span>
                         {form.category_name && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#151D2E] text-slate-300 border border-white/10">
                             {form.category_name}
                           </span>
                         )}
                         {form.semantic_match && (
                           <span
-                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200"
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30"
                             title={form.semantic_match.matched_reason}
                           >
-                            <Sparkles className="w-3 h-3 text-amber-600" />
+                            <Sparkles className="w-3 h-3 text-amber-400" />
                             <span>Match {Math.round(form.semantic_match.relevance_score * 100)}%</span>
                           </span>
                         )}
@@ -575,42 +583,42 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                       </span>
                     </div>
 
-                    <h3 className="text-base font-bold text-slate-900 tracking-tight break-words">
+                    <h3 className="text-base font-bold text-white tracking-tight break-words">
                       {form.name}
                     </h3>
 
                     {form.instructions && (
-                      <p className="mt-2 text-xs text-slate-500 line-clamp-2">
+                      <p className="mt-2 text-xs text-slate-400 line-clamp-2">
                         {form.instructions}
                       </p>
                     )}
 
                     {form.semantic_match && form.semantic_match.matched_reason && (
-                      <div className="mt-2.5 p-2 rounded-lg bg-amber-50/70 border border-amber-200/60 text-[11px] text-amber-900 flex items-start gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="mt-2.5 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 flex items-start gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                         <span>{form.semantic_match.matched_reason}</span>
                       </div>
                     )}
 
                     {/* Required Documents Checklist Preview */}
                     {form.required_documents && form.required_documents.length > 0 && (
-                      <div className="mt-4 pt-3.5 border-t border-slate-100">
-                        <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 mb-2">
-                          <Info className="w-3.5 h-3.5 text-blue-600" />
+                      <div className="mt-4 pt-3.5 border-t border-white/[0.08]">
+                        <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5 mb-2">
+                          <Info className="w-3.5 h-3.5 text-emerald-400" />
                           Required Supporting Documents:
                         </span>
                         <ul className="space-y-1">
                           {form.required_documents.slice(0, 3).map((doc, idx) => (
                             <li
                               key={idx}
-                              className="text-xs text-slate-600 flex items-start gap-2"
+                              className="text-xs text-slate-400 flex items-start gap-2"
                             >
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1.5" />
                               <span className="line-clamp-1">{doc}</span>
                             </li>
                           ))}
                           {form.required_documents.length > 3 && (
-                            <li className="text-[11px] text-slate-400 pl-3.5">
+                            <li className="text-[11px] text-slate-500 ps-3.5">
                               + {form.required_documents.length - 3} more items
                             </li>
                           )}
@@ -620,15 +628,15 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                   </div>
 
                   {/* Action Button */}
-                  <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                  <div className="mt-6 pt-4 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                      <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Free Citizen Intake
                       </span>
                       <button
                         type="button"
                         onClick={() => setSharingForm(form)}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
                         title="Share Form & Counter QR Code"
                       >
                         <QrCode className="w-3.5 h-3.5" />
@@ -658,7 +666,7 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                         type="button"
                         disabled={isStarting}
                         onClick={() => handleStartForm(form)}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                       >
                         {isStarting ? (
                           <>

@@ -3,6 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { FieldExplanation } from "../services/apiClient";
+import { HelpCircle } from "lucide-react";
 
 interface SessionFieldExplanationProps {
   explanation: FieldExplanation;
@@ -24,51 +25,39 @@ export function SessionFieldExplanation({
         data-testid="toggle-field-explanation"
         aria-expanded={open}
         onClick={onToggle}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100/80"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20 hover:text-emerald-300"
       >
-        <svg
-          className="h-3.5 w-3.5 text-indigo-600 shrink-0"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
+        <HelpCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
         <span>{open ? t("hideExplainButton") : t("explainButton")}</span>
       </button>
 
       {open && (
         <div
           data-testid="field-explanation-panel"
-          className="mt-3 rounded-xl border border-indigo-200/80 bg-indigo-50/50 p-4 space-y-3 text-start"
+          className="mt-3 rounded-xl border border-emerald-500/25 bg-[#0A0E17] p-4 space-y-3 text-start"
         >
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
               {t("whatThisMeans")}
             </p>
-            <p className="mt-0.5 text-xs leading-relaxed text-slate-800">
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-200">
               {explanation.summary}
             </p>
           </div>
-          <div className="border-t border-indigo-200/60 pt-2.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+          <div className="border-t border-white/[0.08] pt-2.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
               {t("whereToFindIt")}
             </p>
-            <p className="mt-0.5 text-xs leading-relaxed text-slate-700">
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-300">
               {explanation.whereToFind}
             </p>
           </div>
           {explanation.example && (
-            <div className="border-t border-indigo-200/60 pt-2.5 flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+            <div className="border-t border-white/[0.08] pt-2.5 flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
                 {t("exampleAnswer")}:
               </span>
-              <code className="rounded bg-white border border-indigo-200 px-2 py-0.5 text-xs font-mono font-semibold text-slate-900">
+              <code className="rounded bg-[#151D2E] border border-emerald-500/30 px-2 py-0.5 text-xs font-mono font-semibold text-emerald-300">
                 {explanation.example}
               </code>
             </div>

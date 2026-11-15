@@ -140,19 +140,19 @@ export function LanguageSelectionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
-      <div className="surface-panel w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#060910]/80 p-4 backdrop-blur-xs">
+      <div className="surface-panel w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0F1522] shadow-2xl border border-white/10 text-slate-100 overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-[#0A0E17]/60">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600">
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
               <Globe className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-white">
                 Choose Supported Guidance Languages
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 Select which native languages citizens can choose when filling your organization&apos;s forms.
               </p>
             </div>
@@ -160,17 +160,17 @@ export function LanguageSelectionModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-[#151D2E] hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Search & Region Filter Bar */}
-        <div className="p-4 border-b border-slate-100 space-y-3 bg-white">
+        <div className="p-4 border-b border-white/[0.08] space-y-3 bg-[#0F1522]">
           <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between">
             <div className="relative w-full sm:w-80">
-              <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-slate-400">
+              <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-slate-500">
                 <Search className="w-4 h-4" />
               </div>
               <input
@@ -178,7 +178,7 @@ export function LanguageSelectionModal({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by language, native name, code..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 ps-9 pe-3 text-xs text-slate-900 focus:bg-white focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15"
+                className="w-full rounded-xl border border-white/10 bg-[#0A0E17] py-2 ps-9 pe-3 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
 
@@ -194,10 +194,10 @@ export function LanguageSelectionModal({
                   type="button"
                   key={tab.id}
                   onClick={() => setRegionFilter(tab.id)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
                     regionFilter === tab.id
-                      ? "bg-slate-900 text-white shadow-2xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      ? "bg-emerald-500 text-slate-950 font-bold shadow-2xs"
+                      : "bg-[#0A0E17] border border-white/10 text-slate-300 hover:bg-[#151D2E] hover:text-white"
                   }`}
                 >
                   {tab.label}
@@ -207,14 +207,14 @@ export function LanguageSelectionModal({
           </div>
 
           <div className="flex items-center justify-between text-xs pt-1">
-            <span className="font-semibold text-slate-700">
-              <span className="text-indigo-600 font-bold">{selected.length}</span> languages active for citizens
+            <span className="font-semibold text-slate-300">
+              <span className="text-emerald-400 font-bold">{selected.length}</span> languages active for citizens
             </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={selectCoreEight}
-                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium underline"
+                className="text-xs text-emerald-400 hover:text-emerald-300 font-medium underline cursor-pointer"
               >
                 + Add Top 8 European Migrant Languages
               </button>
@@ -225,7 +225,7 @@ export function LanguageSelectionModal({
         {/* Language Grid */}
         <div className="flex-1 overflow-y-auto p-4 max-h-[50vh]">
           {filteredLanguages.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-500">
+            <div className="py-12 text-center text-xs text-slate-400">
               No languages match your search query.
             </div>
           ) : (
@@ -237,27 +237,27 @@ export function LanguageSelectionModal({
                     type="button"
                     key={lang.code}
                     onClick={() => toggleLang(lang.code)}
-                    className={`flex items-center justify-between p-3 rounded-xl border text-start transition-all ${
+                    className={`flex items-center justify-between p-3 rounded-xl border text-start transition-all cursor-pointer ${
                       isSelected
-                        ? "border-indigo-600 bg-indigo-50/70 shadow-2xs ring-1 ring-indigo-600/30"
-                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60"
+                        ? "border-emerald-500/60 bg-emerald-500/10 shadow-2xs ring-1 ring-emerald-500/30"
+                        : "border-white/10 bg-[#0A0E17] hover:border-white/20 hover:bg-[#151D2E]"
                     }`}
                   >
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-slate-900">{lang.native}</span>
-                        <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1 py-0.2 rounded uppercase">
+                        <span className="font-bold text-xs text-white">{lang.native}</span>
+                        <span className="font-mono text-[10px] text-slate-400 bg-[#151D2E] border border-white/10 px-1.5 py-0.2 rounded uppercase">
                           {lang.code}
                         </span>
                       </div>
-                      <span className="text-[11px] text-slate-500">{lang.name}</span>
+                      <span className="text-[11px] text-slate-400">{lang.name}</span>
                     </div>
 
                     <div
                       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg border transition-colors ${
                         isSelected
-                          ? "border-indigo-600 bg-indigo-600 text-white"
-                          : "border-slate-300 bg-white"
+                          ? "border-emerald-500 bg-emerald-500 text-slate-950"
+                          : "border-white/20 bg-[#0F1522]"
                       }`}
                     >
                       {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -270,8 +270,8 @@ export function LanguageSelectionModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200 flex items-center justify-between bg-slate-50/70">
-          <span className="text-xs text-slate-500">
+        <div className="p-4 border-t border-white/10 flex items-center justify-between bg-[#0A0E17]/60">
+          <span className="text-xs text-slate-400">
             Selected languages will be available in the citizen intake language picker.
           </span>
           <div className="flex items-center gap-2">

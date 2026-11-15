@@ -43,17 +43,17 @@ function VerifyEmailInner() {
   }, [token, auth]);
 
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12 text-slate-900">
-      <div className="surface-panel w-full max-w-md rounded-2xl p-8 text-center space-y-4">
-        <h1 className="text-xl font-bold text-slate-900">
+    <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#0A0E17] px-4 py-12 text-slate-100">
+      <div className="surface-panel w-full max-w-md rounded-2xl border border-white/10 bg-[#0F1522] p-8 text-center space-y-4 text-slate-100">
+        <h1 className="text-xl font-bold text-white">
           {t("verifyEmailTitle")}
         </h1>
         {state === "verifying" && (
-          <p className="text-sm text-slate-600">{t("verifyConfirming")}</p>
+          <p className="text-sm text-slate-400">{t("verifyConfirming")}</p>
         )}
         {state === "verified" && (
           <>
-            <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm font-medium text-emerald-800">
+            <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-sm font-medium text-emerald-300">
               {t("verifySuccess")}
             </p>
             <Link
@@ -68,7 +68,7 @@ function VerifyEmailInner() {
           <>
             <p
               role="alert"
-              className="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-sm font-medium text-rose-800"
+              className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-sm font-medium text-rose-200"
             >
               {t("verifyInvalidToken")}
             </p>

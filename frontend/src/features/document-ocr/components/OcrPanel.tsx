@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { requestOcr, getOcrResult } from "../services/apiClient";
 import { OcrResultResponse } from "../types";
 import { ApiError } from "../../form-session/services/apiClient";
+import { Loader2 } from "lucide-react";
 
 interface OcrPanelProps {
   documentId: string;
@@ -68,8 +69,8 @@ export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 space-y-4">
-        <h2 className="text-xl font-bold text-slate-200">{t("title")}</h2>
+      <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
+        <h2 className="text-xl font-bold text-white">{t("title")}</h2>
         <p className="text-xs leading-relaxed text-slate-400">{t("body")}</p>
 
         {stage !== "completed" && (
@@ -77,21 +78,21 @@ export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
             <div className="space-y-2">
               <label
                 htmlFor="ocr-language-select"
-                className="block text-sm font-semibold tracking-wide text-slate-300"
+                className="block text-sm font-semibold tracking-wide text-slate-200"
               >
                 {t("selectLanguage")}
               </label>
               <select
                 id="ocr-language-select"
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3.5 text-base text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                className="w-full rounded-xl border border-white/10 bg-[#0F1522] px-4 py-3.5 text-base text-slate-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
                 disabled={stage === "processing"}
               >
-                <option value="en">English</option>
-                <option value="de">Deutsch</option>
-                <option value="fr">Français</option>
-                <option value="ar">العربية</option>
+                <option value="en" className="bg-[#0F1522] text-slate-100">English</option>
+                <option value="de" className="bg-[#0F1522] text-slate-100">Deutsch</option>
+                <option value="fr" className="bg-[#0F1522] text-slate-100">Français</option>
+                <option value="ar" className="bg-[#0F1522] text-slate-100">العربية</option>
               </select>
             </div>
 
@@ -99,11 +100,11 @@ export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
               type="button"
               disabled={stage === "processing"}
               onClick={handleRequestOcr}
-              className="w-full rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold shadow-lg shadow-indigo-500/20 transition hover:opacity-95 disabled:opacity-40 disabled:pointer-events-none"
+              className="btn-primary w-full py-3.5 text-sm font-bold"
             >
               {stage === "processing" ? (
                 <div className="flex items-center justify-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   <span>{t("processing")}</span>
                 </div>
               ) : (
@@ -114,7 +115,7 @@ export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
         )}
 
         {stage === "failed" && errorMsg && (
-          <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-300">
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
             {errorMsg}
           </div>
         )}
@@ -122,10 +123,10 @@ export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
 
       {stage === "completed" && result && (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 space-y-4">
+          <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-200">{t("resultTitle")}</h3>
-              <span className="text-xs text-slate-500">
+              <h3 className="text-sm font-bold text-white">{t("resultTitle")}</h3>
+              <span className="text-xs text-slate-400">
                 {t("pageCount", { count: result.pageCount ?? 0 })}
               </span>
             </div>
@@ -139,8 +140,8 @@ export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
                     onClick={() => setActivePage(index)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                       index === activePage
-                        ? "bg-indigo-600 text-white"
-                        : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                        ? "bg-emerald-500 text-slate-950 font-bold"
+                        : "border border-white/10 bg-[#151D2E] text-slate-300 hover:bg-[#1E293B] hover:text-white"
                     }`}
                   >
                     {t("page", { number: p.pageNumber })}
@@ -156,7 +157,7 @@ export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
                 </div>
                 <p
                   dir="auto"
-                  className="whitespace-pre-wrap rounded-xl bg-slate-900 p-4 text-sm leading-relaxed text-slate-200"
+                  className="whitespace-pre-wrap rounded-xl border border-white/[0.08] bg-[#0F1522] p-4 text-sm leading-relaxed text-slate-200"
                 >
                   {page.text || t("emptyPage")}
                 </p>
@@ -167,7 +168,7 @@ export default function OcrPanel({ documentId, currentLocale }: OcrPanelProps) {
           <button
             type="button"
             onClick={() => router.push(`/application/document/${documentId}/detect-fields`)}
-            className="w-full rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 py-3.5 text-sm font-bold shadow-lg shadow-indigo-500/20 transition hover:opacity-95"
+            className="btn-primary w-full py-3.5 text-sm font-bold"
           >
             {t("detectFields")}
           </button>

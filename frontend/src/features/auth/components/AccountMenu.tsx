@@ -38,7 +38,7 @@ export default function AccountMenu() {
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+            className="rounded-xl border border-white/[0.12] bg-[#0F1522] px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors motion-reduce:transition-none hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-200 cursor-pointer"
           >
             {t("logout")}
           </button>

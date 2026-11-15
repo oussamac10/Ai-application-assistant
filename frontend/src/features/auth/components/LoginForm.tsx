@@ -46,17 +46,17 @@ export default function LoginForm() {
   };
 
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-12 text-slate-900">
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-[#0A0E17] px-4 py-12 text-slate-100">
       <div className="w-full max-w-md">
-        <div className="surface-panel rounded-2xl p-8 sm:p-10">
+        <div className="surface-panel rounded-2xl border border-white/10 bg-[#0F1522] p-8 sm:p-10 text-slate-100">
           <div className="text-center">
-            <div className="mx-auto mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600">
+            <div className="mx-auto mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
               <Lock className="h-5 w-5" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
               {t("loginTitle")}
             </h1>
-            <p className="mt-1.5 text-xs text-slate-600">
+            <p className="mt-1.5 text-xs text-slate-400">
               Access your saved form sessions and exported documents
             </p>
           </div>
@@ -65,15 +65,15 @@ export default function LoginForm() {
             {errorKey && (
               <div
                 role="alert"
-                className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-800"
+                className="flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-sm text-rose-200"
               >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
                 <span>{t(errorKey)}</span>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label htmlFor="login-email" className="block text-xs font-semibold text-slate-700">
+              <label htmlFor="login-email" className="block text-xs font-semibold text-slate-200">
                 {t("emailLabel")}
               </label>
               <input
@@ -90,12 +90,12 @@ export default function LoginForm() {
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700">
+                <label htmlFor="login-password" className="block text-xs font-semibold text-slate-200">
                   {t("passwordLabel")}
                 </label>
                 <Link
                   href="/reset-password"
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors motion-reduce:transition-none"
                 >
                   {t("forgotPasswordLink")}
                 </Link>
@@ -121,11 +121,11 @@ export default function LoginForm() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-xs text-slate-600">
+          <p className="mt-6 text-center text-xs text-slate-400">
             {t("noAccountPrompt")}{" "}
             <Link
               href={redirectParam ? `/register?redirect=${encodeURIComponent(redirectParam)}` : "/register"}
-              className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+              className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors motion-reduce:transition-none"
             >
               {t("goToRegister")}
             </Link>

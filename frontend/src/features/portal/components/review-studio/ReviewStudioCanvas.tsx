@@ -93,29 +93,29 @@ export function ReviewStudioCanvas({
           : paneView === "canvas"
           ? "w-full"
           : "w-1/2"
-      } border-r border-slate-200 bg-slate-950 flex flex-col min-w-0 transition-all duration-200 relative overflow-hidden`}
+      } border-r border-slate-800 bg-[#060910] flex flex-col min-w-0 transition-all duration-200 relative overflow-hidden`}
     >
       {/* Canvas Top Bar */}
-      <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between shrink-0 text-white text-xs select-none gap-2">
+      <div className="backdrop-blur-md bg-slate-900/90 border-b border-slate-800 px-4 py-2 flex items-center justify-between shrink-0 text-white text-xs select-none gap-2 sticky top-0 z-20">
         {/* Left: Page Navigator */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             disabled={activePage <= 1}
             onClick={() => setActivePage(Math.max(1, activePage - 1))}
-            className="p-1 rounded hover:bg-slate-700 disabled:opacity-30 text-slate-300 hover:text-white cursor-pointer"
+            className="p-1 rounded-md border border-slate-800 hover:bg-slate-800 disabled:opacity-30 text-slate-400 hover:text-white cursor-pointer transition-colors"
             title="Previous Page"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="font-semibold text-xs tracking-wide">
-            Page {activePage} of {pageCount}
+          <span className="font-semibold text-xs tracking-wide font-mono px-1">
+            PAGE {activePage} / {pageCount}
           </span>
           <button
             type="button"
             disabled={activePage >= pageCount}
             onClick={() => setActivePage(Math.min(pageCount, activePage + 1))}
-            className="p-1 rounded hover:bg-slate-700 disabled:opacity-30 text-slate-300 hover:text-white cursor-pointer"
+            className="p-1 rounded-md border border-slate-800 hover:bg-slate-800 disabled:opacity-30 text-slate-400 hover:text-white cursor-pointer transition-colors"
             title="Next Page"
           >
             <ChevronRight className="w-4 h-4" />
@@ -124,17 +124,17 @@ export function ReviewStudioCanvas({
 
         {/* Middle: Canvas interaction hint */}
         {paneView === "canvas" && (
-          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-300 font-medium truncate">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-300 font-mono truncate">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0 motion-reduce:animate-none" />
             <span className="truncate">
-              Drag empty space to create • Drag boxes to move or resize
+              DRAG EMPTY SPACE TO CREATE • DRAG BOXES TO MOVE / RESIZE
             </span>
           </div>
         )}
         {paneView === "split" && (
-          <div className="hidden 2xl:flex items-center gap-1.5 text-[11px] text-slate-400 truncate">
+          <div className="hidden 2xl:flex items-center gap-1.5 text-[11px] text-slate-400 font-mono truncate">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-            <span className="truncate">Drag to place or move</span>
+            <span className="truncate">DRAG TO PLACE OR MOVE</span>
           </div>
         )}
 
@@ -147,7 +147,7 @@ export function ReviewStudioCanvas({
                 Math.max(0.7, Math.round((z - 0.15) * 100) / 100)
               )
             }
-            className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
+            className="p-1 rounded-md border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer transition-colors"
             title="Zoom Out"
           >
             <ZoomOut className="w-3.5 h-3.5" />
@@ -162,7 +162,7 @@ export function ReviewStudioCanvas({
                 Math.min(1.8, Math.round((z + 0.15) * 100) / 100)
               )
             }
-            className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
+            className="p-1 rounded-md border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer transition-colors"
             title="Zoom In"
           >
             <ZoomIn className="w-3.5 h-3.5" />
@@ -171,7 +171,7 @@ export function ReviewStudioCanvas({
             href={pdfUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white ml-1 cursor-pointer"
+            className="p-1 rounded-md border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white ml-1 cursor-pointer transition-colors"
             title="Open PDF in New Window"
           >
             <ExternalLink className="w-3.5 h-3.5" />
@@ -181,9 +181,9 @@ export function ReviewStudioCanvas({
 
       {/* Explicit Pick Location Guidance Banner */}
       {pickingFieldForLocation && (
-        <div className="px-4 py-2 bg-[#6551f3] text-white text-xs font-semibold flex items-center justify-between shrink-0 shadow-md">
+        <div className="px-4 py-2 bg-emerald-950/90 border-b border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-between shrink-0 shadow-md">
           <span className="flex items-center gap-2">
-            <Target className="w-4 h-4 animate-spin text-white" />
+            <Target className="w-4 h-4 animate-spin text-emerald-400 motion-reduce:animate-none" />
             {pickingFieldForLocation === "new"
               ? "Click or drag directly on the PDF to choose the place for the new field."
               : `Click or drag directly on the PDF to set the position for "${
@@ -194,7 +194,7 @@ export function ReviewStudioCanvas({
           <button
             type="button"
             onClick={onCancelPickingLocation}
-            className="text-xs bg-indigo-700 hover:bg-indigo-800 text-white px-2.5 py-1 rounded underline font-medium cursor-pointer"
+            className="text-xs bg-emerald-900 hover:bg-emerald-800 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-lg font-medium cursor-pointer transition-colors"
           >
             Cancel
           </button>
@@ -292,12 +292,12 @@ export function ReviewStudioCanvas({
                       : "rounded border-2 p-0.5 overflow-hidden flex items-start"
                   } ${
                     isCurrentlyMoving
-                      ? "border-[#6551f3] bg-[#6551f3]/35 shadow-lg z-30 cursor-grabbing"
+                      ? "border-emerald-400 bg-emerald-500/35 ring-2 ring-emerald-500/80 shadow-[0_0_16px_rgba(16,185,129,0.35)] z-30 cursor-grabbing"
                       : isHighlighted
-                      ? "border-[#6551f3] bg-[#6551f3]/25 shadow-[0_0_0_3px_rgba(101,81,243,0.35)] z-20 cursor-grab"
+                      ? "border-emerald-400 bg-emerald-500/20 ring-2 ring-emerald-500/80 shadow-[0_0_12px_rgba(16,185,129,0.2)] z-20 cursor-grab"
                       : isSmallBox
-                      ? "border-indigo-500/80 bg-indigo-500/10 hover:border-indigo-600 hover:bg-indigo-500/25 z-10 cursor-grab"
-                      : "border-indigo-500/80 bg-indigo-500/15 hover:border-indigo-600 hover:bg-indigo-500/25 z-10 cursor-grab"
+                      ? "border-emerald-500/50 bg-emerald-500/10 hover:border-emerald-400 hover:bg-emerald-500/20 z-10 cursor-grab"
+                      : "border-emerald-500/50 bg-emerald-500/10 hover:border-emerald-400 hover:bg-emerald-500/20 z-10 cursor-grab"
                   }`}
                   title={`[${idx + 1}] ${primaryLabel} (Drag to move, use handles to resize)`}
                 >
@@ -306,36 +306,44 @@ export function ReviewStudioCanvas({
                       <span
                         className={`absolute -top-3.5 -start-1 text-[8px] font-mono font-bold px-1 py-0.2 rounded-xs shadow-2xs pointer-events-none select-none transition-all z-20 ${
                           isHighlighted
-                            ? "bg-[#6551f3] text-white ring-1 ring-white/50"
-                            : "bg-slate-900/85 text-white group-hover:bg-indigo-600"
+                            ? "bg-emerald-500 text-slate-950 ring-1 ring-emerald-400/50"
+                            : "bg-slate-900/90 text-slate-200 group-hover:bg-emerald-500 group-hover:text-slate-950"
                         }`}
                       >
                         {idx + 1}
                       </span>
 
                       <div
-                        className={`absolute -top-7 start-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium shadow-md pointer-events-none select-none z-40 transition-all ${
+                        className={`absolute -top-8 start-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-mono font-medium shadow-md pointer-events-none select-none z-40 transition-all ${
                           isHighlighted
-                            ? "flex items-center gap-1 bg-[#6551f3] text-white"
-                            : "hidden group-hover:flex items-center gap-1 bg-slate-900/90 text-white"
+                            ? "flex items-center gap-1.5 bg-slate-900 border border-emerald-500/50 text-emerald-300"
+                            : "hidden group-hover:flex items-center gap-1.5 bg-slate-900/95 border border-slate-700 text-white"
                         }`}
                       >
-                        <span className="font-mono font-bold">[{idx + 1}]</span>
-                        <span className="max-w-[180px] truncate">
-                          {primaryLabel}
+                        <span className="font-bold text-emerald-400">[{idx + 1}]</span>
+                        <span className="max-w-[150px] truncate">{primaryLabel}</span>
+                        <span className="text-[9px] text-slate-400 border-l border-slate-700 ps-1.5">
+                          X:{Math.round(bbox[0])} Y:{Math.round(bbox[1])} W:{Math.round(bbox[2] - bbox[0])} H:{Math.round(bbox[3] - bbox[1])}
                         </span>
                       </div>
                     </>
                   ) : (
-                    <span
-                      className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-full leading-tight select-none pointer-events-none ${
-                        isHighlighted
-                          ? "bg-[#6551f3] text-white"
-                          : "bg-indigo-900/80 text-white group-hover:bg-indigo-600"
-                      }`}
-                    >
-                      [{idx + 1}] {primaryLabel}
-                    </span>
+                    <div className="flex flex-col gap-0.5 max-w-full">
+                      <span
+                        className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-full leading-tight select-none pointer-events-none ${
+                          isHighlighted
+                            ? "bg-emerald-500 text-slate-950"
+                            : "bg-slate-900/90 text-slate-200 group-hover:bg-emerald-500 group-hover:text-slate-950"
+                        }`}
+                      >
+                        [{idx + 1}] {primaryLabel}
+                      </span>
+                      {isHighlighted && (
+                        <span className="text-[8px] font-mono text-emerald-400 font-semibold px-1 select-none pointer-events-none truncate">
+                          X:{Math.round(bbox[0])} Y:{Math.round(bbox[1])} W:{Math.round(bbox[2] - bbox[0])} H:{Math.round(bbox[3] - bbox[1])}
+                        </span>
+                      )}
+                    </div>
                   )}
 
                   {/* Delete button on highlighted box */}
@@ -370,7 +378,7 @@ export function ReviewStudioCanvas({
                         }}
                         className={`absolute -bottom-1 -right-1 ${
                           isSmallBox ? "w-2 h-2" : "w-3 h-3"
-                        } bg-white border-2 border-[#6551f3] rounded-xs cursor-se-resize shadow-md z-30 hover:scale-125 transition-transform`}
+                        } bg-slate-950 border-2 border-emerald-400 rounded-xs cursor-se-resize shadow-md z-30 hover:scale-125 transition-transform`}
                         title="Drag to resize width and height"
                       />
                       {!isSmallBox && (
@@ -380,7 +388,7 @@ export function ReviewStudioCanvas({
                               e.stopPropagation();
                               onStartResize(e, field.id, "e", [...bbox]);
                             }}
-                            className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-2 h-4 bg-white border-2 border-[#6551f3] rounded-xs cursor-ew-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-2 h-4 bg-slate-950 border-2 border-emerald-400 rounded-xs cursor-ew-resize shadow-md z-30 hover:scale-125 transition-transform"
                             title="Drag to adjust width"
                           />
                           <div
@@ -388,7 +396,7 @@ export function ReviewStudioCanvas({
                               e.stopPropagation();
                               onStartResize(e, field.id, "s", [...bbox]);
                             }}
-                            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-2 bg-white border-2 border-[#6551f3] rounded-xs cursor-ns-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-2 bg-slate-950 border-2 border-emerald-400 rounded-xs cursor-ns-resize shadow-md z-30 hover:scale-125 transition-transform"
                             title="Drag to adjust height"
                           />
                           <div
@@ -396,7 +404,7 @@ export function ReviewStudioCanvas({
                               e.stopPropagation();
                               onStartResize(e, field.id, "nw", [...bbox]);
                             }}
-                            className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-nw-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-slate-950 border-2 border-emerald-400 rounded-xs cursor-nw-resize shadow-md z-30 hover:scale-125 transition-transform"
                             title="Drag to resize"
                           />
                           <div
@@ -404,7 +412,7 @@ export function ReviewStudioCanvas({
                               e.stopPropagation();
                               onStartResize(e, field.id, "ne", [...bbox]);
                             }}
-                            className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-ne-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-slate-950 border-2 border-emerald-400 rounded-xs cursor-ne-resize shadow-md z-30 hover:scale-125 transition-transform"
                             title="Drag to resize"
                           />
                           <div
@@ -412,7 +420,7 @@ export function ReviewStudioCanvas({
                               e.stopPropagation();
                               onStartResize(e, field.id, "sw", [...bbox]);
                             }}
-                            className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#6551f3] rounded-xs cursor-sw-resize shadow-md z-30 hover:scale-125 transition-transform"
+                            className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-slate-950 border-2 border-emerald-400 rounded-xs cursor-sw-resize shadow-md z-30 hover:scale-125 transition-transform"
                             title="Drag to resize"
                           />
                         </>
@@ -453,9 +461,9 @@ export function ReviewStudioCanvas({
                     width: `${widthPx}px`,
                     height: `${heightPx}px`,
                   }}
-                  className="absolute border-2 border-dashed border-[#6551f3] bg-[#6551f3]/25 pointer-events-none z-30 flex items-center justify-center"
+                  className="absolute border-2 border-dashed border-emerald-400 bg-emerald-500/20 pointer-events-none z-30 flex items-center justify-center"
                 >
-                  <span className="bg-[#6551f3] text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
+                  <span className="bg-emerald-500 text-slate-950 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
                     New Input Box
                   </span>
                 </div>

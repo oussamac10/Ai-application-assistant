@@ -4,6 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { AnswerResponse, CurrentField } from "../services/apiClient";
 import { formatOriginalAnswer } from "../utils/formatProposedValue";
+import { ChevronDown } from "lucide-react";
 
 interface SessionClarificationPanelProps {
   currentField: CurrentField;
@@ -32,21 +33,21 @@ export function SessionClarificationPanel({
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="space-y-1">
-        <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
+        <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
           Clarification Needed
         </div>
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-white mt-2">
           {t("clarificationTitle")}
         </h2>
-        <p className="text-sm text-slate-600">{t("clarificationSubtitle")}</p>
+        <p className="text-sm text-slate-400">{t("clarificationSubtitle")}</p>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-1.5 text-start">
-        <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
+      <div className="rounded-xl border border-white/[0.08] bg-[#0A0E17] p-4 space-y-1.5 text-start">
+        <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400">
           {t("originalAnswerLabel")}
         </p>
-        <p className="text-sm text-slate-900 font-medium">
+        <p className="text-sm text-white font-medium">
           &ldquo;
           {formatOriginalAnswer(
             inputValue,
@@ -64,15 +65,15 @@ export function SessionClarificationPanel({
             <div key={key} className="space-y-2 text-start">
               {isSentenceReason ? (
                 <>
-                  <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900">
+                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs leading-relaxed text-amber-200">
                     {key}
                   </p>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
                     {currentField.label || t("originalAnswerLabel")}
                   </label>
                 </>
               ) : (
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                   {key.replace(/_/g, " ")}
                 </label>
               )}
@@ -89,33 +90,21 @@ export function SessionClarificationPanel({
                     }
                     required
                   >
-                    <option value="" disabled className="bg-white text-slate-400">
+                    <option value="" disabled className="bg-[#0F1522] text-slate-500">
                       Select currency...
                     </option>
-                    <option value="EUR" className="bg-white text-slate-900">
+                    <option value="EUR" className="bg-[#0F1522] text-slate-100">
                       EUR (€)
                     </option>
-                    <option value="USD" className="bg-white text-slate-900">
+                    <option value="USD" className="bg-[#0F1522] text-slate-100">
                       USD ($)
                     </option>
-                    <option value="GBP" className="bg-white text-slate-900">
+                    <option value="GBP" className="bg-[#0F1522] text-slate-100">
                       GBP (£)
                     </option>
                   </select>
-                  <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
+                  <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-400">
+                    <ChevronDown className="h-4 w-4" />
                   </div>
                 </div>
               ) : key === "period" ? (
@@ -131,33 +120,21 @@ export function SessionClarificationPanel({
                     }
                     required
                   >
-                    <option value="" disabled className="bg-white text-slate-400">
+                    <option value="" disabled className="bg-[#0F1522] text-slate-500">
                       Select frequency...
                     </option>
-                    <option value="monthly" className="bg-white text-slate-900">
+                    <option value="monthly" className="bg-[#0F1522] text-slate-100">
                       Monthly
                     </option>
-                    <option value="yearly" className="bg-white text-slate-900">
+                    <option value="yearly" className="bg-[#0F1522] text-slate-100">
                       Yearly
                     </option>
-                    <option value="weekly" className="bg-white text-slate-900">
+                    <option value="weekly" className="bg-[#0F1522] text-slate-100">
                       Weekly
                     </option>
                   </select>
-                  <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-500">
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
+                  <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-400">
+                    <ChevronDown className="h-4 w-4" />
                   </div>
                 </div>
               ) : (

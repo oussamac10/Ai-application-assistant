@@ -217,11 +217,11 @@ export function PortalDashboard() {
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="h-8 w-64 bg-slate-200 rounded-lg animate-pulse mb-4" />
-        <div className="h-4 w-96 bg-slate-100 rounded-md animate-pulse mb-8" />
+        <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse mb-4" />
+        <div className="h-4 w-96 bg-slate-800/60 rounded-md animate-pulse mb-8" />
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 bg-slate-100 rounded-2xl animate-pulse" />
+            <div key={i} className="h-24 bg-slate-800/50 border border-slate-800 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -236,28 +236,31 @@ export function PortalDashboard() {
   };
 
   const renderHeader = () => (
-    <div>
+    <div className="rounded-2xl border border-slate-800 bg-[#0F1522] p-6 sm:p-7 shadow-card relative overflow-hidden">
+      {/* Background radial highlight */}
+      <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-48 bg-emerald-500/5 blur-3xl rounded-full" />
+
       {/* Citizen / Authority Notice Banner if configured */}
       {theme.citizen_notice_banner && (
-        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900 flex items-center gap-3">
-          <Info className="w-4 h-4 shrink-0 text-amber-600" />
+        <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 flex items-center gap-3">
+          <Info className="w-4 h-4 shrink-0 text-amber-400" />
           <span className="font-medium">{theme.citizen_notice_banner}</span>
         </div>
       )}
 
       {/* Workspace Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs text-slate-500 font-medium mb-4">
-        <span className="hover:text-slate-700 cursor-pointer">Verwaltungsportal</span>
-        <span className="text-slate-300">/</span>
-        <span className="text-slate-600 font-medium">Behörden-Workspace</span>
-        <span className="text-slate-300">/</span>
-        <span className="text-indigo-600 font-semibold">Amtliche Formulare & Studio</span>
+      <div className="flex items-center gap-2 text-xs text-slate-400 font-medium mb-4">
+        <span className="hover:text-slate-200 cursor-pointer">Agency Portal</span>
+        <span className="text-slate-600">/</span>
+        <span className="text-slate-300 font-medium">Workspace</span>
+        <span className="text-slate-600">/</span>
+        <span className="text-emerald-400 font-semibold font-mono">Official Forms & Studio</span>
       </div>
 
       {/* Official Government Authority Header */}
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 pb-6 border-b border-slate-200">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 pb-6 border-b border-slate-800">
         <div className="flex items-start gap-4">
-          <div className="h-16 w-16 shrink-0 rounded-2xl border-2 border-slate-200 bg-white p-1.5 shadow-2xs flex items-center justify-center overflow-hidden">
+          <div className="h-16 w-16 shrink-0 rounded-2xl border border-slate-800 bg-[#0A0E17] p-1.5 shadow-2xs flex items-center justify-center overflow-hidden">
             {org?.logo_storage_path ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
@@ -266,43 +269,50 @@ export function PortalDashboard() {
                 className="h-full w-full object-contain"
               />
             ) : (
-              <div className="w-full h-full rounded-xl bg-amber-50 flex items-center justify-center text-amber-700">
-                <Landmark className="w-8 h-8 text-amber-600" />
+              <div className="w-full h-full rounded-xl bg-slate-900 flex items-center justify-center text-emerald-400">
+                <Landmark className="w-8 h-8 text-emerald-400" />
               </div>
             )}
           </div>
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                {org?.name || "Stadtverwaltung Stuttgart — Bürgeramt & Ausländerwesen"}
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                {org?.name || "Organization Workspace"}
               </h1>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-mono font-medium text-emerald-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                LIVE WORKSPACE
+              </span>
               {org?.is_verified_government ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   Verified Official Authority
                 </span>
               ) : org?.verification_status === "pending_review" ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-400">
                   Pending Verification
                 </span>
               ) : null}
-              <span className="rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 capitalize">
+              <span className="rounded-full border border-slate-700 bg-slate-800/60 px-2.5 py-0.5 text-xs font-mono text-slate-300 capitalize">
                 {org?.organization_type || "Government"}
               </span>
             </div>
 
-            <p className="mt-1 text-xs text-slate-500 max-w-3xl leading-relaxed">
+            <p className="mt-1.5 text-xs text-slate-400 max-w-3xl leading-relaxed">
               {org?.description ||
-                "Official municipal authority for citizen services, registration, civil status, and foreign affairs for the City of Stuttgart, Baden-Württemberg."}
+                "Official authority workspace for cross-border candidate intake, multilingual form mapping, and verified PDF processing."}
             </p>
 
             {/* Official Authority Metadata Bar */}
             {theme.show_authority_metadata !== false && (
-              <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-600">
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-400">
                 {org?.office_address && (
                   <span className="inline-flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                     <span>{org.office_address}</span>
                   </span>
                 )}
@@ -311,22 +321,22 @@ export function PortalDashboard() {
                     href={org.official_website_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 hover:underline"
+                    className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 hover:underline"
                   >
-                    <Globe className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <Globe className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span>{org.official_website_url.replace(/^https?:\/\//, "")}</span>
-                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                    <ExternalLink className="w-3 h-3 text-slate-500" />
                   </a>
                 )}
                 {org?.contact_email && (
                   <span className="inline-flex items-center gap-1">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                     <bdi>{org.contact_email}</bdi>
                   </span>
                 )}
                 {org?.contact_phone && (
                   <span className="inline-flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                     <bdi>{org.contact_phone}</bdi>
                   </span>
                 )}
@@ -341,18 +351,17 @@ export function PortalDashboard() {
             <Link
               href={`/organizations/${org.slug}`}
               target="_blank"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-semibold text-slate-200 shadow-2xs hover:bg-slate-800 hover:border-slate-600 transition-colors"
             >
-              <Globe className="w-3.5 h-3.5 text-indigo-600" />
+              <Globe className="w-3.5 h-3.5 text-emerald-400" />
               <span>Public Portal</span>
-              <ExternalLink className="w-3 h-3 text-slate-400" />
+              <ExternalLink className="w-3 h-3 text-slate-500" />
             </Link>
           )}
           <button
             type="button"
             onClick={() => setIsUploadFormOpen(true)}
-            style={primaryBtnStyle}
-            className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold shadow-xs hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_-3px_rgba(16,185,129,0.35)] active:scale-[0.98] transition-all cursor-pointer"
           >
             <UploadCloud className="w-4 h-4" />
             <span>Upload PDF</span>
@@ -366,39 +375,46 @@ export function PortalDashboard() {
     if (theme.show_metrics_strip === false) return null;
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+        <div className="rounded-2xl border border-slate-800 border-t-2 border-t-emerald-500/60 bg-[#0F1522] p-4 sm:p-5 shadow-card transition-all hover:border-slate-700">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Total forms</span>
-            <span className="h-2 w-2 rounded-full bg-slate-300" />
+            <span className="text-xs font-medium text-slate-400">Total forms</span>
+            <span className="h-2 w-2 rounded-full bg-slate-600" />
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{forms.length}</div>
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-mono">{forms.length}</div>
+          <div className="mt-1 text-[11px] font-mono text-slate-500">ACTIVE SCHEMAS</div>
         </div>
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+        <div className="rounded-2xl border border-slate-800 border-t-2 border-t-emerald-500 bg-[#0F1522] p-4 sm:p-5 shadow-card transition-all hover:border-slate-700">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Live in portal</span>
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="text-xs font-medium text-slate-400">Live in portal</span>
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-emerald-600">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-400 font-mono">
             {forms.filter((f) => f.status === "published").length}
           </div>
+          <div className="mt-1 text-[11px] font-mono text-emerald-400/80">CITIZEN READY</div>
         </div>
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+        <div className="rounded-2xl border border-slate-800 border-t-2 border-t-amber-500 bg-[#0F1522] p-4 sm:p-5 shadow-card transition-all hover:border-slate-700">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Needs review</span>
-            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-xs font-medium text-slate-400">Needs review</span>
+            <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse motion-reduce:animate-none" />
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-amber-700">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-amber-400 font-mono">
             {formsNeedingReviewCount}
           </div>
+          <div className="mt-1 text-[11px] font-mono text-amber-400/80">ACTION REQUIRED</div>
         </div>
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+        <div className="rounded-2xl border border-slate-800 border-t-2 border-t-slate-700 bg-[#0F1522] p-4 sm:p-5 shadow-card transition-all hover:border-slate-700">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Archived</span>
-            <span className="h-2 w-2 rounded-full bg-slate-300" />
+            <span className="text-xs font-medium text-slate-400">Archived</span>
+            <span className="h-2 w-2 rounded-full bg-slate-700" />
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-500">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-400 font-mono">
             {forms.filter((f) => f.status === "archived").length}
           </div>
+          <div className="mt-1 text-[11px] font-mono text-slate-500">OFFLINE</div>
         </div>
       </div>
     );
@@ -408,15 +424,15 @@ export function PortalDashboard() {
     <div className="space-y-3">
       {/* Category Toast Alert */}
       {categoryToast && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-800 flex items-center justify-between shadow-2xs animate-in fade-in">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-300 flex items-center justify-between shadow-card animate-in fade-in">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
             <span className="font-semibold">{categoryToast}</span>
           </div>
           <button
             type="button"
             onClick={() => setCategoryToast(null)}
-            className="text-emerald-500 hover:text-emerald-700 font-bold ml-2 cursor-pointer"
+            className="text-emerald-400 hover:text-emerald-300 font-bold ml-2 cursor-pointer"
           >
             ✕
           </button>
@@ -438,16 +454,16 @@ export function PortalDashboard() {
               onClick={() => setFormStatusFilter(tab.id)}
               className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
                 formStatusFilter === tab.id
-                  ? "bg-slate-900 text-white shadow-2xs"
-                  : "bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200"
+                  ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                  : "bg-[#0F1522] text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800"
               }`}
             >
               <span>{tab.label}</span>
               <span
                 className={`text-[10px] font-mono rounded-full px-1.5 py-0.2 ${
                   formStatusFilter === tab.id
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-100 text-slate-500"
+                    ? "bg-slate-950/30 text-slate-950 font-bold"
+                    : "bg-slate-800 text-slate-400"
                 }`}
               >
                 {tab.count}
@@ -457,7 +473,7 @@ export function PortalDashboard() {
         </div>
 
         <div className="relative w-full sm:w-80">
-          <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-slate-400">
+          <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-slate-500">
             <Search className="w-3.5 h-3.5" />
           </div>
           <input
@@ -465,14 +481,14 @@ export function PortalDashboard() {
             value={formSearchQuery}
             onChange={(e) => setFormSearchQuery(e.target.value)}
             placeholder="Search forms..."
-            className="w-full rounded-xl border border-slate-200 bg-white py-1.5 ps-8 pe-3 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/15 transition-all"
+            className="w-full rounded-xl border border-slate-800 bg-[#0A0E17] py-1.5 ps-8 pe-3 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
           />
         </div>
       </div>
 
       {/* Row 2: Category Filter Pills + Auto-Categorize Button */}
       {(categories.length > 0 || categoryCounts.uncategorized > 0) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
           <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto py-0.5">
             <span className="text-[11px] font-semibold text-slate-400 mr-1 flex items-center gap-1">
               <Folder className="w-3 h-3" /> Category:
@@ -482,16 +498,16 @@ export function PortalDashboard() {
               onClick={() => setCategoryFilter("all")}
               className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                 categoryFilter === "all"
-                  ? "bg-indigo-600 text-white shadow-2xs font-semibold"
-                  : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-xs font-bold"
+                  : "bg-[#0F1522] text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800"
               }`}
             >
               <span>All Categories</span>
               <span
                 className={`text-[10px] font-mono px-1 rounded-full ${
                   categoryFilter === "all"
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-100 text-slate-500"
+                    ? "bg-emerald-500/30 text-emerald-300 font-bold"
+                    : "bg-slate-800 text-slate-400"
                 }`}
               >
                 {forms.length}
@@ -508,8 +524,8 @@ export function PortalDashboard() {
                   onClick={() => setCategoryFilter(cat.id)}
                   className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-indigo-600 text-white shadow-2xs font-semibold"
-                      : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+                      ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-xs font-bold"
+                      : "bg-[#0F1522] text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800"
                   }`}
                 >
                   <CategoryIcon icon={cat.icon} className="w-3.5 h-3.5 shrink-0" />
@@ -517,8 +533,8 @@ export function PortalDashboard() {
                   <span
                     className={`text-[10px] font-mono px-1 rounded-full ${
                       isSelected
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-500"
+                        ? "bg-emerald-500/30 text-emerald-300 font-bold"
+                        : "bg-slate-800 text-slate-400"
                     }`}
                   >
                     {count}
@@ -533,17 +549,17 @@ export function PortalDashboard() {
                 onClick={() => setCategoryFilter("uncategorized")}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                   categoryFilter === "uncategorized"
-                    ? "bg-amber-600 text-white shadow-2xs font-semibold"
-                    : "bg-white text-amber-700 hover:bg-amber-50 border border-amber-200"
+                    ? "bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-xs font-bold"
+                    : "bg-[#0F1522] text-amber-400 hover:bg-slate-800 border border-amber-500/30"
                 }`}
               >
-                <Tag className="w-3 h-3 text-amber-500" />
+                <Tag className="w-3 h-3 text-amber-400" />
                 <span>Uncategorized</span>
                 <span
                   className={`text-[10px] font-mono px-1 rounded-full ${
                     categoryFilter === "uncategorized"
-                      ? "bg-white/20 text-white"
-                      : "bg-amber-100 text-amber-700"
+                      ? "bg-amber-500/30 text-amber-200 font-bold"
+                      : "bg-slate-800 text-amber-400"
                   }`}
                 >
                   {categoryCounts.uncategorized}
@@ -557,10 +573,10 @@ export function PortalDashboard() {
               type="button"
               disabled={autoCategorizing}
               onClick={handleAutoCategorize}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-              title="Automatically match official forms to categories based on German keywords"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+              title="Automatically match official forms to categories based on keywords"
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               <span>
                 {autoCategorizing ? "Matching..." : "Auto-Categorize Official Forms"}
               </span>
@@ -577,19 +593,19 @@ export function PortalDashboard() {
       {loadingForms ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-44 rounded-2xl bg-slate-100 animate-pulse" />
+            <div key={i} className="h-44 rounded-2xl bg-[#0F1522] border border-slate-800 animate-pulse" />
           ))}
         </div>
       ) : filteredForms.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+        <div className="rounded-2xl border border-slate-800 bg-[#0F1522] p-12 text-center shadow-card">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
             <FileText className="w-6 h-6" />
           </div>
-          <h3 className="mt-3 text-sm font-semibold text-slate-900">
+          <h3 className="mt-3 text-sm font-bold text-white">
             No official forms found
           </h3>
-          <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-            Upload your municipality’s official blank PDF forms to auto-detect fields and create interactive multilingual workflows.
+          <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
+            Upload your organization’s official blank PDF forms to auto-detect fields and create interactive multilingual workflows.
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
             {forms.length === 0 && (
@@ -604,7 +620,7 @@ export function PortalDashboard() {
                     setForms(updated);
                     if (res.provisionedCount > 0) {
                       setCategoryToast(
-                        `Loaded ${res.provisionedCount} ready-to-send German starter templates.`
+                        `Loaded ${res.provisionedCount} ready-to-send starter templates.`
                       );
                     }
                   } catch (err) {
@@ -617,21 +633,20 @@ export function PortalDashboard() {
                     setIsProvisioningStarters(false);
                   }
                 }}
-                className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:border-slate-600 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isProvisioningStarters ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
                 ) : (
-                  <Sparkles className="w-4 h-4" />
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
                 )}
-                Load 3 German Starter Templates
+                Load 3 Starter Templates
               </button>
             )}
             <button
               type="button"
               onClick={() => setIsUploadFormOpen(true)}
-              style={primaryBtnStyle}
-              className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold shadow-xs hover:opacity-90 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_-3px_rgba(16,185,129,0.35)] active:scale-[0.98] transition-all cursor-pointer"
             >
               <UploadCloud className="w-4 h-4" /> Upload PDF
             </button>
@@ -642,39 +657,39 @@ export function PortalDashboard() {
           {filteredForms.map((f) => (
             <div
               key={f.id}
-              className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all flex flex-col justify-between group"
+              className="rounded-2xl border border-slate-800 bg-[#0F1522] p-5 shadow-card hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all flex flex-col justify-between group relative overflow-hidden"
             >
               <div>
-                <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-start justify-between gap-2 mb-2.5">
                   <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
                       f.status === "published"
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                         : f.status === "archived"
-                        ? "border-slate-200 bg-slate-100 text-slate-600"
-                        : "border-amber-200 bg-amber-50 text-amber-800"
+                        ? "border-slate-700 bg-slate-800/60 text-slate-400"
+                        : "border-amber-500/30 bg-amber-500/10 text-amber-400"
                     }`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${
-                      f.status === "published" ? "bg-emerald-500" : f.status === "archived" ? "bg-slate-400" : "bg-amber-500"
+                      f.status === "published" ? "bg-emerald-400" : f.status === "archived" ? "bg-slate-500" : "bg-amber-400"
                     }`} />
                     <span>
-                      {f.status === "published" ? "Live" : f.status === "needs_review" ? "Needs review" : "Archived"}
+                      {f.status === "published" ? "PUBLISHED" : f.status === "needs_review" ? "Needs review" : f.status === "draft" ? "DRAFT" : "ARCHIVED"}
                     </span>
                   </span>
-                  <span className="text-[11px] font-mono text-slate-400">
+                  <span className="text-[11px] font-mono text-slate-500">
                     v{f.versionNumber}
                   </span>
                 </div>
 
-                <h3 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 line-clamp-1 transition-colors">
+                <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 line-clamp-1 transition-colors">
                   {f.name}
                 </h3>
-                <p className="text-[11px] font-mono text-slate-400 mt-0.5 truncate">{f.key}</p>
+                <p className="text-[11px] font-mono text-slate-500 mt-0.5 truncate">{f.key}</p>
 
-                <div className="mt-3 flex items-center justify-between gap-2 text-xs">
-                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded-md">
-                    <FileText className="w-3 h-3 text-slate-400" />
+                <div className="mt-3.5 flex items-center justify-between gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-900 border border-slate-800 px-2.5 py-0.5 rounded-md font-mono">
+                    <FileText className="w-3 h-3 text-slate-500" />
                     <span>{f.fieldsCount} {f.fieldsCount === 1 ? "field" : "fields"}</span>
                   </span>
 
@@ -688,30 +703,30 @@ export function PortalDashboard() {
                           activeCategoryMenuFormId === f.id ? null : f.id
                         );
                       }}
-                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
                         f.categoryId || f.category_id
-                          ? "bg-indigo-50/70 border-indigo-200/80 text-indigo-700 hover:bg-indigo-100"
-                          : "bg-slate-50 border-dashed border-slate-300 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                          : "bg-slate-900/60 border-dashed border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                       }`}
                       title="Click to assign or change category"
                     >
                       <CategoryIcon
                         icon={f.categoryIcon || f.category_icon}
-                        className="w-3 h-3 text-indigo-600"
+                        className="w-3 h-3 text-emerald-400"
                       />
                       <span className="truncate max-w-[120px]">
                         {f.categoryName || f.category_name || (f.category && f.category !== "general" ? f.category : "+ Categorize")}
                       </span>
-                      <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
+                      <ChevronDown className="w-2.5 h-2.5 text-slate-500" />
                     </button>
 
                     {/* Popover Dropdown Menu */}
                     {activeCategoryMenuFormId === f.id && (
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="absolute right-0 bottom-full mb-1 z-30 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
+                        className="absolute right-0 bottom-full mb-1 z-30 w-56 rounded-xl border border-slate-800 bg-[#0F1522] p-1.5 shadow-xl text-slate-200"
                       >
-                        <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                        <div className="px-2 py-1 text-[10px] font-mono font-semibold text-slate-400 uppercase tracking-wider">
                           Assign Category
                         </div>
                         <div className="max-h-48 overflow-y-auto space-y-0.5">
@@ -725,29 +740,29 @@ export function PortalDashboard() {
                                 onClick={() => handleQuickUpdateCategory(f.id, cat.id)}
                                 className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-start ${
                                   isSelected
-                                    ? "bg-indigo-50 text-indigo-700 font-semibold"
-                                    : "text-slate-700 hover:bg-slate-50"
+                                    ? "bg-emerald-500/20 text-emerald-300 font-semibold"
+                                    : "text-slate-300 hover:bg-slate-800"
                                 }`}
                               >
                                 <span className="flex items-center gap-2 truncate">
                                   <CategoryIcon
                                     icon={cat.icon}
-                                    className="w-3.5 h-3.5 shrink-0 text-slate-500"
+                                    className="w-3.5 h-3.5 shrink-0 text-slate-400"
                                   />
                                   <span className="truncate">{cat.name}</span>
                                 </span>
                                 {isSelected && (
-                                  <Check className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
+                                  <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
                                 )}
                               </button>
                             );
                           })}
                         </div>
-                        <div className="mt-1 pt-1 border-t border-slate-100">
+                        <div className="mt-1 pt-1 border-t border-slate-800">
                           <button
                             type="button"
                             onClick={() => handleQuickUpdateCategory(f.id, null)}
-                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-500 hover:bg-slate-50 hover:text-slate-700 cursor-pointer"
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200 cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5" />
                             <span>Remove Category</span>
@@ -759,8 +774,8 @@ export function PortalDashboard() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-slate-400 truncate">
+              <div className="mt-4 pt-3.5 border-t border-slate-800 flex items-center justify-between gap-2">
+                <span className="text-[11px] font-mono text-slate-500 truncate">
                   {new Date(f.updatedAt).toLocaleDateString()}
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -768,26 +783,26 @@ export function PortalDashboard() {
                     <button
                       type="button"
                       onClick={() => setSharingForm(f)}
-                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-slate-700 bg-slate-800/80 text-[11px] font-medium text-slate-200 hover:bg-slate-800 hover:border-slate-600 transition-colors cursor-pointer"
                       title="Share Form & Counter QR Code"
                     >
-                      <QrCode className="w-3 h-3 text-slate-500" />
+                      <QrCode className="w-3 h-3 text-slate-400" />
                       <span>Share</span>
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={() => setSelectedTemplateIdForReview(f.id)}
-                    className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-indigo-50 border border-indigo-200/80 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
                     title="Review Schema & PDF Layout"
                   >
-                    <Layers className="w-3 h-3 text-indigo-600" />
+                    <Layers className="w-3 h-3 text-emerald-400" />
                     <span>Review</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDeleteForm(f.id, f.name)}
-                    className="h-7 w-7 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    className="h-7 w-7 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                     title="Delete Form"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

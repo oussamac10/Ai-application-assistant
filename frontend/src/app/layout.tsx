@@ -18,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-[#f8fafc] text-slate-900 antialiased selection:bg-indigo-600/15 selection:text-indigo-900">
+      <body className="min-h-screen bg-[#0A0E17] text-slate-100 antialiased selection:bg-emerald-500/20 selection:text-emerald-300">
         <LanguageProvider>
           <AuthProvider>
             <OrganizationProvider>

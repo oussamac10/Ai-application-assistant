@@ -46,7 +46,7 @@ export function ReviewStudioMetadataTab({
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
           Official Form Title *
         </label>
         <input
@@ -54,12 +54,12 @@ export function ReviewStudioMetadataTab({
           disabled={!canEdit}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-[#0F1522] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
           Official Category / Department (Taxonomy)
         </label>
         <ModernSelect
@@ -86,7 +86,7 @@ export function ReviewStudioMetadataTab({
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
           Official Guidance & Instructions for Citizen
         </label>
         <textarea
@@ -95,17 +95,17 @@ export function ReviewStudioMetadataTab({
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
           placeholder="e.g. Please ensure all personal and address information matches your official passport or identification."
-          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-[#0F1522] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
       </div>
 
       {/* Required Documents / Evidence Checklist */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="block text-xs font-semibold text-slate-700">
+          <label className="block text-xs font-semibold text-slate-300">
             Required Evidence / Documents Checklist
           </label>
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-slate-500 font-mono">
             Shown to citizens before starting application
           </span>
         </div>
@@ -123,12 +123,12 @@ export function ReviewStudioMetadataTab({
                 }
               }}
               placeholder="e.g. Valid Passport, Identity Card, or Proof of Address"
-              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+              className="flex-1 px-3.5 py-2 rounded-xl border border-slate-800 bg-[#0F1522] text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 text-white placeholder-slate-500"
             />
             <button
               type="button"
               onClick={handleAddDoc}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Add Item
             </button>
@@ -136,7 +136,7 @@ export function ReviewStudioMetadataTab({
         )}
 
         {requiredDocs.length === 0 ? (
-          <p className="text-xs text-slate-400 italic py-2">
+          <p className="text-xs text-slate-500 italic py-2">
             No required evidence documents added yet.
           </p>
         ) : (
@@ -144,10 +144,10 @@ export function ReviewStudioMetadataTab({
             {requiredDocs.map((doc, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-700"
+                className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#0F1522] border border-slate-800 text-xs text-slate-200"
               >
                 <span className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0">
+                  <span className="w-5 h-5 rounded-full bg-slate-800 text-emerald-400 text-[10px] font-mono font-bold flex items-center justify-center shrink-0 border border-slate-700">
                     {idx + 1}
                   </span>
                   <span>{doc}</span>
@@ -156,7 +156,7 @@ export function ReviewStudioMetadataTab({
                   <button
                     type="button"
                     onClick={() => handleRemoveDoc(idx)}
-                    className="text-slate-400 hover:text-red-500 p-1 cursor-pointer transition-colors"
+                    className="text-slate-500 hover:text-red-400 p-1 cursor-pointer transition-colors"
                     title="Remove item"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -169,7 +169,7 @@ export function ReviewStudioMetadataTab({
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
           Internal Verification & Audit Notes
         </label>
         <textarea
@@ -178,7 +178,7 @@ export function ReviewStudioMetadataTab({
           value={reviewNotes}
           onChange={(e) => setReviewNotes(e.target.value)}
           placeholder="e.g. Verified by Review Officer against official guidelines."
-          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-[#0F1522] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
       </div>
     </div>

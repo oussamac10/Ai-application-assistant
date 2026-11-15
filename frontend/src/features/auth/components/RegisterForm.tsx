@@ -61,17 +61,17 @@ export default function RegisterForm() {
   };
 
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-12 text-slate-900">
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-[#0A0E17] px-4 py-12 text-slate-100">
       <div className="w-full max-w-xl">
-        <div className="surface-panel rounded-2xl p-8 sm:p-10 shadow-xs border border-slate-200/80 bg-white">
+        <div className="surface-panel rounded-2xl border border-white/10 bg-[#0F1522] p-8 sm:p-10 text-slate-100">
           <div className="text-center">
-            <div className="mx-auto mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-600">
+            <div className="mx-auto mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
               <UserPlus className="h-5 w-5" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
               {t("registerTitle")}
             </h1>
-            <p className="mt-1.5 text-xs text-slate-600">
+            <p className="mt-1.5 text-xs text-slate-400">
               Create your account to complete forms or publish verified multilingual services
             </p>
           </div>
@@ -80,36 +80,36 @@ export default function RegisterForm() {
             {errorKey && (
               <div
                 role="alert"
-                className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-800"
+                className="flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-sm text-rose-200"
               >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
                 <span>{t(errorKey)}</span>
               </div>
             )}
 
             {/* Account Type Selector */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
                 Select Account Type
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setAccountType("individual")}
-                  className={`flex flex-col items-start p-3 rounded-xl border text-start transition-all ${
+                  className={`flex flex-col items-start p-3 rounded-xl border text-start transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                     accountType === "individual"
-                      ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-600/20"
-                      : "border-slate-200 bg-white hover:bg-slate-50"
+                      ? "border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/20"
+                      : "border-white/10 bg-[#0A0E17] hover:border-white/20 hover:bg-[#151D2E]"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                    <User className={`w-4 h-4 ${accountType === "individual" ? "text-indigo-600" : "text-slate-500"}`} />
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                    <User className={`w-4 h-4 ${accountType === "individual" ? "text-emerald-400" : "text-slate-400"}`} />
                     Citizen
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-500 leading-tight">
+                  <p className="mt-1 text-[11px] text-slate-400 leading-tight">
                     Individual citizen. Complete forms for free.
                   </p>
-                  <span className="mt-2 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  <span className="mt-2 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">
                     100% Free
                   </span>
                 </button>
@@ -117,20 +117,20 @@ export default function RegisterForm() {
                 <button
                   type="button"
                   onClick={() => setAccountType("government")}
-                  className={`flex flex-col items-start p-3 rounded-xl border text-start transition-all ${
+                  className={`flex flex-col items-start p-3 rounded-xl border text-start transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                     accountType === "government"
-                      ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-600/20"
-                      : "border-slate-200 bg-white hover:bg-slate-50"
+                      ? "border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/20"
+                      : "border-white/10 bg-[#0A0E17] hover:border-white/20 hover:bg-[#151D2E]"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                    <Landmark className={`w-4 h-4 ${accountType === "government" ? "text-indigo-600" : "text-slate-500"}`} />
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                    <Landmark className={`w-4 h-4 ${accountType === "government" ? "text-emerald-400" : "text-slate-400"}`} />
                     Government
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-500 leading-tight">
-                    Bürgeramt, Ausländerbehörde, Universities.
+                  <p className="mt-1 text-[11px] text-slate-400 leading-tight">
+                    Municipal offices, Immigration, Universities.
                   </p>
-                  <span className="mt-2 text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                  <span className="mt-2 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">
                     Official Portal
                   </span>
                 </button>
@@ -138,20 +138,20 @@ export default function RegisterForm() {
                 <button
                   type="button"
                   onClick={() => setAccountType("business")}
-                  className={`flex flex-col items-start p-3 rounded-xl border text-start transition-all ${
+                  className={`flex flex-col items-start p-3 rounded-xl border text-start transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                     accountType === "business"
-                      ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-600/20"
-                      : "border-slate-200 bg-white hover:bg-slate-50"
+                      ? "border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/20"
+                      : "border-white/10 bg-[#0A0E17] hover:border-white/20 hover:bg-[#151D2E]"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                    <Briefcase className={`w-4 h-4 ${accountType === "business" ? "text-indigo-600" : "text-slate-500"}`} />
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                    <Briefcase className={`w-4 h-4 ${accountType === "business" ? "text-emerald-400" : "text-slate-400"}`} />
                     Business
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-500 leading-tight">
+                  <p className="mt-1 text-[11px] text-slate-400 leading-tight">
                     Relocation firms, law practices, HR teams.
                   </p>
-                  <span className="mt-2 text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                  <span className="mt-2 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">
                     Client Pipeline
                   </span>
                 </button>
@@ -160,11 +160,11 @@ export default function RegisterForm() {
 
             {/* Organization Specific Fields */}
             {accountType !== "individual" && (
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-4">
+              <div className="rounded-xl border border-emerald-500/25 bg-[#151D2E] p-4 space-y-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="organization-name" className="block text-xs font-semibold text-slate-700">
+                  <label htmlFor="organization-name" className="block text-xs font-semibold text-slate-200">
                     {accountType === "government" ? "Authority / Municipality Name" : "Company / Firm Name"}
-                    <span className="text-rose-500 ms-1">*</span>
+                    <span className="text-rose-400 ms-1">*</span>
                   </label>
                   <input
                     id="organization-name"
@@ -174,15 +174,15 @@ export default function RegisterForm() {
                     onChange={(e) => setOrganizationName(e.target.value)}
                     placeholder={
                       accountType === "government"
-                        ? "e.g. Stadtverwaltung Freiburg"
-                        : "e.g. ReloCare Immigration GmbH"
+                        ? "e.g. City Administration or Immigration Office"
+                        : "e.g. Global Relocation Services LLC"
                     }
-                    className="input-field bg-white"
+                    className="input-field"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="official-website" className="block text-xs font-semibold text-slate-700">
+                  <label htmlFor="official-website" className="block text-xs font-semibold text-slate-200">
                     {accountType === "government" ? "Official Website" : "Company Website"}
                     <span className="text-slate-400 font-normal ms-1">(optional)</span>
                   </label>
@@ -192,14 +192,14 @@ export default function RegisterForm() {
                     value={officialWebsiteUrl}
                     onChange={(e) => setOfficialWebsiteUrl(e.target.value)}
                     placeholder="https://..."
-                    className="input-field bg-white"
+                    className="input-field"
                   />
                 </div>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label htmlFor="register-email" className="block text-xs font-semibold text-slate-700">
+              <label htmlFor="register-email" className="block text-xs font-semibold text-slate-200">
                 {accountType === "government"
                   ? "Official Authority Email"
                   : accountType === "business"
@@ -215,23 +215,23 @@ export default function RegisterForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={
                   accountType === "government"
-                    ? "name@rathaus.freiburg.de"
+                    ? "admin@agency.gov"
                     : accountType === "business"
-                    ? "partner@relocare.de"
+                    ? "partner@relocation.com"
                     : "name@example.com"
                 }
                 className="input-field"
                 suppressHydrationWarning
               />
               {accountType === "government" && (
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-400">
                   Using an official municipal or institutional email expedites official verification.
                 </p>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="register-password" className="block text-xs font-semibold text-slate-700">
+              <label htmlFor="register-password" className="block text-xs font-semibold text-slate-200">
                 {t("passwordLabel")}
               </label>
               <input
@@ -250,7 +250,7 @@ export default function RegisterForm() {
             <div className="space-y-1.5">
               <label
                 htmlFor="register-password-confirmation"
-                className="block text-xs font-semibold text-slate-700"
+                className="block text-xs font-semibold text-slate-200"
               >
                 {t("passwordConfirmationLabel")}
               </label>
@@ -282,11 +282,11 @@ export default function RegisterForm() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-xs text-slate-600">
+          <p className="mt-6 text-center text-xs text-slate-400">
             {t("haveAccountPrompt")}{" "}
             <Link
               href={redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : "/login"}
-              className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+              className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors motion-reduce:transition-none"
             >
               {t("goToLogin")}
             </Link>

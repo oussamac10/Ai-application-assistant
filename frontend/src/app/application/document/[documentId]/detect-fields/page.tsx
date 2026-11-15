@@ -12,10 +12,10 @@ export default function DocumentFieldDetectionPage() {
   const { locale } = useLanguage();
 
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-[#0A0E17] px-4 py-10 text-slate-100 sm:px-6 lg:px-8">
       <div className="w-full max-w-xl">
         <div className="surface-panel rounded-2xl p-6 sm:p-8">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 text-center">
+          <h1 className="text-2xl font-bold tracking-tight text-white text-center">
             {tc("title")}
           </h1>
           <div className="mt-6">

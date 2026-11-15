@@ -1,8 +1,8 @@
 import { UIThemeConfig, SectionKey } from "../types";
 
 export const DEFAULT_THEME_CONFIG: Required<UIThemeConfig> = {
-  primary_color: "#4f46e5",
-  accent_color: "#6366f1",
+  primary_color: "#10b981",
+  accent_color: "#34d399",
   sidebar_theme: "dark",
   layout_density: "comfortable",
   show_metrics_strip: true,
@@ -15,14 +15,14 @@ export const DEFAULT_THEME_CONFIG: Required<UIThemeConfig> = {
 };
 
 export const POPULAR_AUTHORITY_PALETTES = [
-  { name: "Stuttgart Gold & Black", primary: "#FEDB00", accent: "#000000" },
-  { name: "Federal German Navy", primary: "#1E3A8A", accent: "#3B82F6" },
-  { name: "Bavarian Blue", primary: "#0066B2", accent: "#38BDF8" },
-  { name: "Berlin Red", primary: "#E2001A", accent: "#991B1B" },
-  { name: "Hamburg Brick Red", primary: "#BA1C19", accent: "#1E293B" },
-  { name: "Hessen Deep Blue", primary: "#0F2D59", accent: "#DC2626" },
+  { name: "Aikido Emerald", primary: "#10B981", accent: "#34D399" },
   { name: "Sovereign Emerald", primary: "#059669", accent: "#10B981" },
-  { name: "Municipal Indigo", primary: "#4F46E5", accent: "#818CF8" },
+  { name: "Civic Navy", primary: "#1E3A8A", accent: "#3B82F6" },
+  { name: "Atlantic Blue", primary: "#0066B2", accent: "#38BDF8" },
+  { name: "Sovereign Gold", primary: "#FEDB00", accent: "#0F172A" },
+  { name: "Crimson Seal", primary: "#E11D48", accent: "#9F1239" },
+  { name: "Deep Slate", primary: "#334155", accent: "#94A3B8" },
+  { name: "Royal Indigo", primary: "#4F46E5", accent: "#818CF8" },
 ];
 
 export function resolveThemeConfig(config?: UIThemeConfig | null): Required<UIThemeConfig> {

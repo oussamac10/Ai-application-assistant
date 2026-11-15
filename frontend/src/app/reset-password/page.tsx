@@ -58,15 +58,15 @@ function ResetPasswordInner() {
   };
 
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-12 text-slate-900">
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-[#0A0E17] px-4 py-12 text-slate-100">
       <div className="w-full max-w-md">
-        <div className="surface-panel rounded-2xl p-8 sm:p-10 space-y-6 text-start">
+        <div className="surface-panel rounded-2xl border border-white/10 bg-[#0F1522] p-8 sm:p-10 space-y-6 text-start text-slate-100">
           <div className="text-center space-y-1.5">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
               {token ? t("resetConfirmTitle") : t("resetRequestTitle")}
             </h1>
             {!token && (
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-400">
                 {t("resetRequestSubtitle")}
               </p>
             )}
@@ -75,7 +75,7 @@ function ResetPasswordInner() {
           {errorKey && (
             <div
               role="alert"
-              className="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-800"
+              className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-sm text-rose-200"
             >
               {t(errorKey)}
             </div>
@@ -84,7 +84,7 @@ function ResetPasswordInner() {
           {!token ? (
             requestSent ? (
               <div className="space-y-4">
-                <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
                   {t("resetRequestSent")}
                 </p>
                 <Link
@@ -99,7 +99,7 @@ function ResetPasswordInner() {
                 <div className="space-y-1.5">
                   <label
                     htmlFor="reset-email"
-                    className="block text-xs font-semibold text-slate-700"
+                    className="block text-xs font-semibold text-slate-200"
                   >
                     {t("emailLabel")}
                   </label>
@@ -126,7 +126,7 @@ function ResetPasswordInner() {
             )
           ) : confirmDone ? (
             <div className="space-y-4">
-              <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
                 {t("resetConfirmSuccess")}
               </p>
               <Link
@@ -141,7 +141,7 @@ function ResetPasswordInner() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="reset-new-password"
-                  className="block text-xs font-semibold text-slate-700"
+                  className="block text-xs font-semibold text-slate-200"
                 >
                   {t("passwordLabel")}
                 </label>
@@ -159,7 +159,7 @@ function ResetPasswordInner() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="reset-confirm-password"
-                  className="block text-xs font-semibold text-slate-700"
+                  className="block text-xs font-semibold text-slate-200"
                 >
                   {t("passwordConfirmationLabel")}
                 </label>
@@ -185,10 +185,10 @@ function ResetPasswordInner() {
             </form>
           )}
 
-          <p className="text-center text-xs text-slate-600">
+          <p className="text-center text-xs text-slate-400">
             <Link
               href="/login"
-              className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+              className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors motion-reduce:transition-none"
             >
               {t("goToLogin")}
             </Link>

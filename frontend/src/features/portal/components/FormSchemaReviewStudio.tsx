@@ -819,7 +819,7 @@ export function FormSchemaReviewStudio({
       // Publish
       const published = await publishForm(templateId);
       setReview(published);
-      setSuccessMessage("🎉 Form has been successfully approved and published to the Official Portal!");
+      setSuccessMessage("Form has been successfully approved and published to the Official Portal!");
       if (onPublished) onPublished(published);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to publish form";
@@ -847,22 +847,22 @@ export function FormSchemaReviewStudio({
 
   if (loading) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        <p className="text-sm font-medium text-slate-600">Loading form schema & coordinates...</p>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-4 bg-[#0A0E17]">
+        <Loader2 className="w-8 h-8 text-emerald-400 animate-spin motion-reduce:animate-none" />
+        <p className="text-sm font-medium text-slate-400">Loading form schema & coordinates...</p>
       </div>
     );
   }
 
   if (!review) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
-        <AlertCircle className="w-12 h-12 text-red-500 mb-3" />
-        <h3 className="text-lg font-bold text-slate-800">Form Not Found</h3>
-        <p className="text-sm text-slate-500 mb-4">{error || "Unable to load review detail."}</p>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center bg-[#0A0E17]">
+        <AlertCircle className="w-12 h-12 text-rose-400 mb-3" />
+        <h3 className="text-lg font-bold text-slate-100">Form Not Found</h3>
+        <p className="text-sm text-slate-400 mb-4">{error || "Unable to load review detail."}</p>
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#121A2A] border border-white/10 hover:bg-[#192338] text-slate-200 text-sm font-medium transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Return to Catalog
         </button>
@@ -873,53 +873,53 @@ export function FormSchemaReviewStudio({
   const pdfUrl = `/api/organizations/current/forms/${templateId}/source-pdf`;
 
   return (
-    <div className="flex flex-col h-full w-full min-w-0 max-w-full overflow-hidden bg-slate-50">
+    <div className="flex flex-col h-full w-full min-w-0 max-w-full overflow-hidden bg-[#0A0E17]">
       {/* Top Action Bar */}
-      <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shrink-0 shadow-2xs gap-3 min-w-0">
+      <header className="backdrop-blur-md bg-slate-900/90 border-b border-slate-800 px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shrink-0 shadow-2xs gap-3 min-w-0 sticky top-0 z-30">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onBack}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
             title="Back to Catalog"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-sm sm:text-base font-bold text-slate-900 truncate max-w-[200px] sm:max-w-xs md:max-w-md">
+              <h1 className="text-sm sm:text-base font-bold text-white truncate max-w-[200px] sm:max-w-xs md:max-w-md">
                 {name || review.name}
               </h1>
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider shrink-0 ${
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-mono font-semibold uppercase tracking-wider shrink-0 ${
                   review.status === "published"
-                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
                     : review.status === "archived"
-                    ? "bg-slate-200 text-slate-700"
-                    : "bg-amber-100 text-amber-800 border border-amber-200"
+                    ? "bg-slate-800 text-slate-400 border border-slate-700"
+                    : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
                 }`}
               >
                 {review.status === "published" ? "Live" : "Review"}
               </span>
-              <span className="text-[11px] text-slate-400 font-mono hidden sm:inline shrink-0">
+              <span className="text-[11px] text-slate-500 font-mono hidden sm:inline shrink-0">
                 v{review.versionNumber} • {fields.length} Fields
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 hidden sm:flex items-center gap-1.5 mt-0.5 truncate">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <p className="text-[11px] text-slate-400 font-mono hidden sm:flex items-center gap-1.5 mt-0.5 truncate">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>Dual-Pane Verification Studio</span>
             </p>
           </div>
         </div>
 
         {/* Center: View Switcher (Split, Canvas, Fields) */}
-        <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200 shrink-0">
+        <div className="flex items-center rounded-xl bg-slate-950 p-0.5 border border-slate-800 shrink-0">
           <button
             type="button"
             onClick={() => setPaneView("split")}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               paneView === "split"
-                ? "bg-white text-indigo-700 shadow-2xs"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-slate-800 text-emerald-400 shadow-2xs border border-slate-700"
+                : "text-slate-400 hover:text-white"
             }`}
             title="Dual-Pane Split View"
           >
@@ -929,10 +929,10 @@ export function FormSchemaReviewStudio({
           <button
             type="button"
             onClick={() => setPaneView("canvas")}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               paneView === "canvas"
-                ? "bg-white text-indigo-700 shadow-2xs"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-slate-800 text-emerald-400 shadow-2xs border border-slate-700"
+                : "text-slate-400 hover:text-white"
             }`}
             title="PDF Canvas Only"
           >
@@ -942,10 +942,10 @@ export function FormSchemaReviewStudio({
           <button
             type="button"
             onClick={() => setPaneView("fields")}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               paneView === "fields"
-                ? "bg-white text-indigo-700 shadow-2xs"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-slate-800 text-emerald-400 shadow-2xs border border-slate-700"
+                : "text-slate-400 hover:text-white"
             }`}
             title="Fields & Schema Editor Only"
           >
@@ -957,13 +957,13 @@ export function FormSchemaReviewStudio({
         {/* Studio Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {successMessage && (
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium">
               <Check className="w-3.5 h-3.5" />
               <span>{successMessage}</span>
             </div>
           )}
           {error && (
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium">
               <AlertCircle className="w-3.5 h-3.5" />
               <span>{error}</span>
             </div>
@@ -975,10 +975,10 @@ export function FormSchemaReviewStudio({
                 type="button"
                 onClick={handleSaveDraft}
                 disabled={saving || publishing}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
                 title="Save current changes as draft"
               >
-                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 text-slate-500" />}
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 text-slate-400" />}
                 <span>Save Draft</span>
               </button>
 
@@ -987,7 +987,7 @@ export function FormSchemaReviewStudio({
                   type="button"
                   onClick={handlePublish}
                   disabled={saving || publishing}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-[0_0_15px_rgba(16,185,129,0.35)] transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {publishing ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1005,7 +1005,7 @@ export function FormSchemaReviewStudio({
                   onClick={() => setShowTopMenu(!showTopMenu)}
                   aria-expanded={showTopMenu}
                   aria-haspopup="menu"
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
                   title="More options"
                 >
                   <MoreVertical className="w-4 h-4" />
@@ -1014,7 +1014,7 @@ export function FormSchemaReviewStudio({
                 {showTopMenu && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-1.5 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg ring-1 ring-black/5 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs font-medium"
+                    className="absolute right-0 mt-1.5 w-44 rounded-xl border border-slate-800 bg-[#0F1522] py-1 shadow-xl ring-1 ring-black/40 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs font-medium text-slate-200"
                   >
                     {review.status === "published" && (
                       <button
@@ -1025,7 +1025,7 @@ export function FormSchemaReviewStudio({
                           handleArchive();
                         }}
                         disabled={saving || publishing}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
                       >
                         <FolderArchive className="w-3.5 h-3.5 text-slate-400" />
                         <span>Archive Form</span>
@@ -1039,9 +1039,9 @@ export function FormSchemaReviewStudio({
                         handleDeleteForm();
                       }}
                       disabled={saving || publishing}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
                       <span>Delete Form</span>
                     </button>
                   </div>
@@ -1114,17 +1114,17 @@ export function FormSchemaReviewStudio({
               : paneView === "fields"
               ? "w-full"
               : "w-1/2"
-          } min-w-0 flex flex-col bg-white overflow-hidden`}
+          } min-w-0 flex flex-col bg-[#0A0E17] border-l border-slate-800 overflow-hidden`}
         >
           {/* Sub Navigation */}
-          <div className="px-4 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50 shrink-0 min-w-0">
+          <div className="px-4 py-2 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-900/60 shrink-0 min-w-0">
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setActiveTab("fields")}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
                   activeTab === "fields"
-                    ? "bg-white text-blue-700 shadow-2xs border border-slate-200"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-slate-800 text-emerald-400 shadow-2xs border border-slate-700"
+                    : "text-slate-400 hover:text-white"
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -1132,10 +1132,10 @@ export function FormSchemaReviewStudio({
               </button>
               <button
                 onClick={() => setActiveTab("metadata")}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
                   activeTab === "metadata"
-                    ? "bg-white text-blue-700 shadow-2xs border border-slate-200"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-slate-800 text-emerald-400 shadow-2xs border border-slate-700"
+                    : "text-slate-400 hover:text-white"
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -1159,7 +1159,7 @@ export function FormSchemaReviewStudio({
                     setModalError(null);
                     setShowAddField(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-xs transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Field</span>
@@ -1169,7 +1169,7 @@ export function FormSchemaReviewStudio({
                   type="button"
                   onClick={handleRunAutoMap}
                   disabled={autoMapping || fields.length === 0}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                   title="Automatically map detected form fields to canonical citizen vault keys"
                 >
                   {autoMapping ? (
@@ -1187,7 +1187,7 @@ export function FormSchemaReviewStudio({
                     onClick={() => setShowToolsMenu(!showToolsMenu)}
                     aria-expanded={showToolsMenu}
                     aria-haspopup="menu"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors cursor-pointer"
                     title="Schema tools & options"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-slate-400" />
@@ -1198,7 +1198,7 @@ export function FormSchemaReviewStudio({
                   {showToolsMenu && (
                     <div
                       role="menu"
-                      className="absolute right-0 mt-1.5 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-lg ring-1 ring-black/5 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs font-medium"
+                      className="absolute right-0 mt-1.5 w-48 rounded-xl border border-slate-800 bg-[#0F1522] py-1 shadow-xl ring-1 ring-black/40 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs font-medium text-slate-200"
                     >
                       <button
                         type="button"
@@ -1208,12 +1208,12 @@ export function FormSchemaReviewStudio({
                           handleRunAutoMap();
                         }}
                         disabled={autoMapping || fields.length === 0}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
                       >
                         {autoMapping ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
                         ) : (
-                          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                         )}
                         <span>AI Auto-Map Schema</span>
                       </button>
@@ -1226,19 +1226,19 @@ export function FormSchemaReviewStudio({
                           handleAutoDetect();
                         }}
                         disabled={autoDetecting}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
                       >
                         {autoDetecting ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
                         ) : (
-                          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                         )}
                         <span>Auto-Detect Fields</span>
                       </button>
 
                       {fields.length > 0 && (
                         <>
-                          <div className="my-1 border-t border-slate-100" />
+                          <div className="my-1 border-t border-slate-800" />
                           <button
                             type="button"
                             role="menuitem"
@@ -1247,9 +1247,9 @@ export function FormSchemaReviewStudio({
                               handleClearAllFields();
                             }}
                             disabled={saving}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
                             <span>Clear All Fields</span>
                           </button>
                         </>
@@ -1262,28 +1262,28 @@ export function FormSchemaReviewStudio({
           </div>
 
           {/* Editor Content Area */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 bg-[#0A0E17]">
             {activeTab === "fields" ? (
               <div className="space-y-4">
-                <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100 text-blue-900 text-xs flex items-start gap-2.5">
-                  <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs flex items-start gap-2.5">
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold">AcroForm Widgets & Profile Vault Mapping:</span>
-                    <p className="text-blue-800 text-[11px] mt-0.5">
+                    <span className="font-semibold text-white">AcroForm Widgets & Profile Vault Mapping:</span>
+                    <p className="text-slate-400 text-[11px] mt-0.5">
                       Verify each question label and select its canonical profile vault key. Citizens with existing encrypted vaults will be able to complete mapped fields with a single click.
                     </p>
                   </div>
                 </div>
 
                 {autoMapResults && (
-                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-card">
                     <div className="flex items-start gap-2.5">
-                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-semibold text-emerald-950">
+                        <span className="font-semibold text-white">
                           AI Auto-Mapping Ready: {autoMapResults.suggestions.length} of {autoMapResults.total_fields} fields matched
                         </span>
-                        <p className="text-emerald-700 text-[11px] mt-0.5">
+                        <p className="text-emerald-300 text-[11px] mt-0.5">
                           Review suggestions below. Apply all canonical vault keys at once, or accept them individually.
                         </p>
                       </div>
@@ -1294,7 +1294,7 @@ export function FormSchemaReviewStudio({
                           type="button"
                           onClick={handleApplyAllAutoMaps}
                           disabled={applyingAutoMap}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                         >
                           {applyingAutoMap ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1307,7 +1307,7 @@ export function FormSchemaReviewStudio({
                       <button
                         type="button"
                         onClick={() => setAutoMapResults(null)}
-                        className="px-2.5 py-1.5 rounded-lg border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-medium transition-colors cursor-pointer"
                       >
                         Dismiss
                       </button>
@@ -1316,10 +1316,10 @@ export function FormSchemaReviewStudio({
                 )}
 
                 {fields.length === 0 ? (
-                  <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
-                    <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-slate-700">No fields extracted</p>
-                    <p className="text-xs text-slate-400 mt-1 mb-4">
+                  <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/40">
+                    <FileText className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-slate-300">No fields extracted</p>
+                    <p className="text-xs text-slate-500 mt-1 mb-4">
                       Add questions manually to configure this form.
                     </p>
                     {canEdit && (
@@ -1338,7 +1338,7 @@ export function FormSchemaReviewStudio({
                             setModalError(null);
                             setShowAddField(true);
                           }}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-xs cursor-pointer transition-all"
                         >
                           <Plus className="w-4 h-4" /> Add Field Manually
                         </button>
@@ -1346,12 +1346,12 @@ export function FormSchemaReviewStudio({
                           type="button"
                           onClick={handleAutoDetect}
                           disabled={autoDetecting}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer disabled:opacity-50 transition-all"
                         >
                           {autoDetecting ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                            <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
                           ) : (
-                            <Sparkles className="w-4 h-4 text-blue-600" />
+                            <Sparkles className="w-4 h-4 text-emerald-400" />
                           )}
                           Scan & Auto-Detect
                         </button>

@@ -150,7 +150,7 @@ describe("FieldRenderer Component Inputs Dispatcher", () => {
     const noBtn = screen.getByRole("button", { name: "No" });
     
     // Yes is selected
-    expect(yesBtn.className).toContain("border-indigo-500");
+    expect(yesBtn.className).toContain("border-emerald-500");
     
     // Click No
     fireEvent.click(noBtn);

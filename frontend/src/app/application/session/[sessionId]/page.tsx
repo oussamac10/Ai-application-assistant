@@ -41,7 +41,14 @@ import { SessionFieldExplanation } from "@/features/form-session/components/Sess
 import { TableRowGroupCard } from "@/features/form-session/components/TableRowGroupCard";
 import ClaimBanner from "@/features/applications/components/ClaimBanner";
 import { SaveAndResumeModal } from "@/features/applications/components/SaveAndResumeModal";
-import { Bookmark } from "lucide-react";
+import {
+  Bookmark,
+  Loader2,
+  AlertTriangle,
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+} from "lucide-react";
 import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { prefillSessionFromVault } from "@/features/profile-vault/services/vaultClient";
 
@@ -84,7 +91,21 @@ export default function GuidedSession() {
     null,
   );
   const [isSaveResumeOpen, setIsSaveResumeOpen] = useState<boolean>(false);
+  const [slideDirection, setSlideDirection] = useState<"forward" | "backward">("forward");
+  const lastPosRef = useRef<number>(0);
   const pagePreviewUrlsRef = useRef<Record<number, string>>({});
+
+  useEffect(() => {
+    if (currentField) {
+      const currentPos = currentField.position ?? 0;
+      if (currentPos < lastPosRef.current) {
+        setSlideDirection("backward");
+      } else {
+        setSlideDirection("forward");
+      }
+      lastPosRef.current = currentPos;
+    }
+  }, [currentField]);
 
   useEffect(() => {
     if (currentField?.pageNumber) {
@@ -462,10 +483,10 @@ export default function GuidedSession() {
 
   if (step === "loading") {
     return (
-      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center text-slate-900">
+      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#0A0E17] text-slate-100">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
-          <p className="text-sm font-medium text-slate-600">{tc("loading")}</p>
+          <Loader2 className="h-9 w-9 animate-spin text-emerald-400" />
+          <p className="text-sm font-medium text-slate-400">{tc("loading")}</p>
         </div>
       </main>
     );
@@ -473,30 +494,18 @@ export default function GuidedSession() {
 
   if (step === "error") {
     return (
-      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 text-slate-900">
+      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#0A0E17] px-4 text-slate-100">
         <div className="surface-panel w-full max-w-md rounded-2xl p-8 text-center">
-          <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600">
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
+          <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-400">
+            <AlertTriangle className="h-5 w-5" />
           </div>
-          <h2 className="text-lg font-bold text-slate-900">Error Occurred</h2>
-          <p className="mt-2 text-sm text-slate-600">
+          <h2 className="text-lg font-bold text-white">Error Occurred</h2>
+          <p className="mt-2 text-sm text-slate-400">
             {errorMsg || "An unexpected error occurred."}
           </p>
           <button
             onClick={handleRestart}
-            className="btn-secondary mt-6 w-full py-3 text-sm font-semibold"
+            className="btn-secondary mt-6 w-full py-3 text-sm font-semibold active:scale-[0.98] transition-all"
           >
             {tc("restart")}
           </button>
@@ -506,7 +515,7 @@ export default function GuidedSession() {
   }
 
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col justify-center bg-[#0A0E17] text-slate-100 px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-5xl flex-1 flex flex-col justify-center py-2">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <SessionContextSidebar
@@ -533,8 +542,8 @@ export default function GuidedSession() {
             />
 
             {auth?.user && (
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-indigo-200/80 bg-white px-4 py-3 shadow-2xs text-start">
-                <span className="text-xs font-medium text-slate-700">
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl border border-emerald-500/30 bg-[#0F1522] px-4 py-3 shadow-2xs text-start">
+                <span className="text-xs font-medium text-slate-200">
                   {vaultNotice || t("prefillFromVault")}
                 </span>
                 <button
@@ -549,65 +558,64 @@ export default function GuidedSession() {
               </div>
             )}
 
-            {/* Progress header */}
+            {/* High-Contrast Command Header & Animated Progress Rail */}
             {currentField && (
-              <div className="mb-5 w-full space-y-2">
-                <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
-                  <span className="flex items-center gap-2 tabular-nums">
-                    <span className="h-2 w-2 rounded-full bg-indigo-600" />
-                    {t("progress", {
-                      current: completed + 1,
-                      total,
-                      percent: progressPercent,
-                    })}
-                  </span>
+              <div className="mb-5 w-full space-y-2.5">
+                <div className="flex justify-between items-center text-xs font-semibold text-slate-300">
+                  <div className="flex items-center gap-2 tabular-nums">
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse motion-reduce:animate-none" />
+                    <span className="font-mono text-[11px] text-slate-200 uppercase tracking-tight">
+                      {t("progress", {
+                        current: completed + 1,
+                        total,
+                        percent: progressPercent,
+                      })}
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2">
                     {!auth?.user && (
                       <button
                         type="button"
                         onClick={() => setIsSaveResumeOpen(true)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors text-[11px] font-medium cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border border-white/15 bg-[#0F1522] text-slate-200 hover:bg-[#151D2E] hover:border-emerald-500/40 hover:text-white transition-colors text-[11px] font-medium cursor-pointer shadow-2xs"
                         title="Save your progress to resume later"
                       >
-                        <Bookmark className="w-3 h-3 text-indigo-600" />
+                        <Bookmark className="w-3 h-3 text-emerald-400" />
                         <span>Save & Resume</span>
                       </button>
                     )}
-                    <span className="rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-indigo-700 font-bold tabular-nums">
+                    <span className="rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-emerald-400 font-mono font-bold tabular-nums text-xs">
                       {progressPercent}%
                     </span>
                   </div>
                 </div>
-                <div className="h-2 w-full rounded-full bg-slate-200/80 overflow-hidden border border-slate-300/60">
+
+                {/* Animated Step Progress Rail */}
+                <div className="h-2 w-full rounded-full bg-[#151D2E] overflow-hidden border border-white/10 shadow-inner">
                   <div
-                    className="h-full rounded-full bg-indigo-600 transition-all duration-300 ease-out"
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 transition-all duration-500 ease-out motion-reduce:transition-none shadow-[0_0_12px_rgba(16,185,129,0.5)] relative overflow-hidden"
                     style={{ width: `${progressPercent}%` }}
-                  />
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer motion-reduce:animate-none" />
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="surface-panel rounded-2xl p-6 sm:p-8">
+            <div
+              key={currentField?.fieldId || currentField?.position}
+              className={`surface-panel rounded-2xl p-6 sm:p-8 animate-in fade-in ${
+                slideDirection === "backward" ? "slide-in-from-left-4" : "slide-in-from-right-4"
+              } duration-200 motion-reduce:animate-none`}
+            >
               {currentField && (
                 <div className="space-y-6">
                   {errorMsg && !errorIsFieldLevel && (
                     <div
                       role="alert"
-                      className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-center gap-3"
+                      className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200 flex items-center gap-3"
                     >
-                      <svg
-                        className="h-4 w-4 text-rose-600 shrink-0"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                        />
-                      </svg>
+                      <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
                       <span>{errorMsg}</span>
                     </div>
                   )}
@@ -658,13 +666,13 @@ export default function GuidedSession() {
                         {rowContext && (
                           <p
                             data-testid="row-context"
-                            className="text-xs font-bold uppercase tracking-wider text-indigo-700"
+                            className="text-xs font-bold uppercase tracking-wider text-emerald-400"
                           >
                             {rowHeading(rowContext.section, rowContext.index)}
                             {rowProgress && (
                               <span
                                 data-testid="row-progress"
-                                className="ms-2 font-medium text-slate-500 tabular-nums"
+                                className="ms-2 font-medium text-slate-400 tabular-nums"
                               >
                                 {t("rowFieldProgress", {
                                   position: rowProgress.position,
@@ -675,11 +683,11 @@ export default function GuidedSession() {
                           </p>
                         )}
                         <div className="flex items-start justify-between gap-3">
-                          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
+                          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
                             {formatFieldLabel(currentField.label)}
                             {requiredness === "required" && (
                               <span
-                                className="ms-1 text-rose-600"
+                                className="ms-1 text-rose-400"
                                 aria-hidden="true"
                               >
                                 *
@@ -690,8 +698,8 @@ export default function GuidedSession() {
                             <span
                               className={`shrink-0 rounded-md px-2.5 py-0.5 text-xs font-semibold ${
                                 requiredness === "required"
-                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                  : "bg-slate-100 text-slate-700 border border-slate-200"
+                                  ? "bg-rose-500/10 text-rose-300 border border-rose-500/30"
+                                  : "bg-[#151D2E] text-slate-300 border border-white/10"
                               }`}
                               data-testid="requiredness"
                             >
@@ -752,12 +760,12 @@ export default function GuidedSession() {
                         "awaiting_confirmation" &&
                         currentField.currentAnswerId &&
                         inputValue === (currentField.originalAnswer || "") && (
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 text-start">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-start">
                             <div className="space-y-0.5 min-w-0">
-                              <p className="text-xs font-semibold text-indigo-800">
+                              <p className="text-xs font-semibold text-emerald-400">
                                 {t("prefilledReviewLabel")}
                               </p>
-                              <p className="text-sm font-bold text-slate-900 break-words">
+                              <p className="text-sm font-bold text-white break-words">
                                 <bdi>
                                   {formatProposedValue(
                                     currentField.normalizedValue,
@@ -780,28 +788,16 @@ export default function GuidedSession() {
                         )}
 
                       {/* Footer navigation */}
-                      <div className="flex gap-3 pt-4 border-t border-slate-200">
+                      <div className="flex gap-3 pt-4 border-t border-white/10">
                         <button
                           type="button"
                           disabled={
                             isFirstField || step === "submitting"
                           }
                           onClick={handleBackClick}
-                          className="btn-secondary flex-1 py-3.5 text-sm font-medium"
+                          className="btn-secondary flex-1 py-3.5 text-sm font-medium active:scale-[0.98] transition-all"
                         >
-                          <svg
-                            className="h-4 w-4 rtl:rotate-180"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 19l-7-7 7-7"
-                            />
-                          </svg>
+                          <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
                           <span>{tc("back")}</span>
                         </button>
                         {skippable && (
@@ -810,7 +806,7 @@ export default function GuidedSession() {
                             disabled={step === "submitting"}
                             onClick={handleSkipClick}
                             data-testid="skip-question"
-                            className="btn-secondary flex-1 py-3.5 text-sm font-medium"
+                            className="btn-secondary flex-1 py-3.5 text-sm font-medium active:scale-[0.98] transition-all"
                           >
                             {t("skipQuestion")}
                           </button>
@@ -831,7 +827,7 @@ export default function GuidedSession() {
                               ? signatureValue === null || step === "submitting"
                               : !inputValue.trim() || step === "submitting"
                           }
-                          className="btn-primary flex-1 py-3.5 text-sm font-semibold"
+                          className="btn-primary flex-1 py-3.5 text-sm font-semibold active:scale-[0.98] transition-all"
                         >
                           <span>
                             {step === "submitting"
@@ -839,19 +835,7 @@ export default function GuidedSession() {
                               : tc("continue")}
                           </span>
                           {step !== "submitting" && (
-                            <svg
-                              className="h-4 w-4 rtl:rotate-180"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 5l7 7-7 7"
-                              />
-                            </svg>
+                            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
                           )}
                         </button>
                       </div>

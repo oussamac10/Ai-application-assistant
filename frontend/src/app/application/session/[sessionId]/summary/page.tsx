@@ -23,6 +23,7 @@ import {
 import { formatFieldLabel } from "@/features/form-session/utils/formatFieldLabel";
 import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { saveSessionToVault } from "@/features/profile-vault/services/vaultClient";
+import { Loader2, AlertCircle, Info } from "lucide-react";
 
 export default function SessionSummary() {
   const router = useRouter();
@@ -200,10 +201,10 @@ export default function SessionSummary() {
 
   if (loading) {
     return (
-      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center text-slate-900">
+      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#0A0E17] text-slate-100">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
-          <p className="text-sm font-medium text-slate-600">{tc("loading")}</p>
+          <Loader2 className="h-9 w-9 animate-spin text-emerald-400" />
+          <p className="text-sm font-medium text-slate-400">{tc("loading")}</p>
         </div>
       </main>
     );
@@ -263,24 +264,24 @@ export default function SessionSummary() {
         data-testid={`summary-row-${f.fieldKey}`}
         data-state={state}
         className={`transition-colors duration-150 ${
-          blocks ? "bg-rose-50" : "hover:bg-slate-50"
+          blocks ? "bg-rose-500/10 hover:bg-rose-500/15" : "hover:bg-[#151D2E]/60"
         }`}
       >
-        <td className="px-4 py-3.5 font-semibold text-slate-900">
+        <td className="px-4 py-3.5 font-semibold text-white">
           <span>
             {displayLabel}
-            {isRequired && <span className="text-rose-600 ms-1">*</span>}
+            {isRequired && <span className="text-rose-400 ms-1">*</span>}
           </span>
           {showDistinctSourceLabel && (
             <span
               title={t("sourceLabelHint")}
-              className="mt-0.5 block text-xs font-normal text-slate-500"
+              className="mt-0.5 block text-xs font-normal text-slate-400"
             >
               <bdi>{displaySourceLabel}</bdi>
             </span>
           )}
         </td>
-        <td className="px-4 py-3.5 text-slate-600 max-w-xs break-words">
+        <td className="px-4 py-3.5 text-slate-300 max-w-xs break-words">
           <bdi>
             {formatOriginalAnswer(f.originalAnswer, f.fieldType) ||
               (f.fieldType === "signature" && state === "confirmed"
@@ -288,7 +289,7 @@ export default function SessionSummary() {
                 : "-")}
           </bdi>
         </td>
-        <td className="px-4 py-3.5 text-slate-900 font-semibold break-words">
+        <td className="px-4 py-3.5 text-white font-semibold break-words">
           <bdi>
             {formatProposedValue(
               f.normalizedValue,
@@ -302,10 +303,10 @@ export default function SessionSummary() {
             data-testid={`summary-status-${f.fieldKey}`}
             className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
               state === "confirmed"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                 : blocks
-                  ? "border-rose-200 bg-rose-50 text-rose-700"
-                  : "border-slate-200 bg-slate-100 text-slate-700"
+                  ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                  : "border-white/10 bg-[#151D2E] text-slate-300"
             }`}
           >
             {state === "pendingManualSignature"
@@ -325,7 +326,7 @@ export default function SessionSummary() {
           <button
             type="button"
             onClick={() => handleEditField(f.fieldId)}
-            className="rounded-md px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 transition-colors"
+            className="rounded-md px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors"
           >
             {tc("edit")}
           </button>
@@ -360,45 +361,45 @@ export default function SessionSummary() {
   const warnings = summary?.consistencyWarnings ?? [];
 
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col justify-center bg-[#0A0E17] text-slate-100 px-4 py-10 sm:px-6 lg:px-8">
       <div
-        className={`mx-auto w-full transition-all ${
+        className={`mx-auto w-full transition-all duration-300 ease-in-out ${
           inlinePreviewOpen ? "max-w-7xl" : "max-w-5xl"
         }`}
       >
         <div
-          className={`grid grid-cols-1 gap-6 items-start ${
+          className={`grid grid-cols-1 gap-6 items-start transition-all duration-300 ease-in-out ${
             inlinePreviewOpen ? "lg:grid-cols-12" : ""
           }`}
         >
           <div
-            className={`surface-panel rounded-2xl p-6 sm:p-10 space-y-6 ${
+            className={`surface-panel rounded-2xl p-6 sm:p-10 space-y-6 transition-all duration-300 ${
               inlinePreviewOpen ? "lg:col-span-7" : ""
             }`}
           >
             <div className="space-y-1 text-center">
-              <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+              <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                 <span className="tabular-nums">Step 3 of 4 • Final Review</span>
               </div>
-              <h1 className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+              <h1 className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-white">
                 {t("title")}
               </h1>
-              <p className="text-sm text-slate-600">{t("subtitle")}</p>
+              <p className="text-sm text-slate-400">{t("subtitle")}</p>
               {(summary?.sourceLanguage || summary?.outputLanguage) && (
-                <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono font-semibold text-slate-600">
+                <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono font-semibold text-slate-300">
                   {summary.sourceLanguage && (
-                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 uppercase">
+                    <span className="rounded-md border border-white/10 bg-[#0A0E17] px-2 py-0.5 uppercase">
                       <bdi>Source: {summary.sourceLanguage}</bdi>
                     </span>
                   )}
                   {summary.userLanguage && (
-                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 uppercase">
+                    <span className="rounded-md border border-white/10 bg-[#0A0E17] px-2 py-0.5 uppercase">
                       <bdi>UI: {summary.userLanguage}</bdi>
                     </span>
                   )}
                   {summary.outputLanguage && (
-                    <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-indigo-700 uppercase">
+                    <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-400 uppercase">
                       <bdi>Output: {summary.outputLanguage}</bdi>
                     </span>
                   )}
@@ -406,32 +407,33 @@ export default function SessionSummary() {
               )}
             </div>
 
-            {/* Quick Metrics Bar */}
+            {/* Quick Metrics Bar with Hairline Borders & Signal Indicators */}
             {summary && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Total Form Fields
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-in fade-in duration-300 motion-reduce:animate-none">
+                <div className="rounded-xl border border-white/10 bg-[#0A0E17] p-4 text-center shadow-2xs transition-all hover:border-white/20">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                    TOTAL FIELDS
                   </span>
-                  <p className="mt-1 text-2xl font-bold text-slate-900 tabular-nums">
+                  <p className="mt-1 text-2xl font-bold font-mono text-white tabular-nums">
                     {summary.fields.length}
                   </p>
                 </div>
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-center">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-                    Confirmed Answers
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center shadow-2xs transition-all hover:border-emerald-500/45">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" />
+                    CONFIRMED
                   </span>
-                  <p className="mt-1 text-2xl font-bold text-emerald-800 tabular-nums">
+                  <p className="mt-1 text-2xl font-bold font-mono text-white tabular-nums">
                     {summary.fields.filter((f) => f.status === "confirmed").length}
                   </p>
                 </div>
-                <div className="col-span-2 sm:col-span-1 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 text-center">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
-                    Export Status
+                <div className="col-span-2 sm:col-span-1 rounded-xl border border-white/10 bg-[#0A0E17] p-4 text-center shadow-2xs transition-all hover:border-white/20">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                    EXPORT READINESS
                   </span>
-                  <p className="mt-1 text-sm font-bold text-indigo-900 flex items-center justify-center gap-1.5 pt-1">
-                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                    {!hasIncompleteFields ? "Ready for Export" : "Incomplete Fields"}
+                  <p className={`mt-1 text-xs font-bold font-mono flex items-center justify-center gap-1.5 pt-1 ${!hasIncompleteFields ? "text-emerald-400" : "text-amber-300"}`}>
+                    <span className={`h-2 w-2 rounded-full animate-pulse motion-reduce:animate-none ${!hasIncompleteFields ? "bg-emerald-400" : "bg-amber-400"}`} />
+                    {!hasIncompleteFields ? "READY FOR EXPORT" : "PENDING REQUIRED"}
                   </p>
                 </div>
               </div>
@@ -442,13 +444,13 @@ export default function SessionSummary() {
               <div
                 data-testid="consistency-warnings-panel"
                 role="status"
-                className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-2.5 text-start"
+                className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5 text-start"
               >
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                  <p className="text-xs font-bold uppercase tracking-wider text-amber-200">
                     {t("consistencyWarningsTitle")}
                   </p>
-                  <p className="text-xs text-amber-800 mt-0.5">
+                  <p className="text-xs text-amber-200/80 mt-0.5">
                     {t("consistencyWarningsSubtitle")}
                   </p>
                 </div>
@@ -456,7 +458,7 @@ export default function SessionSummary() {
                   {warnings.map((w) => (
                     <li
                       key={`${w.code}-${w.fieldKeys.join(",")}`}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white/80 px-3 py-2 text-xs text-amber-950"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-amber-500/25 bg-[#0A0E17]/80 px-3 py-2 text-xs text-amber-100"
                     >
                       <span>{w.message}</span>
                       <div className="flex flex-wrap gap-1.5 shrink-0">
@@ -469,7 +471,7 @@ export default function SessionSummary() {
                               type="button"
                               data-testid={`warning-edit-${fk}`}
                               onClick={() => handleEditField(target.fieldId)}
-                              className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100"
+                              className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20"
                             >
                               {tc("edit")} ({formattedLabel(target.label)})
                             </button>
@@ -485,27 +487,25 @@ export default function SessionSummary() {
             {errorMsg && (
               <div
                 role="alert"
-                className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-center gap-3"
+                className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200 flex items-center gap-3"
               >
-                <svg className="h-4 w-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+                <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
             )}
 
             {vaultSavedCount !== null && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-800 text-start">
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-300 text-start">
                 {t("savedToVaultCount", { count: vaultSavedCount })}
               </div>
             )}
 
             {/* Fields table summary */}
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0A0E17]">
               <div className="overflow-x-auto">
                 <table className="w-full text-start border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    <tr className="border-b border-white/10 bg-[#151D2E] text-[11px] font-bold uppercase tracking-wider text-slate-300">
                       <th className="px-4 py-3.5 text-start">{t("fieldHeader")}</th>
                       <th className="px-4 py-3.5 text-start">{t("originalHeader")}</th>
                       <th className="px-4 py-3.5 text-start">{t("normalizedHeader")}</th>
@@ -513,17 +513,17 @@ export default function SessionSummary() {
                       <th className="px-4 py-3.5 text-end">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-white/[0.08]">
                     {rowsWithHeadings.map((entry) =>
                       entry.kind === "heading" ? (
                         <tr
                           key={`heading-${entry.id}`}
                           data-testid={`row-heading-${entry.id}`}
-                          className="bg-indigo-50/70 border-t border-b border-indigo-200"
+                          className="bg-emerald-500/10 border-t border-b border-emerald-500/25"
                         >
                           <td
                             colSpan={5}
-                            className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-indigo-800"
+                            className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-emerald-400"
                           >
                             {entry.label}
                           </td>
@@ -538,10 +538,8 @@ export default function SessionSummary() {
             </div>
 
             {/* Warning block */}
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 text-start flex items-start gap-3">
-              <svg className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs leading-relaxed text-amber-200 text-start flex items-start gap-3">
+              <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
               <span>{t("warning")}</span>
             </div>
 
@@ -603,15 +601,15 @@ export default function SessionSummary() {
           </div>
 
           {inlinePreviewOpen && inlinePreviewUrl && (
-            <aside className="lg:col-span-5 lg:sticky lg:top-20 surface-panel rounded-2xl p-4 space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
-                  {t("previewPdf")}
+            <aside className="lg:col-span-5 lg:sticky lg:top-20 bg-[#0F1522] rounded-2xl border border-white/10 p-4 space-y-3 shadow-xl animate-in fade-in zoom-in-95 slide-in-from-right-4 duration-300 motion-reduce:animate-none">
+              <div className="flex items-center justify-between px-1 border-b border-white/[0.08] pb-2.5">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
+                  WATERMARKED OFFICIAL DRAFT
                 </span>
                 <button
                   type="button"
                   onClick={() => setInlinePreviewOpen(false)}
-                  className="rounded-md px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                  className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-[#151D2E] hover:text-white border border-white/15 bg-[#0A0E17] shadow-2xs transition-colors"
                 >
                   {t("hideInlinePreview")}
                 </button>
@@ -620,7 +618,7 @@ export default function SessionSummary() {
                 data-testid="inline-pdf-preview-frame"
                 src={inlinePreviewUrl}
                 title={t("previewPdf")}
-                className="h-[72vh] w-full rounded-xl border border-slate-200 bg-slate-100"
+                className="h-[74vh] w-full rounded-xl border border-white/15 bg-white shadow-inner"
               />
             </aside>
           )}

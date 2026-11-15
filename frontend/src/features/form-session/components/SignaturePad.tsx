@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Printer, AlertCircle, RotateCcw, Undo2 } from "lucide-react";
 
 export type Stroke = Array<[number, number]>;
 
@@ -124,26 +125,14 @@ export function SignaturePad({
       {pendingManualSignature && !hasSignature ? (
         <div
           data-testid="signature-pending-manual"
-          className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-sm text-amber-900 flex items-center gap-3"
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-sm text-amber-200 flex items-center gap-3"
         >
-          <svg
-            className="h-4 w-4 text-amber-600 shrink-0"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-            />
-          </svg>
+          <Printer className="h-4 w-4 text-amber-400 shrink-0" />
           <span>{t("willSignAfterPrinting")}</span>
         </div>
       ) : null}
 
-      <div className="relative rounded-xl border border-slate-300 bg-slate-50 p-1.5 shadow-inner">
+      <div className="relative rounded-xl border border-white/10 bg-[#0A0E17] p-1.5 shadow-inner">
         <canvas
           ref={canvasRef}
           data-testid="signature-canvas"
@@ -151,7 +140,7 @@ export function SignaturePad({
           height={CANVAS_HEIGHT}
           role="img"
           aria-label={t("padLabel")}
-          className="w-full max-w-full touch-none rounded-lg bg-white border border-slate-200 cursor-crosshair"
+          className="w-full max-w-full touch-none rounded-lg bg-white border border-white/15 cursor-crosshair"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -166,28 +155,16 @@ export function SignaturePad({
         </div>
       </div>
 
-      <p id={`signature-help-${fieldKey}`} className="text-xs text-slate-500">
+      <p id={`signature-help-${fieldKey}`} className="text-xs text-slate-400">
         {t("instructions")}
       </p>
 
       {error ? (
         <p
-          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800 flex items-center gap-2"
+          className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 flex items-center gap-2"
           role="alert"
         >
-          <svg
-            className="h-4 w-4 shrink-0 text-rose-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+          <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
           <span>{error}</span>
         </p>
       ) : null}

@@ -106,9 +106,9 @@ export default function ShortLinkIntakePage() {
 
   if (loading) {
     return (
-      <div className="min-h-[75vh] flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-        <p className="text-sm font-medium text-slate-600">
+      <div className="min-h-screen bg-[#0A0E17] text-slate-100 flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
+        <p className="text-sm font-medium text-slate-400">
           Loading official form intake...
         </p>
       </div>
@@ -117,20 +117,22 @@ export default function ShortLinkIntakePage() {
 
   if (error || !form) {
     return (
-      <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto">
-        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
-          <FileText className="w-7 h-7" />
+      <div className="min-h-screen bg-[#0A0E17] text-slate-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md mx-auto flex flex-col items-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mb-4">
+            <FileText className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Form Not Available</h2>
+          <p className="text-sm text-slate-400 mt-2 mb-6">
+            {error || "The requested official form could not be found or has not been published yet."}
+          </p>
+          <Link
+            href="/organizations"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-sm shadow-sm hover:bg-emerald-400 transition-colors"
+          >
+            <Search className="w-4 h-4" /> Browse Authority Directory
+          </Link>
         </div>
-        <h2 className="text-xl font-bold text-slate-900">Form Not Available</h2>
-        <p className="text-sm text-slate-500 mt-2 mb-6">
-          {error || "The requested official form could not be found or has not been published yet."}
-        </p>
-        <Link
-          href="/organizations"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white font-medium text-sm shadow-sm hover:bg-blue-700 transition-colors"
-        >
-          <Search className="w-4 h-4" /> Browse Authority Directory
-        </Link>
       </div>
     );
   }
@@ -139,22 +141,22 @@ export default function ShortLinkIntakePage() {
   const currentLangObj = UNIVERSAL_LANGUAGES.find((l) => l.code === selectedLanguage);
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4">
+    <div className="min-h-screen bg-[#0A0E17] text-slate-100 py-10 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Authority Breadcrumb Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0F1522] p-4 rounded-2xl border border-white/10 shadow-2xs">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-900">
+                <span className="text-xs font-bold text-white">
                   {org?.name || "Official Public Authority"}
                 </span>
                 {org?.is_verified_government && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
                     Verified
                   </span>
                 )}
@@ -162,7 +164,7 @@ export default function ShortLinkIntakePage() {
               {org?.slug && (
                 <Link
                   href={`/organizations/${org.slug}`}
-                  className="text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium"
                 >
                   View Official Portal →
                 </Link>
@@ -170,20 +172,20 @@ export default function ShortLinkIntakePage() {
             </div>
           </div>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             <span>100% Free for Citizens</span>
           </div>
         </div>
 
         {/* Main Intake Form Card */}
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="bg-[#0F1522] rounded-3xl border border-white/10 shadow-2xl p-6 sm:p-8 space-y-6">
           {startError && (
-            <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-sm flex items-center justify-between">
               <span>{startError}</span>
               <button
                 onClick={() => setStartError(null)}
-                className="text-red-500 font-bold ml-4"
+                className="text-rose-400 hover:text-rose-300 font-bold ml-4 cursor-pointer"
               >
                 ✕
               </button>
@@ -192,37 +194,37 @@ export default function ShortLinkIntakePage() {
 
           {/* Form Meta Badges */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-100">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
               Official Form
             </span>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#151D2E] border border-white/10 text-slate-300">
               {form.fields_count} Questions
             </span>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 capitalize">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#151D2E] border border-white/10 text-slate-300 capitalize">
               {form.category}
             </span>
           </div>
 
           {/* Title & Instructions */}
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight break-words">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight break-words">
               {form.name}
             </h1>
             {form.description && (
-              <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+              <p className="mt-3 text-sm text-slate-300 leading-relaxed">
                 {form.description}
               </p>
             )}
           </div>
 
           {/* Multilingual Guidance Notice */}
-          <div className="rounded-2xl border border-blue-100 bg-linear-to-r from-blue-50/70 via-indigo-50/30 to-white p-4 flex items-start gap-3 shadow-2xs">
-            <Sparkles className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-            <div className="text-xs text-slate-700 space-y-1">
-              <span className="font-bold text-slate-900">
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-start gap-3 shadow-2xs">
+            <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-slate-300 space-y-1">
+              <span className="font-bold text-white">
                 Multilingual Smartphone Intake:
               </span>
-              <p className="text-slate-600">
+              <p className="text-slate-300">
                 You can answer every question in your native language. The assistant will guide you step-by-step, normalize your entries, and produce an official ready-to-submit document adhering to German administrative standards.
               </p>
             </div>
@@ -230,15 +232,15 @@ export default function ShortLinkIntakePage() {
 
           {/* Required Documents Checklist */}
           {form.required_documents && form.required_documents.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-2">
-              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Info className="w-4 h-4 text-blue-600" />
+            <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-4 space-y-2">
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <Info className="w-4 h-4 text-emerald-400" />
                 Required Supporting Documents to Have Ready:
               </span>
               <ul className="space-y-1.5 pt-1">
                 {form.required_documents.map((doc, idx) => (
-                  <li key={idx} className="text-xs text-slate-600 flex items-start gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5" />
+                  <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1.5" />
                     <span>{doc}</span>
                   </li>
                 ))}
@@ -249,11 +251,11 @@ export default function ShortLinkIntakePage() {
           {/* Language Selection Section */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <Globe className="w-4 h-4 text-slate-500" />
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-slate-400" />
                 Select Your Native Language:
               </label>
-              <span className="text-xs font-semibold text-blue-600">
+              <span className="text-xs font-semibold text-emerald-400">
                 {currentLangObj?.nativeName} ({currentLangObj?.code.toUpperCase()})
               </span>
             </div>
@@ -272,8 +274,8 @@ export default function ShortLinkIntakePage() {
                     }}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                       isActive
-                        ? "bg-blue-600 text-white shadow-xs"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                        ? "bg-emerald-500 text-slate-950 font-bold shadow-xs"
+                        : "bg-[#0A0E17] text-slate-200 hover:bg-[#151D2E] border border-white/10"
                     }`}
                   >
                     <span className="font-mono text-[10px] uppercase opacity-75">{lang.code}</span>
@@ -285,12 +287,12 @@ export default function ShortLinkIntakePage() {
           </div>
 
           {/* Large Primary Action Button */}
-          <div className="pt-4 border-t border-slate-100">
+          <div className="pt-4 border-t border-white/[0.08]">
             <button
               type="button"
               disabled={isStarting}
               onClick={handleStart}
-              className="w-full flex items-center justify-center gap-2.5 py-4 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white text-base font-bold shadow-md shadow-blue-600/20 transition-all disabled:opacity-50 cursor-pointer"
+              className="w-full flex items-center justify-center gap-2.5 py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] text-slate-950 text-base font-bold shadow-[0_0_24px_-4px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 cursor-pointer"
             >
               {isStarting ? (
                 <>
@@ -309,9 +311,9 @@ export default function ShortLinkIntakePage() {
           </div>
 
           {/* Trust Guarantees */}
-          <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-500 pt-2">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-400 pt-2">
             <span className="flex items-center gap-1">
-              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <Lock className="w-3.5 h-3.5 text-slate-500" />
               Cryptographically Protected Session
             </span>
             <span>•</span>

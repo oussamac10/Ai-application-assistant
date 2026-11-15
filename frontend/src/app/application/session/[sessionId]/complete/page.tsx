@@ -167,49 +167,58 @@ export default function SessionComplete() {
   };
 
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-10 text-slate-900">
+    <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-[#0A0E17] px-4 py-10 text-slate-100">
       <div className="w-full max-w-2xl">
         <div className="surface-panel rounded-2xl p-8 sm:p-10 text-center">
           <div className="flex flex-col items-center">
-            {/* Green Success Checkmark Badge */}
-            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-600">
-              <Check className="h-7 w-7" strokeWidth={2.5} />
+            {/* Celebratory Animated Emerald Verification Seal (Spring Scale-In + Aura Pulse Ring) */}
+            <div className="relative mb-6 flex items-center justify-center">
+              <div className="absolute h-20 w-20 rounded-full bg-emerald-500/20 animate-ping motion-reduce:animate-none opacity-40 pointer-events-none" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.35)] animate-in zoom-in-50 duration-500 ease-out motion-reduce:animate-none">
+                <Check className="h-8 w-8 text-emerald-400 animate-in zoom-in-75 duration-700 ease-out motion-reduce:animate-none" strokeWidth={2.5} />
+              </div>
             </div>
 
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 mb-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-              <span className="tabular-nums">Step 4 of 4 • Complete</span>
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-mono font-bold text-emerald-400 mb-2 uppercase tracking-wider">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" />
+              <span className="tabular-nums">Step 4 of 4 • Complete & Verified</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
               {t("title")}
             </h1>
-            <p className="mt-1.5 text-sm text-slate-600">
+            <p className="mt-1.5 text-sm text-slate-400">
               {t("subtitle")}
             </p>
 
-            {/* Document Certificate Metadata Box */}
-            <div className="mt-6 w-full rounded-xl border border-slate-200 bg-slate-50/70 p-5 text-start space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                  Document Package
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
-                  Official AcroForm
+            {/* Structured PDF Receipt Card */}
+            <div className="mt-6 w-full rounded-2xl border border-white/10 bg-[#0A0E17] p-5 text-start space-y-3.5 shadow-sm">
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-200">
+                    DOCUMENT EXPORT RECEIPT
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded uppercase">
+                  OFFICIAL ACROFORM
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                 <div>
-                  <span className="text-slate-500 block">Session Reference</span>
-                  <span className="font-mono text-slate-800 font-semibold truncate block mt-0.5 tabular-nums">{sessionId.slice(0, 8)}…</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500 block">Session ID</span>
+                  <span className="font-mono text-white font-bold truncate block mt-0.5 tabular-nums">{sessionId.slice(0, 8)}…</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Compilation</span>
-                  <span className="font-semibold text-slate-800 block mt-0.5">Deterministic Fill</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500 block">Compilation Engine</span>
+                  <span className="font-mono text-white font-semibold text-xs block mt-0.5">Deterministic PyMuPDF</span>
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <span className="text-slate-500 block">Data Retention</span>
-                  <span className="font-semibold text-emerald-700 block mt-0.5">Zero-Retention</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500 block">GDPR Compliance</span>
+                  <span className="font-mono text-emerald-400 font-semibold text-xs flex items-center gap-1 mt-0.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    Zero-PII Retained
+                  </span>
                 </div>
               </div>
             </div>
@@ -218,7 +227,7 @@ export default function SessionComplete() {
               <div
                 role="status"
                 data-testid="handwritten-signature-reminder"
-                className="mt-5 w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-start text-sm leading-relaxed text-amber-900"
+                className="mt-5 w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-start text-sm leading-relaxed text-amber-200"
               >
                 <p className="font-bold">{ts("reminderTitle")}</p>
                 <p className="mt-1">{ts("printReminder")}</p>
@@ -228,14 +237,14 @@ export default function SessionComplete() {
             {checklistItems.length > 0 && (
               <div
                 data-testid="submission-checklist"
-                className="mt-5 w-full rounded-xl border border-slate-200 bg-white p-5 text-start space-y-3 shadow-2xs"
+                className="mt-5 w-full rounded-2xl border border-white/10 bg-[#0A0E17] p-5 text-start space-y-3.5 shadow-sm"
               >
                 <div className="space-y-0.5">
-                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <ClipboardCheck className="h-4 w-4 text-indigo-600 shrink-0" />
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <ClipboardCheck className="h-4 w-4 text-emerald-400 shrink-0" />
                     <span>{t("checklistTitle")}</span>
                   </h2>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-slate-400">
                     {t("checklistSubtitle")}
                   </p>
                 </div>
@@ -246,29 +255,33 @@ export default function SessionComplete() {
                     return (
                       <li key={item.id}>
                         <label
-                          className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                          className={`flex items-start gap-3 rounded-xl border p-3.5 cursor-pointer transition-all duration-200 ${
                             isChecked
-                              ? "border-emerald-200 bg-emerald-50/50"
-                              : "border-slate-200 bg-slate-50/60 hover:bg-slate-100/70"
+                              ? "border-emerald-500 bg-emerald-500/15 shadow-[0_0_12px_rgba(16,185,129,0.15)] ring-2 ring-emerald-500/20 scale-[1.005]"
+                              : "border-white/10 bg-[#0F1522] hover:bg-[#151D2E] hover:border-white/20"
                           }`}
                         >
                           <input
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => toggleChecklistItem(item.id)}
-                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
+                            className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#0A0E17] text-emerald-500 focus:ring-emerald-500/30 accent-emerald-500 shrink-0 transition-transform active:scale-90 cursor-pointer"
                           />
-                          <div className="space-y-0.5 text-xs">
+                          <div className="space-y-0.5 text-xs transition-opacity duration-200">
                             <span
-                              className={`font-semibold block ${
+                              className={`font-semibold block transition-colors duration-200 ${
                                 isChecked
-                                  ? "line-through text-slate-500"
-                                  : "text-slate-900"
+                                  ? "line-through text-emerald-300/80"
+                                  : "text-white"
                               }`}
                             >
                               {item.title}
                             </span>
-                            <span className="text-slate-600 leading-relaxed block">
+                            <span
+                              className={`leading-relaxed block transition-colors duration-200 ${
+                                isChecked ? "text-emerald-400/70 line-through decoration-emerald-400/50" : "text-slate-400"
+                              }`}
+                            >
                               {item.description}
                             </span>
                           </div>
@@ -280,14 +293,14 @@ export default function SessionComplete() {
               </div>
             )}
 
-            <div className="my-6 w-full border-t border-slate-200" />
+            <div className="my-6 w-full border-t border-white/10" />
 
-            <p className="text-sm leading-relaxed text-slate-700">
+            <p className="text-sm leading-relaxed text-slate-300">
               {t("body")}
             </p>
 
             {exportSupported === false && (
-              <div className="mt-4 w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
+              <div className="mt-4 w-full rounded-xl border border-white/10 bg-[#0A0E17] p-4 text-xs text-slate-300">
                 {t("dynamicExportUnsupported")}
               </div>
             )}
@@ -295,7 +308,7 @@ export default function SessionComplete() {
             {errorMsg && (
               <div
                 role="alert"
-                className="mt-4 w-full rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800"
+                className="mt-4 w-full rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-200"
               >
                 {errorMsg}
               </div>
@@ -304,13 +317,13 @@ export default function SessionComplete() {
             {/* Interactive Actions */}
             <div className="mt-7 w-full space-y-3">
               {!auth?.user && exportSupported === true && exportState === "ready" && (
-                <div className="flex items-center gap-2.5 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-xs text-indigo-900 text-start">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white">
+                <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-slate-200 text-start">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-slate-950">
                     <Lock className="h-3.5 w-3.5" />
                   </div>
                   <div>
-                    <span className="font-semibold block">{t("exportAccountRequiredTitle")}</span>
-                    <span className="text-slate-600">{t("exportAccountRequiredNotice")}</span>
+                    <span className="font-semibold text-white block">{t("exportAccountRequiredTitle")}</span>
+                    <span className="text-slate-300">{t("exportAccountRequiredNotice")}</span>
                   </div>
                 </div>
               )}
@@ -318,7 +331,7 @@ export default function SessionComplete() {
               {exportSupported === true && exportState === "ready" && (
                 <button
                   onClick={handleGeneratePdf}
-                  className="btn-primary w-full py-3.5 text-sm font-semibold"
+                  className="btn-primary w-full py-3.5 text-sm font-bold active:scale-[0.98] transition-all"
                 >
                   <FileDown className="h-4 w-4" />
                   <span>{t("generatePdf")}</span>
@@ -330,20 +343,20 @@ export default function SessionComplete() {
                   disabled
                   className="btn-secondary w-full py-3.5 text-sm font-medium cursor-not-allowed"
                 >
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
                   <span>{t("preparingPdf")}</span>
                 </button>
               )}
 
               {exportState === "export_ready" && (
                 <div className="space-y-3">
-                  <div className="text-xs text-emerald-700 font-semibold flex items-center justify-center gap-1.5">
+                  <div className="text-xs text-emerald-400 font-semibold flex items-center justify-center gap-1.5 animate-in fade-in duration-300 motion-reduce:animate-none">
                     <Check className="h-4 w-4" strokeWidth={2.5} />
                     <span>{t("pdfReady")}</span>
                   </div>
                   <button
                     onClick={handleDownloadPdf}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-emerald-700"
+                    className="btn-primary w-full py-3.5 text-sm font-bold active:scale-[0.98]"
                   >
                     <Download className="h-4 w-4" />
                     <span>{t("downloadPdf")}</span>
@@ -356,7 +369,7 @@ export default function SessionComplete() {
                   disabled
                   className="btn-secondary w-full py-3.5 text-sm font-medium cursor-not-allowed"
                 >
-                  <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
                   <span>{tc("loading")}</span>
                 </button>
               )}
@@ -366,7 +379,7 @@ export default function SessionComplete() {
                 <button
                   data-testid="retry-export"
                   onClick={handleGeneratePdf}
-                  className="btn-primary w-full py-3.5 text-sm font-semibold"
+                  className="btn-primary w-full py-3.5 text-sm font-semibold active:scale-[0.98] transition-all"
                 >
                   {t("regeneratePdf")}
                 </button>
