@@ -43,6 +43,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from app.field_detection.classification import marker_type
 from app.field_detection.providers.base import (
     AcroFormWidgetInput,
     BoundingBox,
@@ -78,7 +79,16 @@ _EXCLUSIVE_HINTS: tuple[frozenset[str], ...] = (
     frozenset({"نعم", "لا"}),
     frozenset({"männlich", "weiblich", "divers"}),
     frozenset({"male", "female"}),
-    frozenset({"ledig", "verheiratet", "verwitwet", "geschieden", "getrennt lebend"}),
+    frozenset(
+        {
+            "ledig",
+            "verheiratet",
+            "lebenspartnerschaft",
+            "verwitwet",
+            "geschieden",
+            "getrennt lebend",
+        }
+    ),
     frozenset({"single", "married", "widowed", "divorced", "separated"}),
 )
 
@@ -338,6 +348,121 @@ def _shared_tooltip(run: list[AcroFormWidgetInput]) -> str | None:
     return None
 
 
+# Generic checkbox-value / action tooltips that PDF authors repeat on every
+# checkbox widget (e.g. /TU = "ja"). These describe checking the box, not the
+# question being asked, so they must never shadow the real heading above/left.
+_GENERIC_CHECKBOX_TOOLTIPS = frozenset(
+    {
+        "ja",
+        "nein",
+        "yes",
+        "no",
+        "oui",
+        "non",
+        "si",
+        "sí",
+        "true",
+        "false",
+        "on",
+        "off",
+        "1",
+        "0",
+        "x",
+        "✓",
+        "✔",
+        "check",
+        "checked",
+        "checkbox",
+        "auswählen",
+        "ankreuzen",
+        "bitte ankreuzen",
+        "select",
+        "auswahl",
+    }
+)
+
+
+def _is_generic_checkbox_tooltip(text: str) -> bool:
+    return text.strip().lower() in _GENERIC_CHECKBOX_TOOLTIPS
+
+
+def _nearest_label_left(
+    box: BoundingBox, tokens: tuple[DetectionToken, ...]
+) -> str | None:
+    """The question text immediately to the left of a horizontal checkbox row."""
+    if not tokens:
+        return None
+    # Align with the top/first row of the group box (usually ~12-16pt tall).
+    row_center_y = box.y + min(box.height, 20.0) / 2.0
+    tolerance = max(min(box.height, 20.0) * 0.65, 8.0)
+
+    same_row_left = [
+        token
+        for token in tokens
+        if abs((token.bounding_box.y + token.bounding_box.height / 2.0) - row_center_y)
+        <= tolerance
+        and token.bounding_box.x + token.bounding_box.width <= box.x + 1.0
+        and marker_type(token.text) is None
+    ]
+    if not same_row_left:
+        return None
+
+    ordered = sorted(
+        same_row_left,
+        key=lambda t: t.bounding_box.x + t.bounding_box.width,
+        reverse=True,
+    )
+    nearest = ordered[0]
+    if box.x - (nearest.bounding_box.x + nearest.bounding_box.width) > 35.0:
+        return None
+
+    # Stop at any marker token on the same baseline (e.g. a preceding
+    # "[_] ja [_] nein" group to the left on the same row).
+    markers_left = [
+        token.bounding_box.x + token.bounding_box.width
+        for token in tokens
+        if abs((token.bounding_box.y + token.bounding_box.height / 2.0) - row_center_y)
+        <= tolerance
+        and token.bounding_box.x + token.bounding_box.width <= nearest.bounding_box.x
+        and marker_type(token.text) is not None
+    ]
+    marker_barrier_x = max(markers_left, default=float("-inf"))
+
+    collected = [nearest]
+    cursor_left = nearest.bounding_box.x
+    for token in ordered[1:]:
+        right = token.bounding_box.x + token.bounding_box.width
+        if right <= marker_barrier_x + 1.0:
+            break
+        if cursor_left - right > 16.0:
+            break
+        collected.append(token)
+        cursor_left = token.bounding_box.x
+
+    # If a marker barrier stopped us right after a previous option's label
+    # (e.g. "[_] nein  Bad/Dusche?"), we already stopped at marker_barrier_x,
+    # wait — "nein" is to the *right* of "[_]"! Check if there is a wide gap
+    # or if the leftmost collected word sits right next to a marker.
+    collected.reverse()
+    # If a marker barrier stopped us right after a previous option's short
+    # label (e.g. "[_] nein  Nutzung Bad/Dusche?"), drop that leading option
+    # token so it does not bleed into the next question.
+    if (
+        len(collected) >= 2
+        and marker_barrier_x > float("-inf")
+        and collected[0].bounding_box.x - marker_barrier_x <= 10.0
+        and collected[0].text.strip().lower()
+        in {"ja", "nein", "yes", "no", "oui", "non", "x"}
+    ):
+        collected = collected[1:]
+    text = " ".join(
+        token.text.strip() for token in collected if token.text.strip()
+    ).strip()
+    if not text or not any(ch.isalpha() for ch in text):
+        return None
+    return text
+
+
 def _nearest_label_above(
     box: BoundingBox, tokens: tuple[DetectionToken, ...]
 ) -> str | None:
@@ -380,7 +505,13 @@ _LABEL_SEARCH_DISTANCE = 70.0
 
 # An option is a short phrase. A long word run beside a checkbox is the
 # question, or prose, or the next column — never the answer.
-_MAX_OPTION_LABEL_WORDS = 4
+_MAX_OPTION_LABEL_WORDS = 5
+
+
+def _join_wrapped_option_lines(line1: str, line2: str) -> str:
+    if line1.endswith("-") and line2 and line2[0].islower():
+        return f"{line1[:-1]}{line2}"
+    return f"{line1} {line2}"
 
 
 def _label_beside(
@@ -388,6 +519,8 @@ def _label_beside(
     tokens: tuple[DetectionToken, ...],
     *,
     rtl: bool = False,
+    stop_x: float | None = None,
+    other_widget_rects: tuple[BoundingBox, ...] = (),
 ) -> str | None:
     """The option text belonging to one widget.
 
@@ -415,6 +548,8 @@ def _label_beside(
 
         def beside(token: DetectionToken) -> bool:
             box = token.bounding_box
+            if stop_x is not None and box.x + box.width <= stop_x + 1:
+                return False
             return (
                 box.x + box.width <= rect.x + 1
                 and rect.x - (box.x + box.width) < _LABEL_SEARCH_DISTANCE
@@ -426,6 +561,8 @@ def _label_beside(
 
         def beside(token: DetectionToken) -> bool:
             box = token.bounding_box
+            if stop_x is not None and box.x >= stop_x - 1:
+                return False
             return (
                 box.x >= rect.x + rect.width - 1
                 and box.x - (rect.x + rect.width) < _LABEL_SEARCH_DISTANCE
@@ -434,27 +571,161 @@ def _label_beside(
         def distance(token: DetectionToken) -> float:
             return token.bounding_box.x - (rect.x + rect.width)
 
-    candidates = [t for t in tokens if on_baseline(t) and beside(t)]
+    candidates = [
+        t
+        for t in tokens
+        if on_baseline(t) and beside(t) and marker_type(t.text) is None
+    ]
     if not candidates:
         return None
 
     nearest = min(candidates, key=distance)
-    text = nearest.text.strip()
+    max_token_gap = max(rect.height * 0.9, 10.0)
+
+    # Collect consecutive same-baseline words forming one option phrase
+    # (e.g. "getrennt" + "lebend"), stopping at markers, the next widget, or a gap.
+    line_tokens = [nearest]
+    if rtl:
+        rest = sorted(
+            (
+                t
+                for t in tokens
+                if on_baseline(t)
+                and t is not nearest
+                and t.bounding_box.x + t.bounding_box.width
+                <= nearest.bounding_box.x + 1
+                and (
+                    stop_x is None
+                    or t.bounding_box.x + t.bounding_box.width > stop_x + 1
+                )
+            ),
+            key=lambda t: t.bounding_box.x + t.bounding_box.width,
+            reverse=True,
+        )
+        edge = nearest.bounding_box.x
+        for tok in rest:
+            if marker_type(tok.text) is not None:
+                break
+            gap = edge - (tok.bounding_box.x + tok.bounding_box.width)
+            if gap > max_token_gap:
+                break
+            line_tokens.append(tok)
+            edge = tok.bounding_box.x
+        line_tokens.reverse()
+    else:
+        rest = sorted(
+            (
+                t
+                for t in tokens
+                if on_baseline(t)
+                and t is not nearest
+                and t.bounding_box.x
+                >= nearest.bounding_box.x + nearest.bounding_box.width - 1
+                and (stop_x is None or t.bounding_box.x < stop_x - 1)
+            ),
+            key=lambda t: t.bounding_box.x,
+        )
+        edge = nearest.bounding_box.x + nearest.bounding_box.width
+        for tok in rest:
+            if marker_type(tok.text) is not None:
+                break
+            gap = tok.bounding_box.x - edge
+            if gap > max_token_gap:
+                break
+            line_tokens.append(tok)
+            edge = tok.bounding_box.x + tok.bounding_box.width
+
+    text = " ".join(t.text.strip() for t in line_tokens if t.text.strip()).strip()
     if not text or len(text.split()) > _MAX_OPTION_LABEL_WORDS:
         return None
+
+    # Check for a wrapped continuation line directly beneath the first line
+    # (e.g. "Aufenthalts-" / "erlaubnis" or "sonstiger" / "Status").
+    line1_bottom = max(t.bounding_box.y + t.bounding_box.height for t in line_tokens)
+    line1_height = max(t.bounding_box.height for t in line_tokens) or 9.0
+    line1_x = line_tokens[0].bounding_box.x
+    below_candidates = [
+        t
+        for t in tokens
+        if marker_type(t.text) is None
+        and 0.0 <= t.bounding_box.y - line1_bottom <= line1_height * 0.85
+        and abs(t.bounding_box.x - line1_x) <= 8.0
+        and (stop_x is None or t.bounding_box.x < stop_x - 1)
+    ]
+    if below_candidates:
+        first_below = min(below_candidates, key=lambda t: t.bounding_box.x)
+        below_center_y = (
+            first_below.bounding_box.y + first_below.bounding_box.height / 2
+        )
+        # Never swallow a token that sits on another checkbox widget's baseline
+        # (e.g. consecutive tightly-spaced yes/no rows).
+        belongs_to_other_widget = any(
+            abs((w_rect.y + w_rect.height / 2) - below_center_y)
+            <= w_rect.height * _SAME_BASELINE_TOLERANCE
+            and w_rect is not rect
+            and w_rect.y > rect.y + rect.height * 0.5
+            for w_rect in other_widget_rects
+        )
+        if not belongs_to_other_widget:
+            below_line = [first_below]
+            below_edge = first_below.bounding_box.x + first_below.bounding_box.width
+            for tok in sorted(
+                (
+                    t
+                    for t in tokens
+                    if t is not first_below
+                    and marker_type(t.text) is None
+                    and abs(t.bounding_box.y - first_below.bounding_box.y)
+                    <= first_below.bounding_box.height * 0.5
+                    and t.bounding_box.x >= below_edge - 1
+                    and (stop_x is None or t.bounding_box.x < stop_x - 1)
+                ),
+                key=lambda t: t.bounding_box.x,
+            ):
+                if tok.bounding_box.x - below_edge > max_token_gap:
+                    break
+                below_line.append(tok)
+                below_edge = tok.bounding_box.x + tok.bounding_box.width
+            line2_text = " ".join(
+                t.text.strip() for t in below_line if t.text.strip()
+            ).strip()
+            if line2_text:
+                joined = _join_wrapped_option_lines(text, line2_text)
+                if len(joined.split()) <= _MAX_OPTION_LABEL_WORDS:
+                    text = joined
+
     return text
 
 
+def _next_widget_stop_x(
+    option: WidgetOption, options: tuple[WidgetOption, ...]
+) -> float | None:
+    rect = option.rect
+    centre_y = rect.y + rect.height / 2
+    tolerance = rect.height * _SAME_BASELINE_TOLERANCE
+    right_neighbours = [
+        other.rect.x
+        for other in options
+        if other is not option
+        and abs((other.rect.y + other.rect.height / 2) - centre_y) <= tolerance
+        and other.rect.x > rect.x + rect.width
+    ]
+    return min(right_neighbours) if right_neighbours else None
+
+
 def _resolve_option_labels(
-    options: tuple[WidgetOption, ...], tokens: tuple[DetectionToken, ...]
+    options: tuple[WidgetOption, ...],
+    tokens: tuple[DetectionToken, ...],
+    other_widget_rects: tuple[BoundingBox, ...] = (),
 ) -> tuple[tuple[WidgetOption, ...], str | None]:
     """Returns (options, shared_tooltip_used_as_question).
 
     When every widget in a group carries the same tooltip, that text is the
-    question and cannot also be the answers. Each option's own label is then
-    read from the page immediately to its right; if that fails the group is
-    left alone, because two identically-labelled options are worse than one
-    unlabelled group.
+    question (unless it is a generic checkbox value like "ja"/"yes") and
+    cannot also be the answers. Each option's own label is then read from the
+    page immediately to its right; if that fails the group is left alone,
+    because two identically-labelled options are worse than one unlabelled
+    group.
     """
     labels = {option.label for option in options}
     if len(labels) != 1:
@@ -463,7 +734,12 @@ def _resolve_option_labels(
     shared = next(iter(labels))
     rewritten: list[WidgetOption] = []
     for option in options:
-        text = _label_beside(option.rect, tokens)
+        text = _label_beside(
+            option.rect,
+            tokens,
+            stop_x=_next_widget_stop_x(option, options),
+            other_widget_rects=other_widget_rects,
+        )
         if not text:
             return options, None
         rewritten.append(
@@ -475,7 +751,8 @@ def _resolve_option_labels(
                 export_value=option.export_value,
             )
         )
-    return tuple(rewritten), shared
+    effective_question = None if _is_generic_checkbox_tooltip(shared) else shared
+    return tuple(rewritten), effective_question
 
 
 # Resolves a widget name to (section key, 1-based row index), or None. Injected
@@ -572,7 +849,11 @@ def group_checkbox_widgets(
 
                 # A tooltip repeated across every widget is the question, not
                 # the answers.
-                options, shared_question = _resolve_option_labels(options, page_tokens)
+                options, shared_question = _resolve_option_labels(
+                    options,
+                    page_tokens,
+                    tuple(w.rect for w in page_widgets),
+                )
 
                 box = _union([w.rect for w in run])
                 labels = tuple(option.label for option in options)
@@ -592,6 +873,11 @@ def group_checkbox_widgets(
                         label=(
                             row_label
                             or shared_question
+                            or (
+                                _nearest_label_left(box, page_tokens)
+                                if orientation == "row"
+                                else None
+                            )
                             or _nearest_label_above(box, page_tokens)
                         ),
                         exclusive=exclusive,

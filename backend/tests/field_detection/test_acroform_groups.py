@@ -545,3 +545,113 @@ def test_without_a_row_model_nothing_changes() -> None:
 
     assert len(groups) == 1
     assert groups[0].label != "ja / nein — row 1"
+
+
+def test_generic_shared_tooltip_uses_heading_and_resolves_multiword_and_wrapped_options() -> (
+    None
+):
+    """When every checkbox on a page carries a generic tooltip like 'ja',
+    each group must still get its own heading above and full option labels
+    (including multi-word 'getrennt lebend' and wrapped 'Aufenthalts- / erlaubnis'),
+    so neither group collides as 'ja' during deduplication."""
+    from app.field_detection.providers.base import (
+        DetectionDocumentInput,
+        DetectionPageInput,
+    )
+    from app.field_detection.providers.local import LocalFieldDetectionProvider
+
+    widgets = [
+        _checkbox("chkAufenthalt", "ja", 188.0, 410.0),
+        _checkbox("chkNieder", "ja", 282.0, 410.0),
+        _checkbox("chkDuldung", "ja", 377.0, 410.0),
+        _checkbox("chkSonstige", "ja", 471.0, 410.0),
+        _checkbox("chkLedig", "ja", 67.0, 486.0),
+        _checkbox("chkVerheiratet", "ja", 119.0, 486.0),
+        _checkbox("chkLebenspartner", "ja", 198.0, 486.0),
+        _checkbox("chkVerwitwet", "ja", 316.0, 486.0),
+        _checkbox("chkGeschieden", "ja", 389.0, 486.0),
+        _checkbox("chkGetrennt", "ja", 466.0, 486.0),
+    ]
+    tokens = (
+        _token("Aufenthaltsstatus", 70.0, 397.0),
+        _token("Aufenthalts-", 203.0, 412.0),
+        _token("erlaubnis", 203.0, 422.0),
+        _token("Niederlassungs-", 298.0, 412.0),
+        _token("erlaubnis", 298.0, 422.0),
+        _token("Duldung", 392.0, 412.0),
+        _token("sonstiger", 487.0, 412.0),
+        _token("Status", 487.0, 422.0),
+        _token("Familienstand", 70.0, 469.0),
+        _token("ledig", 83.0, 488.0),
+        _token("verheiratet", 136.0, 488.0),
+        _token("Lebenspartnerschaft", 213.0, 488.0),
+        _token("verwitwet", 333.0, 488.0),
+        _token("geschieden", 405.0, 488.0),
+        _token("getrennt", 482.0, 488.0),
+        _token("lebend", 525.0, 488.0),
+    )
+
+    groups = group_checkbox_widgets(widgets, {1: tokens})
+    assert len(groups) == 2
+    assert groups[0].label == "Aufenthaltsstatus"
+    assert [o.label for o in groups[0].options] == [
+        "Aufenthaltserlaubnis",
+        "Niederlassungserlaubnis",
+        "Duldung",
+        "sonstiger Status",
+    ]
+    assert groups[1].label == "Familienstand"
+    assert groups[1].exclusive is True
+    assert [o.label for o in groups[1].options] == [
+        "ledig",
+        "verheiratet",
+        "Lebenspartnerschaft",
+        "verwitwet",
+        "geschieden",
+        "getrennt lebend",
+    ]
+
+    doc = DetectionDocumentInput(
+        page_count=1,
+        language="de",
+        pages=(
+            DetectionPageInput(page_number=1, width=595.0, height=842.0, tokens=tokens),
+        ),
+        acroform_widgets=tuple(widgets),
+    )
+    detected = LocalFieldDetectionProvider().detect(doc)
+    choice_fields = [
+        f for f in detected.fields if f.field_type in ("radio", "multiple_choice")
+    ]
+    labels = {f.label for f in choice_fields}
+    assert "Aufenthaltsstatus" in labels
+    assert "Familienstand" in labels
+
+
+def test_horizontal_yes_no_rows_use_left_question_label() -> None:
+    """Adjacent ja/nein pairs on the same row pick their own left-hand question
+    instead of sharing a section header above."""
+    widgets = [
+        _checkbox("chkKueche1", "ja", 267.0, 213.0),
+        _checkbox("chkKueche2", "nein", 304.0, 213.0),
+        _checkbox("chkBad1", "ja", 439.0, 213.0),
+        _checkbox("chkBad2", "nein", 479.0, 213.0),
+    ]
+    tokens = (
+        _token("Zimmer", 70.0, 190.0),
+        _token("Küche?", 225.0, 214.0),
+        _token("[_]", 267.0, 213.0),
+        _token("ja", 282.0, 214.0),
+        _token("[_]", 304.0, 213.0),
+        _token("nein", 319.0, 214.0),
+        _token("Bad/Dusche?", 375.0, 214.0),
+        _token("[_]", 439.0, 213.0),
+        _token("ja", 454.0, 214.0),
+        _token("[_]", 479.0, 213.0),
+        _token("nein", 494.0, 214.0),
+    )
+
+    groups = group_checkbox_widgets(widgets, {1: tokens})
+    assert len(groups) == 2
+    assert groups[0].label == "Küche?"
+    assert groups[1].label == "Bad/Dusche?"
