@@ -22,6 +22,8 @@ import {
 import { useAuth } from "@/features/auth/context/AuthProvider";
 import { useOrganization } from "@/features/portal/context/OrganizationContext";
 import { useLanguage } from "@/features/form-session/components/LanguageProvider";
+import { useTheme } from "@/components/ThemeProvider";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   resolveThemeConfig,
   getContrastTextColor,
@@ -40,6 +42,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const { organization: org } = useOrganization();
   const { locale, setLocale } = useLanguage();
+  const { theme: appTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
   const tNav = useTranslations("nav");
@@ -99,8 +102,8 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     : "MEMBER";
 
   const theme = resolveThemeConfig(org?.ui_theme_config);
-  const isLight = theme.sidebar_theme === "light";
-  const isHeraldic = theme.sidebar_theme === "heraldic";
+  const isLight = appTheme === "light" || theme.sidebar_theme === "light";
+  const isHeraldic = appTheme !== "light" && theme.sidebar_theme === "heraldic";
   const primaryColor = theme.primary_color;
   const activeTextColor = getContrastTextColor(primaryColor);
 
@@ -314,7 +317,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </nav>
       </div>
 
-      {/* Bottom Footer: Language & User Profile */}
+      {/* Bottom Footer: Theme, Language & User Profile */}
       <div
         className={`p-3 shrink-0 border-t space-y-2 ${
           isLight
@@ -324,16 +327,28 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             : "border-[#161F30] bg-[#070A12]/80"
         }`}
       >
+        <ThemeToggle variant="pill" />
+
         {/* Language selector pill */}
         <button
           onClick={() => setLangModalOpen(true)}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#131B2E]/70 hover:bg-[#131B2E] text-slate-300 hover:text-white text-xs font-medium transition-colors"
+          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+            isLight
+              ? "bg-slate-100 hover:bg-slate-200/80 text-slate-700 hover:text-slate-900"
+              : "bg-[#131B2E]/70 hover:bg-[#131B2E] text-slate-300 hover:text-white"
+          }`}
         >
           <span className="flex items-center gap-2">
-            <Globe className="w-3.5 h-3.5 text-emerald-400" />
+            <Globe className={`w-3.5 h-3.5 ${isLight ? "text-emerald-700" : "text-emerald-400"}`} />
             <span>{activeLanguage.nativeName}</span>
           </span>
-          <span className="font-mono text-[10px] font-bold text-slate-400 uppercase bg-[#0B0F19] px-1.5 py-0.5 rounded border border-white/10">
+          <span
+            className={`font-mono text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+              isLight
+                ? "text-slate-600 bg-white border-slate-200"
+                : "text-slate-400 bg-[#0B0F19] border-white/10"
+            }`}
+          >
             {activeLanguage.code}
           </span>
         </button>
@@ -342,24 +357,30 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         <div className="relative min-w-0" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#131B2E] text-left transition-colors group min-w-0"
+            className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors group min-w-0 ${
+              isLight ? "hover:bg-slate-100" : "hover:bg-[#131B2E]"
+            }`}
           >
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <div className="w-8 h-8 rounded-full bg-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">
                 {userInitial}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-white truncate">
+                <p className={`text-xs font-bold truncate ${isLight ? "text-slate-900" : "text-white"}`}>
                   {userDisplayHandle}
                 </p>
-                <p className="text-[10px] text-emerald-400 font-mono font-medium uppercase truncate">
+                <p
+                  className={`text-[10px] font-mono font-medium uppercase truncate ${
+                    isLight ? "text-emerald-700" : "text-emerald-400"
+                  }`}
+                >
                   {roleDisplay}
                 </p>
               </div>
             </div>
             <ChevronDown
               className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${
-                userMenuOpen ? "rotate-180 text-white" : ""
+                userMenuOpen ? (isLight ? "rotate-180 text-slate-900" : "rotate-180 text-white") : ""
               }`}
             />
           </button>

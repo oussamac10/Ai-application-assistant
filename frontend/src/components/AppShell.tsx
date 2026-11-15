@@ -7,6 +7,7 @@ import { Menu } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Sidebar from "@/components/Sidebar";
+import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/features/auth/context/AuthProvider";
 import { useOrganization } from "@/features/portal/context/OrganizationContext";
 
@@ -86,8 +87,11 @@ export default function AppShell({ children }: AppShellProps) {
               OFFICIAL
             </span>
           </Link>
-          <div className="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 text-xs font-bold flex items-center justify-center">
-            {user.email.charAt(0).toUpperCase()}
+          <div className="flex items-center gap-2 shrink-0">
+            <ThemeToggle variant="icon" />
+            <div className="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 text-xs font-bold flex items-center justify-center">
+              {user.email.charAt(0).toUpperCase()}
+            </div>
           </div>
         </header>
 

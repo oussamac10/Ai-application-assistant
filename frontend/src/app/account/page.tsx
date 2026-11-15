@@ -757,6 +757,7 @@ export default function AccountSettingsPage() {
                 <button
                   type="button"
                   data-testid="delete-account-confirm-btn"
+                  data-theme-locked="dark"
                   disabled={deleting}
                   onClick={handleDeleteAccount}
                   className="inline-flex h-10 items-center whitespace-nowrap rounded-xl bg-rose-600 px-4 text-xs font-semibold text-white transition-colors motion-reduce:transition-none hover:bg-rose-500 disabled:opacity-60 cursor-pointer"

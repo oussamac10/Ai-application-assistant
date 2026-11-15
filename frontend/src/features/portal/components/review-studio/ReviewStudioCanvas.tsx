@@ -304,6 +304,7 @@ export function ReviewStudioCanvas({
                   {isSmallBox ? (
                     <>
                       <span
+                        data-theme-locked="dark"
                         className={`absolute -top-3.5 -start-1 text-[8px] font-mono font-bold px-1 py-0.2 rounded-xs shadow-2xs pointer-events-none select-none transition-all z-20 ${
                           isHighlighted
                             ? "bg-emerald-500 text-slate-950 ring-1 ring-emerald-400/50"
@@ -314,6 +315,7 @@ export function ReviewStudioCanvas({
                       </span>
 
                       <div
+                        data-theme-locked="dark"
                         className={`absolute -top-8 start-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-mono font-medium shadow-md pointer-events-none select-none z-40 transition-all ${
                           isHighlighted
                             ? "flex items-center gap-1.5 bg-slate-900 border border-emerald-500/50 text-emerald-300"
@@ -330,6 +332,7 @@ export function ReviewStudioCanvas({
                   ) : (
                     <div className="flex flex-col gap-0.5 max-w-full">
                       <span
+                        data-theme-locked="dark"
                         className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-full leading-tight select-none pointer-events-none ${
                           isHighlighted
                             ? "bg-emerald-500 text-slate-950"
@@ -350,6 +353,7 @@ export function ReviewStudioCanvas({
                   {isHighlighted && canEdit && (
                     <button
                       type="button"
+                      data-theme-locked="dark"
                       onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();

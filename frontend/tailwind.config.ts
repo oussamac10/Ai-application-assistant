@@ -54,10 +54,10 @@ const config: Config = {
         },
       },
       boxShadow: {
-        "2xs": "0 1px 2px 0 rgba(0, 0, 0, 0.4)",
-        xs: "0 1px 2px 0 rgba(0, 0, 0, 0.5), 0 1px 3px 0 rgba(0, 0, 0, 0.4)",
-        panel: "0 1px 0 0 rgba(255, 255, 255, 0.08) inset, 0 20px 40px -15px rgba(0, 0, 0, 0.7)",
-        card: "0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 8px 24px -8px rgba(0, 0, 0, 0.6)",
+        "2xs": "var(--shadow-2xs, 0 1px 2px 0 rgba(0, 0, 0, 0.4))",
+        xs: "var(--shadow-xs, 0 1px 2px 0 rgba(0, 0, 0, 0.5), 0 1px 3px 0 rgba(0, 0, 0, 0.4))",
+        panel: "var(--shadow-panel, 0 1px 0 0 rgba(255, 255, 255, 0.08) inset, 0 20px 40px -15px rgba(0, 0, 0, 0.7))",
+        card: "var(--shadow-card, 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 8px 24px -8px rgba(0, 0, 0, 0.6))",
         "btn-primary": "0 1px 0 0 rgba(255, 255, 255, 0.25) inset, 0 2px 8px 0 rgba(16, 185, 129, 0.35)",
         "emerald-glow": "0 0 24px -4px rgba(16, 185, 129, 0.35)",
         "emerald-glow-sm": "0 0 12px -2px rgba(16, 185, 129, 0.25)",
@@ -152,17 +152,17 @@ const config: Config = {
     plugin(({ addUtilities }) => {
       addUtilities({
         ".border-hairline": {
-          borderColor: "rgba(255, 255, 255, 0.08)",
+          borderColor: "var(--border-default, rgba(255, 255, 255, 0.08))",
         },
         ".border-hairline-emerald": {
           borderColor: "rgba(16, 185, 129, 0.25)",
         },
         ".bg-grid-aikido": {
-          backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px)`,
+          backgroundImage: `radial-gradient(var(--grid-dot-color, rgba(255, 255, 255, 0.07)) 1px, transparent 1px)`,
           backgroundSize: "24px 24px",
         },
         ".bg-lines-aikido": {
-          backgroundImage: `linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(to right, var(--grid-line-color, rgba(255, 255, 255, 0.04)) 1px, transparent 1px), linear-gradient(to bottom, var(--grid-line-color, rgba(255, 255, 255, 0.04)) 1px, transparent 1px)`,
           backgroundSize: "32px 32px",
         },
         ".animate-in": {

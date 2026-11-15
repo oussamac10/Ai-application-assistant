@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { LanguageProvider } from "@/features/form-session/components/LanguageProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/features/auth/context/AuthProvider";
 import { OrganizationProvider } from "@/features/portal/context/OrganizationContext";
 import AppShell from "@/components/AppShell";
@@ -11,20 +12,27 @@ export const metadata: Metadata = {
     "Understand, normalize, and complete official forms in your preferred language with deterministic validation.",
 };
 
+const themeInitScript = `(function(){try{var t=localStorage.getItem("formflow-theme");var m=t==="light"?"light":"dark";var d=document.documentElement;d.classList.remove("light","dark");d.classList.add(m);d.dataset.theme=m;d.style.colorScheme=m;}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" data-theme="dark" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-screen bg-[#0A0E17] text-slate-100 antialiased selection:bg-emerald-500/20 selection:text-emerald-300">
         <LanguageProvider>
-          <AuthProvider>
-            <OrganizationProvider>
-              <AppShell>{children}</AppShell>
-            </OrganizationProvider>
-          </AuthProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <OrganizationProvider>
+                <AppShell>{children}</AppShell>
+              </OrganizationProvider>
+            </AuthProvider>
+          </ThemeProvider>
         </LanguageProvider>
       </body>
     </html>

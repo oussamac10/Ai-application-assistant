@@ -27,6 +27,39 @@
   --elevation-2: 0 4px 16px -2px rgba(0, 0, 0, 0.65);
   --elevation-3: 0 16px 40px -8px rgba(0, 0, 0, 0.85);
   --elevation-card: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 8px 24px -4px rgba(0, 0, 0, 0.65);
+  --grid-dot-color: rgba(255, 255, 255, 0.07);
+  --grid-line-color: rgba(255, 255, 255, 0.04);
+  --shadow-2xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.5), 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.08) inset, 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+  --shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+}
+
+html.light {
+  /* Aikido Daylight Light Theme Tokens (WCAG 2.2 AA) */
+  --bg-canvas: #F8FAFC;
+  --bg-surface-1: #FFFFFF;
+  --bg-surface-2: #F1F5F9;
+  --bg-surface-3: #E2E8F0;
+  --border-subtle: rgba(15, 23, 42, 0.06);
+  --border-default: rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(15, 23, 42, 0.18);
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --accent-primary: #047857;
+  --accent-hover: #059669;
+  --ring-focus: #10B981;
+  --grid-dot-color: rgba(15, 23, 42, 0.08);
+  --grid-line-color: rgba(15, 23, 42, 0.05);
+  --elevation-1: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --elevation-2: 0 4px 16px -2px rgba(15, 23, 42, 0.08);
+  --elevation-3: 0 16px 40px -8px rgba(15, 23, 42, 0.12);
+  --elevation-card: 0 1px 2px 0 rgba(15, 23, 42, 0.05), 0 8px 24px -6px rgba(15, 23, 42, 0.08);
+  --shadow-2xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-xs: 0 1px 3px 0 rgba(15, 23, 42, 0.07), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
+  --shadow-panel: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 20px 40px -15px rgba(15, 23, 42, 0.12);
+  --shadow-card: 0 1px 2px 0 rgba(15, 23, 42, 0.05), 0 8px 24px -8px rgba(15, 23, 42, 0.09);
 }
 
 * {
@@ -47,7 +80,14 @@ body {
   overflow-x: hidden;
 }
 
-/* Ensure marketing container wrapper inherits dark canvas */
+html.light,
+html.light body {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16, 185, 129, 0.07), transparent 70%),
+    linear-gradient(to bottom, #F8FAFC 0%, #F1F5F9 100%);
+}
+
+/* Ensure marketing container wrapper inherits canvas */
 div.min-h-screen.bg-\[\#f8fafc\],
 div.bg-\[\#f8fafc\] {
   background-color: var(--bg-canvas) !important;
@@ -59,7 +99,7 @@ div.bg-\[\#f8fafc\] {
   outline-offset: 2px;
 }
 
-/* Custom Obsidian Scrollbar */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -77,6 +117,14 @@ div.bg-\[\#f8fafc\] {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 /* Utility to hide scrollbars while preserving scrolling capability */
@@ -258,13 +306,13 @@ div.bg-\[\#f8fafc\] {
 }
 
 @layer components {
-  /* Architectural Surface Tokens (Aikido Midnight / Obsidian) */
+  /* Architectural Surface Tokens */
   .surface-panel,
   .glass-panel {
     color: var(--text-primary);
     background-color: var(--bg-surface-1);
     border: 1px solid var(--border-default);
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 16px 36px -8px rgba(0, 0, 0, 0.8);
+    box-shadow: var(--shadow-panel);
   }
 
   .surface-card,
@@ -272,7 +320,7 @@ div.bg-\[\#f8fafc\] {
     color: var(--text-primary);
     background-color: var(--bg-surface-1);
     border: 1px solid var(--border-default);
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset, 0 4px 16px -2px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow-card);
     transition: border-color 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1), background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -282,26 +330,74 @@ div.bg-\[\#f8fafc\] {
     box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.08) inset, 0 8px 28px -4px rgba(0, 0, 0, 0.8), 0 0 16px -4px rgba(16, 185, 129, 0.15);
   }
 
+  html.light .surface-card:hover,
+  html.light .glass-card:hover {
+    border-color: rgba(16, 185, 129, 0.35);
+    box-shadow: 0 10px 30px -6px rgba(15, 23, 42, 0.12), 0 0 14px -4px rgba(16, 185, 129, 0.14);
+  }
+
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_20px_-3px_rgba(16,185,129,0.4)] transition-all duration-150 hover:bg-emerald-400 hover:shadow-[0_0_25px_-2px_rgba(16,185,129,0.55)] active:bg-emerald-600 active:scale-[0.98] disabled:pointer-events-none disabled:border disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-600 disabled:shadow-none;
+  }
+
+  html.light .btn-primary:disabled {
+    border-color: rgba(15, 23, 42, 0.1);
+    background-color: #E2E8F0;
+    color: #94A3B8;
   }
 
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-white/[0.12] bg-[#0F1522] px-4 py-2.5 text-sm font-semibold text-slate-200 shadow-2xs transition-all duration-150 hover:border-emerald-500/40 hover:bg-[#151D2E] hover:text-white active:scale-[0.98] disabled:pointer-events-none disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-600 disabled:shadow-none;
   }
 
+  html.light .btn-secondary {
+    border-color: rgba(15, 23, 42, 0.12);
+    background-color: #FFFFFF;
+    color: #1E293B;
+  }
+
+  html.light .btn-secondary:hover {
+    border-color: rgba(16, 185, 129, 0.45);
+    background-color: #F1F5F9;
+    color: #0F172A;
+  }
+
+  html.light .btn-secondary:disabled {
+    border-color: rgba(15, 23, 42, 0.08);
+    background-color: #F1F5F9;
+    color: #94A3B8;
+  }
+
   .input-field {
     @apply w-full rounded-xl border border-white/[0.1] bg-[#0A0E17] px-3.5 py-2.5 text-sm sm:text-base text-slate-100 placeholder-slate-500 shadow-2xs transition-colors duration-150 hover:border-white/[0.2] focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20;
+  }
+
+  html.light .input-field {
+    border-color: rgba(15, 23, 42, 0.14);
+    background-color: #FFFFFF;
+    color: #0F172A;
+  }
+
+  html.light .input-field::placeholder {
+    color: #94A3B8;
+  }
+
+  html.light .input-field:hover {
+    border-color: rgba(15, 23, 42, 0.28);
   }
 }
 
 /* High-contrast typographic treatments */
 .gradient-heading {
-  color: #F8FAFC;
+  color: var(--text-primary);
 }
 
 .gradient-brand {
   color: #10B981;
+}
+
+html.light .gradient-brand {
+  color: #047857;
 }
 
 /* Reduced-Motion Support: strictly zero animations and transitions for users preferring reduced motion */
@@ -336,4 +432,251 @@ div.bg-\[\#f8fafc\] {
 [dir="rtl"] input[data-ltr="true"] {
   direction: ltr;
   text-align: left;
+}
+
+/* =========================================================================
+   Aikido Daylight Light-Mode Surface & Contrast Engine
+   Scoped via :where(:not(...)) so [data-theme-locked="dark"] subtrees remain locked
+   ========================================================================= */
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#0A0E17\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-canvas,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#080C14\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#070A12\]\/80,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#070A12\]\/60,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-950 {
+  background-color: #F8FAFC;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#0A0E17\]\/95 {
+  background-color: rgba(248, 250, 252, 0.92);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#0A0E17\]\/85,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#0A0E17\]\/80,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#0A0E17\]\/70,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#0A0E17\]\/60 {
+  background-color: rgba(248, 250, 252, 0.85);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#060910\] {
+  background-color: #E2E8F0;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#060910\]\/80,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-950\/60,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-950\/70,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-black\/75 {
+  background-color: rgba(15, 23, 42, 0.45);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#0F1522\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#0B0F19\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-900 {
+  background-color: #FFFFFF;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#0F1522\]\/60,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-900\/90,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-900\/60 {
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#151D2E\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#151D2E\]\/80,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#121A2A\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#131B2E\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-\[\#131B2E\]\/70,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-800,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-800\/80,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-800\/70,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-800\/60,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-800\/50 {
+  background-color: #F1F5F9;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-slate-700 {
+  background-color: #CBD5E1;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-white\/\[0\.04\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-white\/\[0\.05\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-white\/5,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-white\/10,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-white\/15 {
+  background-color: rgba(15, 23, 42, 0.05);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-\[\#151D2E\]:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-\[\#192338\]:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-\[\#1E293B\]:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-\[\#131B2E\]:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-\[\#0F1522\]:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-slate-800:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-slate-700:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-white\/\[0\.04\]:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-white\/\[0\.05\]:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-white\/5:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-white\/10:hover {
+  background-color: #E2E8F0;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .from-\[\#0F1522\] {
+  --tw-gradient-from: #FFFFFF var(--tw-gradient-from-position);
+  --tw-gradient-to: rgba(255, 255, 255, 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .via-\[\#0F1522\] {
+  --tw-gradient-to: rgba(255, 255, 255, 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), #FFFFFF var(--tw-gradient-via-position), var(--tw-gradient-to);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .via-\[\#151D2E\] {
+  --tw-gradient-to: rgba(241, 245, 249, 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), #F1F5F9 var(--tw-gradient-via-position), var(--tw-gradient-to);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .to-\[\#0F1522\] {
+  --tw-gradient-to: #FFFFFF var(--tw-gradient-to-position);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .shadow-2xl,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .shadow-\[0_20px_50px_rgba\(0\,0\,0\,0\.85\)\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .shadow-\[0_20px_60px_-15px_rgba\(0\,0\,0\,0\.85\)\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .shadow-\[0_20px_50px_rgba\(0\,0\,0\,0\.7\)\] {
+  box-shadow: 0 20px 50px -12px rgba(15, 23, 42, 0.14), 0 4px 16px -4px rgba(15, 23, 42, 0.06);
+}
+
+/* Borders, Dividers & Rings */
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/\[0\.06\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/\[0\.08\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/\[0\.1\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/\[0\.12\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/10,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/15,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-slate-800,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-slate-800\/80,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-\[\#161F30\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-\[\#212E4A\] {
+  border-color: rgba(15, 23, 42, 0.10);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/20,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/\[0\.2\],
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/25,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-slate-700,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-slate-600 {
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:border-white\/\[0\.2\]:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:border-white\/20:hover {
+  border-color: rgba(15, 23, 42, 0.24);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .divide-white\/\[0\.08\] > :not([hidden]) ~ :not([hidden]),
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .divide-white\/10 > :not([hidden]) ~ :not([hidden]),
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(15, 23, 42, 0.09);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .ring-white\/5,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .ring-white\/10 {
+  --tw-ring-color: rgba(15, 23, 42, 0.08);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .focus-visible\:ring-offset-\[\#0A0E17\]:focus-visible {
+  --tw-ring-offset-color: #F8FAFC;
+}
+
+/* Typography & WCAG 2.2 AA Semantic Status Accents */
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-white,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-slate-100 {
+  color: #0F172A;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-slate-200 {
+  color: #1E293B;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-slate-300 {
+  color: #334155;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-slate-400 {
+  color: #475569;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-slate-500 {
+  color: #64748B;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .placeholder-slate-500::placeholder,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .placeholder-slate-400::placeholder {
+  color: #94A3B8;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-400,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-400\/80,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-400\/70 {
+  color: #047857;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-300,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-300\/80 {
+  color: #065F46;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-amber-400,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-amber-400\/80,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-amber-300 {
+  color: #B45309;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-amber-200,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-amber-200\/90,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-amber-200\/80,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-amber-100 {
+  color: #92400E;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-rose-400,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-rose-300,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-red-400,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-red-300 {
+  color: #BE123C;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-rose-200,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-rose-200\/90 {
+  color: #9F1239;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-sky-400,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-sky-300 {
+  color: #0369A1;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-emerald-950\/90 {
+  background-color: #ECFDF5;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-emerald-900 {
+  background-color: #D1FAE5;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-emerald-800:hover {
+  background-color: #A7F3D0;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:text-white:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:text-slate-100:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:text-slate-200:hover {
+  color: #0F172A;
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:text-emerald-400:hover,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:text-emerald-300:hover {
+  color: #047857;
 }

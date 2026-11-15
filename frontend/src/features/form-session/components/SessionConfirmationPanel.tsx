@@ -145,7 +145,10 @@ export function SessionConfirmationPanel({
           className="btn-primary flex-1 py-3.5 text-sm font-semibold"
         >
           <span>{tc("confirm")}</span>
-          <kbd className="hidden sm:inline-block rounded bg-emerald-700/90 border border-emerald-900/40 px-1.5 py-0.5 text-[10px] font-mono text-white">
+          <kbd
+            data-theme-locked="dark"
+            className="hidden sm:inline-block rounded bg-emerald-700/90 border border-emerald-900/40 px-1.5 py-0.5 text-[10px] font-mono text-white"
+          >
             ↵ Enter
           </kbd>
         </button>

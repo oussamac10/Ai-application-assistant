@@ -24,6 +24,7 @@ import {
   getLanguageByCode,
 } from "@/features/form-session/utils/languages";
 import { useAuth } from "@/features/auth/context/AuthProvider";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Navbar() {
   const { locale, setLocale } = useLanguage();
@@ -202,13 +203,15 @@ export default function Navbar() {
           </nav>
         </div>
 
-        {/* Right Controls: Unified Searchable Language Switcher Popover & Auth */}
+        {/* Right Controls: Theme Switcher, Unified Language Switcher & Auth */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           {/* Technical Status Badge */}
           <div className="hidden xl:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-mono text-emerald-300">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>ONLINE</span>
           </div>
+
+          <ThemeToggle variant="icon" />
 
           <div className="relative" ref={popoverRef}>
             <button
@@ -505,6 +508,9 @@ export default function Navbar() {
       {/* Mobile & Tablet Navigation Drawer */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-t border-white/[0.08] bg-[#0A0E17] px-4 py-3 space-y-1.5 shadow-2xl">
+          <div className="pt-1 pb-2 border-b border-white/[0.08]">
+            <ThemeToggle variant="pill" />
+          </div>
           <Link
             href="/"
             onClick={() => setMobileMenuOpen(false)}

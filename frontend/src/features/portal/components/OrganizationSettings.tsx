@@ -1331,6 +1331,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                 <div className="flex min-h-[350px]">
                   {/* Miniature Sidebar */}
                   <div
+                    data-theme-locked={themeConfig.sidebar_theme !== "light" ? "dark" : undefined}
                     className="w-44 shrink-0 p-3 flex flex-col justify-between border-r transition-colors"
                     style={{
                       backgroundColor:
@@ -1376,7 +1377,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                           <div className="text-[11px] font-bold truncate leading-tight">
                             {org.name.split("—")[0].trim()}
                           </div>
-                          <div className="text-[9px] opacity-60 leading-tight">Behörden-Portal</div>
+                          <div className="text-[9px] opacity-60 leading-tight">Organization Portal</div>
                         </div>
                       </div>
 
@@ -1435,7 +1436,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         A
                       </div>
                       <div className="min-w-0 text-[9px] opacity-75 truncate">
-                        Sachbearbeiter (Admin)
+                        Case Officer (Admin)
                       </div>
                     </div>
                   </div>
