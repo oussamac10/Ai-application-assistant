@@ -159,21 +159,34 @@ def map_form_fields_to_detected_fields(
     return matched
 
 
-def extract_table_column_headers_for_page(
+def _join_dehyphenated_lines(lines: list[str]) -> str:
+    text = ""
+    for part in lines:
+        part = part.strip()
+        if not part:
+            continue
+        if text.endswith("-") and part[0].islower():
+            text = f"{text[:-1]}{part}"
+        elif text:
+            text = f"{text} {part}"
+        else:
+            text = part
+    return text.strip()
+
+
+def extract_table_context_for_page(
     db: Session,
     session: FormSession,
     page_number: int,
     table_top_y: float,
     columns: list[tuple[float, float]],
-) -> list[str | None]:
-    """Extract per-column header text directly above row 1 of a table on a PDF page.
-
-    Keeps words strictly within each column's horizontal bounds so narrow adjacent
-    multi-line headers (e.g. 'Geburtsdatum' | 'Ge-schlecht' | 'Verwandtschafts-verhältnis')
-    never bleed into one another.
-    """
+    *,
+    row_y_center: float | None = None,
+    first_col_x: float | None = None,
+) -> tuple[list[str | None], str | None, str | None, str | None]:
+    """Extract (column_headers, table_title, table_description, row_label) for a PDF table."""
     if not columns:
-        return []
+        return [], None, None, None
 
     storage_path: str | None = None
     source_doc_id = getattr(session, "source_document_id", None)
@@ -191,11 +204,11 @@ def extract_table_column_headers_for_page(
             storage_path = getattr(version, "source_pdf_storage_path", None)
 
     if not storage_path:
-        return [None] * len(columns)
+        return [None] * len(columns), None, None, None
 
     storage_provider = storage_factory.get_storage_provider()
     if not storage_provider.exists(storage_path):
-        return [None] * len(columns)
+        return [None] * len(columns), None, None, None
 
     try:
         import fitz
@@ -205,12 +218,14 @@ def extract_table_column_headers_for_page(
             try:
                 page_idx = page_number - 1
                 if not (0 <= page_idx < doc.page_count):
-                    return [None] * len(columns)
-                words = doc[page_idx].get_text("words")
+                    return [None] * len(columns), None, None, None
+                page = doc[page_idx]
+                words = page.get_text("words")
+                text_dict = page.get_text("dict")
             finally:
                 doc.close()
     except Exception:
-        return [None] * len(columns)
+        return [None] * len(columns), None, None, None
 
     bounds: list[tuple[float, float]] = []
     for idx, (x0, x1) in enumerate(columns):
@@ -227,6 +242,7 @@ def extract_table_column_headers_for_page(
     ]
 
     headers: list[str | None] = []
+    min_header_y0 = table_top_y
     for bl, br in bounds:
         col_words = sorted(
             [w for w in band if bl <= (float(w[0]) + float(w[2])) / 2.0 <= br],
@@ -246,25 +262,107 @@ def extract_table_column_headers_for_page(
             y1 = max(float(w[3]) for w in line)
             if prev_y0 is not None and prev_y0 - y1 > 10.0:
                 break
+            min_header_y0 = min(min_header_y0, y0)
             kept.append(
                 " ".join(str(w[4]) for w in sorted(line, key=lambda w: float(w[0])))
             )
             prev_y0 = y0
 
         kept.reverse()
-        text = ""
-        for part in kept:
-            part = part.strip()
-            if not part:
-                continue
-            if text.endswith("-") and part[0].islower():
-                text = f"{text[:-1]}{part}"
-            elif text:
-                text = f"{text} {part}"
-            else:
-                text = part
-        headers.append(text.strip() or None)
+        headers.append(_join_dehyphenated_lines(kept) or None)
 
+    dict_lines: list[tuple[float, float, float, float, float, int, str]] = []
+    raw_blocks = text_dict.get("blocks", ()) if isinstance(text_dict, dict) else ()
+    for block in raw_blocks:
+        if not isinstance(block, dict) or block.get("type") != 0:
+            continue
+        for line in block.get("lines", ()):
+            if not isinstance(line, dict):
+                continue
+            spans = line.get("spans", ())
+            if not spans:
+                continue
+            ltext = "".join(str(s.get("text", "")) for s in spans).strip()
+            if not ltext:
+                continue
+            bx0, by0, bx1, by1 = (float(v) for v in line["bbox"])
+            size = float(spans[0].get("size", 0.0))
+            flags = int(spans[0].get("flags", 0))
+            dict_lines.append((by0, by1, bx0, bx1, size, flags, ltext))
+
+    header_top = min_header_y0 if min_header_y0 < table_top_y else table_top_y - 34.0
+    above_lines = sorted(
+        [
+            ln
+            for ln in dict_lines
+            if ln[1] <= header_top - 4.0 and ln[0] >= header_top - 160.0
+        ],
+        key=lambda ln: (round(ln[0] / 3.0), ln[2]),
+    )
+    sizes = sorted(ln[4] for ln in dict_lines)
+    median_size = sizes[len(sizes) // 2] if sizes else 9.0
+
+    table_title: str | None = None
+    table_description: str | None = None
+    heading_y0: float | None = None
+    for ln in reversed(above_lines):
+        is_bold = bool(ln[5] & 16)
+        is_larger = ln[4] >= median_size + 1.5
+        if (is_bold or is_larger) and len(ln[6]) >= 4:
+            same_y = [other for other in above_lines if abs(other[0] - ln[0]) <= 3.0]
+            table_title = " ".join(
+                o[6] for o in sorted(same_y, key=lambda o: o[2])
+            ).strip()
+            heading_y0 = ln[0]
+            break
+
+    if heading_y0 is not None:
+        desc_lines = [
+            ln[6]
+            for ln in above_lines
+            if ln[0] > heading_y0 + 5.0 and ln[1] <= header_top - 4.0
+        ]
+        if desc_lines:
+            desc_full = _join_dehyphenated_lines(desc_lines)
+            if len(desc_full) > 320:
+                cut = desc_full[:320].rfind(". ")
+                desc_full = (
+                    desc_full[: cut + 1]
+                    if cut > 80
+                    else f"{desc_full[:317].rstrip()}..."
+                )
+            table_description = desc_full or None
+
+    row_label: str | None = None
+    if row_y_center is not None and first_col_x is not None:
+        import re
+
+        left_tokens = [
+            ln[6]
+            for ln in dict_lines
+            if abs(((ln[0] + ln[1]) / 2.0) - row_y_center) <= 10.0
+            and ln[3] <= first_col_x + 2.0
+        ]
+        if left_tokens:
+            raw_row = " ".join(left_tokens).strip()
+            cleaned = re.sub(r"^\d+\.?\s*", "", raw_row).strip()
+            if cleaned and any(ch.isalpha() for ch in cleaned):
+                row_label = cleaned
+
+    return headers, table_title, table_description, row_label
+
+
+def extract_table_column_headers_for_page(
+    db: Session,
+    session: FormSession,
+    page_number: int,
+    table_top_y: float,
+    columns: list[tuple[float, float]],
+) -> list[str | None]:
+    """Extract per-column header text directly above row 1 of a table on a PDF page."""
+    headers, _, _, _ = extract_table_context_for_page(
+        db, session, page_number, table_top_y, columns
+    )
     return headers
 
 

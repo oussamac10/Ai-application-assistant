@@ -123,7 +123,7 @@ async def test_geometric_table_row_context_groups_aligned_pdf_table_rows() -> No
         )
 
     assert ctx is not None
-    assert ctx["table_title"] == "2 Haushaltsangehörige"
+    assert ctx["table_title"] == "[en] 2 Haushaltsangehörige"
     assert ctx["row_index"] == 2
     assert ctx["total_rows"] == 3
     assert [item["field_key"] for item in ctx["fields"]] == [

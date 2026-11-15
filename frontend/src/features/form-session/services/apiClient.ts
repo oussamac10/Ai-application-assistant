@@ -68,6 +68,8 @@ export const TableRowFieldSchema = z.object({
 export const TableRowContextSchema = z.object({
   tableKey: z.string(),
   tableTitle: z.string(),
+  tableDescription: z.string().nullable().optional(),
+  rowLabel: z.string().nullable().optional(),
   rowIndex: z.number(),
   totalRows: z.number(),
   fields: z.array(TableRowFieldSchema),

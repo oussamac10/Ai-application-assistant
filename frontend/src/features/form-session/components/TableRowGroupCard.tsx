@@ -115,22 +115,35 @@ export function TableRowGroupCard({
             <Table2 className="h-4 w-4" />
           </div>
           <div className="min-w-0 text-start">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 leading-snug">
               {tableRow.tableTitle}
             </p>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900">
-              Row {tableRow.rowIndex} of {tableRow.totalRows}
-            </h2>
+            <div className="flex flex-wrap items-center gap-2 mt-0.5">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                Row {tableRow.rowIndex} of {tableRow.totalRows}
+              </h2>
+              {tableRow.rowLabel && (
+                <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-800">
+                  {tableRow.rowLabel}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <button
           type="button"
           onClick={onSwitchToSingleField}
-          className="text-xs font-medium text-slate-500 hover:text-indigo-700 underline underline-offset-2 cursor-pointer"
+          className="text-xs font-medium text-slate-500 hover:text-indigo-700 underline underline-offset-2 cursor-pointer shrink-0"
         >
           Fill one-by-one instead
         </button>
       </div>
+
+      {tableRow.tableDescription && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-xs text-slate-700 leading-relaxed text-start">
+          {tableRow.tableDescription}
+        </div>
+      )}
 
       {globalError && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-800 text-start">

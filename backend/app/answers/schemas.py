@@ -72,6 +72,8 @@ class TableRowFieldInfo(BaseSchema):
 class TableRowContext(BaseSchema):
     table_key: str
     table_title: str
+    table_description: str | None = None
+    row_label: str | None = None
     row_index: int
     total_rows: int
     fields: list[TableRowFieldInfo]

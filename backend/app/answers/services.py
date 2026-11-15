@@ -47,7 +47,7 @@ from app.core.config import settings
 from app.forms.models import FormField
 from app.forms.repositories import FormRepository
 from app.pdf.dynamic_overlay import (
-    extract_table_column_headers_for_page,
+    extract_table_context_for_page,
     get_all_field_boxes_for_session,
     get_field_location_for_session,
     render_session_page_preview_png,
@@ -406,6 +406,8 @@ class AnswerService:
                 row_index = int(row_str)
                 total_rows = max(len(distinct_rows), 1)
 
+        table_description: str | None = None
+        row_label: str | None = None
         column_headers: dict[str, str] = {}
         if not row_fields:
             geo = self._detect_geometric_table_row(
@@ -418,22 +420,32 @@ class AnswerService:
             (
                 table_key,
                 table_title,
+                table_description,
+                row_label,
                 row_index,
                 total_rows,
                 row_fields,
                 column_headers,
             ) = geo
 
-        translated_headers: dict[str, str] = {}
+        texts_to_translate: list[str] = list(column_headers.values())
+        if table_title and not table_title.startswith("Table (Page "):
+            texts_to_translate.append(table_title)
+        if table_description:
+            texts_to_translate.append(table_description)
+        if row_label:
+            texts_to_translate.append(row_label)
+
+        translated_map: dict[str, str] = {}
         if (
-            column_headers
+            texts_to_translate
             and session.user_language
             and session.source_language
             and session.user_language != session.source_language
         ):
             try:
-                translated_headers = await translate_texts(
-                    texts=list(dict.fromkeys(column_headers.values())),
+                translated_map = await translate_texts(
+                    texts=list(dict.fromkeys(texts_to_translate)),
                     target_language=session.user_language,
                     provider=build_translation_provider(
                         settings.TRANSLATION_PROVIDER, self.ai_provider
@@ -444,7 +456,14 @@ class AnswerService:
                     source_language=session.source_language,
                 )
             except Exception:
-                translated_headers = {}
+                translated_map = {}
+
+        if table_title:
+            table_title = translated_map.get(table_title, table_title)
+        if table_description:
+            table_description = translated_map.get(table_description, table_description)
+        if row_label:
+            row_label = translated_map.get(row_label, row_label)
 
         row_items: list[dict[str, Any]] = []
         for rf in row_fields:
@@ -457,7 +476,7 @@ class AnswerService:
             label = translated.get("label") or rf.key
             col_header = column_headers.get(rf.key)
             if col_header:
-                label = translated_headers.get(col_header, col_header)
+                label = translated_map.get(col_header, col_header)
             ans = answers.get(rf.id)
             row_items.append(
                 {
@@ -475,6 +494,8 @@ class AnswerService:
         return {
             "table_key": table_key,
             "table_title": table_title,
+            "table_description": table_description,
+            "row_label": row_label,
             "row_index": row_index,
             "total_rows": total_rows,
             "fields": row_items,
@@ -486,7 +507,19 @@ class AnswerService:
         session: Any,
         version: Any,
         current_field: FormField,
-    ) -> tuple[str, str, int, int, list[FormField], dict[str, str]] | None:
+    ) -> (
+        tuple[
+            str,
+            str,
+            str | None,
+            str | None,
+            int,
+            int,
+            list[FormField],
+            dict[str, str],
+        ]
+        | None
+    ):
         """Detect repeated horizontal table rows on a page using field bounding boxes."""
         all_boxes = get_all_field_boxes_for_session(self.db, session)
         current_loc = all_boxes.get(current_field.key)
@@ -594,15 +627,34 @@ class AnswerService:
 
         table_top_y = min(item[1]["y"] for item in table_rows[0])
         columns = [(item[1]["x"], item[1]["x"] + item[1]["width"]) for item in cur_row]
-        extracted_headers = extract_table_column_headers_for_page(
-            self.db, session, current_page, table_top_y, columns
+        extracted_headers, pdf_title, pdf_description, row_label = (
+            extract_table_context_for_page(
+                self.db,
+                session,
+                current_page,
+                table_top_y,
+                columns,
+                row_y_center=cur_row[0][2],
+                first_col_x=cur_row[0][1]["x"],
+            )
         )
+        if pdf_title:
+            table_title = pdf_title
         column_headers = {
             item[0].key: header
             for item, header in zip(cur_row, extracted_headers, strict=False)
             if header
         }
-        return table_key, table_title, row_index, total_rows, row_fields, column_headers
+        return (
+            table_key,
+            table_title,
+            pdf_description,
+            row_label,
+            row_index,
+            total_rows,
+            row_fields,
+            column_headers,
+        )
 
     def _attach_location_metadata(
         self, field_data: dict[str, Any], session: Any, field: FormField
