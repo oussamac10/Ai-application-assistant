@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React from "react";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Map as MapIcon } from "lucide-react";
 import { CurrentField } from "../services/apiClient";
 
 interface SessionContextSidebarProps {
@@ -95,38 +95,25 @@ export function SessionContextSidebar({
             data-testid="document-location-preview"
             className="surface-card rounded-2xl p-5 space-y-3"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
-                <svg
-                  className="h-3.5 w-3.5 text-indigo-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-                  />
-                </svg>
-                Document Placement
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5 min-w-0">
+                <MapIcon className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">Document Placement</span>
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0">
                 {canNavigatePages && (
                   <button
                     type="button"
                     aria-label="Previous PDF page"
                     disabled={activePage <= 1}
                     onClick={() => onChangePreviewPage?.(Math.max(1, activePage - 1))}
-                    className="rounded border border-slate-200 bg-white p-0.5 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                    className="rounded-md p-1 text-slate-600 hover:bg-white hover:text-slate-900 disabled:opacity-35 cursor-pointer transition-colors"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
                 )}
-                <span className="rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-700 tabular-nums">
-                  Page {activePage}
-                  {totalPages > 1 ? ` / ${totalPages}` : ""}
+                <span className="px-1.5 text-[11px] font-mono font-semibold text-slate-700 tabular-nums whitespace-nowrap">
+                  {totalPages > 1 ? `${activePage} / ${totalPages}` : `Page ${activePage}`}
                 </span>
                 {canNavigatePages && (
                   <button
@@ -136,7 +123,7 @@ export function SessionContextSidebar({
                     onClick={() =>
                       onChangePreviewPage?.(Math.min(totalPages, activePage + 1))
                     }
-                    className="rounded border border-slate-200 bg-white p-0.5 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                    className="rounded-md p-1 text-slate-600 hover:bg-white hover:text-slate-900 disabled:opacity-35 cursor-pointer transition-colors"
                   >
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
