@@ -384,3 +384,30 @@ def test_organization_delete_form_and_clear_fields(
     list_res = client.get("/api/organizations/current/forms")
     assert list_res.status_code == 200
     assert not any(f["id"] == template_id for f in list_res.json())
+
+
+def test_organization_upload_truncates_long_form_key_and_name(
+    client: TestClient,
+) -> None:
+    _register_and_auth(client, "admin@longname.org")
+
+    sample_pdf = _create_sample_pdf()
+    long_title = (
+        "Antrag Auf Erteilung Eines Wohnberechtigungsschein Und Aufnahme "
+        "In Die Vormerkdatei Fuer Stuttgarter Buerger Barrierefrei " * 3
+    )
+    upload_res = client.post(
+        "/api/organizations/current/forms/upload",
+        files={
+            "file": (
+                "antrag_auf_erteilung_eines_wohnberechtigungsschein_und_aufnahme_in_die_vormerkdatei_fuer_stuttgarter_buerger._barrierefrei.pdf",
+                BytesIO(sample_pdf),
+                "application/pdf",
+            )
+        },
+        data={"name": long_title},
+    )
+    assert upload_res.status_code == 201
+    payload = upload_res.json()
+    assert len(payload["key"]) <= 100
+    assert len(payload["name"]) <= 255

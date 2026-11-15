@@ -211,8 +211,8 @@ class OrganizationFormService:
                 tmp_path.unlink()
 
         # 3. Create FormTemplate
-        clean_name = name.strip() or "Unbenanntes Formular"
-        base_slug = slugify(clean_name)
+        clean_name = (name.strip() or "Unbenanntes Formular")[:255]
+        base_slug = (slugify(clean_name) or "form")[:91].rstrip("-") or "form"
         unique_key = f"{base_slug}-{doc_uuid[:8]}"
 
         assigned_cat_id = None
