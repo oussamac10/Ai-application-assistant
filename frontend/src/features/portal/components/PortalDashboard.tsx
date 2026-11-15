@@ -53,6 +53,7 @@ import {
   Ban,
   Send,
   KeyRound,
+  Link2,
 } from "lucide-react";
 import {
   resolveThemeConfig,
@@ -1174,7 +1175,19 @@ export function PortalDashboard() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {c.invite_token && c.status !== "revoked" && c.status !== "completed" && (
+                          <button
+                            type="button"
+                            data-testid={`view-link-case-${c.public_id}`}
+                            disabled={isBusy}
+                            onClick={() => setCreatedOrResentCase(c)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40 transition-colors cursor-pointer"
+                          >
+                            <Link2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>View Link</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           data-testid={`resend-case-${c.public_id}`}

@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Check,
   Code,
@@ -9,6 +9,7 @@ import {
   Download,
   ExternalLink,
   FileDown,
+  Link2,
   Printer,
   QrCode,
   X,
@@ -34,6 +35,17 @@ export function ShareFormModal({
 }: ShareFormModalProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -71,7 +83,17 @@ export function ShareFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#060910]/80 backdrop-blur-xs">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Share Form & Counter QR Code"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#060910]/80 backdrop-blur-xs"
+    >
       <div className="bg-[#0F1522] rounded-3xl border border-white/10 text-slate-100 shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 space-y-6 animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
@@ -91,6 +113,7 @@ export function ShareFormModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Dismiss modal"
             className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#151D2E] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -99,39 +122,48 @@ export function ShareFormModal({
 
         {/* 1. Direct Citizen Link */}
         <div className="space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-200">
-            Direct Permalinks for Citizens:
+          <label
+            htmlFor="share-form-direct-url"
+            className="block text-xs font-semibold text-slate-200"
+          >
+            Direct link for applicants
           </label>
           <div className="flex items-center gap-2 min-w-0">
-            <input
-              type="text"
-              readOnly
-              value={fullShareUrl}
-              className="min-w-0 flex-1 bg-[#0A0E17] border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500/30 select-all"
-            />
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              aria-label="Copy Link"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-xs transition-colors cursor-pointer shrink-0"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy<span className="sr-only"> Link</span></span>
-                </>
-              )}
-            </button>
+            <div className="min-w-0 flex-1 flex items-center gap-2 rounded-2xl border border-white/10 bg-[#0A0E17] p-1 pl-3 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+              <Link2 className="w-4 h-4 text-slate-400 shrink-0" />
+              <input
+                id="share-form-direct-url"
+                type="text"
+                readOnly
+                dir="ltr"
+                value={fullShareUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                className="min-w-0 flex-1 bg-transparent py-1 text-xs font-mono text-slate-100 focus:outline-none select-all"
+              />
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                aria-label="Copy Link"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-xs transition-colors cursor-pointer shrink-0"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy<span className="sr-only"> Link</span></span>
+                  </>
+                )}
+              </button>
+            </div>
             <a
               href={fullShareUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 rounded-xl border border-white/10 bg-[#0A0E17] text-slate-300 hover:text-white hover:bg-[#151D2E] transition-colors"
+              className="p-2.5 rounded-xl border border-white/10 bg-[#0A0E17] text-slate-300 hover:text-white hover:bg-[#151D2E] transition-colors shrink-0"
               title="Open Link in New Tab"
             >
               <ExternalLink className="w-4 h-4" />
@@ -210,9 +242,9 @@ export function ShareFormModal({
         {/* 4. Embed Snippet */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+            <label className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
               <Code className="w-3.5 h-3.5 text-slate-400" />
-              Website Button Snippet (HTML):
+              Website button code (HTML)
             </label>
             <button
               type="button"

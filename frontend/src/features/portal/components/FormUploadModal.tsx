@@ -56,6 +56,17 @@ export function FormUploadModal({
     }
   }, [isOpen, selectedCategoryId]);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isUploading) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isUploading, onClose]);
+
   if (!isOpen) return null;
 
   const handleFileChange = (selectedFile: File) => {
@@ -144,7 +155,12 @@ export function FormUploadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#060910]/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Upload PDF Form"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#060910]/80 backdrop-blur-sm animate-in fade-in duration-200"
+    >
       <div className="bg-[#0F1522] rounded-2xl shadow-2xl border border-white/10 text-slate-100 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between bg-[#0A0E17]/60">
@@ -179,7 +195,7 @@ export function FormUploadModal({
 
           {/* Form Document Drag & Drop Zone */}
           <div>
-            <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-slate-200 mb-2">
               Official Blank PDF Document *
             </label>
             <div
@@ -217,7 +233,7 @@ export function FormUploadModal({
                 <div className="flex items-center gap-3 min-w-0 max-w-full">
                   <FileText className="w-8 h-8 text-emerald-400 shrink-0" />
                   <div className="min-w-0 flex-1 text-left">
-                    <p className="text-sm font-semibold text-white break-all" title={file.name}>
+                    <p className="text-sm font-semibold text-white break-words line-clamp-2" title={file.name}>
                       {file.name}
                     </p>
                     <p className="text-xs text-slate-400">

@@ -600,6 +600,10 @@ html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)
   box-shadow: 0 20px 50px -12px rgba(15, 23, 42, 0.14), 0 4px 16px -4px rgba(15, 23, 42, 0.06);
 }
 
+html.light .bg-\[\#060910\]\/80 {
+  background-color: rgba(15, 23, 42, 0.42);
+}
+
 /* Borders, Dividers & Rings */
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/\[0\.06\],
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-white\/\[0\.08\],

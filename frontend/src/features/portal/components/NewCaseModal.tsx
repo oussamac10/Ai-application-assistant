@@ -7,7 +7,7 @@ import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
 import { ModernSelect } from "@/components/ui/ModernSelect";
 import { createCase, listOrganizationForms } from "../services/portalClient";
 import { Case } from "../types";
-import { X, Loader2 } from "lucide-react";
+import { Globe, Loader2, X } from "lucide-react";
 
 interface NewCaseModalProps {
   isOpen: boolean;
@@ -119,6 +119,17 @@ export function NewCaseModal({
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, submitting, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -186,36 +197,38 @@ export function NewCaseModal({
         )}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1.5">
-              {t("candidateNameLabel")} *
-            </label>
-            <input
-              type="text"
-              required
-              value={candidateName}
-              onChange={(e) => setCandidateName(e.target.value)}
-              placeholder={t("candidateNamePlaceholder")}
-              className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-200 mb-1.5">
+                {t("candidateNameLabel")} *
+              </label>
+              <input
+                type="text"
+                required
+                value={candidateName}
+                onChange={(e) => setCandidateName(e.target.value)}
+                placeholder={t("candidateNamePlaceholder")}
+                className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-200 mb-1.5">
+                {t("candidateEmailLabel")} *
+              </label>
+              <input
+                type="email"
+                required
+                value={candidateEmail}
+                onChange={(e) => setCandidateEmail(e.target.value)}
+                placeholder={t("candidateEmailPlaceholder")}
+                className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1.5">
-              {t("candidateEmailLabel")} *
-            </label>
-            <input
-              type="email"
-              required
-              value={candidateEmail}
-              onChange={(e) => setCandidateEmail(e.target.value)}
-              placeholder={t("candidateEmailPlaceholder")}
-              className="w-full rounded-xl border border-white/10 bg-[#0A0E17] px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-slate-200 mb-1.5">
               {t("formLabel")} *
             </label>
             {loadingTemplates ? (
@@ -240,7 +253,7 @@ export function NewCaseModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-semibold text-slate-200 mb-1.5">
                 {t("languageLabel")}
               </label>
               <ModernSelect
@@ -263,7 +276,8 @@ export function NewCaseModal({
                 const selected = templates.find((t) => t.id === selectedFormId);
                 const info = getJurisdictionInfo(selected);
                 return (
-                  <div className="flex items-center gap-2 h-10 px-3.5 rounded-xl border border-white/10 bg-[#0A0E17] text-xs font-medium text-slate-200">
+                  <div className="flex items-center gap-2 min-h-[42px] px-3.5 rounded-xl border border-white/10 bg-[#0A0E17] text-xs font-medium text-slate-200">
+                    <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">{info.label}</span>
                   </div>
                 );
@@ -272,7 +286,7 @@ export function NewCaseModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-slate-200 mb-1.5">
               {t("notesLabel")}
             </label>
             <textarea

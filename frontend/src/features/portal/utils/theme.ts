@@ -199,9 +199,9 @@ export function adjustColorForContrast(
   const { h, s, l } = rgbToHsl(rgb);
   let targetH = h;
   let targetS = s;
-  if (direction === "darker" && h >= 44 && h <= 64) {
-    targetH = Math.max(42, h - 6);
-    targetS = Math.max(s, 0.85);
+  if (direction === "darker" && h >= 44 && h <= 68) {
+    targetH = 35;
+    targetS = Math.max(s, 0.9);
   }
 
   let best: RgbColor = hslToRgb(
