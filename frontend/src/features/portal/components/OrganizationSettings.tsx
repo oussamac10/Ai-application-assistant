@@ -416,9 +416,9 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                 )}
               </div>
 
-              <div className="space-y-1.5 flex-1 text-start">
-                <h3 className="text-base font-bold text-slate-900">{org.name}</h3>
-                <p className="text-xs text-slate-500 font-mono">
+              <div className="space-y-1.5 flex-1 min-w-0 text-start">
+                <h3 className="text-base font-bold text-slate-900 break-words">{org.name}</h3>
+                <p className="text-xs text-slate-500 font-mono break-all">
                   Slug: <span className="text-indigo-600">/organizations/{org.slug}</span>
                 </p>
                 <p className="text-xs text-slate-500">

@@ -195,7 +195,7 @@ export function FormUploadModal({
                   handleFileChange(e.dataTransfer.files[0]);
                 }
               }}
-              className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+              className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all overflow-hidden ${
                 isDragOver
                   ? "border-blue-500 bg-blue-50/50"
                   : file
@@ -214,10 +214,12 @@ export function FormUploadModal({
                 }}
               />
               {file ? (
-                <div className="flex items-center justify-center gap-3">
+                <div className="flex items-center gap-3 min-w-0 max-w-full">
                   <FileText className="w-8 h-8 text-emerald-600 shrink-0" />
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-slate-800">{file.name}</p>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="text-sm font-semibold text-slate-800 break-all" title={file.name}>
+                      {file.name}
+                    </p>
                     <p className="text-xs text-slate-500">
                       {file.size < 1024
                         ? `${file.size} B`
@@ -227,7 +229,7 @@ export function FormUploadModal({
                       • Ready for field extraction
                     </p>
                   </div>
-                  <span className="ml-auto inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full text-emerald-700 bg-emerald-100">
+                  <span className="ml-auto shrink-0 inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full text-emerald-700 bg-emerald-100">
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                     PDF Attached
                   </span>

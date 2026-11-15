@@ -575,7 +575,7 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                       </span>
                     </div>
 
-                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight break-words">
                       {form.name}
                     </h3>
 

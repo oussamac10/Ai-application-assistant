@@ -205,7 +205,7 @@ export default function ShortLinkIntakePage() {
 
           {/* Title & Instructions */}
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight break-words">
               {form.name}
             </h1>
             {form.description && (

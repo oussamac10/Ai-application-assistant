@@ -79,7 +79,7 @@ export function ShareFormModal({
             <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <QrCode className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-base font-bold text-slate-900">
                 Share Form & Counter QR Code
               </h3>
@@ -102,12 +102,12 @@ export function ShareFormModal({
           <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
             Direct Permalinks for Citizens:
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <input
               type="text"
               readOnly
               value={fullShareUrl}
-              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none select-all"
+              className="min-w-0 flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none select-all"
             />
             <button
               type="button"
