@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Building2,
   ShieldCheck,
@@ -51,6 +51,8 @@ import {
   POPULAR_AUTHORITY_PALETTES,
   resolveThemeConfig,
   getContrastTextColor,
+  applyBrandThemeToDocument,
+  normalizeHexColor,
 } from "../utils/theme";
 import {
   getCurrentOrganization,
@@ -80,8 +82,28 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
   const [themeConfig, setThemeConfig] = useState<UIThemeConfig>(() =>
     resolveThemeConfig(initialOrg.ui_theme_config)
   );
+  const savedThemeConfigRef = useRef<UIThemeConfig | null | undefined>(
+    initialOrg.ui_theme_config
+  );
   const [savingTheme, setSavingTheme] = useState(false);
   const [themeSuccessMsg, setThemeSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== "layout") {
+      applyBrandThemeToDocument(savedThemeConfigRef.current, { persist: false });
+      return;
+    }
+    const rawPrimary = themeConfig.primary_color;
+    if (!rawPrimary || /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(rawPrimary.trim())) {
+      applyBrandThemeToDocument(themeConfig, { persist: false });
+    }
+  }, [activeTab, themeConfig]);
+
+  useEffect(() => {
+    return () => {
+      applyBrandThemeToDocument(savedThemeConfigRef.current, { persist: false });
+    };
+  }, []);
 
   // Profile Form state
   const [name, setName] = useState(initialOrg.name);
@@ -265,13 +287,24 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
     setSavingTheme(true);
     setErrorMsg(null);
     setThemeSuccessMsg(null);
+    const normalizedThemeConfig: UIThemeConfig = {
+      ...themeConfig,
+      primary_color: normalizeHexColor(themeConfig.primary_color),
+      accent_color: themeConfig.accent_color
+        ? normalizeHexColor(themeConfig.accent_color, normalizeHexColor(themeConfig.primary_color))
+        : undefined,
+    };
+    setThemeConfig(normalizedThemeConfig);
     try {
       const updated = await updateOrganizationProfile({
-        ui_theme_config: themeConfig,
+        ui_theme_config: normalizedThemeConfig,
       });
+      const persistedTheme = updated.ui_theme_config ?? normalizedThemeConfig;
+      savedThemeConfigRef.current = persistedTheme;
+      applyBrandThemeToDocument(persistedTheme, { persist: true });
       setOrg(updated);
       onOrgUpdated(updated);
-      refreshOrganization();
+      await refreshOrganization();
       setThemeSuccessMsg("Layout & Appearance settings saved successfully.");
       setTimeout(() => setThemeSuccessMsg(null), 4000);
     } catch (err: unknown) {
@@ -870,27 +903,50 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
             {/* 1. Authority Brand Colors & Palettes */}
             <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h4 className="text-sm font-bold text-white">Authority Brand Colors</h4>
                   <p className="text-xs text-slate-400">
                     Choose your main brand color or pick from preset color palettes.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setThemeConfig((prev) => ({
-                      ...prev,
-                      primary_color: DEFAULT_THEME_CONFIG.primary_color,
-                      accent_color: DEFAULT_THEME_CONFIG.accent_color,
-                    }))
-                  }
-                  className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white font-semibold"
-                >
-                  <RotateCcw className="w-3 h-3" /> Reset Colors
-                </button>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setThemeConfig((prev) => ({
+                        ...prev,
+                        primary_color: DEFAULT_THEME_CONFIG.primary_color,
+                        accent_color: DEFAULT_THEME_CONFIG.accent_color,
+                      }))
+                    }
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white font-semibold cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Reset Colors
+                  </button>
+                  {isOwnerOrAdmin && (
+                    <button
+                      type="submit"
+                      disabled={savingTheme}
+                      style={{
+                        backgroundColor: normalizeHexColor(themeConfig.primary_color),
+                        color: getContrastTextColor(normalizeHexColor(themeConfig.primary_color)),
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold shadow-xs hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{savingTheme ? "Saving..." : "Save Colors"}</span>
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {themeSuccessMsg && (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5 text-xs text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>{themeSuccessMsg}</span>
+                </div>
+              )}
 
               {/* Popular Swatches */}
               <div className="space-y-2">
@@ -941,7 +997,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     >
                       <input
                         type="color"
-                        value={themeConfig.primary_color || "#10B981"}
+                        value={normalizeHexColor(themeConfig.primary_color)}
                         onChange={(e) =>
                           setThemeConfig((prev) => ({ ...prev, primary_color: e.target.value }))
                         }
@@ -949,7 +1005,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       />
                       <div
                         className="w-full h-full transition-colors"
-                        style={{ backgroundColor: themeConfig.primary_color || "#10B981" }}
+                        style={{ backgroundColor: normalizeHexColor(themeConfig.primary_color) }}
                       />
                     </label>
 
@@ -979,7 +1035,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     >
                       <input
                         type="color"
-                        value={themeConfig.accent_color || "#34D399"}
+                        value={normalizeHexColor(themeConfig.accent_color, "#34D399")}
                         onChange={(e) =>
                           setThemeConfig((prev) => ({ ...prev, accent_color: e.target.value }))
                         }
@@ -987,7 +1043,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       />
                       <div
                         className="w-full h-full transition-colors"
-                        style={{ backgroundColor: themeConfig.accent_color || "#34D399" }}
+                        style={{ backgroundColor: normalizeHexColor(themeConfig.accent_color, "#34D399") }}
                       />
                     </label>
 
@@ -1165,7 +1221,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     onChange={(e) =>
                       setThemeConfig((prev) => ({ ...prev, show_metrics_strip: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded border-white/20 bg-[#0F1522] text-emerald-500 accent-emerald-500 focus:ring-emerald-500/30"
+                    style={{ accentColor: normalizeHexColor(themeConfig.primary_color) }}
+                    className="h-4 w-4 rounded border-white/20 bg-[#0F1522] focus:ring-emerald-500/30"
                   />
                 </div>
 
@@ -1185,7 +1242,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         show_authority_metadata: e.target.checked,
                       }))
                     }
-                    className="h-4 w-4 rounded border-white/20 bg-[#0F1522] text-emerald-500 accent-emerald-500 focus:ring-emerald-500/30"
+                    style={{ accentColor: normalizeHexColor(themeConfig.primary_color) }}
+                    className="h-4 w-4 rounded border-white/20 bg-[#0F1522] focus:ring-emerald-500/30"
                   />
                 </div>
 
@@ -1202,7 +1260,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                     onChange={(e) =>
                       setThemeConfig((prev) => ({ ...prev, show_portal_link: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded border-white/20 bg-[#0F1522] text-emerald-500 accent-emerald-500 focus:ring-emerald-500/30"
+                    style={{ accentColor: normalizeHexColor(themeConfig.primary_color) }}
+                    className="h-4 w-4 rounded border-white/20 bg-[#0F1522] focus:ring-emerald-500/30"
                   />
                 </div>
               </div>
@@ -1533,8 +1592,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         return (
                           <div key="metrics" className="grid grid-cols-4 gap-2">
                             {[
-                              { label: "Total Forms", val: "12", color: themeConfig.primary_color || "#10B981" },
-                              { label: "Live in Portal", val: "8", color: "#10B981" },
+                              { label: "Total Forms", val: "12", color: normalizeHexColor(themeConfig.primary_color) },
+                              { label: "Live in Portal", val: "8", color: normalizeHexColor(themeConfig.primary_color) },
                               { label: "Needs Review", val: "2", color: "#F59E0B" },
                               { label: "Archived", val: "2", color: "#64748B" },
                             ].map((m, i) => (
@@ -1656,8 +1715,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   type="submit"
                   disabled={savingTheme}
                   style={{
-                    backgroundColor: themeConfig.primary_color || "#10b981",
-                    color: getContrastTextColor(themeConfig.primary_color || "#10b981"),
+                    backgroundColor: normalizeHexColor(themeConfig.primary_color),
+                    color: getContrastTextColor(normalizeHexColor(themeConfig.primary_color)),
                   }}
                   className="px-5 py-2 rounded-xl text-xs font-bold shadow-sm inline-flex items-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
                 >

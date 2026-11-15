@@ -293,7 +293,7 @@ export default function ShortLinkIntakePage() {
               type="button"
               disabled={isStarting}
               onClick={handleStart}
-              className="w-full flex items-center justify-center gap-2.5 py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] text-slate-950 text-base font-bold shadow-[0_0_24px_-4px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 cursor-pointer"
+              className="w-full flex items-center justify-center gap-2.5 py-4 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] text-slate-950 text-base font-bold shadow-[0_0_24px_-4px_rgb(var(--brand-500-rgb)/0.4)] transition-all disabled:opacity-50 cursor-pointer"
             >
               {isStarting ? (
                 <>

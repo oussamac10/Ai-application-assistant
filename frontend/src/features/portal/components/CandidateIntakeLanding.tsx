@@ -27,7 +27,11 @@ import {
   verifyCandidateInviteOtp,
 } from "../services/portalClient";
 import { CandidateIntakeInfo, CandidateInviteInspectInfo } from "../types";
-import { getContrastTextColor } from "../utils/theme";
+import {
+  applyBrandThemeToDocument,
+  getContrastTextColor,
+  hydratePersistedBrandTheme,
+} from "../utils/theme";
 
 interface CandidateIntakeLandingProps {
   token: string;
@@ -107,6 +111,18 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
       cancelled = true;
     };
   }, [token]);
+
+  const orgThemeConfig =
+    unlockedIntake?.organization?.ui_theme_config ??
+    inspectInfo?.organization?.ui_theme_config;
+
+  useEffect(() => {
+    if (!orgThemeConfig) return;
+    applyBrandThemeToDocument(orgThemeConfig, { persist: false });
+    return () => {
+      hydratePersistedBrandTheme();
+    };
+  }, [orgThemeConfig]);
 
   const handleSendOtp = async () => {
     if (sendingOtp) return;
@@ -421,7 +437,7 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
                     data-testid="send-invite-otp-btn"
                     onClick={handleSendOtp}
                     disabled={sendingOtp}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 px-5 text-sm font-bold text-slate-950 shadow-[0_0_24px_-4px_rgba(16,185,129,0.4)] hover:bg-emerald-400 disabled:opacity-50 transition-all cursor-pointer"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 px-5 text-sm font-bold text-slate-950 shadow-[0_0_24px_-4px_rgb(var(--brand-500-rgb)/0.4)] hover:bg-emerald-400 disabled:opacity-50 transition-all cursor-pointer"
                   >
                     {sendingOtp ? (
                       <>
@@ -469,7 +485,7 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
                       type="submit"
                       data-testid="verify-invite-otp-btn"
                       disabled={verifyingOtp || otpCode.length !== 6}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 px-5 text-sm font-bold text-slate-950 shadow-[0_0_24px_-4px_rgba(16,185,129,0.4)] hover:bg-emerald-400 disabled:opacity-50 transition-all cursor-pointer"
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 px-5 text-sm font-bold text-slate-950 shadow-[0_0_24px_-4px_rgb(var(--brand-500-rgb)/0.4)] hover:bg-emerald-400 disabled:opacity-50 transition-all cursor-pointer"
                     >
                       {verifyingOtp ? (
                         <>
@@ -549,7 +565,7 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
                   type="button"
                   onClick={handleStartSession}
                   disabled={starting}
-                  className="w-full rounded-2xl bg-emerald-500 py-3.5 text-sm font-bold text-slate-950 shadow-[0_0_24px_-4px_rgba(16,185,129,0.4)] hover:bg-emerald-400 active:scale-[0.99] disabled:opacity-50 transition-all text-center cursor-pointer"
+                  className="w-full rounded-2xl bg-emerald-500 py-3.5 text-sm font-bold text-slate-950 shadow-[0_0_24px_-4px_rgb(var(--brand-500-rgb)/0.4)] hover:bg-emerald-400 active:scale-[0.99] disabled:opacity-50 transition-all text-center cursor-pointer"
                 >
                   {starting ? t("starting") : t("startAssistedSession")}
                 </button>

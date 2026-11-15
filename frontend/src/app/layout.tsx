@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     "Read official PDFs in your own language, answer simple guided questions, and download cleanly filled forms.",
 };
 
-const themeInitScript = `(function(){try{var t=localStorage.getItem("formflow-theme");var m=t==="light"?"light":"dark";var d=document.documentElement;d.classList.remove("light","dark");d.classList.add(m);d.dataset.theme=m;d.style.colorScheme=m;}catch(e){}})();`;
+const themeInitScript = `(function(){try{var t=localStorage.getItem("formflow-theme");var m=t==="light"?"light":"dark";var d=document.documentElement;d.classList.remove("light","dark");d.classList.add(m);d.dataset.theme=m;d.style.colorScheme=m;var b=localStorage.getItem("formflow-brand-theme");if(b){var p=JSON.parse(b);if(p&&p.vars){for(var k in p.vars){if(Object.prototype.hasOwnProperty.call(p.vars,k)&&k.indexOf("--brand-")===0){d.style.setProperty(k,p.vars[k]);}}d.dataset.brandCustom="true";}}}catch(e){}})();`;
 
 export default function RootLayout({
   children,

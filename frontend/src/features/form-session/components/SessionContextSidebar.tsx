@@ -70,7 +70,7 @@ export function SessionContextSidebar({
             </div>
             <div className="h-1.5 w-full rounded-full bg-[#0A0E17] overflow-hidden border border-white/10">
               <div
-                className="h-full rounded-full bg-emerald-500 transition-all duration-300 shadow-[0_0_10px_rgba(16,185,129,0.45)]"
+                className="h-full rounded-full bg-emerald-500 transition-all duration-300 shadow-[0_0_10px_rgb(var(--brand-500-rgb)/0.45)]"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -167,7 +167,7 @@ export function SessionContextSidebar({
                             width: `${widthPct}%`,
                             height: `${heightPct}%`,
                           }}
-                          className="pointer-events-none absolute rounded-[2px] border-2 border-emerald-500 bg-emerald-500/25 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none shadow-[0_0_12px_rgba(16,185,129,0.35)] transition-all duration-300"
+                          className="pointer-events-none absolute rounded-[2px] border-2 border-emerald-500 bg-emerald-500/25 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.35)] transition-all duration-300"
                         />
                       )}
                       <span
@@ -198,7 +198,7 @@ export function SessionContextSidebar({
                       left: `${leftPct}%`,
                       width: `${widthPct}%`,
                     }}
-                    className="absolute h-4 rounded-[2px] border-2 border-emerald-500 bg-emerald-500/20 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none flex items-center px-1 transition-all duration-300 shadow-[0_0_8px_rgba(16,185,129,0.35)]"
+                    className="absolute h-4 rounded-[2px] border-2 border-emerald-500 bg-emerald-500/20 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none flex items-center px-1 transition-all duration-300 shadow-[0_0_8px_rgb(var(--brand-500-rgb)/0.35)]"
                   >
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                   </div>
@@ -372,7 +372,7 @@ export function SessionContextSidebar({
                             width: `${widthPct}%`,
                             height: `${heightPct}%`,
                           }}
-                          className="pointer-events-none absolute rounded-[2px] border-2 border-emerald-500 bg-emerald-500/25 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none shadow-[0_0_16px_rgba(16,185,129,0.4)]"
+                          className="pointer-events-none absolute rounded-[2px] border-2 border-emerald-500 bg-emerald-500/25 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none shadow-[0_0_16px_rgb(var(--brand-500-rgb)/0.4)]"
                         />
                       )}
                     </div>

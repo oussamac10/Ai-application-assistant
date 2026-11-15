@@ -26,48 +26,42 @@ Production-ready, multilingual SaaS platform for **B2B relocation agencies, inte
   - **Dual-Theme System (Aikido Obsidian Dark + Daylight Light Mode)**: Added flash-free `ThemeProvider` (`formflow-theme`), `ThemeToggle` (`Sun`/`Moon` icon & segmented pill in `Navbar`, `Sidebar`, and `AppShell` mobile bar), `html.light` WCAG 2.2 AA CSS variable + `[data-theme-locked="dark"]` surface/contrast engine, and 8-locale `nav.*` translation parity (`ThemeProvider.test.tsx` 4 tests passing).
   - **Aikido-Inspired Obsidian & Emerald Frontend Overhaul**: Unified dark obsidian (`#0A0E17` / `#0F1522`) & emerald (`#10B981`) design system with `prefers-reduced-motion`-safe scan/reveal animations, rebuilt obsidian error/loading/not-found boundaries, and international worldwide copy/defaults across all portals, modals, auth/account, and guided session pages.
   - **Plain-Language UI Overhaul**: Removed version badges, internal keys/slugs, raw coordinates, and developer jargon across all routes/components with 100% key + `{placeholder}` parity across all 8 locale files.
-  - Single Alembic head (`h9c0d1e2f3a4`), `ruff check/format`, `mypy app` (237 files), `pytest` on `ai_form_assistant_test` (1,106 passed, 1 skipped), `tsc --noEmit`, `next lint`, `vitest run` (45 files, 314 passed), `next build`, Playwright E2E `user-accounts-persistent-sessions-flow.spec.ts` (2 passed).
+  - **Table-Per-Row Validation Fix, Choice-in-Row Grouping & Zero-PII Continual Schema Learning**: Fixed row validation errors (`fieldId`, multilingual countries/choices/numbers/dates), added atomic `table-rows/submit` & `table-rows/skip`, per-row PDF table & intra-row checkbox extraction with `option_boxes` export, Review Studio multi-select grouping & row sync, and Zero-PII `learned_form_patterns` (migration `i0d1e2f3a4b5`; verified: `1111 passed, 1 skipped`, `318 passed`).
+  - **System-Wide Dynamic Authority Brand Color Engine & WCAG Contrast**: Runtime `--brand-*` CSS variables & Tailwind `emerald-*` token bindings (`theme.ts`, `tailwind.config.ts`, `globals.css`, `layout.tsx`, `OrganizationContext.tsx`, `OrganizationSettings.tsx`, `Sidebar.tsx`, public/intake portals, Review Studio, Session, Upload) enforcing WCAG 2.2 AA Light & Dark contrast + solid-button foreground (`--brand-on-solid`) across all 8 preset palettes and custom hex inputs (`brandThemeEngine.test.tsx`: `3 passed`, `vitest run`: `48 files, 321 tests passed`, `next build`, Playwright `2 passed`).
+  - Single Alembic head (`i0d1e2f3a4b5`), `ruff check/format`, `mypy app` (241 files), `pytest` on `ai_form_assistant_test`, `tsc --noEmit`, `next lint`, `vitest run`, `next build`, Playwright E2E `user-accounts-persistent-sessions-flow.spec.ts` (2 passed).
 
 ---
 
-## Current Task: Table-Per-Row Validation Fix, Choice-in-Row Grouping & Zero-PII Continual Schema Learning
+## Current Task: System-Wide Dynamic Authority Brand Color Engine & WCAG Contrast
 
 - **Goal**:
-  1. Fix table-row validation bugs (`"validation"` banner from `field_key` vs UUID mismatch, `country`/`number`/`choice` normalization & validation, and missing Row 1 Applicant fields), add atomic batch row submit/skip endpoints, and align `TableRowGroupCard` with Light/Dark theme + 8-locale i18n.
-  2. Upgrade PDF extraction & export to detect table structures per row, bundle intra-row & grouped checkboxes into `single_choice`/`multiple_choice` fields with `option_boxes`, distinguish Row 1 (`applicant`) vs Rows 2..N (`member`, no applicant Vault leakage), and tick exact `option_boxes` on PDF export.
-  3. Add interactive row selection & choice controls in both **Review Studio** (collapsible table row groups, row tabs, canvas row highlight, Shift-click / multi-select "Combine into Choice Question" & "Group as Table Row", inline options editor, "Apply Row 1 settings to all rows") and **Guided Session** (clickable row selector pills, 1-tap choice pills inside rows, "Skip remaining empty rows").
-  4. Add Zero-PII **Continual Schema Learning** (`learned_form_patterns` table, migration `i0d1e2f3a4b5`) capturing admin/agency table, choice, and field curations (without any applicant PII) to improve future PDF detections, auto-mapping, and citizen field resolution.
+  - Make Authority Brand Colors (`ui_theme_config.primary_color` & `accent_color`) control the entire system UI cleanly (Sidebar, ThemeToggle, Account/Settings tabs, Portal Dashboard, Review Studio, Public Portal, Candidate Intake, Guided Session) instead of falling back to hardcoded emerald green, while maintaining WCAG 2.2 AA contrast in both Light and Dark mode.
 - **Acceptance Criteria**:
-  - Submitting valid or partially skipped rows in `TableRowGroupCard` (including `"German"`/`"Deutsch"` nationality, `choice` options, numbers, and empty optional cells) succeeds without generic `"validation"` errors and shows localized per-field errors if any cell is invalid.
-  - Uploading multi-row/checkbox PDFs (such as Stuttgart WBS) groups table fields per row (including Row 1 Applicant) and bundles adjacent checkboxes (`ja`/`nein`, `m`/`w`/`d`) into choice fields whose selected PDF checkboxes get ticked on export.
-  - Review Studio supports collapsible table groups, row tabs, multi-select combine-into-choice & group-as-table-row actions, option editing, and bulk row column sync.
-  - Guided Session supports clickable row tabs, 1-tap compact choice buttons in table rows, and "Skip remaining empty rows".
-  - `learned_form_patterns` (Zero-PII) records agency/admin curations and improves future similar PDF extractions (`hash` -> `Jaccard` -> `EmbeddingProvider`), while passing `ruff`, `mypy`, isolated `pytest`, `typecheck`, `lint`, `vitest`, `next build`, and Playwright E2E.
+  - Selecting or saving any palette (e.g., Sovereign Gold `#FEDB00`, Civic Navy `#1E3A8A`, Crimson Seal `#E11D48`) or custom hex dynamically updates `--brand-*` RGB tokens across Tailwind `emerald-*` utilities and `globals.css` Light/Dark tokens with live preview while editing.
+  - Light-mode text (`--brand-700-rgb`), Dark-mode text (`--brand-400-rgb`), Light-mode borders (`--brand-border-light-rgb`), and solid-button foreground (`--brand-on-solid`) meet WCAG 2.2 AA contrast thresholds across all presets.
+  - Full frontend verification gate (`typecheck`, `lint`, `vitest`, `next build`, Playwright E2E) passes on `feature/dynamic-authority-brand-theming`.
 - **Planned Steps**:
-  - [x] Fix backend `country`/`number`/`choice` normalization & validation (`normalization.py`, `validation.py`).
-  - [x] Add `field_id`, `placeholder`, `rows_overview`, explicit `configuration["table"]` priority, and atomic `table-rows/submit` & `table-rows/skip` endpoints (`answers/schemas.py`, `services.py`, `routes.py`).
-  - [x] Add `LearnedFormPattern` model, Alembic migration `i0d1e2f3a4b5`, and Zero-PII `FormPatternLearningService`.
-  - [x] Upgrade `pdf_field_extractor.py`, `organization_service.py`, `organizations/api/routes.py`, `auto_mapper.py`, `question_bridge.py`, and `dynamic_overlay.py` (`option_boxes` export + table/choice extraction + learning hooks).
-  - [x] Add backend unit & integration tests and verify isolated `pytest`, `ruff`, and `mypy`.
-  - [x] Upgrade Guided Session UX (`apiClient.ts`, `FieldRenderer.tsx`, `TableRowGroupCard.tsx`, `session/[sessionId]/page.tsx`) + all 8 `frontend/messages/*.json`.
-  - [x] Upgrade Review Studio UX (`portal/types.ts`, `portalClient.ts`, `ReviewStudioFieldCard.tsx`, `ReviewStudioTableGroupCard.tsx`, `ReviewStudioCanvas.tsx`, `FormSchemaReviewStudio.tsx`).
-  - [x] Add frontend Vitest suites and run full verification gate (`typecheck`, `lint`, `vitest`, `build`, Playwright E2E, `graphify update .`) + commit on feature branch.
-- **Files Expected to Change**:
-  - `backend/app/answers/{normalization/normalization,validation/validation,schemas,services,api/routes}.py`
-  - `backend/app/forms/{learning_models,learning_service,pdf_field_extractor,organization_service,auto_mapper,schemas}.py`
-  - `backend/app/organizations/api/routes.py`, `backend/app/field_detection/question_bridge.py`, `backend/app/pdf/dynamic_overlay.py`
-  - `backend/migrations/env.py`, `backend/migrations/versions/i0d1e2f3a4b5_add_learned_form_patterns.py`
-  - `frontend/src/features/form-session/{services/apiClient.ts,components/FieldRenderer.tsx,components/TableRowGroupCard.tsx}` & `frontend/src/app/application/session/[sessionId]/page.tsx`
-  - `frontend/src/features/portal/{types.ts,services/portalClient.ts,components/FormSchemaReviewStudio.tsx,components/review-studio/*}`
-  - `frontend/messages/{en,de,fr,ar,tr,uk,es,ru}.json`, `docs/{DATABASE_DESIGN,AI_PIPELINE}.md`, backend & frontend test suites.
+  - [x] Build dynamic `--brand-*` palette & WCAG contrast generator + DOM persistence in `frontend/src/features/portal/utils/theme.ts`.
+  - [x] Wire `tailwind.config.ts` (`darkMode: "class"` + dynamic `rgb(var(--brand-...))` tokens), `layout.tsx` anti-flash script, and `globals.css` (`:root` + `html.light` contrast, translucent borders/rings & solid foreground overrides).
+  - [x] Sync `OrganizationContext.tsx`, `OrganizationSettings.tsx` (live preview + top Save Colors button + revert on unsaved unmount), `Sidebar.tsx`, `PublicOrganizationPortal.tsx`, `CandidateIntakeLanding.tsx`, and hardcoded glow/color usages across components.
+  - [x] Add `brandThemeEngine.test.tsx` WCAG & live-preview tests and pass `typecheck`, `lint`, `vitest`, `next build`, Playwright E2E, and `graphify update .`.
+- **Files Changed**:
+  - `frontend/src/features/portal/utils/theme.ts`, `frontend/tailwind.config.ts`, `frontend/src/app/layout.tsx`, `frontend/src/app/globals.css`
+  - `frontend/src/features/portal/context/OrganizationContext.tsx`, `frontend/src/features/portal/components/OrganizationSettings.tsx`, `frontend/src/components/Sidebar.tsx`
+  - `frontend/src/features/portal/components/{PublicOrganizationPortal,CandidateIntakeLanding,PortalDashboard,FormSchemaReviewStudio}.tsx`
+  - `frontend/src/features/portal/components/review-studio/{ReviewStudioCanvas,ReviewStudioFieldCard}.tsx`
+  - `frontend/src/features/form-session/components/SessionContextSidebar.tsx`, `frontend/src/app/application/session/[sessionId]/page.tsx`, `frontend/src/components/Navbar.tsx`, `frontend/src/features/document-upload/components/DocumentUploadForm.tsx`, `frontend/src/app/f/[...slug]/page.tsx`
+  - `frontend/src/features/portal/tests/brandThemeEngine.test.tsx`, `TODO.md`
 - **Decisions and Assumptions**:
-  - Standalone `single_choice` continues rendering `<select>` unless `compactChoicePills` is enabled (preserving existing UI contracts).
-  - `_detect_geometric_table_row` preserves `<= 10.0` tolerance for backwards compatibility while `configuration["table"]` carries authoritative multi-row bindings.
-  - Learning table is 100% Zero-PII (schema labels, headers, options, Vault keys, and normalized structure only).
+  - Semantic CSS variables reuse Tailwind's existing `emerald-*` scale (`rgb(var(--brand-50..950-rgb) / <alpha-value>)`) so all 1,300+ emerald utilities dynamically adopt the organization's brand palette without risky mass class rewrites.
+  - Non-brand status semantics (`rose`, `amber`, `sky`) remain unchanged for error/warning/info clarity.
 - **Blockers**: None.
 - **Verification**:
-  - Backend: `ruff check .` (`All checks passed!`), `ruff format --check .` (`344 files already formatted`), `mypy app` (`Success: no issues found in 241 source files`), isolated `pytest -q` on `ai_form_assistant_test` (`1111 passed, 1 skipped`).
-  - Frontend: `npm run typecheck` (`tsc --noEmit` exit `0`), `npm run lint` (`✔ No ESLint warnings or errors`), `CI=1 npx vitest run` (`47 passed (47)`, `318 passed (318)`), `npm run build` (`✓ Compiled successfully`, `18/18` static pages), Playwright `e2e/user-accounts-persistent-sessions-flow.spec.ts` (`2 passed` in `13.5s`), 8-locale parity check (`492` keys across all 8 locales).
+  - `cd frontend && npm run typecheck` (`tsc --noEmit` passed)
+  - `cd frontend && npm run lint` (`next lint` — no ESLint warnings or errors)
+  - `cd frontend && CI=1 npx vitest run` (`48 test files passed (48)`, `321 tests passed (321)`, including `brandThemeEngine.test.tsx` 3 passed)
+  - `cd frontend && npm run build` (`next build` compiled successfully, 18/18 static pages)
+  - `cd frontend && npx playwright test e2e/user-accounts-persistent-sessions-flow.spec.ts` (`2 passed (14.0s)`)
 
 ---
 

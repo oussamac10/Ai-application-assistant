@@ -136,7 +136,7 @@ export default function Navbar() {
             href="/"
             className="group flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-none"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)] transition-colors group-hover:border-emerald-500/50 group-hover:bg-emerald-500/20">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.25)] transition-colors group-hover:border-emerald-500/50 group-hover:bg-emerald-500/20">
               <FileText className="h-4 w-4" />
             </div>
             <div className="flex items-center gap-2">
@@ -450,7 +450,7 @@ export default function Navbar() {
                   </Link>
                   <Link
                     href="/register"
-                    className="inline-flex h-9 items-center whitespace-nowrap rounded-lg bg-emerald-500 px-3.5 text-xs font-bold text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-colors hover:bg-emerald-400"
+                    className="inline-flex h-9 items-center whitespace-nowrap rounded-lg bg-emerald-500 px-3.5 text-xs font-bold text-slate-950 shadow-[0_0_15px_rgb(var(--brand-500-rgb)/0.3)] transition-colors hover:bg-emerald-400"
                   >
                     {tAuth("registerLink")}
                   </Link>

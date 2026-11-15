@@ -387,7 +387,7 @@ export default function DocumentUploadForm({
         <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-[#0A0E17] p-8 space-y-4">
           <div className="w-full bg-[#151D2E] border border-white/[0.08] h-2 rounded-full overflow-hidden">
             <div
-              className="bg-emerald-500 h-full rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(16,185,129,0.5)]"
+              className="bg-emerald-500 h-full rounded-full transition-all duration-300 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.5)]"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
@@ -425,7 +425,7 @@ export default function DocumentUploadForm({
             </div>
 
             {/* Pulsating Detected Boxes */}
-            <div className="absolute top-[18%] inset-x-4 h-[12%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+            <div className="absolute top-[18%] inset-x-4 h-[12%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.15)]">
               <span className="text-[10px] font-bold text-emerald-300">
                 Full Name
               </span>
@@ -434,7 +434,7 @@ export default function DocumentUploadForm({
               </span>
             </div>
 
-            <div className="absolute top-[35%] start-4 w-[43%] h-[11%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+            <div className="absolute top-[35%] start-4 w-[43%] h-[11%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2 z-10 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.15)]">
               <span className="text-[10px] font-bold text-emerald-300 truncate">
                 Date of Birth
               </span>
@@ -443,7 +443,7 @@ export default function DocumentUploadForm({
               </span>
             </div>
 
-            <div className="absolute top-[35%] end-4 w-[43%] h-[11%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+            <div className="absolute top-[35%] end-4 w-[43%] h-[11%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2 z-10 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.15)]">
               <span className="text-[10px] font-bold text-emerald-300 truncate">
                 Nationality
               </span>
@@ -452,7 +452,7 @@ export default function DocumentUploadForm({
               </span>
             </div>
 
-            <div className="absolute top-[52%] inset-x-4 h-[12%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+            <div className="absolute top-[52%] inset-x-4 h-[12%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.15)]">
               <span className="text-[10px] font-bold text-emerald-300">
                 Home Address
               </span>
@@ -461,7 +461,7 @@ export default function DocumentUploadForm({
               </span>
             </div>
 
-            <div className="absolute bottom-4 inset-x-4 h-[18%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+            <div className="absolute bottom-4 inset-x-4 h-[18%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.15)]">
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-bold text-emerald-300">
                   Signature
@@ -473,7 +473,7 @@ export default function DocumentUploadForm({
             </div>
 
             {/* Animated Emerald Scan Beam sweeping down */}
-            <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_16px_#10B981,0_0_8px_#34D399] animate-laser-scan motion-reduce:animate-none pointer-events-none z-20" />
+            <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_16px_rgb(var(--brand-500-rgb)),0_0_8px_rgb(var(--brand-400-rgb))] animate-laser-scan motion-reduce:animate-none pointer-events-none z-20" />
           </div>
 
           {/* Progress message and spinner */}

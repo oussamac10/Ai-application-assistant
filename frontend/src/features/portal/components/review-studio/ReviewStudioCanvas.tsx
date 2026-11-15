@@ -319,13 +319,13 @@ export function ReviewStudioCanvas({
                       : "rounded border-2 p-0.5 overflow-hidden flex items-start"
                   } ${
                     isCurrentlyMoving
-                      ? "border-emerald-400 bg-emerald-500/35 ring-2 ring-emerald-500/80 shadow-[0_0_16px_rgba(16,185,129,0.35)] z-30 cursor-grabbing"
+                      ? "border-emerald-400 bg-emerald-500/35 ring-2 ring-emerald-500/80 shadow-[0_0_16px_rgb(var(--brand-500-rgb)/0.35)] z-30 cursor-grabbing"
                       : isMultiSelected
                         ? "border-sky-400 bg-sky-500/25 ring-2 ring-sky-400/75 z-25 cursor-pointer"
                         : isHighlighted
-                          ? "border-emerald-400 bg-emerald-500/20 ring-2 ring-emerald-500/80 shadow-[0_0_12px_rgba(16,185,129,0.2)] z-20 cursor-grab"
+                          ? "border-emerald-400 bg-emerald-500/20 ring-2 ring-emerald-500/80 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.2)] z-20 cursor-grab"
                           : isActiveRowCell
-                            ? "border-teal-400 bg-teal-500/20 ring-1 ring-teal-400/60 z-15 cursor-grab"
+                            ? "border-emerald-300 bg-emerald-400/20 ring-1 ring-emerald-400/60 z-15 cursor-grab"
                             : "border-emerald-500/50 bg-emerald-500/10 hover:border-emerald-400 hover:bg-emerald-500/20 z-10 cursor-grab"
                   }`}
                   title={`[${idx + 1}] ${primaryLabel} (Drag to move, use handles to resize)`}

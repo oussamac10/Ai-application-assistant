@@ -25,6 +25,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import {
   resolveThemeConfig,
   getContrastTextColor,
+  normalizeHexColor,
 } from "@/features/portal/utils/theme";
 import {
   UNIVERSAL_LANGUAGES,
@@ -100,7 +101,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   // Always honor the user's global light/dark toggle first
   const isLight = appTheme === "light";
   const isHeraldic = appTheme !== "light" && theme.sidebar_theme === "heraldic";
-  const primaryColor = theme.primary_color;
+  const primaryColor = normalizeHexColor(theme.primary_color);
   const activeTextColor = getContrastTextColor(primaryColor);
 
   const orgName = org?.name || "My Organization";
@@ -158,11 +159,19 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   const sidebarContent = (
     <div
+      style={
+        isHeraldic
+          ? {
+              backgroundImage: `linear-gradient(180deg, ${primaryColor}22 0%, transparent 65%)`,
+              borderColor: `${primaryColor}33`,
+            }
+          : undefined
+      }
       className={`flex h-full w-full min-w-0 max-w-full flex-col justify-between overflow-hidden border-e transition-colors ${
         isLight
           ? "bg-white text-slate-800 border-slate-200"
           : isHeraldic
-          ? "bg-[#0b1329] text-slate-100 border-[#1c2c54]"
+          ? "bg-[#0B0F19] text-slate-100 border-[#161F30]"
           : "bg-[#0B0F19] text-slate-200 border-[#161F30]"
       }`}
     >

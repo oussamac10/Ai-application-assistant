@@ -669,7 +669,7 @@ export default function GuidedSession() {
                 {/* Animated Step Progress Rail */}
                 <div className="h-2 w-full rounded-full bg-[#151D2E] overflow-hidden border border-white/10 shadow-inner">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 transition-all duration-500 ease-out motion-reduce:transition-none shadow-[0_0_12px_rgba(16,185,129,0.5)] relative overflow-hidden"
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-emerald-300 to-emerald-400 transition-all duration-500 ease-out motion-reduce:transition-none shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.5)] relative overflow-hidden"
                     style={{ width: `${progressPercent}%` }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer motion-reduce:animate-none" />

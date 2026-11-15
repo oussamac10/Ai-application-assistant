@@ -1139,7 +1139,7 @@ export function FormSchemaReviewStudio({
                   type="button"
                   onClick={handlePublish}
                   disabled={saving || publishing}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-[0_0_15px_rgba(16,185,129,0.35)] transition-all disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-[0_0_15px_rgb(var(--brand-500-rgb)/0.35)] transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {publishing ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

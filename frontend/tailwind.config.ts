@@ -2,6 +2,7 @@ import type { Config } from "tailwindcss";
 import plugin from "tailwindcss/plugin";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -36,13 +37,17 @@ const config: Config = {
           3: "var(--bg-surface-3)",
         },
         emerald: {
-          300: "#6EE7B7",
-          400: "#34D399",
-          500: "#10B981",
-          600: "#059669",
-          700: "#047857",
-          800: "#065F46",
-          900: "#064E3B",
+          50: "rgb(var(--brand-50-rgb) / <alpha-value>)",
+          100: "rgb(var(--brand-100-rgb) / <alpha-value>)",
+          200: "rgb(var(--brand-200-rgb) / <alpha-value>)",
+          300: "rgb(var(--brand-300-rgb) / <alpha-value>)",
+          400: "rgb(var(--brand-400-rgb) / <alpha-value>)",
+          500: "rgb(var(--brand-500-rgb) / <alpha-value>)",
+          600: "rgb(var(--brand-600-rgb) / <alpha-value>)",
+          700: "rgb(var(--brand-700-rgb) / <alpha-value>)",
+          800: "rgb(var(--brand-800-rgb) / <alpha-value>)",
+          900: "rgb(var(--brand-900-rgb) / <alpha-value>)",
+          950: "rgb(var(--brand-950-rgb) / <alpha-value>)",
         },
         brand: {
           50: "#eef2ff",
@@ -58,9 +63,9 @@ const config: Config = {
         xs: "var(--shadow-xs, 0 1px 2px 0 rgba(0, 0, 0, 0.5), 0 1px 3px 0 rgba(0, 0, 0, 0.4))",
         panel: "var(--shadow-panel, 0 1px 0 0 rgba(255, 255, 255, 0.08) inset, 0 20px 40px -15px rgba(0, 0, 0, 0.7))",
         card: "var(--shadow-card, 0 1px 0 0 rgba(255, 255, 255, 0.06) inset, 0 8px 24px -8px rgba(0, 0, 0, 0.6))",
-        "btn-primary": "0 1px 0 0 rgba(255, 255, 255, 0.25) inset, 0 2px 8px 0 rgba(16, 185, 129, 0.35)",
-        "emerald-glow": "0 0 24px -4px rgba(16, 185, 129, 0.35)",
-        "emerald-glow-sm": "0 0 12px -2px rgba(16, 185, 129, 0.25)",
+        "btn-primary": "0 1px 0 0 rgba(255, 255, 255, 0.25) inset, 0 2px 8px 0 rgb(var(--brand-500-rgb) / 0.35)",
+        "emerald-glow": "0 0 24px -4px rgb(var(--brand-500-rgb) / 0.35)",
+        "emerald-glow-sm": "0 0 12px -2px rgb(var(--brand-500-rgb) / 0.25)",
       },
       keyframes: {
         fadeIn: {
@@ -92,8 +97,8 @@ const config: Config = {
           "100%": { transform: "translateX(100%)" },
         },
         pulseGlow: {
-          "0%, 100%": { opacity: "1", boxShadow: "0 0 15px rgba(16, 185, 129, 0.45)" },
-          "50%": { opacity: "0.6", boxShadow: "0 0 5px rgba(16, 185, 129, 0.15)" },
+          "0%, 100%": { opacity: "1", boxShadow: "0 0 15px rgb(var(--brand-500-rgb) / 0.45)" },
+          "50%": { opacity: "0.6", boxShadow: "0 0 5px rgb(var(--brand-500-rgb) / 0.15)" },
         },
         laserScan: {
           "0%": { top: "0%", opacity: "0" },
@@ -107,8 +112,8 @@ const config: Config = {
           "100%": { transform: "scale(1.25)", opacity: "0" },
         },
         glowPulse: {
-          "0%, 100%": { opacity: "1", boxShadow: "0 0 20px -3px rgba(16, 185, 129, 0.4)" },
-          "50%": { opacity: "0.6", boxShadow: "0 0 8px 0 rgba(16, 185, 129, 0.15)" },
+          "0%, 100%": { opacity: "1", boxShadow: "0 0 20px -3px rgb(var(--brand-500-rgb) / 0.4)" },
+          "50%": { opacity: "0.6", boxShadow: "0 0 8px 0 rgb(var(--brand-500-rgb) / 0.15)" },
         },
         enter: {
           "0%": {
@@ -155,7 +160,7 @@ const config: Config = {
           borderColor: "var(--border-default, rgba(255, 255, 255, 0.08))",
         },
         ".border-hairline-emerald": {
-          borderColor: "rgba(16, 185, 129, 0.25)",
+          borderColor: "rgb(var(--brand-500-rgb) / 0.25)",
         },
         ".bg-grid-aikido": {
           backgroundImage: `radial-gradient(var(--grid-dot-color, rgba(255, 255, 255, 0.07)) 1px, transparent 1px)`,

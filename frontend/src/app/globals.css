@@ -5,6 +5,21 @@
 @tailwind utilities;
 
 :root {
+  /* Dynamic Organization Brand RGB Channels (default: Aikido Emerald) */
+  --brand-50-rgb: 236 253 245;
+  --brand-100-rgb: 209 250 229;
+  --brand-200-rgb: 167 243 208;
+  --brand-300-rgb: 110 231 183;
+  --brand-400-rgb: 52 211 153;
+  --brand-500-rgb: 16 185 129;
+  --brand-600-rgb: 5 150 105;
+  --brand-700-rgb: 4 120 87;
+  --brand-800-rgb: 6 95 70;
+  --brand-900-rgb: 6 78 59;
+  --brand-950-rgb: 2 44 34;
+  --brand-border-light-rgb: 5 150 105;
+  --brand-on-solid: #0f172a;
+
   /* Aikido Obsidian / Midnight Design System Tokens */
   --bg-canvas: #0A0E17;
   --bg-surface-1: #0F1522;
@@ -16,9 +31,9 @@
   --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
-  --accent-primary: #10B981;
-  --accent-hover: #34D399;
-  --ring-focus: #10B981;
+  --accent-primary: rgb(var(--brand-500-rgb));
+  --accent-hover: rgb(var(--brand-400-rgb));
+  --ring-focus: rgb(var(--brand-500-rgb));
   --background: var(--bg-canvas);
   --foreground: var(--text-primary);
 
@@ -47,9 +62,9 @@ html.light {
   --text-primary: #0F172A;
   --text-secondary: #475569;
   --text-muted: #64748B;
-  --accent-primary: #047857;
-  --accent-hover: #059669;
-  --ring-focus: #10B981;
+  --accent-primary: rgb(var(--brand-700-rgb));
+  --accent-hover: rgb(var(--brand-600-rgb));
+  --ring-focus: rgb(var(--brand-600-rgb));
   --grid-dot-color: rgba(15, 23, 42, 0.08);
   --grid-line-color: rgba(15, 23, 42, 0.05);
   --elevation-1: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
@@ -71,7 +86,7 @@ body {
   color: var(--text-primary);
   background-color: var(--bg-canvas);
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16, 185, 129, 0.08), transparent 70%),
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(var(--brand-500-rgb) / 0.08), transparent 70%),
     linear-gradient(to bottom, #0A0E17 0%, #060910 100%);
   background-attachment: fixed;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -83,7 +98,7 @@ body {
 html.light,
 html.light body {
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16, 185, 129, 0.07), transparent 70%),
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(var(--brand-500-rgb) / 0.07), transparent 70%),
     linear-gradient(to bottom, #F8FAFC 0%, #F1F5F9 100%);
 }
 
@@ -175,11 +190,11 @@ html.light ::-webkit-scrollbar-thumb:hover {
 @keyframes glowPulse {
   0%, 100% {
     opacity: 1;
-    box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 20px -3px rgb(var(--brand-500-rgb) / 0.45);
   }
   50% {
     opacity: 0.6;
-    box-shadow: 0 0 8px 0 rgba(16, 185, 129, 0.15);
+    box-shadow: 0 0 8px 0 rgb(var(--brand-500-rgb) / 0.15);
   }
 }
 
@@ -326,18 +341,18 @@ html.light ::-webkit-scrollbar-thumb:hover {
 
   .surface-card:hover,
   .glass-card:hover {
-    border-color: rgba(16, 185, 129, 0.3);
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.08) inset, 0 8px 28px -4px rgba(0, 0, 0, 0.8), 0 0 16px -4px rgba(16, 185, 129, 0.15);
+    border-color: rgb(var(--brand-500-rgb) / 0.3);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.08) inset, 0 8px 28px -4px rgba(0, 0, 0, 0.8), 0 0 16px -4px rgb(var(--brand-500-rgb) / 0.15);
   }
 
   html.light .surface-card:hover,
   html.light .glass-card:hover {
-    border-color: rgba(16, 185, 129, 0.35);
-    box-shadow: 0 10px 30px -6px rgba(15, 23, 42, 0.12), 0 0 14px -4px rgba(16, 185, 129, 0.14);
+    border-color: rgb(var(--brand-600-rgb) / 0.38);
+    box-shadow: 0 10px 30px -6px rgba(15, 23, 42, 0.12), 0 0 14px -4px rgb(var(--brand-500-rgb) / 0.16);
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_20px_-3px_rgba(16,185,129,0.4)] transition-all duration-150 hover:bg-emerald-400 hover:shadow-[0_0_25px_-2px_rgba(16,185,129,0.55)] active:bg-emerald-600 active:scale-[0.98] disabled:pointer-events-none disabled:border disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-600 disabled:shadow-none;
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_20px_-3px_rgb(var(--brand-500-rgb)/0.4)] transition-all duration-150 hover:bg-emerald-400 hover:shadow-[0_0_25px_-2px_rgb(var(--brand-500-rgb)/0.55)] active:bg-emerald-600 active:scale-[0.98] disabled:pointer-events-none disabled:border disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-600 disabled:shadow-none;
   }
 
   html.light .btn-primary:disabled {
@@ -357,7 +372,7 @@ html.light ::-webkit-scrollbar-thumb:hover {
   }
 
   html.light .btn-secondary:hover {
-    border-color: rgba(16, 185, 129, 0.45);
+    border-color: rgb(var(--brand-600-rgb) / 0.45);
     background-color: #F1F5F9;
     color: #0F172A;
   }
@@ -393,11 +408,11 @@ html.light ::-webkit-scrollbar-thumb:hover {
 }
 
 .gradient-brand {
-  color: #10B981;
+  color: rgb(var(--brand-400-rgb));
 }
 
 html.light .gradient-brand {
-  color: #047857;
+  color: rgb(var(--brand-700-rgb));
 }
 
 /* Reduced-Motion Support: strictly zero animations and transitions for users preferring reduced motion */
@@ -597,7 +612,23 @@ html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)
 }
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-emerald-900\/40 {
-  border-color: rgba(4, 120, 87, 0.25);
+  border-color: rgb(var(--brand-700-rgb) / 0.25);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-emerald-500 {
+  border-color: rgb(var(--brand-border-light-rgb));
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-emerald-500\/20,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-emerald-500\/30,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-emerald-500\/40,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .border-emerald-500\/50 {
+  border-color: rgb(var(--brand-border-light-rgb) / 0.35);
+}
+
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .ring-emerald-500\/20,
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .ring-emerald-500\/30 {
+  --tw-ring-color: rgb(var(--brand-border-light-rgb) / 0.35);
 }
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:border-white\/\[0\.2\]:hover,
@@ -648,15 +679,16 @@ html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)
   color: #94A3B8;
 }
 
+html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) :not(input).text-emerald-500,
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-400,
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-400\/80,
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-400\/70 {
-  color: #047857;
+  color: rgb(var(--brand-700-rgb));
 }
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-300,
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-emerald-300\/80 {
-  color: #065F46;
+  color: rgb(var(--brand-800-rgb));
 }
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .text-amber-400,
@@ -691,15 +723,15 @@ html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-emerald-950\/60,
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-emerald-950\/90 {
-  background-color: #ECFDF5;
+  background-color: rgb(var(--brand-50-rgb));
 }
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .bg-emerald-900 {
-  background-color: #D1FAE5;
+  background-color: rgb(var(--brand-100-rgb));
 }
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:bg-emerald-800:hover {
-  background-color: #A7F3D0;
+  background-color: rgb(var(--brand-200-rgb));
 }
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:text-white:hover,
@@ -710,7 +742,7 @@ html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:text-emerald-400:hover,
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:text-emerald-300:hover {
-  color: #047857;
+  color: rgb(var(--brand-700-rgb));
 }
 
 html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)) .hover\:text-rose-200:hover,
@@ -718,14 +750,35 @@ html.light :where(:not([data-theme-locked="dark"], [data-theme-locked="dark"] *)
   color: #9F1239;
 }
 
-/* Preserve white text on solid saturated buttons in Light Mode */
+/* Preserve white text on saturated semantic buttons in Light Mode */
 html.light .bg-rose-600,
 html.light .bg-rose-600 .text-white,
 html.light .bg-red-600,
-html.light .bg-red-600 .text-white,
-html.light .bg-emerald-600.text-white,
-html.light .bg-emerald-700.text-white {
+html.light .bg-red-600 .text-white {
   color: #FFFFFF;
+}
+
+/* Universal WCAG contrast foreground on dynamic brand-colored solid surfaces */
+.btn-primary:not(:disabled),
+.bg-emerald-400.text-slate-950,
+.bg-emerald-500.text-slate-950,
+.bg-emerald-500.text-slate-900,
+.bg-emerald-500.text-white,
+.bg-emerald-600.text-white,
+.bg-emerald-600.text-slate-950,
+.bg-emerald-700.text-white,
+html.light .btn-primary:not(:disabled),
+html.light .bg-emerald-400.text-slate-950,
+html.light .bg-emerald-500.text-slate-950,
+html.light .bg-emerald-500.text-slate-900,
+html.light .bg-emerald-500.text-white,
+html.light .bg-emerald-500 .text-white,
+html.light .bg-emerald-600.text-white,
+html.light .bg-emerald-600 .text-white,
+html.light .bg-emerald-600.text-slate-950,
+html.light .bg-emerald-700.text-white,
+html.light .bg-emerald-700 .text-white {
+  color: var(--brand-on-solid);
 }
 
 /* Ensure native <select> option menus and white paper containers stay clean in Light Mode */

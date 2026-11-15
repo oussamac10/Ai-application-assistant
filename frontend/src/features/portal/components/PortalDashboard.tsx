@@ -460,7 +460,7 @@ export function PortalDashboard() {
           <button
             type="button"
             onClick={() => setIsUploadFormOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_-3px_rgba(16,185,129,0.35)] active:scale-[0.98] transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_-3px_rgb(var(--brand-500-rgb)/0.35)] active:scale-[0.98] transition-all cursor-pointer"
           >
             <UploadCloud className="w-4 h-4" />
             <span>Upload PDF</span>
@@ -476,7 +476,7 @@ export function PortalDashboard() {
           onClick={() => setActiveWorkspaceTab("forms")}
           className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer ${
             activeWorkspaceTab === "forms"
-              ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+              ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.25)]"
               : "border border-slate-800 bg-[#0A0E17] text-slate-300 hover:bg-slate-800 hover:text-white"
           }`}
         >
@@ -499,7 +499,7 @@ export function PortalDashboard() {
           onClick={() => setActiveWorkspaceTab("cases")}
           className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer ${
             activeWorkspaceTab === "cases"
-              ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+              ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.25)]"
               : "border border-slate-800 bg-[#0A0E17] text-slate-300 hover:bg-slate-800 hover:text-white"
           }`}
         >
@@ -602,7 +602,7 @@ export function PortalDashboard() {
               onClick={() => setFormStatusFilter(tab.id)}
               className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
                 formStatusFilter === tab.id
-                  ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                  ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.3)]"
                   : "bg-[#0F1522] text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800"
               }`}
             >
@@ -794,7 +794,7 @@ export function PortalDashboard() {
             <button
               type="button"
               onClick={() => setIsUploadFormOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_-3px_rgba(16,185,129,0.35)] active:scale-[0.98] transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_-3px_rgb(var(--brand-500-rgb)/0.35)] active:scale-[0.98] transition-all cursor-pointer"
             >
               <UploadCloud className="w-4 h-4" /> Upload PDF
             </button>
@@ -805,7 +805,7 @@ export function PortalDashboard() {
           {filteredForms.map((f) => (
             <div
               key={f.id}
-              className="rounded-2xl border border-slate-800 bg-[#0F1522] p-5 shadow-card hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all flex flex-col justify-between group relative overflow-hidden"
+              className="rounded-2xl border border-slate-800 bg-[#0F1522] p-5 shadow-card hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgb(var(--brand-500-rgb)/0.15)] transition-all flex flex-col justify-between group relative overflow-hidden"
             >
               <div>
                 <div className="flex items-start justify-between gap-2 mb-2.5">

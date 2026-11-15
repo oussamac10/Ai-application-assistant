@@ -150,7 +150,7 @@ export function ReviewStudioFieldCard({
         isMultiSelected
           ? "border-sky-500/80 bg-sky-500/[0.06] ring-2 ring-sky-500/35"
           : isHighlighted
-            ? "border-emerald-500/80 bg-emerald-500/[0.05] ring-2 ring-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+            ? "border-emerald-500/80 bg-emerald-500/[0.05] ring-2 ring-emerald-500/40 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.15)]"
             : "border-[var(--border-subtle)] hover:border-emerald-500/40 bg-[var(--bg-elevated)]"
       }`}
     >
@@ -497,8 +497,13 @@ export function ReviewStudioFieldCard({
                   {hasTranslation && (
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${
-                        isSelected ? "bg-slate-950" : "bg-emerald-500"
+                        isSelected ? "" : "bg-emerald-500"
                       }`}
+                      style={
+                        isSelected
+                          ? { backgroundColor: "var(--brand-on-solid)" }
+                          : undefined
+                      }
                     />
                   )}
                 </button>
