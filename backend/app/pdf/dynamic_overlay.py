@@ -159,6 +159,65 @@ def map_form_fields_to_detected_fields(
     return matched
 
 
+def get_all_field_boxes_for_session(
+    db: Session,
+    session: FormSession,
+) -> dict[str, tuple[int, dict[str, float]]]:
+    """Return {field.key: (page_number, bbox_dict)} for all fields in a session."""
+    version = session.version or db.get(FormVersion, session.form_version_id)
+    if not version or not version.fields:
+        return {}
+
+    result: dict[str, tuple[int, dict[str, float]]] = {}
+    if not session.source_document_id:
+        for field in version.fields:
+            cfg = field.configuration or {}
+            bbox = cfg.get("bbox")
+            if bbox and len(bbox) == 4:
+                x0, y0, x1, y1 = (
+                    float(bbox[0]),
+                    float(bbox[1]),
+                    float(bbox[2]),
+                    float(bbox[3]),
+                )
+                result[field.key] = (
+                    int(cfg.get("page", 1)),
+                    {
+                        "x": round(x0, 1),
+                        "y": round(y0, 1),
+                        "width": round(max(x1 - x0, 10.0), 1),
+                        "height": round(max(y1 - y0, 10.0), 1),
+                    },
+                )
+        return result
+
+    source_doc = db.get(SourceDocument, session.source_document_id)
+    if not source_doc:
+        return {}
+    detection = get_latest_completed_detection(db, source_doc.id)
+    if not detection or not detection.fields:
+        return {}
+
+    mapping = map_form_fields_to_detected_fields(
+        list(version.fields), list(detection.fields)
+    )
+    for field_key, detected in mapping.items():
+        raw = detected.input_bounding_box
+        if not raw:
+            continue
+        try:
+            box = {
+                "x": float(raw["x"]),
+                "y": float(raw["y"]),
+                "width": float(raw["width"]),
+                "height": float(raw["height"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            continue
+        result[field_key] = (int(detected.page_number or 1), box)
+    return result
+
+
 def get_field_location_for_session(
     db: Session,
     session: FormSession,

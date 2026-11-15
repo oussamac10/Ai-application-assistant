@@ -47,6 +47,7 @@ from app.core.config import settings
 from app.forms.models import FormField
 from app.forms.repositories import FormRepository
 from app.pdf.dynamic_overlay import (
+    get_all_field_boxes_for_session,
     get_field_location_for_session,
     render_session_page_preview_png,
 )
@@ -370,31 +371,48 @@ class AnswerService:
         current_field: FormField,
         answers: dict[str, FormAnswer],
     ) -> dict[str, Any] | None:
-        """Group repeated table row cells (<section>_<row>_<col>) into a row context."""
+        """Group repeated table row cells into a row context (by key pattern or page geometry)."""
         import re
 
         match = re.match(
             r"^(?P<table>.+?)_(?P<row>\d+)_(?P<col>.+)$", current_field.key
         )
-        if not match:
-            return None
-
-        table_key = match.group("table")
-        row_str = match.group("row")
-        row_prefix = f"{table_key}_{row_str}_"
-        table_pattern = re.compile(rf"^{re.escape(table_key)}_(\d+)_.+$")
-
-        distinct_rows: set[int] = set()
+        table_key: str
+        table_title: str
+        row_index: int
+        total_rows: int
         row_fields: list[FormField] = []
-        for f in sorted(version.fields, key=lambda item: item.position):
-            m = table_pattern.match(f.key)
-            if m:
-                distinct_rows.add(int(m.group(1)))
-            if f.key.startswith(row_prefix):
-                row_fields.append(f)
 
-        if len(row_fields) < 2:
-            return None
+        if match:
+            table_key = match.group("table")
+            row_str = match.group("row")
+            row_prefix = f"{table_key}_{row_str}_"
+            table_pattern = re.compile(rf"^{re.escape(table_key)}_(\d+)_.+$")
+
+            distinct_rows: set[int] = set()
+            for f in sorted(version.fields, key=lambda item: item.position):
+                m = table_pattern.match(f.key)
+                if m:
+                    distinct_rows.add(int(m.group(1)))
+                if f.key.startswith(row_prefix):
+                    row_fields.append(f)
+
+            if len(row_fields) < 2:
+                row_fields = []
+            else:
+                table_title = table_key.replace("_", " ").strip().title()
+                row_index = int(row_str)
+                total_rows = max(len(distinct_rows), 1)
+
+        if not row_fields:
+            geo = self._detect_geometric_table_row(
+                session=session,
+                version=version,
+                current_field=current_field,
+            )
+            if geo is None:
+                return None
+            table_key, table_title, row_index, total_rows, row_fields = geo
 
         row_items: list[dict[str, Any]] = []
         for rf in row_fields:
@@ -420,11 +438,124 @@ class AnswerService:
 
         return {
             "table_key": table_key,
-            "table_title": table_key.replace("_", " ").strip().title(),
-            "row_index": int(row_str),
-            "total_rows": max(len(distinct_rows), 1),
+            "table_title": table_title,
+            "row_index": row_index,
+            "total_rows": total_rows,
             "fields": row_items,
         }
+
+    def _detect_geometric_table_row(
+        self,
+        *,
+        session: Any,
+        version: Any,
+        current_field: FormField,
+    ) -> tuple[str, str, int, int, list[FormField]] | None:
+        """Detect repeated horizontal table rows on a page using field bounding boxes."""
+        all_boxes = get_all_field_boxes_for_session(self.db, session)
+        current_loc = all_boxes.get(current_field.key)
+        if current_loc is None:
+            return None
+        current_page, _ = current_loc
+
+        page_items: list[tuple[FormField, dict[str, float], float]] = []
+        for f in version.fields:
+            loc = all_boxes.get(f.key)
+            if loc is None or loc[0] != current_page:
+                continue
+            box = loc[1]
+            cy = box["y"] + box["height"] / 2.0
+            page_items.append((f, box, cy))
+
+        if len(page_items) < 4:
+            return None
+
+        # Cluster fields on the same page into horizontal rows by y-center.
+        page_items.sort(key=lambda item: (item[2], item[1]["x"]))
+        rows: list[list[tuple[FormField, dict[str, float], float]]] = []
+        for item in page_items:
+            if not rows:
+                rows.append([item])
+                continue
+            anchor_cy = rows[-1][0][2]
+            if abs(item[2] - anchor_cy) <= 10.0:
+                rows[-1].append(item)
+            else:
+                rows.append([item])
+
+        for r in rows:
+            r.sort(key=lambda item: item[1]["x"])
+
+        current_row_idx = next(
+            (
+                idx
+                for idx, r in enumerate(rows)
+                if any(item[0].id == current_field.id for item in r)
+            ),
+            None,
+        )
+        if current_row_idx is None or len(rows[current_row_idx]) < 2:
+            return None
+
+        cur_row = rows[current_row_idx]
+        cur_xs = [item[1]["x"] for item in cur_row]
+
+        def _rows_share_columns(
+            row_a: list[tuple[FormField, dict[str, float], float]],
+            row_b: list[tuple[FormField, dict[str, float], float]],
+        ) -> bool:
+            if len(row_a) < 2 or len(row_b) < 2:
+                return False
+            xs_a = [item[1]["x"] for item in row_a]
+            xs_b = [item[1]["x"] for item in row_b]
+            matched = sum(1 for xa in xs_a if any(abs(xa - xb) <= 22.0 for xb in xs_b))
+            return matched >= 2 and matched >= min(len(xs_a), len(xs_b)) - 1
+
+        # Expand upward and downward from current_row_idx to find a contiguous
+        # table block of rows sharing the same column x-positions.
+        start_idx = current_row_idx
+        while start_idx > 0:
+            prev_row = rows[start_idx - 1]
+            next_row = rows[start_idx]
+            y_gap = next_row[0][2] - prev_row[0][2]
+            if y_gap <= 60.0 and _rows_share_columns(cur_row, prev_row):
+                start_idx -= 1
+            else:
+                break
+
+        end_idx = current_row_idx
+        while end_idx + 1 < len(rows):
+            prev_row = rows[end_idx]
+            next_row = rows[end_idx + 1]
+            y_gap = next_row[0][2] - prev_row[0][2]
+            if y_gap <= 60.0 and _rows_share_columns(cur_row, next_row):
+                end_idx += 1
+            else:
+                break
+
+        table_rows = rows[start_idx : end_idx + 1]
+        if len(table_rows) < 2:
+            return None
+
+        # Guard against short unrelated pairs sharing 2 x-coordinates unless
+        # at least 3 columns match or >= 3 rows repeat.
+        if len(table_rows) == 2 and len(cur_xs) < 3:
+            return None
+
+        table_key = f"table_p{current_page}_{round(table_rows[0][0][1]['y'])}"
+        cfg = current_field.configuration or {}
+        table_title = (
+            str(
+                getattr(current_field, "section_name", None)
+                or cfg.get("section_title")
+                or ""
+            ).strip()
+            or f"Table (Page {current_page})"
+        )
+        row_index = (current_row_idx - start_idx) + 1
+        total_rows = len(table_rows)
+        row_fields = [item[0] for item in cur_row]
+        return table_key, table_title, row_index, total_rows, row_fields
 
     def _attach_location_metadata(
         self, field_data: dict[str, Any], session: Any, field: FormField
