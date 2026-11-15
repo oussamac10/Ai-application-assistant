@@ -135,7 +135,9 @@ export function SessionContextSidebar({
               const previewUrl = pagePreviewUrls[activePage];
               const pageW = currentField.pageWidthPt || 595;
               const pageH = currentField.pageHeightPt || 842;
-              const box = currentField.inputBoundingBox;
+              const box =
+                currentField.tableRow?.rowBoundingBox ??
+                currentField.inputBoundingBox;
 
               const topPct = box
                 ? Math.min(Math.max((box.y / pageH) * 100, 1), 96)
@@ -371,7 +373,9 @@ export function SessionContextSidebar({
                   }
                   const pageW = currentField.pageWidthPt || 595;
                   const pageH = currentField.pageHeightPt || 842;
-                  const box = currentField.inputBoundingBox;
+                  const box =
+                currentField.tableRow?.rowBoundingBox ??
+                currentField.inputBoundingBox;
                   const topPct = box
                     ? Math.min(Math.max((box.y / pageH) * 100, 1), 96)
                     : 20;

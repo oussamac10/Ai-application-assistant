@@ -126,6 +126,12 @@ async def test_geometric_table_row_context_groups_aligned_pdf_table_rows() -> No
     assert ctx["table_title"] == "[en] 2 Haushaltsangehörige"
     assert ctx["row_index"] == 2
     assert ctx["total_rows"] == 3
+    assert ctx["row_bounding_box"] == {
+        "x": 83.0,
+        "y": 685.0,
+        "width": 405.0,
+        "height": 21.0,
+    }
     assert [item["field_key"] for item in ctx["fields"]] == [
         "txtname1s1",
         "txtgeburt2s1",

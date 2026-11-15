@@ -408,6 +408,7 @@ class AnswerService:
 
         table_description: str | None = None
         row_label: str | None = None
+        row_bounding_box: dict[str, float] | None = None
         column_headers: dict[str, str] = {}
         if not row_fields:
             geo = self._detect_geometric_table_row(
@@ -426,6 +427,7 @@ class AnswerService:
                 total_rows,
                 row_fields,
                 column_headers,
+                row_bounding_box,
             ) = geo
 
         texts_to_translate: list[str] = list(column_headers.values())
@@ -498,6 +500,7 @@ class AnswerService:
             "row_label": row_label,
             "row_index": row_index,
             "total_rows": total_rows,
+            "row_bounding_box": row_bounding_box,
             "fields": row_items,
         }
 
@@ -517,6 +520,7 @@ class AnswerService:
             int,
             list[FormField],
             dict[str, str],
+            dict[str, float],
         ]
         | None
     ):
@@ -645,6 +649,17 @@ class AnswerService:
             for item, header in zip(cur_row, extracted_headers, strict=False)
             if header
         }
+        row_boxes = [item[1] for item in cur_row]
+        min_x = min(b["x"] for b in row_boxes)
+        min_y = min(b["y"] for b in row_boxes)
+        max_x = max(b["x"] + b["width"] for b in row_boxes)
+        max_y = max(b["y"] + b["height"] for b in row_boxes)
+        row_bounding_box = {
+            "x": round(min_x, 1),
+            "y": round(min_y, 1),
+            "width": round(max_x - min_x, 1),
+            "height": round(max_y - min_y, 1),
+        }
         return (
             table_key,
             table_title,
@@ -654,6 +669,7 @@ class AnswerService:
             total_rows,
             row_fields,
             column_headers,
+            row_bounding_box,
         )
 
     def _attach_location_metadata(

@@ -76,6 +76,7 @@ class TableRowContext(BaseSchema):
     row_label: str | None = None
     row_index: int
     total_rows: int
+    row_bounding_box: dict[str, float] | None = None
     fields: list[TableRowFieldInfo]
 
 

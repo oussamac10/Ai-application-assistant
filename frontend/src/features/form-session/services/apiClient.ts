@@ -72,6 +72,15 @@ export const TableRowContextSchema = z.object({
   rowLabel: z.string().nullable().optional(),
   rowIndex: z.number(),
   totalRows: z.number(),
+  rowBoundingBox: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+      width: z.number(),
+      height: z.number(),
+    })
+    .nullable()
+    .optional(),
   fields: z.array(TableRowFieldSchema),
 });
 
