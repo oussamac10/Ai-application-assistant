@@ -198,7 +198,7 @@ describe("B2B & B2G Platform — Portal & Case Management", () => {
           contact_email: "care@berlin-mobility.example",
           contact_phone: "+49 30 900123",
           official_website_url: "https://berlin-mobility.example",
-          ui_theme_config: { primary_color: "#10b981" },
+          ui_theme_config: { primary_color: "#FEDB00" },
         },
       });
 
@@ -240,6 +240,12 @@ describe("B2B & B2G Platform — Portal & Case Management", () => {
     expect(screen.getByTestId("invite-required-documents")).toBeDefined();
     expect(screen.getByText("Valid passport")).toBeDefined();
     expect(screen.getByText("a***@example.com")).toBeDefined();
+
+    // Custom admin panel color (#FEDB00) must not override public citizen intake elements
+    const formBadge = screen.getByText("Official Application Form");
+    expect(formBadge.style.backgroundColor).toBe("");
+    const intakeCard = formBadge.closest(".rounded-3xl") as HTMLElement | null;
+    expect(intakeCard?.style.borderTopColor || "").toBe("");
 
     // Form start is gated until email OTP verification succeeds
     expect(screen.queryByText("startAssistedSession")).toBeNull();

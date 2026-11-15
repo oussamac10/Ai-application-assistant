@@ -201,7 +201,7 @@ export default function SessionComplete() {
             {/* Celebratory Animated Emerald Verification Seal (Spring Scale-In + Aura Pulse Ring) */}
             <div className="relative mb-6 flex items-center justify-center">
               <div className="absolute h-20 w-20 rounded-full bg-emerald-500/20 animate-ping motion-reduce:animate-none opacity-40 pointer-events-none" />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.35)] animate-in zoom-in-50 duration-500 ease-out motion-reduce:animate-none">
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 text-emerald-400 shadow-[0_0_30px_rgb(var(--brand-500-rgb)/0.35)] animate-in zoom-in-50 duration-500 ease-out motion-reduce:animate-none">
                 <Check className="h-8 w-8 text-emerald-400 animate-in zoom-in-75 duration-700 ease-out motion-reduce:animate-none" strokeWidth={2.5} />
               </div>
             </div>
@@ -284,7 +284,7 @@ export default function SessionComplete() {
                         <label
                           className={`flex items-start gap-3 rounded-xl border p-3.5 cursor-pointer transition-all duration-200 ${
                             isChecked
-                              ? "border-emerald-500 bg-emerald-500/15 shadow-[0_0_12px_rgba(16,185,129,0.15)] ring-2 ring-emerald-500/20 scale-[1.005]"
+                              ? "border-emerald-500 bg-emerald-500/15 shadow-[0_0_12px_rgb(var(--brand-500-rgb)/0.15)] ring-2 ring-emerald-500/20 scale-[1.005]"
                               : "border-white/10 bg-[#0F1522] hover:bg-[#151D2E] hover:border-white/20"
                           }`}
                         >

@@ -27,16 +27,9 @@ import {
   verifyCandidateInviteOtp,
 } from "../services/portalClient";
 import { CandidateIntakeInfo, CandidateInviteInspectInfo } from "../types";
-import { getContrastTextColor } from "../utils/theme";
 
 interface CandidateIntakeLandingProps {
   token: string;
-}
-
-function resolveSafeHexColor(color?: string | null): string | null {
-  if (!color) return null;
-  const trimmed = color.trim();
-  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(trimmed) ? trimmed : null;
 }
 
 function resolveSafeHttpUrl(url?: string | null): string | null {
@@ -218,7 +211,6 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
   const org = unlockedIntake?.organization || inspectInfo.organization;
   const requiredDocs =
     unlockedIntake?.required_documents ?? inspectInfo.required_documents ?? [];
-  const primaryAccent = resolveSafeHexColor(org?.ui_theme_config?.primary_color);
   const safeWebsiteUrl = resolveSafeHttpUrl(org?.official_website_url);
   const welcomeCopy =
     org?.ui_theme_config?.citizen_welcome_text?.trim() ||
@@ -228,14 +220,7 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
   return (
     <div className="min-h-[75vh] bg-[#0A0E17] text-slate-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-2xl">
-        <div
-          className="rounded-3xl border border-white/10 bg-[#0F1522] p-6 sm:p-10 shadow-2xl overflow-hidden"
-          style={
-            primaryAccent
-              ? { borderTopWidth: "4px", borderTopColor: primaryAccent }
-              : undefined
-          }
-        >
+        <div className="rounded-3xl border border-white/10 bg-[#0F1522] p-6 sm:p-10 shadow-2xl overflow-hidden">
           {/* White-Label Agency / Authority Header (2.3) */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/[0.08]">
             <div className="flex items-center gap-3.5 min-w-0">
@@ -272,18 +257,7 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
               </div>
             </div>
 
-            <div
-              className="inline-flex items-center gap-2 self-start sm:self-center shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-              style={
-                primaryAccent
-                  ? {
-                      backgroundColor: primaryAccent,
-                      color: getContrastTextColor(primaryAccent),
-                      borderColor: primaryAccent,
-                    }
-                  : undefined
-              }
-            >
+            <div className="inline-flex items-center gap-2 self-start sm:self-center shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
               <span className="h-1.5 w-1.5 rounded-full bg-current" />
               Official Application Form
             </div>
@@ -303,7 +277,7 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
 
           {/* Assigned Form Card */}
           <div className="mt-7 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-            <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">
+            <div className="text-xs font-semibold text-emerald-400 mb-1">
               {t("assignedForm")}
             </div>
             <div className="text-base font-bold text-white">
@@ -441,7 +415,7 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
                   <div>
                     <label
                       htmlFor="invite-otp-input"
-                      className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1.5"
+                      className="block text-xs font-semibold text-slate-200 mb-1.5"
                     >
                       6-Digit Email Verification Code
                     </label>
@@ -511,7 +485,7 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
               </div>
 
               <div className="mt-6">
-                <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-slate-200 mb-2">
                   {t("selectLangPrompt")}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
