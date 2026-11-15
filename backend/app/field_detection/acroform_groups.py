@@ -267,7 +267,7 @@ def _different_table_rows(
         return False
     previous_rows = {row_lookup(w.field_name) for w in previous} - {None}
     run_rows = {row_lookup(w.field_name) for w in run} - {None}
-    if not previous_rows or not run_rows:
+    if not previous_rows and not run_rows:
         return False
     return previous_rows != run_rows
 
@@ -334,6 +334,26 @@ def _is_wrapped_continuation(
     previous_tooltip = _shared_tooltip(previous)
     run_tooltip = _shared_tooltip(run)
     if previous_tooltip and run_tooltip and previous_tooltip != run_tooltip:
+        return False
+
+    # Two consecutive yes/no (or identical exclusive) rows are separate
+    # questions, never a single wrapped "ja / nein / ja / nein" option list.
+    prev_labels = tuple(
+        (w.field_label or "").strip().lower()
+        for w in previous
+        if (w.field_label or "").strip()
+    )
+    run_labels = tuple(
+        (w.field_label or "").strip().lower()
+        for w in run
+        if (w.field_label or "").strip()
+    )
+    if (
+        len(prev_labels) == len(previous)
+        and len(run_labels) == len(run)
+        and prev_labels == run_labels
+        and _looks_exclusive(prev_labels)
+    ):
         return False
 
     return True

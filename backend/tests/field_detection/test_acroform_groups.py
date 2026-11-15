@@ -655,3 +655,21 @@ def test_horizontal_yes_no_rows_use_left_question_label() -> None:
     assert len(groups) == 2
     assert groups[0].label == "Küche?"
     assert groups[1].label == "Bad/Dusche?"
+
+
+def test_consecutive_yes_no_rows_never_merge_into_four_option_group() -> None:
+    """Two stacked ja/nein rows (e.g. Row 1 outside repeated_sections + Row 2
+    inside repeated_sections) must stay two separate ['ja', 'nein'] groups."""
+    widgets = [
+        _checkbox("chkJa1", "ja", 493.0, 668.0),
+        _checkbox("chkNein1", "nein", 528.0, 668.0),
+        _checkbox("chkJa2", "ja", 493.0, 692.0),
+        _checkbox("chkNein2", "nein", 528.0, 692.0),
+    ]
+    rows = {"chkJa2": ("row", 1), "chkNein2": ("row", 1)}
+
+    groups = group_checkbox_widgets(widgets, row_lookup=lambda name: rows.get(name))
+
+    assert len(groups) == 2
+    assert [o.label for o in groups[0].options] == ["ja", "nein"]
+    assert [o.label for o in groups[1].options] == ["ja", "nein"]
