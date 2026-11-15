@@ -1384,6 +1384,54 @@ def render_form_version_overlay_pdf(
                     _draw_checkbox_mark(page, x, y, min(width, 16.0), min(height, 16.0))
                 continue
 
+            option_boxes = cfg.get("option_boxes") if isinstance(cfg, dict) else None
+            if (
+                form_field.field_type in ("choice", "single_choice", "multiple_choice")
+                and isinstance(option_boxes, list)
+                and option_boxes
+            ):
+                raw_norm = ans.normalized_value
+                if isinstance(raw_norm, list):
+                    selected_tokens = {
+                        str(item).strip().lower() for item in raw_norm if item
+                    }
+                elif raw_norm is not None:
+                    selected_tokens = {str(raw_norm).strip().lower()}
+                else:
+                    selected_tokens = set()
+
+                for opt_box in option_boxes:
+                    if not isinstance(opt_box, dict):
+                        continue
+                    box_coords = opt_box.get("bbox")
+                    if not isinstance(box_coords, list) or len(box_coords) != 4:
+                        continue
+                    box_val = str(opt_box.get("value") or "").strip().lower()
+                    box_lbl = str(opt_box.get("label") or "").strip().lower()
+                    if (
+                        box_val not in selected_tokens
+                        and box_lbl not in selected_tokens
+                    ):
+                        continue
+                    target_page_num = int(opt_box.get("page", page_num))
+                    if target_page_num < 1 or target_page_num > page_count:
+                        continue
+                    target_page = document[target_page_num - 1]
+                    bx0, by0, bx1, by1 = (
+                        float(box_coords[0]),
+                        float(box_coords[1]),
+                        float(box_coords[2]),
+                        float(box_coords[3]),
+                    )
+                    _draw_checkbox_mark(
+                        target_page,
+                        bx0,
+                        by0,
+                        min(max(bx1 - bx0, 8.0), 16.0),
+                        min(max(by1 - by0, 8.0), 16.0),
+                    )
+                continue
+
             formatted_val = format_field_value(
                 field_type=form_field.field_type,
                 normalized_value=ans.normalized_value,

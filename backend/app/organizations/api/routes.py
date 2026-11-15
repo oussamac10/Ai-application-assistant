@@ -12,13 +12,16 @@ from app.forms.auto_mapper import SchemaAutoMapperService
 from app.forms.organization_service import OrganizationFormService
 from app.forms.schemas import (
     CategoryFormsAssignRequest,
+    CombineChoiceFieldsRequest,
     FieldCreate,
     FieldResponse,
     FieldUpdate,
     FormCategoryUpdateRequest,
     FormReviewDetailResponse,
     FormReviewUpdateRequest,
+    GroupTableRowRequest,
     OrganizationFormSummary,
+    SyncTableColumnsRequest,
     TranslateFieldRequest,
     TranslateFieldResponse,
 )
@@ -500,6 +503,52 @@ def reorder_fields(
 ) -> Any:
     service = OrganizationFormService(db)
     return service.reorder_fields(user, template_id, field_ids)
+
+
+@router.post(
+    "/organizations/current/forms/{template_id}/fields/combine-choice",
+    response_model=FormReviewDetailResponse,
+)
+def combine_fields_into_choice(
+    template_id: str,
+    req: CombineChoiceFieldsRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.combine_fields_into_choice(user, template_id, req)
+
+
+@router.post(
+    "/organizations/current/forms/{template_id}/fields/group-table-row",
+    response_model=FormReviewDetailResponse,
+)
+def group_fields_into_table_row(
+    template_id: str,
+    req: GroupTableRowRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.group_fields_into_table_row(user, template_id, req)
+
+
+@router.post(
+    "/organizations/current/forms/{template_id}/tables/{table_key}/sync-columns",
+    response_model=FormReviewDetailResponse,
+)
+def sync_table_columns(
+    template_id: str,
+    table_key: str,
+    req: SyncTableColumnsRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> Any:
+    service = OrganizationFormService(db)
+    return service.sync_table_columns(user, template_id, table_key, req)
 
 
 @router.post(

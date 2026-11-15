@@ -154,12 +154,15 @@ export default function GuidedSession() {
 
   const initializedSessionRef = useRef<string | null>(null);
 
-  const fetchNextQuestion = useCallback(async () => {
-    try {
-      setErrorMsg(null);
-      setShowExplanation(false);
-      const field = await getCurrentField(sessionId);
-      setCurrentFieldData(field);
+  const fetchNextQuestion = useCallback(
+    async (focusFieldId?: unknown) => {
+      try {
+        setErrorMsg(null);
+        setShowExplanation(false);
+        const targetFieldId =
+          typeof focusFieldId === "string" ? focusFieldId : undefined;
+        const field = await getCurrentField(sessionId, targetFieldId);
+        setCurrentFieldData(field);
 
       const total =
         field.progress?.totalQuestions ??
@@ -725,7 +728,15 @@ export default function GuidedSession() {
                         sessionId={sessionId}
                         tableRow={currentField.tableRow}
                         onRowCompleted={fetchNextQuestion}
+                        onSelectRow={async (firstFieldId) => {
+                          setForceSingleFieldMode(false);
+                          await fetchNextQuestion(firstFieldId);
+                        }}
                         onSwitchToSingleField={() => setForceSingleFieldMode(true)}
+                        onNeedsClarification={async (clarifyFieldId) => {
+                          setForceSingleFieldMode(true);
+                          await fetchNextQuestion(clarifyFieldId);
+                        }}
                       />
                     )}
 

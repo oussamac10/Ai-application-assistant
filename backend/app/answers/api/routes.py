@@ -13,6 +13,9 @@ from app.answers.schemas import (
     CurrentFieldResponse,
     ReopenFieldResponse,
     SummaryResponse,
+    TableRowBatchResponse,
+    TableRowSkipRequest,
+    TableRowSubmitRequest,
 )
 from app.answers.services import AnswerService
 from app.auth.dependencies import get_current_user_optional
@@ -53,13 +56,16 @@ def _make_service(
 )
 async def get_current_field(
     session_id: str,
+    field_id: str | None = None,
     x_session_token: str | None = Header(default=None),
     db: Session = Depends(get_db),
     provider: AIProvider = Depends(get_ai_provider),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> Any:
     service = _make_service(db, provider, current_user)
-    return await service.get_current_field(session_id, x_session_token)
+    return await service.get_current_field(
+        session_id, x_session_token, focus_field_id=field_id
+    )
 
 
 @router.get("/form-sessions/{session_id}/pages/{page_number}/preview")
@@ -292,3 +298,46 @@ def confirm_summary(
     service = _make_service(db, provider, current_user)
     service.confirm_summary(session_id, x_session_token)
     return {"status": "ready_for_export"}
+
+
+@router.post(
+    "/form-sessions/{session_id}/table-rows/submit",
+    response_model=TableRowBatchResponse,
+)
+async def submit_table_row(
+    session_id: str,
+    data: TableRowSubmitRequest,
+    x_session_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Any:
+    service = _make_service(db, provider, current_user)
+    return await service.submit_table_row(
+        session_id,
+        [(item.field_id, item.value) for item in data.items],
+        x_session_token,
+    )
+
+
+@router.post(
+    "/form-sessions/{session_id}/table-rows/skip",
+    response_model=TableRowBatchResponse,
+)
+def skip_table_row(
+    session_id: str,
+    data: TableRowSkipRequest,
+    x_session_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+    provider: AIProvider = Depends(get_ai_provider),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> Any:
+    service = _make_service(db, provider, current_user)
+    return service.skip_table_row(
+        session_id,
+        data.field_ids,
+        x_session_token,
+        skip_remaining_empty_rows=data.skip_remaining_empty_rows,
+        table_key=data.table_key,
+        from_row_index=data.from_row_index,
+    )

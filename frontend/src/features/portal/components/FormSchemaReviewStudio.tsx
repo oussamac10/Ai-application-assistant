@@ -18,6 +18,9 @@ import {
   Check,
   MoreVertical,
   Columns2,
+  CheckSquare,
+  Table2,
+  X,
 } from "lucide-react";
 import {
   getFormReview,
@@ -37,10 +40,14 @@ import {
   translateFormFieldLabel,
   autoMapFormFields,
   applyAutoMapFormFields,
+  combineFieldsIntoChoice,
+  groupFieldsIntoTableRow,
+  syncTableColumns,
 } from "../services/portalClient";
 import {
   FormReviewDetail,
   FormFieldItem,
+  FormFieldTableConfig,
   OrganizationCategory,
   AutoMapResponse,
 } from "../types";
@@ -50,6 +57,8 @@ import {
   ReviewStudioCanvas,
   ReviewStudioFieldCard,
   ReviewStudioMetadataTab,
+  ReviewStudioTableGroupCard,
+  TableGroupRow,
 } from "./review-studio";
 
 interface FormSchemaReviewStudioProps {
@@ -130,6 +139,23 @@ export function FormSchemaReviewStudio({
   const [expandedTranslationsFieldId, setExpandedTranslationsFieldId] = useState<string | null>(null);
   const [activeTranslationLang, setActiveTranslationLang] = useState<string>("ar");
   const [translatingFieldId, setTranslatingFieldId] = useState<string | null>(null);
+
+  // Table grouping & multi-field bundling states
+  const [selectedFieldIds, setSelectedFieldIds] = useState<Set<string>>(new Set());
+  const [activeTableRows, setActiveTableRows] = useState<Record<string, number>>({});
+  const [activeTableRowFilter, setActiveTableRowFilter] = useState<{
+    tableKey: string;
+    rowIndex: number;
+  } | null>(null);
+  const [syncingTableKey, setSyncingTableKey] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState<"choice" | "table" | null>(null);
+  const [combineLabel, setCombineLabel] = useState("");
+  const [combineFieldType, setCombineFieldType] = useState<
+    "single_choice" | "multiple_choice"
+  >("single_choice");
+  const [groupTableTitle, setGroupTableTitle] = useState("");
+  const [groupRowIndex, setGroupRowIndex] = useState(1);
+  const [selectionSubmitting, setSelectionSubmitting] = useState(false);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -464,6 +490,22 @@ export function FormSchemaReviewStudio({
         const primaryTrans =
           field.translations?.find((t) => t.language === srcLang) ||
           field.translations?.[0];
+        const isChoice =
+          field.fieldType === "single_choice" ||
+          field.fieldType === "multiple_choice" ||
+          field.fieldType === "choice";
+        const normalizedOptions =
+          isChoice || (field.options && field.options.length > 0)
+            ? (field.options || []).map((opt, optIdx) => ({
+                ...(opt.id ? { id: opt.id } : {}),
+                value: opt.value,
+                position: opt.position ?? optIdx + 1,
+                translations:
+                  opt.translations && opt.translations.length > 0
+                    ? opt.translations
+                    : [{ language: srcLang, label: opt.label || opt.value }],
+              }))
+            : undefined;
         await updateFormField(templateId, field.id, {
           key: field.key,
           label: primaryTrans?.label || field.key,
@@ -471,6 +513,9 @@ export function FormSchemaReviewStudio({
           fieldType: field.fieldType,
           requiredness: field.requiredness,
           questionKey: field.questionKey || null,
+          ...(normalizedOptions !== undefined
+            ? { options: normalizedOptions }
+            : {}),
         });
       }
 
@@ -845,6 +890,113 @@ export function FormSchemaReviewStudio({
     }
   };
 
+  const handleToggleMultiSelect = useCallback((fieldId: string) => {
+    setSelectedFieldIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(fieldId)) {
+        next.delete(fieldId);
+      } else {
+        next.add(fieldId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectTableRow = useCallback((tableKey: string, rowIndex: number) => {
+    setActiveTableRows((prev) => ({ ...prev, [tableKey]: rowIndex }));
+    setActiveTableRowFilter({ tableKey, rowIndex });
+  }, []);
+
+  const handleSyncTableColumns = async (
+    tableKey: string,
+    sourceRowIndex: number
+  ) => {
+    try {
+      setSyncingTableKey(tableKey);
+      setError(null);
+      const updated = await syncTableColumns(
+        templateId,
+        tableKey,
+        sourceRowIndex
+      );
+      setReview(updated);
+      setFields(updated.fields || []);
+      setSuccessMessage("Applied Row 1 settings to all rows in this table.");
+      setTimeout(() => setSuccessMessage(null), 3500);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to sync table rows."
+      );
+    } finally {
+      setSyncingTableKey(null);
+    }
+  };
+
+  const handleConfirmCombineChoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedFieldIds.size < 2 || !combineLabel.trim()) return;
+    try {
+      setSelectionSubmitting(true);
+      setError(null);
+      const orderedIds = fields
+        .filter((f) => selectedFieldIds.has(f.id))
+        .map((f) => f.id);
+      const updated = await combineFieldsIntoChoice(templateId, {
+        fieldIds: orderedIds,
+        label: combineLabel.trim(),
+        fieldType: combineFieldType,
+      });
+      setReview(updated);
+      setFields(updated.fields || []);
+      setSelectedFieldIds(new Set());
+      setSelectionMode(null);
+      setCombineLabel("");
+      setSuccessMessage("Combined selected boxes into one choice question.");
+      setTimeout(() => setSuccessMessage(null), 3500);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not combine selected boxes."
+      );
+    } finally {
+      setSelectionSubmitting(false);
+    }
+  };
+
+  const handleConfirmGroupTableRow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedFieldIds.size < 2 || !groupTableTitle.trim()) return;
+    try {
+      setSelectionSubmitting(true);
+      setError(null);
+      const orderedIds = fields
+        .filter((f) => selectedFieldIds.has(f.id))
+        .map((f) => f.id);
+      const updated = await groupFieldsIntoTableRow(templateId, {
+        fieldIds: orderedIds,
+        tableTitle: groupTableTitle.trim(),
+        rowIndex: Math.max(1, groupRowIndex),
+      });
+      setReview(updated);
+      setFields(updated.fields || []);
+      setSelectedFieldIds(new Set());
+      setSelectionMode(null);
+      setGroupTableTitle("");
+      setGroupRowIndex(1);
+      setSuccessMessage("Grouped selected fields into table row.");
+      setTimeout(() => setSuccessMessage(null), 3500);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not group fields into table row."
+      );
+    } finally {
+      setSelectionSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-4 bg-[#0A0E17]">
@@ -1076,6 +1228,9 @@ export function FormSchemaReviewStudio({
           }}
           fields={fields}
           highlightedFieldId={highlightedFieldId}
+          selectedFieldIds={selectedFieldIds}
+          onToggleMultiSelect={handleToggleMultiSelect}
+          activeTableRowFilter={activeTableRowFilter}
           onSelectField={(id) => setHighlightedFieldId(id)}
           onDeleteField={handleDeleteField}
           pageDimensions={review.pageDimensions}
@@ -1359,18 +1514,11 @@ export function FormSchemaReviewStudio({
                     )}
                   </div>
                 ) : (
-                  fields.map((field, idx) => {
-                    const primaryLabel =
-                      field.translations?.[0]?.label || field.key;
-                    const isRequired = field.requiredness === "required" || field.required;
-                    const isHighlighted = highlightedFieldId === field.id;
-                    const fPage =
-                      typeof field.configuration?.page === "number"
-                        ? field.configuration.page
-                        : 1;
-                    const hasBbox = Array.isArray(field.configuration?.bbox);
-
-                    return (
+                  (() => {
+                    const renderStudioFieldCard = (
+                      field: FormFieldItem,
+                      idx: number
+                    ) => (
                       <ReviewStudioFieldCard
                         key={field.id}
                         field={field}
@@ -1378,12 +1526,18 @@ export function FormSchemaReviewStudio({
                         totalFields={fields.length}
                         canEdit={canEdit}
                         isHighlighted={highlightedFieldId === field.id}
+                        isMultiSelected={selectedFieldIds.has(field.id)}
+                        onToggleMultiSelect={
+                          canEdit ? handleToggleMultiSelect : undefined
+                        }
                         autoMapSuggestion={autoMapResults?.suggestions.find(
                           (s) => s.field_id === field.id
                         )}
                         sourceLanguage={review.sourceLanguage || "de"}
                         supportedLanguages={supportedLanguages}
-                        expandedTranslationsFieldId={expandedTranslationsFieldId}
+                        expandedTranslationsFieldId={
+                          expandedTranslationsFieldId
+                        }
                         setExpandedTranslationsFieldId={
                           setExpandedTranslationsFieldId
                         }
@@ -1403,7 +1557,102 @@ export function FormSchemaReviewStudio({
                         onDeleteField={handleDeleteField}
                       />
                     );
-                  })
+
+                    const renderedTableKeys = new Set<string>();
+                    const elements: React.ReactNode[] = [];
+
+                    fields.forEach((field, idx) => {
+                      const tableCfg = field.configuration?.table as
+                        | FormFieldTableConfig
+                        | undefined;
+                      if (tableCfg?.table_key) {
+                        const tKey = String(tableCfg.table_key);
+                        if (renderedTableKeys.has(tKey)) {
+                          return;
+                        }
+                        renderedTableKeys.add(tKey);
+
+                        const rowBuckets = new Map<
+                          number,
+                          {
+                            rowLabel: string;
+                            fields: Array<{
+                              field: FormFieldItem;
+                              globalIndex: number;
+                            }>;
+                          }
+                        >();
+                        fields.forEach((candidate, cIdx) => {
+                          const cTbl = candidate.configuration?.table as
+                            | FormFieldTableConfig
+                            | undefined;
+                          if (cTbl?.table_key !== tKey) return;
+                          const rIdx = Number(cTbl.row_index || 1);
+                          const bucket = rowBuckets.get(rIdx) || {
+                            rowLabel:
+                              cTbl.row_label ||
+                              (rIdx === 1 ? "Applicant" : `Row ${rIdx}`),
+                            fields: [],
+                          };
+                          bucket.fields.push({
+                            field: candidate,
+                            globalIndex: cIdx,
+                          });
+                          rowBuckets.set(rIdx, bucket);
+                        });
+
+                        const rows: TableGroupRow[] = Array.from(
+                          rowBuckets.entries()
+                        )
+                          .sort(([a], [b]) => a - b)
+                          .map(([rowIndex, bucket]) => ({
+                            rowIndex,
+                            rowLabel: bucket.rowLabel,
+                            fields: bucket.fields.sort((a, b) => {
+                              const ca = Number(
+                                (
+                                  a.field.configuration?.table as
+                                    | FormFieldTableConfig
+                                    | undefined
+                                )?.col_index ?? a.globalIndex
+                              );
+                              const cb = Number(
+                                (
+                                  b.field.configuration?.table as
+                                    | FormFieldTableConfig
+                                    | undefined
+                                )?.col_index ?? b.globalIndex
+                              );
+                              return ca - cb;
+                            }),
+                          }));
+
+                        const activeRowIdx =
+                          activeTableRows[tKey] ?? rows[0]?.rowIndex ?? 1;
+
+                        elements.push(
+                          <ReviewStudioTableGroupCard
+                            key={`table-${tKey}`}
+                            tableKey={tKey}
+                            tableTitle={tableCfg.table_title || tKey}
+                            tableDescription={tableCfg.table_description}
+                            rows={rows}
+                            activeRowIndex={activeRowIdx}
+                            canEdit={canEdit}
+                            syncing={syncingTableKey === tKey}
+                            onSelectRow={handleSelectTableRow}
+                            onSyncColumns={handleSyncTableColumns}
+                            renderFieldCard={renderStudioFieldCard}
+                          />
+                        );
+                        return;
+                      }
+
+                      elements.push(renderStudioFieldCard(field, idx));
+                    });
+
+                    return elements;
+                  })()
                 )}
               </div>
             ) : (
@@ -1460,6 +1709,176 @@ export function FormSchemaReviewStudio({
           setPickingFieldForLocation("new");
         }}
       />
+
+      {/* Multi-Select Action Bar & Modals */}
+      {canEdit && selectedFieldIds.size >= 2 && (
+        <div
+          data-testid="studio-selection-bar"
+          className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-md rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3.5 shadow-2xl"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-bold text-[var(--text-primary)]">
+              {selectedFieldIds.size} fields selected
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFieldIds(new Set());
+                setSelectionMode(null);
+              }}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Clear</span>
+            </button>
+          </div>
+
+          {!selectionMode && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const firstSelected = fields.find((f) =>
+                    selectedFieldIds.has(f.id)
+                  );
+                  setCombineLabel(
+                    firstSelected?.translations?.[0]?.label || ""
+                  );
+                  setSelectionMode("choice");
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                <span>Combine into Choice Question</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectionMode("table")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)] hover:border-emerald-500/40 text-[var(--text-primary)] px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors"
+              >
+                <Table2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Group as Table Row</span>
+              </button>
+            </div>
+          )}
+
+          {selectionMode === "choice" && (
+            <form
+              onSubmit={handleConfirmCombineChoice}
+              className="space-y-2.5 pt-1 border-t border-[var(--border-subtle)]"
+            >
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                  Combined Question Label
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={combineLabel}
+                  onChange={(e) => setCombineLabel(e.target.value)}
+                  placeholder="e.g. Marital status or Gender"
+                  className="input-field py-1.5 text-xs"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCombineFieldType("single_choice")}
+                  className={`flex-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold cursor-pointer ${
+                    combineFieldType === "single_choice"
+                      ? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      : "border-[var(--border-subtle)] text-[var(--text-secondary)]"
+                  }`}
+                >
+                  Pick one option
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCombineFieldType("multiple_choice")}
+                  className={`flex-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold cursor-pointer ${
+                    combineFieldType === "multiple_choice"
+                      ? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      : "border-[var(--border-subtle)] text-[var(--text-secondary)]"
+                  }`}
+                >
+                  Pick multiple
+                </button>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectionMode(null)}
+                  className="btn-secondary px-3 py-1.5 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={selectionSubmitting || !combineLabel.trim()}
+                  className="btn-primary px-3 py-1.5 text-xs font-semibold"
+                >
+                  {selectionSubmitting ? "Combining..." : "Confirm Combine"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {selectionMode === "table" && (
+            <form
+              onSubmit={handleConfirmGroupTableRow}
+              className="space-y-2.5 pt-1 border-t border-[var(--border-subtle)]"
+            >
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Table Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={groupTableTitle}
+                    onChange={(e) => setGroupTableTitle(e.target.value)}
+                    placeholder="e.g. Household members"
+                    className="input-field py-1.5 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Row #
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    required
+                    value={groupRowIndex}
+                    onChange={(e) =>
+                      setGroupRowIndex(Number(e.target.value) || 1)
+                    }
+                    className="input-field py-1.5 text-xs"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectionMode(null)}
+                  className="btn-secondary px-3 py-1.5 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={selectionSubmitting || !groupTableTitle.trim()}
+                  className="btn-primary px-3 py-1.5 text-xs font-semibold"
+                >
+                  {selectionSubmitting ? "Grouping..." : "Save Row Group"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
     </div>
   );
 }

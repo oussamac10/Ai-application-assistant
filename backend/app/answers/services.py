@@ -21,6 +21,7 @@ from app.answers.normalization.context import (
     format_money_output,
     is_proper_noun_field,
 )
+from app.answers.normalization.countries import normalize_country_value
 from app.answers.normalization.normalization import normalize_value
 from app.answers.repositories import AnswerRepository
 from app.answers.signatures import (
@@ -98,7 +99,7 @@ def _source_label(field: FormField) -> str:
 # populated) just to reproduce a membership check plain code already does
 # reliably, and — for a dynamically detected field with no other AI-visible
 # description of its options — could not answer at all.
-_DETERMINISTIC_CHOICE_TYPES = ("single_choice", "multiple_choice")
+_DETERMINISTIC_CHOICE_TYPES = ("single_choice", "multiple_choice", "choice")
 
 # Why an answered value cannot be accepted, by field type. A stable code the
 # frontend can translate — never a sentence, and never the value itself.
@@ -114,6 +115,7 @@ _INVALID_REASON_BY_TYPE: dict[str, str] = {
     "country": "invalid_country",
     "iban": "invalid_iban",
     "boolean": "invalid_boolean",
+    "choice": "invalid_choice",
     "single_choice": "invalid_choice",
     "multiple_choice": "invalid_choice",
 }
@@ -296,7 +298,10 @@ class AnswerService:
         }
 
     async def get_current_field(
-        self, session_id: str, raw_token: str | None
+        self,
+        session_id: str,
+        raw_token: str | None,
+        focus_field_id: str | None = None,
     ) -> dict[str, Any]:
         session = self.session_service.get_session(
             session_id, raw_token, self.current_user_id
@@ -314,12 +319,18 @@ class AnswerService:
             return ans is None or ans.status not in ("confirmed", "skipped")
 
         fields_by_pos = {f.position: f for f in version.fields}
+        focused = (
+            next((f for f in version.fields if f.id == focus_field_id), None)
+            if focus_field_id
+            else None
+        )
         stored = fields_by_pos.get(session.current_field_position)
 
-        # The stored position wins whenever it still needs attention. Skip and
-        # "edit this one" both move it deliberately, and a rule that always
-        # jumped to the first incomplete required field would undo them.
-        if stored is not None and still_open(stored):
+        # Explicit row/field navigation via rows_overview takes precedence; otherwise
+        # the stored position wins whenever it still needs attention.
+        if focused is not None:
+            current_field = focused
+        elif stored is not None and still_open(stored):
             current_field = stored
         else:
             # Otherwise resume at the first question that still needs an
@@ -373,43 +384,117 @@ class AnswerService:
         current_field: FormField,
         answers: dict[str, FormAnswer],
     ) -> dict[str, Any] | None:
-        """Group repeated table row cells into a row context (by key pattern or page geometry)."""
+        """Group repeated table row cells into a row context (explicit table metadata first, then key pattern or geometry)."""
         import re
 
-        match = re.match(
-            r"^(?P<table>.+?)_(?P<row>\d+)_(?P<col>.+)$", current_field.key
-        )
-        table_key: str
-        table_title: str
-        row_index: int
-        total_rows: int
-        row_fields: list[FormField] = []
-
-        if match:
-            table_key = match.group("table")
-            row_str = match.group("row")
-            row_prefix = f"{table_key}_{row_str}_"
-            table_pattern = re.compile(rf"^{re.escape(table_key)}_(\d+)_.+$")
-
-            distinct_rows: set[int] = set()
-            for f in sorted(version.fields, key=lambda item: item.position):
-                m = table_pattern.match(f.key)
-                if m:
-                    distinct_rows.add(int(m.group(1)))
-                if f.key.startswith(row_prefix):
-                    row_fields.append(f)
-
-            if len(row_fields) < 2:
-                row_fields = []
-            else:
-                table_title = table_key.replace("_", " ").strip().title()
-                row_index = int(row_str)
-                total_rows = max(len(distinct_rows), 1)
-
+        table_key: str = ""
+        table_title: str = ""
         table_description: str | None = None
         row_label: str | None = None
+        row_index: int = 1
+        total_rows: int = 1
         row_bounding_box: dict[str, float] | None = None
         column_headers: dict[str, str] = {}
+        row_fields: list[FormField] = []
+        rows_by_index: dict[int, list[FormField]] = {}
+        row_labels_by_index: dict[int, str | None] = {}
+
+        # Priority 0: Explicit configuration["table"] metadata set by PDF extractor or Review Studio
+        cur_cfg = current_field.configuration or {}
+        cur_table = cur_cfg.get("table") if isinstance(cur_cfg, dict) else None
+        if (
+            isinstance(cur_table, dict)
+            and cur_table.get("table_key")
+            and cur_table.get("row_index") is not None
+        ):
+            table_key = str(cur_table["table_key"])
+            row_index = int(cur_table["row_index"])
+            table_title = str(
+                cur_table.get("table_title")
+                or table_key.replace("_", " ").strip().title()
+            )
+            table_description = (
+                str(cur_table["table_description"])
+                if cur_table.get("table_description")
+                else None
+            )
+            row_label = (
+                str(cur_table["row_label"]) if cur_table.get("row_label") else None
+            )
+            for f in sorted(version.fields, key=lambda item: item.position):
+                fc = f.configuration or {}
+                ft = fc.get("table") if isinstance(fc, dict) else None
+                if (
+                    isinstance(ft, dict)
+                    and str(ft.get("table_key") or "") == table_key
+                    and ft.get("row_index") is not None
+                ):
+                    r_idx = int(ft["row_index"])
+                    rows_by_index.setdefault(r_idx, []).append(f)
+                    if r_idx not in row_labels_by_index and ft.get("row_label"):
+                        row_labels_by_index[r_idx] = str(ft["row_label"])
+                    if ft.get("column_header"):
+                        column_headers[f.key] = str(ft["column_header"])
+
+            for r_list in rows_by_index.values():
+                r_list.sort(
+                    key=lambda item: (
+                        int(
+                            (item.configuration or {})
+                            .get("table", {})
+                            .get("col_index", item.position)
+                        ),
+                        item.position,
+                    )
+                )
+            row_fields = rows_by_index.get(row_index, [])
+            if row_fields:
+                total_rows = max(
+                    int(cur_table.get("total_rows") or 0), len(rows_by_index), 1
+                )
+                bboxes: list[dict[str, Any]] = []
+                for f in row_fields:
+                    raw_bbox = (f.configuration or {}).get("bbox")
+                    if isinstance(raw_bbox, dict):
+                        bboxes.append(raw_bbox)
+                if bboxes:
+                    min_x = min(float(b["x"]) for b in bboxes)
+                    min_y = min(float(b["y"]) for b in bboxes)
+                    max_r = max(float(b["x"]) + float(b["width"]) for b in bboxes)
+                    max_b = max(float(b["y"]) + float(b["height"]) for b in bboxes)
+                    row_bounding_box = {
+                        "page": int(bboxes[0].get("page", 1)),
+                        "x": min_x,
+                        "y": min_y,
+                        "width": max_r - min_x,
+                        "height": max_b - min_y,
+                    }
+
+        # Priority 1: {table}_{row}_{col} naming convention
+        if not row_fields:
+            match = re.match(
+                r"^(?P<table>.+?)_(?P<row>\d+)_(?P<col>.+)$", current_field.key
+            )
+            if match:
+                table_key = match.group("table")
+                row_index = int(match.group("row"))
+                table_pattern = re.compile(rf"^{re.escape(table_key)}_(\d+)_.+$")
+
+                for f in sorted(version.fields, key=lambda item: item.position):
+                    m = table_pattern.match(f.key)
+                    if m:
+                        r_idx = int(m.group(1))
+                        rows_by_index.setdefault(r_idx, []).append(f)
+
+                candidate_row = rows_by_index.get(row_index, [])
+                if len(candidate_row) >= 2:
+                    row_fields = candidate_row
+                    table_title = table_key.replace("_", " ").strip().title()
+                    total_rows = max(len(rows_by_index), 1)
+                else:
+                    rows_by_index = {}
+
+        # Priority 2: Geometric PDF grid fallback
         if not row_fields:
             geo = self._detect_geometric_table_row(
                 session=session,
@@ -437,6 +522,9 @@ class AnswerService:
             texts_to_translate.append(table_description)
         if row_label:
             texts_to_translate.append(row_label)
+        for rl in row_labels_by_index.values():
+            if rl:
+                texts_to_translate.append(rl)
 
         translated_map: dict[str, str] = {}
         if (
@@ -482,16 +570,67 @@ class AnswerService:
             ans = answers.get(rf.id)
             row_items.append(
                 {
+                    "field_id": rf.id,
                     "field_key": rf.key,
                     "field_type": rf.field_type,
                     "label": label,
                     "required": rf.required,
                     "requiredness": field_requiredness(rf),
+                    "placeholder": translated.get("placeholder"),
                     "original_answer": ans.original_answer if ans else None,
                     "current_answer_status": ans.status if ans else None,
                     "options": translated.get("options"),
                 }
             )
+
+        rows_overview: list[dict[str, Any]] | None = None
+        if rows_by_index:
+            rows_overview = []
+            for r_idx in sorted(rows_by_index):
+                r_fields = rows_by_index[r_idx]
+                confirmed_count = sum(
+                    1
+                    for rf in r_fields
+                    if (a := answers.get(rf.id)) is not None
+                    and a.status in ("confirmed", PENDING_MANUAL_SIGNATURE)
+                )
+                skipped_count = sum(
+                    1
+                    for rf in r_fields
+                    if (a := answers.get(rf.id)) is not None and a.status == "skipped"
+                )
+                draft_count = sum(
+                    1
+                    for rf in r_fields
+                    if (a := answers.get(rf.id)) is not None
+                    and a.status
+                    in ("awaiting_confirmation", "draft", "needs_clarification")
+                )
+                if confirmed_count == len(r_fields):
+                    row_status = "completed"
+                elif (
+                    confirmed_count + skipped_count == len(r_fields)
+                    and skipped_count > 0
+                ):
+                    row_status = "skipped"
+                elif confirmed_count + skipped_count + draft_count > 0:
+                    row_status = "partial"
+                else:
+                    row_status = "unanswered"
+
+                raw_rl = row_labels_by_index.get(r_idx)
+                translated_rl = translated_map.get(raw_rl, raw_rl) if raw_rl else None
+                rows_overview.append(
+                    {
+                        "row_index": r_idx,
+                        "row_label": translated_rl,
+                        "status": row_status,
+                        "first_field_id": r_fields[0].id,
+                        "first_field_key": r_fields[0].key,
+                        "answered_count": confirmed_count,
+                        "total_count": len(r_fields),
+                    }
+                )
 
         return {
             "table_key": table_key,
@@ -502,6 +641,7 @@ class AnswerService:
             "total_rows": total_rows,
             "row_bounding_box": row_bounding_box,
             "fields": row_items,
+            "rows_overview": rows_overview,
         }
 
     def _detect_geometric_table_row(
@@ -814,16 +954,34 @@ class AnswerService:
             self.repo.save_answer(answer)
             return answer
 
-        # Call MockAIProvider
-        req = ExtractionRequest(
-            fieldType=field.field_type,
-            answer=original_answer,
-            userLanguage=session.user_language,
-            sourceLanguage=session.source_language,
-            outputLanguage=session.output_language,
-        )
+        # Call AIProvider (with deterministic shortcut for known multilingual countries)
         try:
-            result = await self.ai_provider.extract_value(req)
+            det_country = (
+                normalize_country_value(original_answer)
+                if field.field_type == "country"
+                else ""
+            )
+            if (
+                field.field_type == "country"
+                and len(det_country) == 2
+                and det_country.isascii()
+                and det_country.isalpha()
+            ):
+                result = ExtractionResult(
+                    normalizedValue=det_country,
+                    outputValue=det_country,
+                    requiresClarification=False,
+                    uncertainties=[],
+                )
+            else:
+                req = ExtractionRequest(
+                    fieldType=field.field_type,
+                    answer=original_answer,
+                    userLanguage=session.user_language,
+                    sourceLanguage=session.source_language,
+                    outputLanguage=session.output_language,
+                )
+                result = await self.ai_provider.extract_value(req)
         except (AIProviderMalformedResponseError, AIProviderValidationError) as exc:
             # The provider *did* respond (and already spent its one bounded
             # repair attempt — see OllamaAIProvider._call_ollama_structured)
@@ -1645,3 +1803,219 @@ class AnswerService:
         self.db.commit()
 
         return session
+
+    async def submit_table_row(
+        self,
+        session_id: str,
+        items: list[tuple[str, str]],
+        raw_token: str | None,
+    ) -> dict[str, Any]:
+        """Atomically validate, normalize, submit, and confirm one table row's fields."""
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
+        if session.status != "in_progress":
+            raise StateConflictError("Session is not in progress.")
+
+        version = self.form_repo.get_version(session.form_version_id)
+        if not version:
+            raise ResourceNotFoundError("Form version not found.")
+
+        fields_by_id = {f.id: f for f in version.fields}
+        for field_id, _ in items:
+            if field_id not in fields_by_id:
+                raise ValidationError(
+                    "One or more fields do not belong to this form version."
+                )
+
+        existing_answers = {
+            a.field_id: a for a in self.repo.get_answers_for_session(session.id)
+        }
+        field_errors: list[dict[str, str]] = []
+        clarification_field_ids: list[str] = []
+        submitted_count = 0
+        skipped_count = 0
+        blank_optional_fields: list[FormField] = []
+
+        for field_id, raw_val in items:
+            field = fields_by_id[field_id]
+            trimmed = raw_val.strip()
+            translated = await self._get_translated_field(
+                field,
+                session.user_language,
+                session.source_language,
+                session.output_language,
+            )
+            col_header = (
+                ((field.configuration or {}).get("table") or {}).get("column_header")
+                if isinstance(field.configuration, dict)
+                else None
+            )
+            label = str(col_header or translated.get("label") or field.key)
+
+            if not trimmed:
+                existing = existing_answers.get(field_id)
+                if existing and existing.status in ("confirmed", "skipped"):
+                    continue
+                if field_requiredness(field) == REQUIRED:
+                    field_errors.append(
+                        {
+                            "field_id": field.id,
+                            "field_key": field.key,
+                            "label": label,
+                            "reason_code": "missing_required",
+                        }
+                    )
+                else:
+                    blank_optional_fields.append(field)
+                continue
+
+            ans = await self.submit_answer(session_id, field.id, trimmed, raw_token)
+            if ans.validation_status == "invalid":
+                field_errors.append(
+                    {
+                        "field_id": field.id,
+                        "field_key": field.key,
+                        "label": label,
+                        "reason_code": _invalid_reason(field, ans),
+                    }
+                )
+            elif ans.status == "needs_clarification":
+                clarification_field_ids.append(field.id)
+            elif ans.status == "awaiting_confirmation":
+                self.confirm_answer(session_id, ans.id, raw_token)
+                submitted_count += 1
+            elif ans.status == "confirmed":
+                submitted_count += 1
+
+        if field_errors:
+            return {
+                "status": "validation_error",
+                "submitted_count": submitted_count,
+                "skipped_count": skipped_count,
+                "field_errors": field_errors,
+                "clarification_field_ids": clarification_field_ids,
+            }
+
+        if clarification_field_ids:
+            return {
+                "status": "needs_clarification",
+                "submitted_count": submitted_count,
+                "skipped_count": skipped_count,
+                "field_errors": [],
+                "clarification_field_ids": clarification_field_ids,
+            }
+
+        for field in blank_optional_fields:
+            if is_skippable(field):
+                self.skip_field(session_id, field.id, raw_token)
+                skipped_count += 1
+
+        return {
+            "status": "ok",
+            "submitted_count": submitted_count,
+            "skipped_count": skipped_count,
+            "field_errors": [],
+            "clarification_field_ids": [],
+        }
+
+    def skip_table_row(
+        self,
+        session_id: str,
+        field_ids: list[str],
+        raw_token: str | None,
+        skip_remaining_empty_rows: bool = False,
+        table_key: str | None = None,
+        from_row_index: int | None = None,
+    ) -> dict[str, Any]:
+        """Skip one table row or all remaining empty skippable rows of a table."""
+        import re
+
+        session = self.session_service.get_session(
+            session_id, raw_token, self.current_user_id
+        )
+        if session.status != "in_progress":
+            raise StateConflictError("Session is not in progress.")
+
+        version = self.form_repo.get_version(session.form_version_id)
+        if not version:
+            raise ResourceNotFoundError("Form version not found.")
+
+        fields_by_id = {f.id: f for f in version.fields}
+        answers = {a.field_id: a for a in self.repo.get_answers_for_session(session.id)}
+
+        target_ids: list[str] = []
+        seen_ids: set[str] = set()
+        for fid in field_ids:
+            if fid not in fields_by_id:
+                raise ValidationError(
+                    "One or more fields do not belong to this form version."
+                )
+            if fid not in seen_ids:
+                seen_ids.add(fid)
+                target_ids.append(fid)
+
+        if skip_remaining_empty_rows and table_key:
+            rows_map: dict[int, list[FormField]] = {}
+            table_pattern = re.compile(rf"^{re.escape(table_key)}_(\d+)_.+$")
+            for f in sorted(version.fields, key=lambda item: item.position):
+                fc = f.configuration or {}
+                ft = fc.get("table") if isinstance(fc, dict) else None
+                if (
+                    isinstance(ft, dict)
+                    and str(ft.get("table_key") or "") == table_key
+                    and ft.get("row_index") is not None
+                ):
+                    rows_map.setdefault(int(ft["row_index"]), []).append(f)
+                else:
+                    m = table_pattern.match(f.key)
+                    if m:
+                        rows_map.setdefault(int(m.group(1)), []).append(f)
+
+            min_row = from_row_index if from_row_index is not None else 1
+            for r_idx in sorted(rows_map):
+                if r_idx < min_row:
+                    continue
+                r_fields = rows_map[r_idx]
+                has_answered = any(
+                    (a := answers.get(rf.id)) is not None
+                    and a.status not in ("skipped",)
+                    and bool((a.original_answer or "").strip())
+                    for rf in r_fields
+                )
+                if has_answered:
+                    continue
+                for rf in r_fields:
+                    if rf.id not in seen_ids:
+                        seen_ids.add(rf.id)
+                        target_ids.append(rf.id)
+
+        skipped_count = 0
+        field_errors: list[dict[str, str]] = []
+        for fid in target_ids:
+            field = fields_by_id[fid]
+            existing = answers.get(fid)
+            if existing and existing.status in ("confirmed", "skipped"):
+                continue
+            if not is_skippable(field):
+                field_errors.append(
+                    {
+                        "field_id": field.id,
+                        "field_key": field.key,
+                        "label": field.key,
+                        "reason_code": "missing_required",
+                    }
+                )
+                continue
+            self.skip_field(session_id, field.id, raw_token)
+            skipped_count += 1
+
+        return {
+            "status": "validation_error"
+            if field_errors and skipped_count == 0
+            else "ok",
+            "submitted_count": 0,
+            "skipped_count": skipped_count,
+            "field_errors": field_errors,
+            "clarification_field_ids": [],
+        }

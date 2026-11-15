@@ -22,8 +22,11 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth.models import User
+from app.forms.learning_service import FormPatternLearningService
 from app.forms.models import (
     FormField,
+    FormFieldOption,
+    FormFieldOptionTranslation,
     FormFieldTranslation,
     FormTemplate,
     FormVersion,
@@ -36,14 +39,17 @@ from app.forms.pdf_field_extractor import (
     slugify,
 )
 from app.forms.schemas import (
+    CombineChoiceFieldsRequest,
     FieldCreate,
     FieldResponse,
     FieldUpdate,
     FormReviewDetailResponse,
     FormReviewUpdateRequest,
+    GroupTableRowRequest,
     OptionSchema,
     OptionTranslationSchema,
     OrganizationFormSummary,
+    SyncTableColumnsRequest,
     TranslationSchema,
 )
 from app.organizations.models import OrganizationCase
@@ -255,6 +261,13 @@ class OrganizationFormService:
         # 5. Extract fields from PDF only if explicitly requested
         if auto_extract:
             extracted_fields = self._extract_fields_from_pdf_bytes(pdf_bytes)
+            extracted_fields = FormPatternLearningService(
+                self.db
+            ).enrich_extracted_fields(
+                extracted_fields,
+                source_language=version.source_language or "de",
+                organization_id=org.id,
+            )
             self._insert_extracted_fields(
                 version.id, extracted_fields, version.source_language or "de"
             )
@@ -292,6 +305,12 @@ class OrganizationFormService:
 
         pdf_bytes = self.storage.get_bytes(latest_version.source_pdf_storage_path)
         extracted_fields = self._extract_fields_from_pdf_bytes(pdf_bytes)
+        src_lang = latest_version.source_language or "de"
+        extracted_fields = FormPatternLearningService(self.db).enrich_extracted_fields(
+            extracted_fields,
+            source_language=src_lang,
+            organization_id=org.id,
+        )
 
         # Clear existing unverified fields so re-scanning replaces rather than duplicates with _2 suffixes
         existing_fields = (
@@ -306,7 +325,7 @@ class OrganizationFormService:
         self._insert_extracted_fields(
             latest_version.id,
             extracted_fields,
-            latest_version.source_language or "de",
+            src_lang,
         )
         self.db.commit()
 
@@ -667,7 +686,7 @@ class OrganizationFormService:
     def update_field(
         self, user: User, template_id: str, field_id: str, req: FieldUpdate
     ) -> FieldResponse:
-        self._require_org_editor(user)
+        org, _ = self._require_org_editor(user)
 
         field = (
             self.db.query(FormField)
@@ -732,6 +751,19 @@ class OrganizationFormService:
                     )
                     self.db.add(new_t)
 
+        field_version = self.db.get(FormVersion, field.form_version_id)
+        src_lang = (field_version.source_language if field_version else None) or "de"
+        if req.options is not None:
+            self._sync_field_options(field, req.options, src_lang)
+
+        self.db.flush()
+        self.db.refresh(field)
+        FormPatternLearningService(self.db).record_field_curation(
+            field,
+            source_language=src_lang,
+            organization_id=org.id,
+            scope="organization",
+        )
         self.db.commit()
 
         translations = [
@@ -772,7 +804,7 @@ class OrganizationFormService:
     def add_field(
         self, user: User, template_id: str, req: FieldCreate
     ) -> FieldResponse:
-        self._require_org_editor(user)
+        org, _ = self._require_org_editor(user)
 
         template = (
             self.db.query(FormTemplate).filter(FormTemplate.id == template_id).first()
@@ -853,6 +885,18 @@ class OrganizationFormService:
             )
             self.db.add(trans)
 
+        src_lang = latest_version.source_language or "de"
+        if req.options:
+            self._sync_field_options(field, req.options, src_lang)
+
+        self.db.flush()
+        self.db.refresh(field)
+        FormPatternLearningService(self.db).record_field_curation(
+            field,
+            source_language=src_lang,
+            organization_id=org.id,
+            scope="organization",
+        )
         self.db.commit()
         self.db.refresh(field)
 
@@ -1038,6 +1082,12 @@ class OrganizationFormService:
 
         latest_version.status = "published"
         latest_version.published_at = func.now()
+        FormPatternLearningService(self.db).record_published_version(
+            latest_version,
+            source_language=latest_version.source_language or "de",
+            organization_id=org.id,
+            promote_global=(org.verification_status == "verified_official"),
+        )
         self.db.commit()
 
         return self.get_form_review(user, template_id)
@@ -1233,3 +1283,481 @@ class OrganizationFormService:
                 results[target_lang.strip().lower()] = clean_text
 
         return results
+
+    def _sync_field_options(
+        self,
+        field: FormField,
+        options_in: list[OptionSchema],
+        source_language: str,
+    ) -> None:
+        """Replace a field's FormFieldOption and FormFieldOptionTranslation rows."""
+        for existing_opt in list(field.options or []):
+            self.db.delete(existing_opt)
+        self.db.flush()
+
+        for idx, opt_in in enumerate(
+            sorted(options_in, key=lambda o: (o.position, o.value))
+        ):
+            val = opt_in.value.strip()
+            if not val:
+                continue
+            opt_row = FormFieldOption(
+                form_field_id=field.id,
+                value=val,
+                position=idx + 1,
+            )
+            self.db.add(opt_row)
+            self.db.flush()
+
+            has_source = False
+            for ot in opt_in.translations or []:
+                lbl = ot.label.strip()
+                if not lbl:
+                    continue
+                if ot.language == source_language:
+                    has_source = True
+                self.db.add(
+                    FormFieldOptionTranslation(
+                        form_field_option_id=opt_row.id,
+                        language=ot.language,
+                        label=lbl,
+                    )
+                )
+            if not has_source:
+                self.db.add(
+                    FormFieldOptionTranslation(
+                        form_field_option_id=opt_row.id,
+                        language=source_language,
+                        label=val,
+                    )
+                )
+
+    def combine_fields_into_choice(
+        self,
+        user: User,
+        template_id: str,
+        req: CombineChoiceFieldsRequest,
+    ) -> FormReviewDetailResponse:
+        """Merge 2+ selected fields/checkboxes into a single choice question."""
+        org, _ = self._require_org_editor(user)
+        _template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
+        )
+
+        if len(req.field_ids) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Select at least 2 fields to combine into a choice question.",
+            )
+        if req.field_type not in ("single_choice", "multiple_choice", "choice"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Choice field_type must be single_choice or multiple_choice.",
+            )
+
+        selected = (
+            self.db.query(FormField)
+            .filter(
+                FormField.form_version_id == latest_version.id,
+                FormField.id.in_(req.field_ids),
+            )
+            .options(joinedload(FormField.translations), joinedload(FormField.options))
+            .all()
+        )
+        by_id = {f.id: f for f in selected}
+        ordered_selected = [by_id[fid] for fid in req.field_ids if fid in by_id]
+        if len(ordered_selected) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="One or more selected fields were not found in this form version.",
+            )
+
+        src_lang = latest_version.source_language or "de"
+        primary = ordered_selected[0]
+        option_boxes: list[dict[str, Any]] = []
+        options_schema: list[OptionSchema] = []
+        all_bboxes: list[list[float]] = []
+        seen_vals: set[str] = set()
+        learned_options_payload: list[dict[str, Any]] = []
+
+        for idx, f in enumerate(ordered_selected):
+            src_tr = next(
+                (t for t in f.translations if t.language == src_lang),
+                f.translations[0] if f.translations else None,
+            )
+            custom_lbl = (
+                req.option_labels[idx].strip()
+                if req.option_labels and idx < len(req.option_labels)
+                else ""
+            )
+            opt_label = custom_lbl or (
+                src_tr.label if src_tr else f.key.replace("_", " ")
+            )
+            val_base = slugify(opt_label) or f"option_{idx + 1}"
+            opt_val = val_base
+            suffix = 2
+            while opt_val in seen_vals:
+                opt_val = f"{val_base}_{suffix}"
+                suffix += 1
+            seen_vals.add(opt_val)
+
+            options_schema.append(
+                OptionSchema(
+                    value=opt_val,
+                    position=idx + 1,
+                    translations=[
+                        OptionTranslationSchema(language=src_lang, label=opt_label)
+                    ],
+                )
+            )
+            learned_options_payload.append(
+                {"value": opt_val, "translations": {src_lang: opt_label}}
+            )
+
+            cfg = f.configuration if isinstance(f.configuration, dict) else {}
+            bbox = cfg.get("bbox")
+            if isinstance(bbox, list) and len(bbox) == 4:
+                float_box = [float(b) for b in bbox]
+                all_bboxes.append(float_box)
+                option_boxes.append(
+                    {
+                        "value": opt_val,
+                        "label": opt_label,
+                        "page": int(cfg.get("page", 1)),
+                        "bbox": float_box,
+                    }
+                )
+
+        new_cfg = dict(primary.configuration or {})
+        if all_bboxes:
+            new_cfg["bbox"] = [
+                round(min(b[0] for b in all_bboxes), 1),
+                round(min(b[1] for b in all_bboxes), 1),
+                round(max(b[2] for b in all_bboxes), 1),
+                round(max(b[3] for b in all_bboxes), 1),
+            ]
+        if option_boxes:
+            new_cfg["option_boxes"] = option_boxes
+
+        primary.field_type = req.field_type
+        primary.requiredness = req.requiredness or primary.requiredness
+        primary.required = primary.requiredness == "required"
+        if req.question_key is not None:
+            primary.question_key = req.question_key.strip() or None
+        primary.configuration = new_cfg
+
+        clean_label = req.label.strip() or "Choice"
+        existing_src_tr = next(
+            (t for t in primary.translations if t.language == src_lang), None
+        )
+        if existing_src_tr:
+            existing_src_tr.label = clean_label
+        else:
+            self.db.add(
+                FormFieldTranslation(
+                    form_field_id=primary.id,
+                    language=src_lang,
+                    label=clean_label,
+                )
+            )
+
+        self._sync_field_options(primary, options_schema, src_lang)
+
+        for absorbed in ordered_selected[1:]:
+            self.db.delete(absorbed)
+        self.db.flush()
+
+        # Re-normalize remaining positions cleanly
+        remaining = (
+            self.db.query(FormField)
+            .filter(FormField.form_version_id == latest_version.id)
+            .order_by(FormField.position.asc())
+            .all()
+        )
+        for pos, rf in enumerate(remaining):
+            rf.position = pos
+
+        FormPatternLearningService(self.db).record_choice_group_curation(
+            label=clean_label,
+            options=learned_options_payload,
+            source_language=src_lang,
+            field_type=primary.field_type,
+            translations={src_lang: {"label": clean_label}},
+            organization_id=org.id,
+            scope="organization",
+            question_key=primary.question_key,
+            requiredness=primary.requiredness,
+        )
+        self.db.commit()
+        return self.get_form_review(user, template_id)
+
+    def group_fields_into_table_row(
+        self,
+        user: User,
+        template_id: str,
+        req: GroupTableRowRequest,
+    ) -> FormReviewDetailResponse:
+        """Group selected fields into one table row and isolate Row 2+ from applicant Vault keys."""
+        org, _ = self._require_org_editor(user)
+        _template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
+        )
+
+        if not req.field_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Select at least 1 field to assign to a table row.",
+            )
+
+        selected = (
+            self.db.query(FormField)
+            .filter(
+                FormField.form_version_id == latest_version.id,
+                FormField.id.in_(req.field_ids),
+            )
+            .options(joinedload(FormField.translations))
+            .all()
+        )
+        if len(selected) != len(set(req.field_ids)):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="One or more selected fields were not found in this form version.",
+            )
+
+        src_lang = latest_version.source_language or "de"
+        t_key = slugify(req.table_key or req.table_title or "table") or "table"
+
+        def _x_sort_key(f: FormField) -> tuple[float, int]:
+            cfg = f.configuration if isinstance(f.configuration, dict) else {}
+            bbox = cfg.get("bbox")
+            x0 = (
+                float(bbox[0])
+                if isinstance(bbox, list) and len(bbox) == 4
+                else float(f.position)
+            )
+            return (x0, f.position)
+
+        ordered = sorted(selected, key=_x_sort_key)
+
+        all_fields = (
+            self.db.query(FormField)
+            .filter(FormField.form_version_id == latest_version.id)
+            .all()
+        )
+        existing_rows: set[int] = {req.row_index}
+        for af in all_fields:
+            tbl = (
+                (af.configuration or {}).get("table")
+                if isinstance(af.configuration, dict)
+                else None
+            )
+            if (
+                isinstance(tbl, dict)
+                and tbl.get("table_key") == t_key
+                and tbl.get("row_index") is not None
+            ):
+                existing_rows.add(int(tbl["row_index"]))
+        total_rows = max(existing_rows)
+
+        row_role = req.row_role or ("applicant" if req.row_index == 1 else "member")
+        row_label = req.row_label or (
+            "Applicant" if req.row_index == 1 else f"Row {req.row_index}"
+        )
+
+        for col_idx, f in enumerate(ordered):
+            src_tr = next(
+                (t for t in f.translations if t.language == src_lang),
+                f.translations[0] if f.translations else None,
+            )
+            col_hdr = src_tr.label if src_tr else f.key.replace("_", " ")
+            cfg = dict(f.configuration or {})
+            cfg["table"] = {
+                "table_key": t_key,
+                "table_title": req.table_title.strip()
+                or t_key.replace("_", " ").title(),
+                "table_description": req.table_description,
+                "row_index": req.row_index,
+                "total_rows": total_rows,
+                "row_label": row_label,
+                "row_role": row_role,
+                "col_index": col_idx,
+                "column_header": col_hdr,
+            }
+            f.configuration = cfg
+            if req.row_index >= 2:
+                f.question_key = None
+                f.requiredness = "optional"
+                f.required = False
+
+        # Keep total_rows synchronized on sibling rows of the same table
+        rows_by_idx: dict[int, list[FormField]] = {}
+        for af in all_fields:
+            cfg = af.configuration if isinstance(af.configuration, dict) else None
+            tbl = cfg.get("table") if isinstance(cfg, dict) else None
+            if (
+                isinstance(tbl, dict)
+                and tbl.get("table_key") == t_key
+                and tbl.get("row_index") is not None
+            ):
+                new_tbl = dict(tbl)
+                new_tbl["total_rows"] = total_rows
+                new_cfg = dict(cfg or {})
+                new_cfg["table"] = new_tbl
+                af.configuration = new_cfg
+                rows_by_idx.setdefault(int(tbl["row_index"]), []).append(af)
+
+        FormPatternLearningService(self.db).record_table_schema_curation(
+            table_key=t_key,
+            table_title=req.table_title,
+            row_fields_by_index=rows_by_idx,
+            source_language=src_lang,
+            organization_id=org.id,
+            scope="organization",
+        )
+        self.db.commit()
+        return self.get_form_review(user, template_id)
+
+    def sync_table_columns(
+        self,
+        user: User,
+        template_id: str,
+        table_key: str,
+        req: SyncTableColumnsRequest,
+    ) -> FormReviewDetailResponse:
+        """Apply source row's column types, options, and labels to all rows in the table."""
+        org, _ = self._require_org_editor(user)
+        _template, latest_version = self._get_form_template_and_version(
+            org.id, template_id
+        )
+
+        all_fields = (
+            self.db.query(FormField)
+            .filter(FormField.form_version_id == latest_version.id)
+            .options(
+                joinedload(FormField.translations),
+                joinedload(FormField.options).joinedload(FormFieldOption.translations),
+            )
+            .order_by(FormField.position.asc())
+            .all()
+        )
+        rows_by_idx: dict[int, list[FormField]] = {}
+        table_title = table_key
+        for f in all_fields:
+            tbl = (
+                (f.configuration or {}).get("table")
+                if isinstance(f.configuration, dict)
+                else None
+            )
+            if (
+                isinstance(tbl, dict)
+                and tbl.get("table_key") == table_key
+                and tbl.get("row_index") is not None
+            ):
+                r_idx = int(tbl["row_index"])
+                rows_by_idx.setdefault(r_idx, []).append(f)
+                if tbl.get("table_title"):
+                    table_title = str(tbl["table_title"])
+
+        source_row = rows_by_idx.get(req.source_row_index)
+        if not source_row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Source table row not found.",
+            )
+
+        src_lang = latest_version.source_language or "de"
+        source_by_col: dict[int, FormField] = {}
+        for idx, sf in enumerate(
+            sorted(
+                source_row,
+                key=lambda item: int(
+                    ((item.configuration or {}).get("table") or {}).get(
+                        "col_index", item.position
+                    )
+                ),
+            )
+        ):
+            c_idx = int(
+                ((sf.configuration or {}).get("table") or {}).get("col_index", idx)
+            )
+            source_by_col[c_idx] = sf
+
+        for r_idx, row_fields in rows_by_idx.items():
+            if r_idx == req.source_row_index:
+                continue
+            for idx, tf in enumerate(
+                sorted(
+                    row_fields,
+                    key=lambda item: int(
+                        ((item.configuration or {}).get("table") or {}).get(
+                            "col_index", item.position
+                        )
+                    ),
+                )
+            ):
+                t_tbl = dict((tf.configuration or {}).get("table") or {})
+                c_idx = int(t_tbl.get("col_index", idx))
+                src_field = source_by_col.get(c_idx)
+                if not src_field:
+                    continue
+
+                tf.field_type = src_field.field_type
+                if r_idx >= 2:
+                    tf.question_key = None
+                    tf.requiredness = "optional"
+                    tf.required = False
+
+                s_tbl = (src_field.configuration or {}).get("table") or {}
+                if s_tbl.get("column_header"):
+                    t_tbl["column_header"] = s_tbl["column_header"]
+                    new_cfg = dict(tf.configuration or {})
+                    new_cfg["table"] = t_tbl
+                    tf.configuration = new_cfg
+
+                for st in src_field.translations or []:
+                    existing_tt = next(
+                        (tt for tt in tf.translations if tt.language == st.language),
+                        None,
+                    )
+                    if existing_tt:
+                        existing_tt.label = st.label
+                        existing_tt.help_text = st.help_text
+                        existing_tt.placeholder = st.placeholder
+                    else:
+                        self.db.add(
+                            FormFieldTranslation(
+                                form_field_id=tf.id,
+                                language=st.language,
+                                label=st.label,
+                                help_text=st.help_text,
+                                placeholder=st.placeholder,
+                            )
+                        )
+
+                if src_field.options:
+                    copied_opts = [
+                        OptionSchema(
+                            value=opt.value,
+                            position=opt.position,
+                            translations=[
+                                OptionTranslationSchema(
+                                    language=ot.language, label=ot.label
+                                )
+                                for ot in (opt.translations or [])
+                            ],
+                        )
+                        for opt in sorted(src_field.options, key=lambda o: o.position)
+                    ]
+                    self._sync_field_options(tf, copied_opts, src_lang)
+
+        self.db.flush()
+        FormPatternLearningService(self.db).record_table_schema_curation(
+            table_key=table_key,
+            table_title=table_title,
+            row_fields_by_index=rows_by_idx,
+            source_language=src_lang,
+            organization_id=org.id,
+            scope="organization",
+        )
+        self.db.commit()
+        return self.get_form_review(user, template_id)

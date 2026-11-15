@@ -20,6 +20,7 @@ from app.forms.canonical_catalog import (
     CANONICAL_SCHEMA_CATALOG,
     CanonicalFieldDefinition,
 )
+from app.forms.learning_service import FormPatternLearningService
 from app.forms.models import FormField, FormTemplate, FormVersion
 from app.forms.services import ResourceNotFoundError
 
@@ -154,13 +155,70 @@ class SchemaAutoMapperService:
             field_texts.append(f"{label} (key: {f.key}, type: {f.field_type})")
 
         field_vecs = await self.embedding_provider.get_embeddings(field_texts)
+        learning_service = FormPatternLearningService(self.db)
+        learned_candidates = learning_service.load_candidates(
+            organization_id=organization_id,
+            source_language=latest_version.source_language or "de",
+        )
 
         results: list[AutoMapFieldResult] = []
 
-        # 3. Score each field against canonical catalog
+        # 3. Score each field against learned patterns + canonical catalog
         for f_idx, field in enumerate(fields):
             f_vec = field_vecs[f_idx]
             field_label = get_field_primary_label(field, latest_version.source_language)
+
+            # Secondary table rows (e.g., spouse / child rows 2..N) must never
+            # auto-bind to the main applicant's personal Vault keys.
+            tbl_meta = (
+                (field.configuration or {}).get("table")
+                if isinstance(field.configuration, dict)
+                else None
+            )
+            if isinstance(tbl_meta, dict) and int(tbl_meta.get("row_index") or 1) >= 2:
+                results.append(
+                    AutoMapFieldResult(
+                        field_id=field.id,
+                        field_key=field.key,
+                        field_label=field_label,
+                        current_question_key=field.question_key,
+                        suggested_question_key=None,
+                        confidence=0.0,
+                        match_reason="Isolated household/secondary row (no applicant prefill)",
+                        alternatives=[],
+                    )
+                )
+                continue
+
+            # Check Zero-PII learned curations first for high-confidence reuse
+            opt_vals = [opt.value for opt in (field.options or [])]
+            learned_hit = learning_service.match_field_or_choice(
+                label=field_label,
+                option_labels=opt_vals or None,
+                source_language=latest_version.source_language or "de",
+                organization_id=organization_id,
+                candidates=learned_candidates,
+                query_embedding=f_vec,
+            )
+            if (
+                learned_hit
+                and learned_hit[0].canonical_question_key
+                and learned_hit[1] >= max(min_confidence, 0.72)
+            ):
+                pat, l_conf = learned_hit
+                results.append(
+                    AutoMapFieldResult(
+                        field_id=field.id,
+                        field_key=field.key,
+                        field_label=field_label,
+                        current_question_key=field.question_key,
+                        suggested_question_key=pat.canonical_question_key,
+                        confidence=round(min(1.0, l_conf), 3),
+                        match_reason=f"Matched agency-curated pattern ({pat.confirmation_count}x confirmed)",
+                        alternatives=[],
+                    )
+                )
+                continue
 
             scored_candidates: list[tuple[CanonicalFieldDefinition, float, str]] = []
 
@@ -274,6 +332,12 @@ class SchemaAutoMapperService:
             if f_id in fields_by_id and q_key:
                 field = fields_by_id[f_id]
                 field.question_key = q_key
+                FormPatternLearningService(self.db).record_field_curation(
+                    field,
+                    source_language=latest_version.source_language or "de",
+                    organization_id=organization_id,
+                    scope="organization",
+                )
                 updated_count += 1
 
         if updated_count > 0:

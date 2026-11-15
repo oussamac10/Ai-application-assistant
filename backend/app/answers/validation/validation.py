@@ -98,9 +98,11 @@ def validate_value(
             except ValueError:
                 pass
 
-    elif field_type in ("integer", "decimal"):
-        if not isinstance(val, (int, float)) or (
-            field_type == "integer" and not isinstance(val, int)
+    elif field_type in ("integer", "decimal", "number"):
+        if (
+            isinstance(val, bool)
+            or not isinstance(val, (int, float))
+            or (field_type == "integer" and not isinstance(val, int))
         ):
             return (
                 False,
@@ -138,14 +140,14 @@ def validate_value(
         if not isinstance(val, bool):
             return False, "Value must be a boolean."
 
-    elif field_type == "single_choice":
+    elif field_type in ("single_choice", "choice"):
         opt_values = set()
         if options:
             opt_values = {opt.value for opt in options}
         else:
             opt_opts = config.get("options", [])
             opt_values = {opt["value"] for opt in opt_opts if "value" in opt}
-        if val not in opt_values:
+        if opt_values and val not in opt_values:
             return False, f"Value '{val}' must be one of the canonical options."
 
     elif field_type == "multiple_choice":

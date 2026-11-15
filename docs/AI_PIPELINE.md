@@ -41,6 +41,8 @@ flowchart LR
 
 1. **Local-First Hybrid Detection (`HybridFieldDetectionProvider`):**
    - Runs `LocalFieldDetectionProvider` first at zero marginal cost (AcroForm widgets, compound stroked vector path decomposition, 2D vector grid cells & multi-row repeated tables, ruled underlines, inline blank runs, rotated margin code exclusion, inline/wrapped checkbox & radio option groups, party/sub-section context disambiguation, signature boxes, and compound `Ort, Datum, Unterschrift` splitting).
+   - `pdf_structure_detector.py` and `pdf_field_extractor.py` detect table structures per row (preserving Row 1 `applicant` vs isolating Rows 2..N `member` without applicant Vault pre-fill leakage) and bundle intra-row/grouped checkboxes into `single_choice`/`multiple_choice` fields with `configuration.option_boxes`.
+   - `FormPatternLearningService` (`app/forms/learning_service.py`) improves subsequent PDF detections, Review Studio auto-mapping, and field bridging by matching Zero-PII agency/admin curations (`learned_form_patterns`) via SHA-256 `signature_hash`, normalized token Jaccard overlap, and `EmbeddingProvider` `cosine_similarity`.
    - Evaluates deterministic quality (`quality.py`) and coverage (`coverage.py`: label, selection-mark, and page coverage).
    - Escalates to `AzureDocumentIntelligenceProvider` (`prebuilt-layout`, capped at `HYBRID_MAX_ESCALATION_PAGES=10`) **only** when local score `< 0.55` or coverage floors fail and Azure is explicitly enabled.
 2. **Deterministic Confidence Routing (Never LLM-Invented Confidence):**
@@ -81,7 +83,7 @@ AI Form Assistant deliberately uses a **backend-controlled deterministic state m
 
 1. **Dual Export Engines:**
    - **Static Curated Templates (`PypdfRenderer`):** Fills mapped AcroForm fields across all pages (`READ_ONLY`) + renders vector signatures (`signature_render.py`).
-   - **Dynamic Uploaded Documents (`dynamic_overlay.py`):** Maps confirmed answers back to `DetectedField.input_bounding_box`, draws vector checkmarks/signatures, masks dotted blank runs, strips empty interactive overlay widgets, and embeds Unicode/RTL fonts (`NotoSans` + `NotoSansArabic` in `Phase S1`).
+   - **Dynamic Uploaded Documents (`dynamic_overlay.py` / `render_form_version_overlay_pdf`):** Maps confirmed answers back to `DetectedField.input_bounding_box`, ticks exact bundled checkboxes from `configuration.option_boxes` for `single_choice`/`multiple_choice` fields, draws vector checkmarks/signatures, masks dotted blank runs, strips empty interactive overlay widgets, and embeds Unicode/RTL fonts (`NotoSans` + `NotoSansArabic` in `Phase S1`).
 2. **Known Limitations Surfaced to Users:**
    - Character-comb grids (`|A|B|C|`) on flat scans may not align character-by-character without explicit comb cell metadata.
    - Severe smartphone camera perspective skew (>5°) reduces overlay precision.

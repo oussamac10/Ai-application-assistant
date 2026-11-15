@@ -62,15 +62,29 @@ export const ProgressInfoSchema = z.object({
 });
 
 export const TableRowFieldSchema = z.object({
+  fieldId: z.string(),
   fieldKey: z.string(),
   fieldType: z.string(),
   label: z.string(),
   required: z.boolean(),
   requiredness: z.string().optional(),
+  placeholder: z.string().nullable().optional(),
   originalAnswer: z.string().nullable().optional(),
   currentAnswerStatus: z.string().nullable().optional(),
   options: z.array(FieldOptionSchema).nullable().optional(),
 });
+
+export const TableRowOverviewItemSchema = z.object({
+  rowIndex: z.number(),
+  rowLabel: z.string().nullable().optional(),
+  status: z.string(),
+  firstFieldId: z.string(),
+  firstFieldKey: z.string(),
+  answeredCount: z.number(),
+  totalCount: z.number(),
+});
+
+export type TableRowOverviewItem = z.infer<typeof TableRowOverviewItemSchema>;
 
 export const TableRowContextSchema = z.object({
   tableKey: z.string(),
@@ -81,6 +95,7 @@ export const TableRowContextSchema = z.object({
   totalRows: z.number(),
   rowBoundingBox: z
     .object({
+      page: z.number().optional(),
       x: z.number(),
       y: z.number(),
       width: z.number(),
@@ -89,9 +104,27 @@ export const TableRowContextSchema = z.object({
     .nullable()
     .optional(),
   fields: z.array(TableRowFieldSchema),
+  rowsOverview: z.array(TableRowOverviewItemSchema).optional(),
 });
 
 export type TableRowContext = z.infer<typeof TableRowContextSchema>;
+
+export const TableRowFieldErrorSchema = z.object({
+  fieldId: z.string(),
+  fieldKey: z.string(),
+  label: z.string(),
+  reasonCode: z.string(),
+});
+
+export const TableRowBatchResponseSchema = z.object({
+  status: z.enum(["ok", "validation_error", "needs_clarification"]),
+  submittedCount: z.number(),
+  skippedCount: z.number(),
+  fieldErrors: z.array(TableRowFieldErrorSchema),
+  clarificationFieldIds: z.array(z.string()),
+});
+
+export type TableRowBatchResponse = z.infer<typeof TableRowBatchResponseSchema>;
 
 export const CurrentFieldResponseSchema = z.object({
   id: z.string(),
@@ -372,12 +405,51 @@ export async function cancelSession(sessionId: string): Promise<FormSession> {
 
 export async function getCurrentField(
   sessionId: string,
+  focusFieldId?: string,
 ): Promise<CurrentField> {
+  const qs = focusFieldId
+    ? `?field_id=${encodeURIComponent(focusFieldId)}`
+    : "";
   return apiRequest(
-    `/form-sessions/${sessionId}/current-field`,
+    `/form-sessions/${sessionId}/current-field${qs}`,
     { method: "GET" },
     sessionId,
     CurrentFieldResponseSchema,
+  );
+}
+
+export async function submitTableRow(
+  sessionId: string,
+  items: Array<{ fieldId: string; value: string }>,
+): Promise<TableRowBatchResponse> {
+  return apiRequest(
+    `/form-sessions/${sessionId}/table-rows/submit`,
+    {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    },
+    sessionId,
+    TableRowBatchResponseSchema,
+  );
+}
+
+export async function skipTableRow(
+  sessionId: string,
+  payload: {
+    fieldIds: string[];
+    skipRemainingEmptyRows?: boolean;
+    tableKey?: string | null;
+    fromRowIndex?: number | null;
+  },
+): Promise<TableRowBatchResponse> {
+  return apiRequest(
+    `/form-sessions/${sessionId}/table-rows/skip`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    sessionId,
+    TableRowBatchResponseSchema,
   );
 }
 

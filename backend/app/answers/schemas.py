@@ -59,14 +59,26 @@ class FieldExplanationInfo(BaseSchema):
 
 
 class TableRowFieldInfo(BaseSchema):
+    field_id: str | None = None
     field_key: str
     field_type: str
     label: str
     required: bool
     requiredness: str = "unknown"
+    placeholder: str | None = None
     original_answer: str | None = None
     current_answer_status: str | None = None
     options: list[FieldOptionInfo] | None = None
+
+
+class TableRowOverviewItem(BaseSchema):
+    row_index: int
+    row_label: str | None = None
+    status: str
+    first_field_id: str
+    first_field_key: str
+    answered_count: int
+    total_count: int
 
 
 class TableRowContext(BaseSchema):
@@ -78,6 +90,38 @@ class TableRowContext(BaseSchema):
     total_rows: int
     row_bounding_box: dict[str, float] | None = None
     fields: list[TableRowFieldInfo]
+    rows_overview: list[TableRowOverviewItem] | None = None
+
+
+class TableRowFieldSubmission(BaseSchema):
+    field_id: str
+    value: str = ""
+
+
+class TableRowSubmitRequest(BaseSchema):
+    items: list[TableRowFieldSubmission]
+
+
+class TableRowSkipRequest(BaseSchema):
+    field_ids: list[str]
+    skip_remaining_empty_rows: bool = False
+    table_key: str | None = None
+    from_row_index: int | None = None
+
+
+class TableRowFieldError(BaseSchema):
+    field_id: str
+    field_key: str
+    label: str
+    reason_code: str
+
+
+class TableRowBatchResponse(BaseSchema):
+    status: str
+    submitted_count: int = 0
+    skipped_count: int = 0
+    field_errors: list[TableRowFieldError] = []
+    clarification_field_ids: list[str] = []
 
 
 class CurrentFieldResponse(BaseSchema):

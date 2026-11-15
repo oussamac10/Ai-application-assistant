@@ -166,9 +166,12 @@ class MockAIProvider:
             )
 
         if field_type == "country":
+            from app.answers.normalization.countries import normalize_country_value
+
+            norm_country = normalize_country_value(answer)
             return ExtractionResult(
-                normalizedValue=answer.upper()[:2],
-                outputValue=answer.upper()[:2],
+                normalizedValue=norm_country,
+                outputValue=norm_country,
                 requiresClarification=False,
                 uncertainties=[],
             )

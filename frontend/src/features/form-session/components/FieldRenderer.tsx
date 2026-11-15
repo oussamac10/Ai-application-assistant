@@ -31,6 +31,7 @@ interface FieldRendererProps {
   placeholder?: string;
   helpText?: string;
   enableVoiceInput?: boolean;
+  compactChoicePills?: boolean;
 }
 
 export function FieldRenderer({
@@ -45,6 +46,7 @@ export function FieldRenderer({
   placeholder = "",
   helpText,
   enableVoiceInput = false,
+  compactChoicePills = false,
 }: FieldRendererProps) {
   const t = useTranslations("common");
   let activeLocale = "en";
@@ -184,6 +186,7 @@ export function FieldRenderer({
         );
 
       case "decimal":
+      case "number":
         return (
           <input
             id={inputId}
@@ -245,10 +248,10 @@ export function FieldRenderer({
             <button
               type="button"
               aria-pressed={isActive("true")}
-              className={`flex items-center justify-center gap-2 rounded-xl border py-3.5 px-4 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+              className={`flex items-center justify-center gap-2 rounded-xl border py-3 px-4 text-sm font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                 isActive("true")
-                  ? "border-emerald-500 bg-emerald-500/15 text-white ring-2 ring-emerald-500/20 shadow-xs font-bold scale-[1.01]"
-                  : "border-white/10 bg-[#0A0E17] text-slate-300 hover:border-emerald-500/40 hover:bg-[#151D2E] hover:text-white active:scale-[0.99]"
+                  ? "border-emerald-500 bg-emerald-500/15 text-[var(--text-primary)] ring-2 ring-emerald-500/20 shadow-xs font-bold scale-[1.01]"
+                  : "border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:border-emerald-500/40 hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)] active:scale-[0.99]"
               }`}
               onClick={() => handleBooleanChange("true")}
             >
@@ -257,10 +260,10 @@ export function FieldRenderer({
             <button
               type="button"
               aria-pressed={isActive("false")}
-              className={`flex items-center justify-center gap-2 rounded-xl border py-3.5 px-4 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+              className={`flex items-center justify-center gap-2 rounded-xl border py-3 px-4 text-sm font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                 isActive("false")
-                  ? "border-emerald-500 bg-emerald-500/15 text-white ring-2 ring-emerald-500/20 shadow-xs font-bold scale-[1.01]"
-                  : "border-white/10 bg-[#0A0E17] text-slate-300 hover:border-emerald-500/40 hover:bg-[#151D2E] hover:text-white active:scale-[0.99]"
+                  ? "border-emerald-500 bg-emerald-500/15 text-[var(--text-primary)] ring-2 ring-emerald-500/20 shadow-xs font-bold scale-[1.01]"
+                  : "border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:border-emerald-500/40 hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)] active:scale-[0.99]"
               }`}
               onClick={() => handleBooleanChange("false")}
             >
@@ -271,6 +274,43 @@ export function FieldRenderer({
       }
 
       case "single_choice":
+      case "choice":
+        if (compactChoicePills && options.length >= 2 && options.length <= 6) {
+          return (
+            <div
+              id={inputId}
+              role="radiogroup"
+              aria-describedby={`${helpText ? descId : ""} ${error ? errorId : ""}`}
+              className="flex flex-wrap gap-2 w-full"
+            >
+              {options.map((opt) => {
+                const isSelected = value === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    onClick={() => {
+                      if (isSelected && !required) {
+                        onChange("");
+                      } else {
+                        onChange(opt.value);
+                      }
+                    }}
+                    className={`flex-1 min-w-[72px] inline-flex items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                      isSelected
+                        ? "border-emerald-500 bg-emerald-500/15 text-[var(--text-primary)] ring-2 ring-emerald-500/20 shadow-xs font-bold"
+                        : "border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:border-emerald-500/40 hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        }
         return (
           <div className="relative">
             <select
@@ -281,20 +321,16 @@ export function FieldRenderer({
               aria-describedby={`${helpText ? descId : ""} ${error ? errorId : ""}`}
               onChange={(e) => onChange(e.target.value)}
             >
-              <option value="" disabled className="text-slate-500 bg-[#0F1522]">
+              <option value="" disabled>
                 Select an option...
               </option>
               {options.map((opt) => (
-                <option
-                  key={opt.value}
-                  value={opt.value}
-                  className="bg-[#0F1522] text-slate-100"
-                >
+                <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-slate-400">
+            <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3.5 text-[var(--text-muted)]">
               <ChevronDown className="h-4 w-4" />
             </div>
           </div>
@@ -333,13 +369,13 @@ export function FieldRenderer({
                   key={opt.value}
                   className={`flex items-center gap-3.5 rounded-xl border px-4 py-3 cursor-pointer select-none transition-all duration-150 focus-within:ring-2 focus-within:ring-emerald-500 ${
                     isChecked
-                      ? "border-emerald-500 bg-emerald-500/15 text-white ring-2 ring-emerald-500/20 shadow-xs font-semibold"
-                      : "border-white/10 bg-[#0A0E17] text-slate-300 hover:border-emerald-500/40 hover:bg-[#151D2E] hover:text-white active:scale-[0.99]"
+                      ? "border-emerald-500 bg-emerald-500/15 text-[var(--text-primary)] ring-2 ring-emerald-500/20 shadow-xs font-semibold"
+                      : "border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:border-emerald-500/40 hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)] active:scale-[0.99]"
                   }`}
                 >
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-white/20 bg-[#0A0E17] text-emerald-500 focus:ring-emerald-500/30 cursor-pointer accent-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="h-4 w-4 rounded border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-emerald-500 focus:ring-emerald-500/30 cursor-pointer accent-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500"
                     checked={isChecked}
                     onChange={(e) =>
                       handleCheckboxChange(opt.value, e.target.checked)
@@ -409,10 +445,10 @@ export function FieldRenderer({
       {error && (
         <div
           id={errorId}
-          className="mt-2 flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200"
+          className="mt-2 flex items-center gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-200"
           role="alert"
         >
-          <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
+          <AlertCircle className="h-4 w-4 shrink-0 text-rose-500 dark:text-rose-400" />
           <span>{error}</span>
         </div>
       )}

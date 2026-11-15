@@ -647,6 +647,96 @@ export async function clearFormFields(templateId: string): Promise<FormReviewDet
   return res.json();
 }
 
+export async function combineFieldsIntoChoice(
+  templateId: string,
+  payload: {
+    fieldIds: string[];
+    label: string;
+    fieldType?: "single_choice" | "multiple_choice";
+    questionKey?: string | null;
+    requiredness?: string;
+    optionLabels?: string[];
+  }
+): Promise<FormReviewDetail> {
+  const csrf = getCsrfToken();
+  const res = await fetch(
+    `/api/organizations/current/forms/${templateId}/fields/combine-choice`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "x-csrf-token": csrf } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to combine fields into choice question.");
+  }
+  return res.json();
+}
+
+export async function groupFieldsIntoTableRow(
+  templateId: string,
+  payload: {
+    fieldIds: string[];
+    tableKey?: string | null;
+    tableTitle: string;
+    tableDescription?: string | null;
+    rowIndex: number;
+    rowLabel?: string | null;
+    rowRole?: string | null;
+  }
+): Promise<FormReviewDetail> {
+  const csrf = getCsrfToken();
+  const res = await fetch(
+    `/api/organizations/current/forms/${templateId}/fields/group-table-row`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "x-csrf-token": csrf } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to group fields as table row.");
+  }
+  return res.json();
+}
+
+export async function syncTableColumns(
+  templateId: string,
+  tableKey: string,
+  sourceRowIndex = 1
+): Promise<FormReviewDetail> {
+  const csrf = getCsrfToken();
+  const res = await fetch(
+    `/api/organizations/current/forms/${templateId}/tables/${encodeURIComponent(
+      tableKey
+    )}/sync-columns`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "x-csrf-token": csrf } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify({ sourceRowIndex }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to sync table columns.");
+  }
+  return res.json();
+}
+
 // Public Citizen Discovery & Portals (Phase G3)
 export async function listPublicOrganizations(params?: {
   search?: string;

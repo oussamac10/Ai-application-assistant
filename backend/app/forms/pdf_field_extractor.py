@@ -14,7 +14,13 @@ import fitz  # PyMuPDF
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.forms.models import FormField, FormFieldOption, FormFieldTranslation
+from app.forms.models import (
+    FormField,
+    FormFieldOption,
+    FormFieldOptionTranslation,
+    FormFieldTranslation,
+)
+from app.forms.pdf_structure_detector import structure_pdf_page_fields
 
 logger = logging.getLogger(__name__)
 
@@ -424,11 +430,12 @@ def extract_fields_from_pdf_layout(doc: fitz.Document) -> list[dict[str, Any]]:
 
 
 def extract_fields_from_pdf_bytes(pdf_bytes: bytes) -> list[dict[str, Any]]:
-    """Extracts candidate fields from interactive AcroForms or layout text."""
+    """Extracts candidate fields from interactive AcroForms or layout text, structured per table row and choice group."""
     extracted_fields: list[dict[str, Any]] = []
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         for page_idx, page in enumerate(doc):
+            raw_page_fields: list[dict[str, Any]] = []
             for widget in page.widgets():
                 if not widget.field_name:
                     continue
@@ -449,7 +456,7 @@ def extract_fields_from_pdf_bytes(pdf_bytes: bytes) -> list[dict[str, Any]]:
                     round(float(rect.y1), 1),
                 ]
 
-                extracted_fields.append(
+                raw_page_fields.append(
                     {
                         "key": slugify(widget.field_name),
                         "label": label,
@@ -459,8 +466,16 @@ def extract_fields_from_pdf_bytes(pdf_bytes: bytes) -> list[dict[str, Any]]:
                         "options": options,
                         "bbox": bbox,
                         "page": page_idx + 1,
+                        "is_radio": widget.field_type
+                        == fitz.PDF_WIDGET_TYPE_RADIOBUTTON,
+                        "raw_field_name": widget.field_name,
                     }
                 )
+            extracted_fields.extend(
+                structure_pdf_page_fields(
+                    page, raw_page_fields, page_idx + 1, infer_field_metadata
+                )
+            )
         doc.close()
     except Exception as e:
         logger.warning("PyMuPDF widget extraction encountered an error: %s", e)
@@ -469,7 +484,19 @@ def extract_fields_from_pdf_bytes(pdf_bytes: bytes) -> list[dict[str, Any]]:
     if not extracted_fields:
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            extracted_fields = extract_fields_from_pdf_layout(doc)
+            raw_layout = extract_fields_from_pdf_layout(doc)
+            by_page: dict[int, list[dict[str, Any]]] = {}
+            for item in raw_layout:
+                by_page.setdefault(int(item.get("page", 1)), []).append(item)
+            for page_idx, page in enumerate(doc):
+                p_num = page_idx + 1
+                p_items = by_page.get(p_num, [])
+                if p_items:
+                    extracted_fields.extend(
+                        structure_pdf_page_fields(
+                            page, p_items, p_num, infer_field_metadata
+                        )
+                    )
             doc.close()
         except Exception as e:
             logger.warning("PyMuPDF layout-based field extraction error: %s", e)
@@ -506,6 +533,16 @@ def insert_extracted_fields(
             suffix += 1
         existing_keys.add(candidate_key)
 
+        cfg: dict[str, Any] = {"bbox": f.get("bbox"), "page": f.get("page", 1)}
+        if f.get("table"):
+            cfg["table"] = f["table"]
+        if f.get("option_boxes"):
+            cfg["option_boxes"] = f["option_boxes"]
+        if f.get("learned_pattern_id"):
+            cfg["learned_pattern_id"] = f["learned_pattern_id"]
+        if f.get("learned_confidence") is not None:
+            cfg["learned_confidence"] = f["learned_confidence"]
+
         form_field = FormField(
             form_version_id=version_id,
             key=candidate_key,
@@ -514,27 +551,82 @@ def insert_extracted_fields(
             requiredness=f["requiredness"],
             position=current_max_pos + idx + 1,
             question_key=f["question_key"],
-            configuration={"bbox": f.get("bbox"), "page": f.get("page", 1)},
+            configuration=cfg,
         )
         db.add(form_field)
         db.flush()
 
-        # Translation for source language (e.g. de)
+        # Translation for source language (e.g. de) + any learned language rows
+        learned_tr: dict[str, Any] = f.get("learned_translations") or {}
+        src_learned = (
+            learned_tr.get(source_language) if isinstance(learned_tr, dict) else None
+        )
         trans = FormFieldTranslation(
             form_field_id=form_field.id,
             language=source_language,
             label=f["label"],
+            help_text=(src_learned or {}).get("help_text")
+            if isinstance(src_learned, dict)
+            else None,
+            placeholder=(src_learned or {}).get("placeholder")
+            if isinstance(src_learned, dict)
+            else None,
         )
         db.add(trans)
+        if isinstance(learned_tr, dict):
+            for lang_code, tr_data in learned_tr.items():
+                if lang_code == source_language or not isinstance(tr_data, dict):
+                    continue
+                lbl = str(tr_data.get("label") or "").strip()
+                if not lbl:
+                    continue
+                db.add(
+                    FormFieldTranslation(
+                        form_field_id=form_field.id,
+                        language=str(lang_code),
+                        label=lbl,
+                        help_text=tr_data.get("help_text"),
+                        placeholder=tr_data.get("placeholder"),
+                    )
+                )
 
-        # Options if choice field
-        for opt_idx, opt_val in enumerate(f.get("options", [])):
+        # Options + localized option labels if choice field
+        for opt_idx, opt_item in enumerate(f.get("options", [])):
+            if isinstance(opt_item, dict):
+                opt_val = str(opt_item.get("value") or "").strip()
+                if not opt_val:
+                    continue
+                opt_tr_map: dict[str, str] = {}
+                if isinstance(opt_item.get("translations"), dict):
+                    opt_tr_map = {
+                        str(k): str(v) for k, v in opt_item["translations"].items() if v
+                    }
+                elif opt_item.get("label"):
+                    opt_tr_map = {source_language: str(opt_item["label"])}
+            else:
+                opt_val = str(opt_item).strip()
+                if not opt_val:
+                    continue
+                opt_tr_map = {source_language: opt_val}
+
             opt = FormFieldOption(
                 form_field_id=form_field.id,
                 value=opt_val,
                 position=opt_idx + 1,
             )
             db.add(opt)
+            db.flush()
+
+            if source_language not in opt_tr_map:
+                opt_tr_map[source_language] = opt_val
+            for o_lang, o_lbl in opt_tr_map.items():
+                db.add(
+                    FormFieldOptionTranslation(
+                        form_field_option_id=opt.id,
+                        language=o_lang,
+                        label=o_lbl,
+                    )
+                )
 
 
 def get_pdf_page_dimensions(pdf_bytes: bytes) -> tuple[int, list[dict[str, Any]]]:

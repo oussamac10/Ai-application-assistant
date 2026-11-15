@@ -181,6 +181,7 @@ _NEVER_TRANSLATED_TYPES = frozenset(
         "money",
         "date",
         "boolean",
+        "choice",
         "single_choice",
         "multiple_choice",
         "radio",

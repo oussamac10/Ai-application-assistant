@@ -290,10 +290,36 @@ export interface FormTranslationItem {
   placeholder?: string | null;
 }
 
-export interface FormOptionItem {
-  value: string;
+export interface FormOptionTranslationItem {
+  language: string;
   label: string;
+}
+
+export interface FormOptionItem {
+  id?: string | null;
+  value: string;
+  label?: string;
   position: number;
+  translations?: FormOptionTranslationItem[];
+}
+
+export interface FormFieldTableConfig {
+  table_key: string;
+  table_title: string;
+  table_description?: string | null;
+  row_index: number;
+  total_rows?: number;
+  row_label?: string | null;
+  row_role?: "applicant" | "member" | string;
+  col_index?: number;
+  column_header?: string | null;
+}
+
+export interface FormFieldOptionBox {
+  value: string;
+  label?: string;
+  page?: number;
+  bbox: [number, number, number, number];
 }
 
 export interface FormFieldItem {

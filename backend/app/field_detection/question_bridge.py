@@ -36,6 +36,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -49,6 +50,7 @@ from app.field_detection.requiredness import (
     detect_requiredness,
     strip_requiredness_markers,
 )
+from app.forms.learning_service import FormPatternLearningService
 from app.forms.schemas import (
     FieldCreate,
     OptionSchema,
@@ -347,6 +349,26 @@ async def _prepare_translations(
         else None
     )
 
+    learning_service = FormPatternLearningService(db)
+    global_candidates = learning_service.load_candidates(
+        organization_id=None, source_language=trusted_source or _DEFAULT_SOURCE_LANGUAGE
+    )
+    approved_map = dict(_approved_catalog_labels(db, fields, user_language))
+    for df in fields:
+        if df.label and df.label not in approved_map:
+            hit = learning_service.match_field_or_choice(
+                label=df.label,
+                option_labels=[o.value for o in (df.options or [])] or None,
+                source_language=trusted_source or _DEFAULT_SOURCE_LANGUAGE,
+                organization_id=None,
+                candidates=global_candidates,
+            )
+            if hit:
+                pat, _score = hit
+                tr_entry = (pat.translations_json or {}).get(user_language)
+                if isinstance(tr_entry, dict) and tr_entry.get("label"):
+                    approved_map[df.label] = str(tr_entry["label"])
+
     translated = await translate_texts(
         texts,
         user_language,
@@ -355,7 +377,7 @@ async def _prepare_translations(
         source_language=trusted_source,
         assumed_source_language=trusted_source or _DEFAULT_SOURCE_LANGUAGE,
         stats=stats,
-        approved_lookup=_approved_catalog_labels(db, fields, user_language),
+        approved_lookup=approved_map,
         persisted_lookup=_persisted_catalog_labels(db, fields, user_language),
     )
 
@@ -601,6 +623,10 @@ async def create_session_from_confirmed_fields(
         pdf_template_key=None,
     )
 
+    learning_service = FormPatternLearningService(db)
+    global_candidates = learning_service.load_candidates(
+        organization_id=None, source_language=source_language
+    )
     used_keys: set[str] = set()
     added_field_count = 0
     skipped_field_count = 0
@@ -609,6 +635,40 @@ async def create_session_from_confirmed_fields(
         key = _unique_key(detected_field.normalized_name, used_keys)
         try:
             field_type = _map_field_type(detected_field)
+            learned_question_key: str | None = None
+            learned_options_raw: list[dict[str, Any]] | None = None
+            learned_match = learning_service.match_field_or_choice(
+                label=detected_field.label or "",
+                option_labels=[o.value for o in (detected_field.options or [])] or None,
+                source_language=source_language,
+                organization_id=None,
+                candidates=global_candidates,
+            )
+            if learned_match:
+                pat, score = learned_match
+                if score >= 0.85:
+                    if pat.canonical_question_key:
+                        learned_question_key = pat.canonical_question_key
+                    if field_type in (
+                        "string",
+                        "text",
+                    ) and pat.canonical_field_type in (
+                        "country",
+                        "date",
+                        "email",
+                        "phone",
+                        "iban",
+                        "number",
+                        "boolean",
+                    ):
+                        field_type = pat.canonical_field_type
+                    elif (
+                        field_type in ("string", "text")
+                        and pat.canonical_field_type in _CHOICE_TYPES
+                        and pat.canonical_options_json
+                    ):
+                        field_type = pat.canonical_field_type
+                        learned_options_raw = list(pat.canonical_options_json)
 
             display_source_label = _display_label(detected_field.label)
             label_translations = _translations_for(
@@ -624,19 +684,42 @@ async def create_session_from_confirmed_fields(
             # (never translated); only the display label is.
             options: list[OptionSchema] = []
             if field_type in _CHOICE_TYPES:
-                for option in detected_field.options:
-                    option_translations = _translations_for(
-                        option.value, translations_by_language
-                    )
-                    options.append(
-                        OptionSchema(
-                            value=option.value,
-                            position=option.position,
-                            translations=_option_translations(
-                                option.value, source_language, option_translations
-                            ),
+                if detected_field.options:
+                    for option in detected_field.options:
+                        option_translations = _translations_for(
+                            option.value, translations_by_language
                         )
-                    )
+                        options.append(
+                            OptionSchema(
+                                value=option.value,
+                                position=option.position,
+                                translations=_option_translations(
+                                    option.value, source_language, option_translations
+                                ),
+                            )
+                        )
+                elif learned_options_raw:
+                    for opt_idx, opt_item in enumerate(learned_options_raw, start=1):
+                        o_val = str(opt_item.get("value") or "").strip()
+                        if not o_val:
+                            continue
+                        tr_dict = opt_item.get("translations") or {}
+                        src_lbl = str(tr_dict.get(source_language) or o_val)
+                        option_translations = _translations_for(
+                            src_lbl, translations_by_language
+                        )
+                        for lang_k, lang_v in tr_dict.items():
+                            if lang_k != source_language and lang_v:
+                                option_translations[lang_k] = str(lang_v)
+                        options.append(
+                            OptionSchema(
+                                value=o_val,
+                                position=opt_idx,
+                                translations=_option_translations(
+                                    src_lbl, source_language, option_translations
+                                ),
+                            )
+                        )
 
             form_service.add_field_to_draft(
                 version.id,
@@ -651,6 +734,7 @@ async def create_session_from_confirmed_fields(
                     # derived from this by FormService.
                     requiredness=_resolve_requiredness(detected_field),
                     position=position,
+                    question_key=learned_question_key,
                     configuration={},
                     translations=_label_translations(
                         display_source_label, source_language, label_translations

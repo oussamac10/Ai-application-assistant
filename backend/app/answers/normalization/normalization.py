@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 from typing import Any
 
 
@@ -19,7 +20,9 @@ def normalize_value(field_type: str, raw_val: Any) -> Any:
         return raw_val
 
     elif field_type == "country":
-        return str(raw_val).strip().upper()
+        from app.answers.normalization.countries import normalize_country_value
+
+        return normalize_country_value(raw_val)
 
     elif field_type == "multiple_choice":
         if not isinstance(raw_val, list):
@@ -46,14 +49,23 @@ def normalize_value(field_type: str, raw_val: Any) -> Any:
                 res.append(s_item)
         return res
 
-    elif field_type == "single_choice":
+    elif field_type in ("single_choice", "choice"):
         return str(raw_val).strip()
 
-    elif field_type in ("integer", "decimal"):
+    elif field_type in ("integer", "decimal", "number"):
         val_str = str(raw_val).strip()
         try:
             if field_type == "integer":
                 return int(val_str)
+            if field_type == "number":
+                normalized_num = (
+                    val_str.replace(",", ".")
+                    if "," in val_str and "." not in val_str
+                    else val_str
+                )
+                if normalized_num.lstrip("+-").isdigit():
+                    return int(normalized_num)
+                return float(normalized_num)
             return float(val_str)
         except ValueError:
             return raw_val  # Pass through to fail validation
@@ -97,7 +109,16 @@ def normalize_value(field_type: str, raw_val: Any) -> Any:
                 return {"fullName": " ".join(parts)}
         return raw_val
 
-    elif field_type in ("string", "multiline_text", "email", "date", "address"):
+    elif field_type == "date":
+        val_str = str(raw_val).strip()
+        for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%Y/%m/%d", "%Y.%m.%d"):
+            try:
+                return datetime.strptime(val_str, fmt).date().isoformat()
+            except ValueError:
+                continue
+        return val_str
+
+    elif field_type in ("string", "multiline_text", "email", "address"):
         if isinstance(raw_val, dict):
             parts = [
                 str(v).strip()

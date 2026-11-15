@@ -23,6 +23,7 @@ from app.forms.models import (  # noqa: F401
     FormTemplate,
     FormVersion,
 )
+from app.forms.learning_models import LearnedFormPattern  # noqa: F401
 from app.ocr.models import OCRPage, OCRResult  # noqa: F401
 from app.organizations.models import (  # noqa: F401
     Organization,

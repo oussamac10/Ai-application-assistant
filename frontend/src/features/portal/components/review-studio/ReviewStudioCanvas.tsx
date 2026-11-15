@@ -11,7 +11,11 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { getFormPagePreviewUrl } from "../../services/portalClient";
-import type { FormFieldItem } from "../../types";
+import type {
+  FormFieldItem,
+  FormFieldOptionBox,
+  FormFieldTableConfig,
+} from "../../types";
 
 export type InteractionType = "draw" | "move" | "resize";
 export type ResizeHandle = "nw" | "ne" | "se" | "sw" | "e" | "s";
@@ -43,6 +47,9 @@ export interface ReviewStudioCanvasProps {
   onCancelPickingLocation: () => void;
   fields: FormFieldItem[];
   highlightedFieldId: string | null;
+  selectedFieldIds?: Set<string>;
+  onToggleMultiSelect?: (fieldId: string) => void;
+  activeTableRowFilter?: { tableKey: string; rowIndex: number } | null;
   onSelectField: (id: string) => void;
   onDeleteField: (id: string) => void;
   pageDimensions?: Array<{ page: number; width: number; height: number }>;
@@ -77,6 +84,9 @@ export function ReviewStudioCanvas({
   onCancelPickingLocation,
   fields,
   highlightedFieldId,
+  selectedFieldIds,
+  onToggleMultiSelect,
+  activeTableRowFilter,
   onSelectField,
   onDeleteField,
   pageDimensions,
@@ -255,6 +265,16 @@ export function ReviewStudioCanvas({
               const heightPct =
                 ((bbox[3] - bbox[1]) / curPageDims.height) * 100;
               const isHighlighted = highlightedFieldId === field.id;
+              const isMultiSelected = Boolean(selectedFieldIds?.has(field.id));
+              const tableCfg = field.configuration?.table as
+                | FormFieldTableConfig
+                | undefined;
+              const isActiveRowCell = Boolean(
+                activeTableRowFilter &&
+                  tableCfg &&
+                  tableCfg.table_key === activeTableRowFilter.tableKey &&
+                  Number(tableCfg.row_index) === activeTableRowFilter.rowIndex
+              );
               const isCurrentlyMoving =
                 interaction?.type === "move" &&
                 interaction?.fieldId === field.id;
@@ -270,6 +290,13 @@ export function ReviewStudioCanvas({
                   onMouseDown={(e) => {
                     if (!canEdit) return;
                     e.stopPropagation();
+                    if (
+                      (e.shiftKey || e.metaKey || e.ctrlKey) &&
+                      onToggleMultiSelect
+                    ) {
+                      onToggleMultiSelect(field.id);
+                      return;
+                    }
                     onSelectField(field.id);
                     document
                       .getElementById(`field-card-${field.id}`)
@@ -293,11 +320,13 @@ export function ReviewStudioCanvas({
                   } ${
                     isCurrentlyMoving
                       ? "border-emerald-400 bg-emerald-500/35 ring-2 ring-emerald-500/80 shadow-[0_0_16px_rgba(16,185,129,0.35)] z-30 cursor-grabbing"
-                      : isHighlighted
-                      ? "border-emerald-400 bg-emerald-500/20 ring-2 ring-emerald-500/80 shadow-[0_0_12px_rgba(16,185,129,0.2)] z-20 cursor-grab"
-                      : isSmallBox
-                      ? "border-emerald-500/50 bg-emerald-500/10 hover:border-emerald-400 hover:bg-emerald-500/20 z-10 cursor-grab"
-                      : "border-emerald-500/50 bg-emerald-500/10 hover:border-emerald-400 hover:bg-emerald-500/20 z-10 cursor-grab"
+                      : isMultiSelected
+                        ? "border-sky-400 bg-sky-500/25 ring-2 ring-sky-400/75 z-25 cursor-pointer"
+                        : isHighlighted
+                          ? "border-emerald-400 bg-emerald-500/20 ring-2 ring-emerald-500/80 shadow-[0_0_12px_rgba(16,185,129,0.2)] z-20 cursor-grab"
+                          : isActiveRowCell
+                            ? "border-teal-400 bg-teal-500/20 ring-1 ring-teal-400/60 z-15 cursor-grab"
+                            : "border-emerald-500/50 bg-emerald-500/10 hover:border-emerald-400 hover:bg-emerald-500/20 z-10 cursor-grab"
                   }`}
                   title={`[${idx + 1}] ${primaryLabel} (Drag to move, use handles to resize)`}
                 >
@@ -426,6 +455,42 @@ export function ReviewStudioCanvas({
                 </div>
               );
             })}
+
+          {/* Dashed Option Sub-Boxes for highlighted choice field */}
+          {(() => {
+            const hlField = fields.find((f) => f.id === highlightedFieldId);
+            const rawOptBoxes = hlField?.configuration?.option_boxes;
+            if (!hlField || !Array.isArray(rawOptBoxes)) return null;
+            const curPageDims = pageDimensions?.find(
+              (p) => p.page === activePage
+            ) || {
+              width: 595,
+              height: 842,
+            };
+            return (rawOptBoxes as FormFieldOptionBox[])
+              .filter(
+                (ob) =>
+                  Array.isArray(ob.bbox) &&
+                  ob.bbox.length === 4 &&
+                  (ob.page ?? hlField.configuration?.page ?? 1) === activePage
+              )
+              .map((ob, obIdx) => {
+                const [ox0, oy0, ox1, oy1] = ob.bbox;
+                return (
+                  <div
+                    key={`${hlField.id}-ob-${obIdx}`}
+                    style={{
+                      top: `${(oy0 / curPageDims.height) * 100}%`,
+                      left: `${(ox0 / curPageDims.width) * 100}%`,
+                      width: `${((ox1 - ox0) / curPageDims.width) * 100}%`,
+                      height: `${((oy1 - oy0) / curPageDims.height) * 100}%`,
+                    }}
+                    title={`Choice option: ${ob.label || ob.value}`}
+                    className="absolute border border-dashed border-amber-400 bg-amber-400/15 rounded-xs pointer-events-none z-25"
+                  />
+                );
+              });
+          })()}
 
           {/* Active Drawing Dragging Box Indicator */}
           {interaction?.type === "draw" &&

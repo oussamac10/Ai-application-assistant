@@ -212,3 +212,26 @@ class TranslateFieldRequest(BaseSchema):
 
 class TranslateFieldResponse(BaseSchema):
     translations: dict[str, str]
+
+
+class CombineChoiceFieldsRequest(BaseSchema):
+    field_ids: list[str]
+    label: str
+    field_type: str = "single_choice"
+    question_key: str | None = None
+    requiredness: str = "unknown"
+    option_labels: list[str] | None = None
+
+
+class GroupTableRowRequest(BaseSchema):
+    field_ids: list[str]
+    table_key: str | None = None
+    table_title: str = "Table"
+    table_description: str | None = None
+    row_index: int = 1
+    row_label: str | None = None
+    row_role: str | None = None
+
+
+class SyncTableColumnsRequest(BaseSchema):
+    source_row_index: int = 1
