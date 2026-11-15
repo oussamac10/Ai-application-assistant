@@ -29,7 +29,25 @@ Production-ready, multilingual SaaS platform for **B2B relocation agencies, inte
 
 ---
 
-## Current Task: Sell-First SaaS Roadmap
+## Current Task: UI Dark/Light Mode Contrast & Plain-Language Polish (Completed)
+
+- **Goal**: Fix every Dark Mode and Light Mode contrast/theme bug across all frontend components and remove all version badges, internal keys/slugs/coordinates, and developer jargon so the entire website is intuitive and easy to understand in all 8 languages.
+- **Acceptance Criteria**:
+  - Zero dark-box-on-white or dark-text-on-dark-gradient issues in Light Mode (`html.light`), and `Sidebar` always respects the user's Dark/Light toggle.
+  - Zero version badges (`v1`, `v{versionNumber}`), internal keys/slugs (`{f.key}`, `{cat.slug}`, `AcroForm Key`), raw coordinate numbers, Python code snippets, or opaque engineering jargon visible to users.
+  - 100% key and `{placeholder}` parity preserved across `frontend/messages/{en,de,fr,ar,tr,uk,es,ru}.json`.
+  - `npm run typecheck`, `npm run lint`, `vitest run`, `npm run build`, and Playwright E2E pass.
+- **Planned Steps**:
+  - [x] Fix Light/Dark CSS overrides, gradient stops, `<option>` styling, and white paper borders in `frontend/src/app/globals.css`.
+  - [x] Fix component-level theme bugs (`Sidebar.tsx`, `AppShell.tsx`, `account/page.tsx`, `pricing/page.tsx`, `SessionConfirmationPanel.tsx`, `SessionContextSidebar.tsx`, `OrganizationSettings.tsx`).
+  - [x] Remove version badges, internal keys/slugs/coordinates, code snippets, and developer jargon across navigation, homepage, pricing, upload/session/summary/complete flows, account, admin, portal, and studio components.
+  - [x] Rewrite technical jargon in all 8 `frontend/messages/*.json` locale files with 100% key + placeholder parity (`474` keys each).
+  - [x] Update affected Vitest copy assertions and run full frontend verification (`typecheck`, `lint`, `vitest` 45 files / 314 passed, `next build`, Playwright E2E 2 passed) + `graphify update .`.
+- **Files Changed**: `frontend/src/app/globals.css`, `frontend/src/components/{Sidebar,AppShell,Navbar,Footer}.tsx`, `frontend/src/app/{layout,page,pricing/page,datenschutz/page,account/page,admin/page,f/[...slug]/page,application/session/[sessionId]/summary/page,application/session/[sessionId]/complete/page}.tsx`, `frontend/src/features/**`, `frontend/messages/*.json`, and updated frontend unit tests.
+
+---
+
+## Upcoming Roadmap: Sell-First SaaS
 
 ### Step 1 — Go-Live & Trial Time-to-Value (Completed)
 - [x] **1.1 Unify Plan Limits**: Align `agency_pro` / `enterprise` limits between `backend/app/billing/services.py` (monthly cases & template slots) and `backend/app/forms/organization_service.py` via `get_published_template_limit`.

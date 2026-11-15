@@ -7,9 +7,9 @@ import { OrganizationProvider } from "@/features/portal/context/OrganizationCont
 import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "AI Form Assistant | Multilingual Document & Form Completion",
+  title: "AI Form Assistant | Fill Out Official Forms in Your Language",
   description:
-    "Understand, normalize, and complete official forms in your preferred language with deterministic validation.",
+    "Read official PDFs in your own language, answer simple guided questions, and download cleanly filled forms.",
 };
 
 const themeInitScript = `(function(){try{var t=localStorage.getItem("formflow-theme");var m=t==="light"?"light":"dark";var d=document.documentElement;d.classList.remove("light","dark");d.classList.add(m);d.dataset.theme=m;d.style.colorScheme=m;}catch(e){}})();`;

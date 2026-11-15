@@ -66,7 +66,7 @@ export default function AppShell({ children }: AppShellProps) {
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(true)}
-            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-[#131B2E]"
+            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-[#151D2E]"
             aria-label="Open navigation menu"
           >
             <Menu className="w-5 h-5" />
@@ -77,14 +77,11 @@ export default function AppShell({ children }: AppShellProps) {
               <img
                 src={`/api/organizations/${org.id}/logo`}
                 alt={org.name}
-                className="w-6 h-6 rounded-md bg-white p-0.5 object-contain"
+                className="w-6 h-6 rounded-md bg-white border border-slate-200 p-0.5 object-contain"
               />
             ) : null}
             <span className="text-sm font-bold tracking-tight text-white truncate max-w-[180px]">
-              {org?.name ? org.name.split("—")[0].trim() : "Organization Workspace"}
-            </span>
-            <span className="rounded bg-[#131B2E] border border-emerald-500/30 px-1 py-0.2 font-mono text-[9px] font-bold text-emerald-400">
-              OFFICIAL
+              {org?.name ? org.name.split("—")[0].trim() : "My Workspace"}
             </span>
           </Link>
           <div className="flex items-center gap-2 shrink-0">

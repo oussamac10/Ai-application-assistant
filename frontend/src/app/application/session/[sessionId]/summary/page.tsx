@@ -21,6 +21,7 @@ import {
   formatProposedValue,
 } from "@/features/form-session/utils/formatProposedValue";
 import { formatFieldLabel } from "@/features/form-session/utils/formatFieldLabel";
+import { getLanguageByCode } from "@/features/form-session/utils/languages";
 import { useSafeAuth } from "@/features/auth/hooks/useSafeAuth";
 import { saveSessionToVault } from "@/features/profile-vault/services/vaultClient";
 import { Loader2, AlertCircle, Info } from "lucide-react";
@@ -387,53 +388,53 @@ export default function SessionSummary() {
               </h1>
               <p className="text-sm text-slate-400">{t("subtitle")}</p>
               {(summary?.sourceLanguage || summary?.outputLanguage) && (
-                <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-[11px] font-mono font-semibold text-slate-300">
+                <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-xs font-medium text-slate-300">
                   {summary.sourceLanguage && (
-                    <span className="rounded-md border border-white/10 bg-[#0A0E17] px-2 py-0.5 uppercase">
-                      <bdi>Source: {summary.sourceLanguage}</bdi>
+                    <span className="rounded-md border border-white/10 bg-[#0A0E17] px-2.5 py-0.5">
+                      <bdi>Form: {getLanguageByCode(summary.sourceLanguage).englishName}</bdi>
                     </span>
                   )}
                   {summary.userLanguage && (
-                    <span className="rounded-md border border-white/10 bg-[#0A0E17] px-2 py-0.5 uppercase">
-                      <bdi>UI: {summary.userLanguage}</bdi>
+                    <span className="rounded-md border border-white/10 bg-[#0A0E17] px-2.5 py-0.5">
+                      <bdi>Questions: {getLanguageByCode(summary.userLanguage).nativeName}</bdi>
                     </span>
                   )}
                   {summary.outputLanguage && (
-                    <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-400 uppercase">
-                      <bdi>Output: {summary.outputLanguage}</bdi>
+                    <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-emerald-400">
+                      <bdi>Filled PDF: {getLanguageByCode(summary.outputLanguage).englishName}</bdi>
                     </span>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Quick Metrics Bar with Hairline Borders & Signal Indicators */}
+            {/* Quick Metrics Bar */}
             {summary && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-in fade-in duration-300 motion-reduce:animate-none">
                 <div className="rounded-xl border border-white/10 bg-[#0A0E17] p-4 text-center shadow-2xs transition-all hover:border-white/20">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-                    TOTAL FIELDS
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    Questions
                   </span>
-                  <p className="mt-1 text-2xl font-bold font-mono text-white tabular-nums">
+                  <p className="mt-1 text-2xl font-bold text-white tabular-nums">
                     {summary.fields.length}
                   </p>
                 </div>
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center shadow-2xs transition-all hover:border-emerald-500/45">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-emerald-400 flex items-center justify-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" />
-                    CONFIRMED
+                    Confirmed
                   </span>
-                  <p className="mt-1 text-2xl font-bold font-mono text-white tabular-nums">
+                  <p className="mt-1 text-2xl font-bold text-white tabular-nums">
                     {summary.fields.filter((f) => f.status === "confirmed").length}
                   </p>
                 </div>
                 <div className="col-span-2 sm:col-span-1 rounded-xl border border-white/10 bg-[#0A0E17] p-4 text-center shadow-2xs transition-all hover:border-white/20">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-                    EXPORT READINESS
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    Form Status
                   </span>
-                  <p className={`mt-1 text-xs font-bold font-mono flex items-center justify-center gap-1.5 pt-1 ${!hasIncompleteFields ? "text-emerald-400" : "text-amber-300"}`}>
+                  <p className={`mt-1 text-xs font-semibold flex items-center justify-center gap-1.5 pt-1 ${!hasIncompleteFields ? "text-emerald-400" : "text-amber-300"}`}>
                     <span className={`h-2 w-2 rounded-full animate-pulse motion-reduce:animate-none ${!hasIncompleteFields ? "bg-emerald-400" : "bg-amber-400"}`} />
-                    {!hasIncompleteFields ? "READY FOR EXPORT" : "PENDING REQUIRED"}
+                    {!hasIncompleteFields ? "Ready to Download" : "Needs Required Answers"}
                   </p>
                 </div>
               </div>
@@ -603,8 +604,8 @@ export default function SessionSummary() {
           {inlinePreviewOpen && inlinePreviewUrl && (
             <aside className="lg:col-span-5 lg:sticky lg:top-20 bg-[#0F1522] rounded-2xl border border-white/10 p-4 space-y-3 shadow-xl animate-in fade-in zoom-in-95 slide-in-from-right-4 duration-300 motion-reduce:animate-none">
               <div className="flex items-center justify-between px-1 border-b border-white/[0.08] pb-2.5">
-                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
-                  WATERMARKED OFFICIAL DRAFT
+                <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-md">
+                  Draft Preview
                 </span>
                 <button
                   type="button"

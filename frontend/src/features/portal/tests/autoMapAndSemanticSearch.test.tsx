@@ -212,8 +212,8 @@ describe("Phase G5-AI: Semantic Auto-Mapper & Form Search", () => {
       expect(screen.getByText("Anmeldung einer Wohnung")).toBeInTheDocument();
     });
 
-    // Verify "Auto-Map Schema" button is visible
-    const autoMapButton = screen.getByRole("button", { name: /auto-map schema/i });
+    // Verify "Auto-Match Saved Details" button is visible
+    const autoMapButton = screen.getByRole("button", { name: /auto-match saved details/i });
     expect(autoMapButton).toBeInTheDocument();
 
     // Trigger auto-map
@@ -226,13 +226,17 @@ describe("Phase G5-AI: Semantic Auto-Mapper & Form Search", () => {
     // Check banner appears
     await waitFor(() => {
       expect(
-        screen.getByText(/AI Auto-Mapping Ready: 2 of 2 fields matched/i)
+        screen.getByText(/Auto-Match Ready: 2 of 2 questions matched/i)
       ).toBeInTheDocument();
     });
 
-    // Verify suggestion badges appear on field cards
-    expect(screen.getByText("personal.first_name")).toBeInTheDocument();
-    expect(screen.getByText("person.date_of_birth")).toBeInTheDocument();
+    // Verify human-readable suggestion badges appear on field cards (outside select options)
+    expect(
+      screen.getAllByText("First Name").some((el) => el.tagName !== "OPTION")
+    ).toBe(true);
+    expect(
+      screen.getAllByText("Date of Birth").some((el) => el.tagName !== "OPTION")
+    ).toBe(true);
 
     // Click "Apply All"
     const applyAllBtn = screen.getByRole("button", { name: /apply all \(2\)/i });
@@ -248,7 +252,7 @@ describe("Phase G5-AI: Semantic Auto-Mapper & Form Search", () => {
     // Verify success confirmation
     await waitFor(() => {
       expect(
-        screen.getByText(/Successfully applied 2 canonical Profile Vault mappings/i)
+        screen.getByText(/Matched 2 questions to saved personal details/i)
       ).toBeInTheDocument();
     });
   });
@@ -284,10 +288,10 @@ describe("Phase G5-AI: Semantic Auto-Mapper & Form Search", () => {
       { timeout: 1500 }
     );
 
-    // Verify "Multilingual AI Semantic Search Active" badge is visible
+    // Verify "Smart Search in Your Language" badge is visible
     await waitFor(() => {
       expect(
-        screen.getByText(/Multilingual AI Semantic Search Active/i)
+        screen.getByText(/Smart Search in Your Language/i)
       ).toBeInTheDocument();
     });
 

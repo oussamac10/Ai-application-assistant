@@ -20,6 +20,7 @@ import {
   Sparkles,
   Info,
   QrCode,
+  X,
 } from "lucide-react";
 import { ShareFormModal } from "./ShareFormModal";
 import { CategoryIcon } from "./CategoryIcon";
@@ -380,7 +381,6 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
                         : "bg-[#0F1522] text-slate-300 hover:bg-[#151D2E] hover:text-white border border-white/10"
                     }`}
                   >
-                    <span className="font-mono text-[10px] uppercase opacity-75">{lang.code}</span>
                     <span>{lang.nativeName}</span>
                   </button>
                 ))}
@@ -403,9 +403,10 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
             <span>{startError}</span>
             <button
               onClick={() => setStartError(null)}
+              aria-label="Dismiss error"
               className="text-rose-400 hover:text-rose-300 font-bold ms-4 cursor-pointer"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -415,10 +416,10 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
           <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
           <div className="text-xs text-slate-300 space-y-1">
             <span className="font-bold text-white">
-              Multilingual Assistance for Official Administrative Forms:
+              Help Filling Out Official Forms in Your Language:
             </span>
             <p className="text-slate-300">
-              Select the administrative form you need below. The assistant will guide you step-by-step in your chosen language, normalize dates, addresses, and family statuses, and generate an official ready-to-sign PDF adhering to German administrative standards.
+              Choose the form you need below. We explain every question clearly in your language, check details like dates and addresses, and prepare an official ready-to-sign PDF.
             </p>
           </div>
         </div>
@@ -519,10 +520,11 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
                 className="absolute end-2.5 top-2.5 text-xs text-slate-400 hover:text-white cursor-pointer"
                 title="Clear search"
               >
-                ✕
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -531,7 +533,7 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
             <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl shadow-2xs">
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               <span className="font-semibold">
-                Multilingual AI Semantic Search Active
+                Smart Search in Your Language
               </span>
             </div>
           )}

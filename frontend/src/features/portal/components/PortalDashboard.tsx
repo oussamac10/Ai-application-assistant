@@ -370,12 +370,12 @@ export function PortalDashboard() {
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
                 {org?.name || "Organization Workspace"}
               </h1>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-mono font-medium text-emerald-400">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                 </span>
-                LIVE WORKSPACE
+                Active Workspace
               </span>
               {org?.is_verified_government ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
@@ -387,14 +387,14 @@ export function PortalDashboard() {
                   Pending Verification
                 </span>
               ) : null}
-              <span className="rounded-full border border-slate-700 bg-slate-800/60 px-2.5 py-0.5 text-xs font-mono text-slate-300 capitalize">
+              <span className="rounded-full border border-slate-700 bg-slate-800/60 px-2.5 py-0.5 text-xs text-slate-300 capitalize">
                 {org?.organization_type || "Government"}
               </span>
             </div>
 
             <p className="mt-1.5 text-xs text-slate-400 max-w-3xl leading-relaxed">
               {org?.description ||
-                "Official authority workspace for cross-border candidate intake, multilingual form mapping, and verified PDF processing."}
+                "Workspace for managing forms, sending applicant invites, and reviewing completed PDFs."}
             </p>
 
             {/* Official Authority Metadata Bar */}
@@ -528,8 +528,8 @@ export function PortalDashboard() {
             <span className="text-xs font-medium text-slate-400">Total forms</span>
             <span className="h-2 w-2 rounded-full bg-slate-600" />
           </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-mono">{forms.length}</div>
-          <div className="mt-1 text-[11px] font-mono text-slate-500">ACTIVE SCHEMAS</div>
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white tabular-nums">{forms.length}</div>
+          <div className="mt-1 text-[11px] text-slate-400">All uploaded forms</div>
         </div>
         <div className="rounded-2xl border border-slate-800 border-t-2 border-t-emerald-500 bg-[#0F1522] p-4 sm:p-5 shadow-card transition-all hover:border-slate-700">
           <div className="flex items-center justify-between">
@@ -539,30 +539,30 @@ export function PortalDashboard() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
           </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-400 font-mono">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-400 tabular-nums">
             {forms.filter((f) => f.status === "published").length}
           </div>
-          <div className="mt-1 text-[11px] font-mono text-emerald-400/80">CITIZEN READY</div>
+          <div className="mt-1 text-[11px] text-emerald-400/80">Available to applicants</div>
         </div>
         <div className="rounded-2xl border border-slate-800 border-t-2 border-t-amber-500 bg-[#0F1522] p-4 sm:p-5 shadow-card transition-all hover:border-slate-700">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-400">Needs review</span>
             <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse motion-reduce:animate-none" />
           </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-amber-400 font-mono">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-amber-400 tabular-nums">
             {formsNeedingReviewCount}
           </div>
-          <div className="mt-1 text-[11px] font-mono text-amber-400/80">ACTION REQUIRED</div>
+          <div className="mt-1 text-[11px] text-amber-400/80">Ready to check</div>
         </div>
         <div className="rounded-2xl border border-slate-800 border-t-2 border-t-slate-700 bg-[#0F1522] p-4 sm:p-5 shadow-card transition-all hover:border-slate-700">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-400">Archived</span>
             <span className="h-2 w-2 rounded-full bg-slate-700" />
           </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-400 font-mono">
+          <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-400 tabular-nums">
             {forms.filter((f) => f.status === "archived").length}
           </div>
-          <div className="mt-1 text-[11px] font-mono text-slate-500">OFFLINE</div>
+          <div className="mt-1 text-[11px] text-slate-500">Hidden from portal</div>
         </div>
       </div>
     );
@@ -810,7 +810,7 @@ export function PortalDashboard() {
               <div>
                 <div className="flex items-start justify-between gap-2 mb-2.5">
                   <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                       f.status === "published"
                         ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                         : f.status === "archived"
@@ -822,21 +822,17 @@ export function PortalDashboard() {
                       f.status === "published" ? "bg-emerald-400" : f.status === "archived" ? "bg-slate-500" : "bg-amber-400"
                     }`} />
                     <span>
-                      {f.status === "published" ? "PUBLISHED" : f.status === "needs_review" ? "Needs review" : f.status === "draft" ? "DRAFT" : "ARCHIVED"}
+                      {f.status === "published" ? "Published" : f.status === "needs_review" ? "Needs review" : f.status === "draft" ? "Draft" : "Archived"}
                     </span>
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-500">
-                    v{f.versionNumber}
                   </span>
                 </div>
 
                 <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 line-clamp-1 transition-colors">
                   {f.name}
                 </h3>
-                <p className="text-[11px] font-mono text-slate-500 mt-0.5 truncate">{f.key}</p>
 
                 <div className="mt-3.5 flex items-center justify-between gap-2 text-xs">
-                  <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-900 border border-slate-800 px-2.5 py-0.5 rounded-md font-mono">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-900 border border-slate-800 px-2.5 py-0.5 rounded-md">
                     <FileText className="w-3 h-3 text-slate-500" />
                     <span>{f.fieldsCount} {f.fieldsCount === 1 ? "field" : "fields"}</span>
                   </span>
@@ -942,7 +938,7 @@ export function PortalDashboard() {
                     type="button"
                     onClick={() => setSelectedTemplateIdForReview(f.id)}
                     className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
-                    title="Review Schema & PDF Layout"
+                    title="Review Questions & PDF Layout"
                   >
                     <Layers className="w-3 h-3 text-emerald-400" />
                     <span>Review</span>
@@ -977,31 +973,31 @@ export function PortalDashboard() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-2xl border border-slate-800 border-t-2 border-t-emerald-500/60 bg-[#0F1522] p-4 sm:p-5 shadow-card">
             <div className="text-xs font-medium text-slate-400">Total Intakes</div>
-            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-mono">
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white tabular-nums">
               {cases.length}
             </div>
-            <div className="mt-1 text-[11px] font-mono text-slate-500">ALL CANDIDATES</div>
+            <div className="mt-1 text-[11px] text-slate-400">All applicants</div>
           </div>
           <div className="rounded-2xl border border-slate-800 border-t-2 border-t-amber-500 bg-[#0F1522] p-4 sm:p-5 shadow-card">
             <div className="text-xs font-medium text-slate-400">Invited</div>
-            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-amber-400 font-mono">
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-amber-400 tabular-nums">
               {invitedCount}
             </div>
-            <div className="mt-1 text-[11px] font-mono text-amber-400/80">AWAITING OTP</div>
+            <div className="mt-1 text-[11px] text-amber-400/80">Waiting for email code</div>
           </div>
           <div className="rounded-2xl border border-slate-800 border-t-2 border-t-emerald-500 bg-[#0F1522] p-4 sm:p-5 shadow-card">
             <div className="text-xs font-medium text-slate-400">In Progress</div>
-            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-400 font-mono">
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-400 tabular-nums">
               {inProgressCount}
             </div>
-            <div className="mt-1 text-[11px] font-mono text-emerald-400/80">EMAIL VERIFIED</div>
+            <div className="mt-1 text-[11px] text-emerald-400/80">Email confirmed</div>
           </div>
           <div className="rounded-2xl border border-slate-800 border-t-2 border-t-slate-600 bg-[#0F1522] p-4 sm:p-5 shadow-card">
             <div className="text-xs font-medium text-slate-400">Completed / Review</div>
-            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-mono">
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white tabular-nums">
               {completedCount}
             </div>
-            <div className="mt-1 text-[11px] font-mono text-slate-500">READY</div>
+            <div className="mt-1 text-[11px] text-slate-400">Ready to download</div>
           </div>
         </div>
 

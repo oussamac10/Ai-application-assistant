@@ -170,7 +170,10 @@ export function SessionContextSidebar({
                           className="pointer-events-none absolute rounded-[2px] border-2 border-emerald-500 bg-emerald-500/25 ring-2 ring-emerald-500 animate-pulse motion-reduce:animate-none shadow-[0_0_12px_rgba(16,185,129,0.35)] transition-all duration-300"
                         />
                       )}
-                      <span className="absolute bottom-2 end-2 rounded-md border border-white/15 bg-[#0A0E17]/85 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      <span
+                        data-theme-locked="dark"
+                        className="absolute bottom-2 end-2 rounded-md border border-white/15 bg-[#0A0E17]/85 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
+                      >
                         Click to enlarge
                       </span>
                     </button>
@@ -224,18 +227,16 @@ export function SessionContextSidebar({
           </div>
         )}
 
-        {/* Multilingual Normalization Guidance Card */}
+        {/* Answer in Your Language Card */}
         <div className="surface-card rounded-2xl p-5 space-y-2">
           <div className="flex items-center gap-2 text-emerald-400">
             <Languages className="h-4 w-4" />
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
-              Multilingual Normalization
+            <h4 className="text-xs font-bold text-emerald-400">
+              Answer in Your Language
             </h4>
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Answer in your own language. Your original wording is preserved
-            while canonical dates, currencies, and choices are formatted for the
-            target form.
+            Type or pick answers in your own language. We keep your wording and format dates, numbers, and choices to fit the official form.
           </p>
         </div>
 
@@ -246,9 +247,9 @@ export function SessionContextSidebar({
           </div>
           <div className="text-xs text-slate-400 leading-snug">
             <span className="font-semibold text-white block">
-              Zero-Retention Guarantee
+              Private &amp; Secure
             </span>
-            Your session is temporary and protected by ownership credentials.
+            Your answers stay private and protected while you complete your form.
           </div>
         </div>
       </aside>

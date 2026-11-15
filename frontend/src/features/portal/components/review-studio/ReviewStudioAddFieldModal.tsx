@@ -52,10 +52,10 @@ export function ReviewStudioAddFieldModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
       <div className="bg-[#0F1522] rounded-2xl shadow-panel border border-slate-800 w-full max-w-md p-6 space-y-4 text-slate-100">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-white">Add Field to Form Schema</h3>
+          <h3 className="text-base font-bold text-white">Add a New Question</h3>
           {newFieldBbox && (
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-semibold flex items-center gap-1">
-              <Target className="w-3 h-3 text-emerald-400" /> Page {newFieldPage} Box Placed
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold flex items-center gap-1">
+              <Target className="w-3 h-3 text-emerald-400" /> Placed on Page {newFieldPage}
             </span>
           )}
         </div>
@@ -68,12 +68,12 @@ export function ReviewStudioAddFieldModal({
               PDF Position: Page {newFieldPage}
             </span>
             {newFieldBbox ? (
-              <p className="text-[11px] text-emerald-400 font-mono mt-0.5">
-                X: {Math.round(newFieldBbox[0])}, Y: {Math.round(newFieldBbox[1])}, W: {Math.round(newFieldBbox[2] - newFieldBbox[0])}, H: {Math.round(newFieldBbox[3] - newFieldBbox[1])} pt
+              <p className="text-[11px] text-emerald-400 mt-0.5">
+                Position selected on Page {newFieldPage}
               </p>
             ) : (
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Click &apos;Pick on PDF&apos; to choose where this field goes.
+                Click &apos;Pick on PDF&apos; to choose where this answer goes.
               </p>
             )}
           </div>
@@ -114,19 +114,6 @@ export function ReviewStudioAddFieldModal({
               }}
               placeholder="e.g. First Name / Given Name"
               className="w-full px-3 py-2 rounded-xl border border-slate-800 bg-[#0A0E17] text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Technical Identifier / Key
-            </label>
-            <input
-              type="text"
-              value={newFieldKey}
-              onChange={(e) => setNewFieldKey(e.target.value)}
-              placeholder="e.g. applicant_first_name"
-              className="w-full px-3 py-2 rounded-xl border border-slate-800 bg-[#0A0E17] text-xs font-mono text-emerald-400 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 

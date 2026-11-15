@@ -411,11 +411,11 @@ export function OrganizationCategoryManager({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-white">
-              Form Categories & Taxonomy
+              Form Categories
             </h2>
           </div>
           <p className="text-xs text-slate-400 mt-1 max-w-xl">
-            Structure your official forms into hierarchical categories. Each category supports verified multilingual translations across all citizen guidance languages.
+            Organize your forms by topic or department. Categories can be shown in each visitor&apos;s chosen language.
           </p>
         </div>
 
@@ -437,7 +437,14 @@ export function OrganizationCategoryManager({
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
             <span>{error}</span>
           </div>
-          <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-300 font-bold ms-2 cursor-pointer">✕</button>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+            className="text-rose-400 hover:text-rose-300 font-bold ms-2 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -451,7 +458,7 @@ export function OrganizationCategoryManager({
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center space-y-3">
           <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
-          <p className="text-xs text-slate-400">Loading categories & taxonomy...</p>
+          <p className="text-xs text-slate-400">Loading categories...</p>
         </div>
       ) : categories.length === 0 ? (
         <div className="py-12 border-2 border-dashed border-white/10 rounded-2xl text-center p-8 bg-[#0A0E17]">
@@ -491,9 +498,6 @@ export function OrganizationCategoryManager({
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-bold text-white">{cat.name}</h4>
-                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#151D2E] text-slate-300 border border-white/10">
-                            {cat.slug}
-                          </span>
                         </div>
                         {parentCat && (
                           <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
@@ -575,7 +579,7 @@ export function OrganizationCategoryManager({
                     {editingCategory ? "Edit Category & Translations" : "Create Official Category"}
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    Flexible hierarchical taxonomy for official forms
+                    Organize forms by topic or department
                   </p>
                 </div>
               </div>
@@ -590,45 +594,29 @@ export function OrganizationCategoryManager({
 
             {/* Modal Body */}
             <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="category-primary-name" className="block text-xs font-semibold text-slate-200 mb-1">
-                    Category Name (Primary) *
-                  </label>
-                  <input
-                    id="category-primary-name"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      if (!editingCategory && !slug) {
-                        setSlug(
-                          e.target.value
-                            .toLowerCase()
-                            .replace(/[^a-z0-9]+/g, "-")
-                            .replace(/^-|-$/g, "")
-                        );
-                      }
-                    }}
-                    placeholder="e.g. Wohnen & Meldewesen"
-                    className="w-full px-3 py-2 rounded-xl border border-white/10 bg-[#0A0E17] text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="category-slug" className="block text-xs font-semibold text-slate-200 mb-1">
-                    Slug / URL Identifier
-                  </label>
-                  <input
-                    id="category-slug"
-                    type="text"
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
-                    placeholder="e.g. housing-residence"
-                    className="w-full px-3 py-2 rounded-xl border border-white/10 bg-[#0A0E17] text-xs font-mono text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                  />
-                </div>
+              <div>
+                <label htmlFor="category-primary-name" className="block text-xs font-semibold text-slate-200 mb-1">
+                  Category Name *
+                </label>
+                <input
+                  id="category-primary-name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (!editingCategory && !slug) {
+                      setSlug(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, "-")
+                          .replace(/^-|-$/g, "")
+                      );
+                    }
+                  }}
+                  placeholder="e.g. Housing & Registration"
+                  className="w-full px-3 py-2 rounded-xl border border-white/10 bg-[#0A0E17] text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

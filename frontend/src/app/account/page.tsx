@@ -468,7 +468,7 @@ export default function AccountSettingsPage() {
               }`}
             >
               <UserIcon className="w-4 h-4" />
-              Personal Profile, Vault & GDPR
+              Saved Details & Privacy
             </button>
           </div>
         )}
@@ -488,7 +488,7 @@ export default function AccountSettingsPage() {
           <>
             {/* Individual workspace prompt when user does not have an org */}
             {!org && !orgLoading && (
-              <section className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-[#0F1522] to-[#0F1522] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <section className="rounded-2xl border border-emerald-500/30 bg-[#0F1522] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="p-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
@@ -566,8 +566,8 @@ export default function AccountSettingsPage() {
                 <h2 className="text-base font-bold text-white">
                   {tVault("title")}
                 </h2>
-                <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-300">
-                  AES / Fernet
+                <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                  Encrypted
                 </span>
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-slate-400">
@@ -757,7 +757,6 @@ export default function AccountSettingsPage() {
                 <button
                   type="button"
                   data-testid="delete-account-confirm-btn"
-                  data-theme-locked="dark"
                   disabled={deleting}
                   onClick={handleDeleteAccount}
                   className="inline-flex h-10 items-center whitespace-nowrap rounded-xl bg-rose-600 px-4 text-xs font-semibold text-white transition-colors motion-reduce:transition-none hover:bg-rose-500 disabled:opacity-60 cursor-pointer"

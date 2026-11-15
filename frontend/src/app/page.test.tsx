@@ -72,14 +72,14 @@ describe("Phase S3 — Conversion Homepage & 1-Click German Form Launchers", () 
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: /Multilingual form completion infrastructure/i,
+        name: /Fill out official forms in your own language/i,
       }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Phase 1 Monorepo Foundation/i)).toBeNull();
     expect(screen.queryByText(/PostgreSQL/i)).toBeNull();
 
     const uploadLinks = screen.getAllByRole("link", {
-      name: /Launch Form Assistant/i,
+      name: /Start a Form/i,
     });
     expect(uploadLinks[0]).toHaveAttribute("href", "/application");
 
@@ -109,7 +109,7 @@ describe("Phase S3 — Conversion Homepage & 1-Click German Form Launchers", () 
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: /Relocation ajansları ve kamu kurumları için küresel çok dilli form doldurma altyapısı/i,
+        name: /Resmi formları kendi dilinizde kolayca doldurun/i,
       }),
     ).toBeInTheDocument();
 
@@ -135,7 +135,7 @@ describe("Phase S3 — Conversion Homepage & 1-Click German Form Launchers", () 
 
     // Upload CTA remains accessible even if catalog fetch fails
     expect(
-      screen.getAllByRole("link", { name: /Launch Form Assistant/i })[0],
+      screen.getAllByRole("link", { name: /Start a Form/i })[0],
     ).toHaveAttribute("href", "/application");
   });
 });

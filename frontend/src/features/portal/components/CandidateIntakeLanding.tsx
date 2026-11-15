@@ -285,7 +285,7 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
               }
             >
               <span className="h-1.5 w-1.5 rounded-full bg-current" />
-              Official Candidate Intake
+              Official Application Form
             </div>
           </div>
 
@@ -318,8 +318,8 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
               <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
               <span>
                 Prepared by{" "}
-                <strong className="text-white">{org.name}</strong> for
-                deterministic multilingual completion.
+                <strong className="text-white">{org.name}</strong> so you can
+                answer questions in your own language.
               </span>
             </div>
           </div>
@@ -567,8 +567,8 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
             org.contact_phone ||
             safeWebsiteUrl) && (
             <div className="mt-8 pt-5 border-t border-white/[0.08]">
-              <div className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-500 mb-2.5">
-                Coordinator Contact — {org.name}
+              <div className="text-xs font-semibold text-slate-500 mb-2.5">
+                Contact Helpdesk — {org.name}
               </div>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-400">
                 {org.office_address && (

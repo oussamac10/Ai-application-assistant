@@ -18,12 +18,12 @@ export default function DatenschutzPage() {
         </header>
 
         <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-xs leading-relaxed text-emerald-300">
-          <p className="font-semibold text-white">Summary in Plain English (International Users):</p>
+          <p className="font-semibold text-white">Summary in Plain English:</p>
           <ul className="list-disc ps-5 space-y-1">
-            <li><strong className="text-white">Guest sessions auto-expire after 24 hours:</strong> Uploaded PDFs/photos, answers, and exports created without an account are automatically purged.</li>
-            <li><strong className="text-white">Encrypted Profile Vault (Optional):</strong> If you create an account and save reusable fields, values are encrypted at rest with symmetric Fernet encryption.</li>
-            <li><strong className="text-white">Deterministic validation first:</strong> Dates, emails, postal codes, and IBAN checksums are validated locally by deterministic Python code — never used to train AI models.</li>
-            <li><strong className="text-white">1-Click GDPR Rights:</strong> Registered users can download a portable JSON export (Art. 20 DSGVO) or permanently erase their account and files (Art. 17 DSGVO) directly under <Link href="/account" className="text-white underline font-semibold hover:text-emerald-300">/account</Link>.</li>
+            <li><strong className="text-white">Guest sessions delete themselves after 24 hours:</strong> Any files, answers, and finished PDFs created without an account are removed automatically.</li>
+            <li><strong className="text-white">Encrypted Saved Details (Optional):</strong> If you create an account and save contact details for future forms, they stay encrypted and private.</li>
+            <li><strong className="text-white">Automatic checks without training AI:</strong> Dates, emails, postal codes, and bank numbers are checked automatically and are never used to train AI models.</li>
+            <li><strong className="text-white">Download or erase anytime:</strong> Registered users can download a copy of their data or permanently delete their account directly under <Link href="/account" className="text-white underline font-semibold hover:text-emerald-300">/account</Link>.</li>
           </ul>
         </section>
 

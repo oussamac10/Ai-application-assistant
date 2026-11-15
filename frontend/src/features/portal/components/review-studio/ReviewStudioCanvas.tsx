@@ -316,7 +316,7 @@ export function ReviewStudioCanvas({
 
                       <div
                         data-theme-locked="dark"
-                        className={`absolute -top-8 start-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-mono font-medium shadow-md pointer-events-none select-none z-40 transition-all ${
+                        className={`absolute -top-8 start-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-medium shadow-md pointer-events-none select-none z-40 transition-all ${
                           isHighlighted
                             ? "flex items-center gap-1.5 bg-slate-900 border border-emerald-500/50 text-emerald-300"
                             : "hidden group-hover:flex items-center gap-1.5 bg-slate-900/95 border border-slate-700 text-white"
@@ -324,16 +324,13 @@ export function ReviewStudioCanvas({
                       >
                         <span className="font-bold text-emerald-400">[{idx + 1}]</span>
                         <span className="max-w-[150px] truncate">{primaryLabel}</span>
-                        <span className="text-[9px] text-slate-400 border-l border-slate-700 ps-1.5">
-                          X:{Math.round(bbox[0])} Y:{Math.round(bbox[1])} W:{Math.round(bbox[2] - bbox[0])} H:{Math.round(bbox[3] - bbox[1])}
-                        </span>
                       </div>
                     </>
                   ) : (
                     <div className="flex flex-col gap-0.5 max-w-full">
                       <span
                         data-theme-locked="dark"
-                        className={`text-[9px] font-mono font-bold px-1 rounded shadow-xs truncate max-w-full leading-tight select-none pointer-events-none ${
+                        className={`text-[9px] font-bold px-1 rounded shadow-xs truncate max-w-full leading-tight select-none pointer-events-none ${
                           isHighlighted
                             ? "bg-emerald-500 text-slate-950"
                             : "bg-slate-900/90 text-slate-200 group-hover:bg-emerald-500 group-hover:text-slate-950"
@@ -341,11 +338,6 @@ export function ReviewStudioCanvas({
                       >
                         [{idx + 1}] {primaryLabel}
                       </span>
-                      {isHighlighted && (
-                        <span className="text-[8px] font-mono text-emerald-400 font-semibold px-1 select-none pointer-events-none truncate">
-                          X:{Math.round(bbox[0])} Y:{Math.round(bbox[1])} W:{Math.round(bbox[2] - bbox[0])} H:{Math.round(bbox[3] - bbox[1])}
-                        </span>
-                      )}
                     </div>
                   )}
 

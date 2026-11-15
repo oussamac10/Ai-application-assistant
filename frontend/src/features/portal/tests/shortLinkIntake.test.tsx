@@ -91,7 +91,7 @@ describe("ShortLinkIntakePage (/f/[...slug]) (Phase G4)", () => {
     });
 
     // Select French
-    const frButton = screen.getByRole("button", { name: /FR Français/i });
+    const frButton = screen.getByRole("button", { name: /Français/i });
     fireEvent.click(frButton);
 
     const startButton = screen.getByRole("button", { name: /Start in Français/i });

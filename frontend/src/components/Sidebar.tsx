@@ -13,8 +13,6 @@ import {
   LogOut,
   ChevronDown,
   Globe,
-  User,
-  ShieldCheck,
   X,
   Search,
   Landmark,
@@ -93,67 +91,63 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   const userDisplayHandle = user?.email.split("@")[0] || "User";
   const userInitial = userDisplayHandle.charAt(0).toUpperCase() || "U";
-  const roleDisplay = org?.role
-    ? org.role.toUpperCase()
-    : user?.organizationRole
-    ? user.organizationRole.replace(/_/g, " ").toUpperCase()
-    : user?.role === "platform_admin"
-    ? "PLATFORM ADMIN"
-    : "MEMBER";
+  const rawRole = org?.role || user?.organizationRole || (user?.role === "platform_admin" ? "admin" : "member");
+  const roleDisplay = rawRole
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 
   const theme = resolveThemeConfig(org?.ui_theme_config);
-  const isLight = appTheme === "light" || theme.sidebar_theme === "light";
+  // Always honor the user's global light/dark toggle first
+  const isLight = appTheme === "light";
   const isHeraldic = appTheme !== "light" && theme.sidebar_theme === "heraldic";
   const primaryColor = theme.primary_color;
   const activeTextColor = getContrastTextColor(primaryColor);
 
-  const orgName = org?.name || "Organization Workspace";
-  const defaultSubTitle = org?.organization_type
-    ? `${org.organization_type[0].toUpperCase()}${org.organization_type.slice(1)} Workspace`
-    : "Workspace";
+  const orgName = org?.name || "My Organization";
+  const defaultSubTitle = "Workspace";
   const [mainTitle, subTitle] = orgName.includes("—")
     ? orgName.split("—").map((s) => s.trim())
     : [orgName, defaultSubTitle];
 
   const navLinks = [
     {
-      group: "WORKSPACE",
+      group: "Workspace",
       items: [
         {
           href: "/portal",
-          label: "Forms & Review Studio",
+          label: "Forms & Clients",
           icon: FolderKanban,
         },
       ],
     },
     {
-      group: "CITIZEN SERVICES",
+      group: "Forms",
       items: [
         {
           href: "/application",
-          label: "Citizen Intake",
+          label: "Fill Out a Form",
           icon: FilePlus,
         },
         {
           href: "/applications",
-          label: "My Applications",
+          label: "My Saved Forms",
           icon: FileCheck,
         },
       ],
     },
     {
-      group: "SETTINGS",
+      group: "Account",
       items: [
         {
           href: "/account",
-          label: "Authority & Profile Vault",
+          label: "Account & Saved Details",
           icon: Settings,
         },
         ...(user?.role === "platform_admin"
           ? [
               {
                 href: "/admin",
-                label: "Platform Admin Console",
+                label: "Admin Panel",
                 icon: ShieldAlert,
               },
             ]
@@ -183,11 +177,15 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               : "border-[#161F30]"
           }`}
         >
-          <Link href="/portal" className="flex items-center gap-2.5 group min-w-0 flex-1 overflow-hidden" title="Go to Organization Portal">
+          <Link href="/portal" className="flex items-center gap-2.5 group min-w-0 flex-1 overflow-hidden" title="Go to Forms & Clients">
             <div
               className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border p-1 shadow-xs overflow-hidden ${
                 org?.logo_storage_path
-                  ? "bg-white border-white/15"
+                  ? isLight
+                    ? "bg-white border-slate-200"
+                    : "bg-white border-white/15"
+                  : isLight
+                  ? "bg-slate-100 border-slate-200"
                   : "bg-[#131B2E] border-white/15"
               }`}
             >
@@ -199,7 +197,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <Landmark className="h-5 w-5 text-emerald-400" />
+                <Landmark className={`h-5 w-5 ${isLight ? "text-emerald-700" : "text-emerald-400"}`} />
               )}
             </div>
             <div className="min-w-0 flex-1 overflow-hidden">
@@ -210,9 +208,6 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   }`}
                 >
                   {mainTitle}
-                </span>
-                <span className="rounded bg-[#131B2E] border border-[#212E4A] px-1 py-0.2 font-mono text-[8px] font-bold text-emerald-400 shrink-0">
-                  {org?.is_verified_government ? "OFFICIAL" : "LIVE"}
                 </span>
               </div>
               <div
@@ -249,21 +244,12 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           }`}
         >
           <div className="flex items-center justify-between text-xs min-w-0 gap-2">
-            <div className="flex items-center gap-1.5 text-slate-300 font-semibold truncate min-w-0">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span className="truncate text-[11px] text-emerald-400 min-w-0">
-                {org?.is_verified_government ? "Officially Verified" : "Official Authority"}
+            <div className="flex items-center gap-1.5 font-semibold truncate min-w-0">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+              <span className={`truncate text-[11px] min-w-0 ${isLight ? "text-emerald-700" : "text-emerald-400"}`}>
+                {org?.is_verified_government ? "Verified Office" : "Active Workspace"}
               </span>
             </div>
-            <span
-              className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${
-                isLight
-                  ? "bg-white text-slate-700 border-slate-200"
-                  : "bg-[#131B2E] text-slate-300 border-[#212E4A]"
-              }`}
-            >
-              {org?.slug ? org.slug.split("-")[0].toUpperCase() : "PUBLIC"}
-            </span>
           </div>
         </div>
 
@@ -272,8 +258,8 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           {navLinks.map((group) => (
             <div key={group.group} className="min-w-0">
               <div
-                className={`px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider truncate ${
-                  isLight ? "text-slate-400" : "text-slate-500"
+                className={`px-3 mb-1.5 text-[11px] font-semibold tracking-wide truncate ${
+                  isLight ? "text-slate-500" : "text-slate-400"
                 }`}
               >
                 {group.group}
@@ -342,15 +328,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             <Globe className={`w-3.5 h-3.5 ${isLight ? "text-emerald-700" : "text-emerald-400"}`} />
             <span>{activeLanguage.nativeName}</span>
           </span>
-          <span
-            className={`font-mono text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${
-              isLight
-                ? "text-slate-600 bg-white border-slate-200"
-                : "text-slate-400 bg-[#0B0F19] border-white/10"
-            }`}
-          >
-            {activeLanguage.code}
-          </span>
+          <ChevronDown className={`w-3.5 h-3.5 ${isLight ? "text-slate-500" : "text-slate-400"}`} />
         </button>
 
         {/* User Card with Dropdown */}
@@ -370,7 +348,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   {userDisplayHandle}
                 </p>
                 <p
-                  className={`text-[10px] font-mono font-medium uppercase truncate ${
+                  className={`text-[11px] font-medium truncate ${
                     isLight ? "text-emerald-700" : "text-emerald-400"
                   }`}
                 >
@@ -446,15 +424,15 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                       setLangModalOpen(false);
                       setLangSearch("");
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-left text-xs transition-colors border ${
+                    className={`flex flex-col items-start p-2 rounded-xl text-left text-xs transition-colors border ${
                       isSelected
                         ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 font-bold"
                         : "border-white/[0.08] bg-[#0A0E17] hover:bg-[#151D2E] text-slate-300 hover:text-white"
                     }`}
                   >
-                    <span className="truncate">{lang.nativeName}</span>
-                    <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">
-                      {lang.code}
+                    <span className="truncate font-semibold">{lang.nativeName}</span>
+                    <span className="truncate text-[10px] text-slate-400">
+                      {lang.englishName}
                     </span>
                   </button>
                 );

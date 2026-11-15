@@ -15,6 +15,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  X,
 } from "lucide-react";
 
 import { useLanguage } from "@/features/form-session/components/LanguageProvider";
@@ -185,9 +186,10 @@ export default function ShortLinkIntakePage() {
               <span>{startError}</span>
               <button
                 onClick={() => setStartError(null)}
+                aria-label="Dismiss error"
                 className="text-rose-400 hover:text-rose-300 font-bold ml-4 cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -222,10 +224,10 @@ export default function ShortLinkIntakePage() {
             <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
             <div className="text-xs text-slate-300 space-y-1">
               <span className="font-bold text-white">
-                Multilingual Smartphone Intake:
+                Complete on Phone or Computer:
               </span>
               <p className="text-slate-300">
-                You can answer every question in your native language. The assistant will guide you step-by-step, normalize your entries, and produce an official ready-to-submit document adhering to German administrative standards.
+                You can answer every question in your own language. Step-by-step guidance helps check your answers and prepares your official ready-to-sign PDF.
               </p>
             </div>
           </div>
@@ -256,7 +258,7 @@ export default function ShortLinkIntakePage() {
                 Select Your Native Language:
               </label>
               <span className="text-xs font-semibold text-emerald-400">
-                {currentLangObj?.nativeName} ({currentLangObj?.code.toUpperCase()})
+                {currentLangObj?.nativeName}
               </span>
             </div>
 
@@ -278,7 +280,6 @@ export default function ShortLinkIntakePage() {
                         : "bg-[#0A0E17] text-slate-200 hover:bg-[#151D2E] border border-white/10"
                     }`}
                   >
-                    <span className="font-mono text-[10px] uppercase opacity-75">{lang.code}</span>
                     <span>{lang.nativeName}</span>
                   </button>
                 );
@@ -314,7 +315,7 @@ export default function ShortLinkIntakePage() {
           <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-400 pt-2">
             <span className="flex items-center gap-1">
               <Lock className="w-3.5 h-3.5 text-slate-500" />
-              Cryptographically Protected Session
+              Private & Encrypted
             </span>
             <span>•</span>
             <span>No Account Required</span>

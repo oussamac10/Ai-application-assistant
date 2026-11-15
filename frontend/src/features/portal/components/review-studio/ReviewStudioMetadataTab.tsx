@@ -60,7 +60,7 @@ export function ReviewStudioMetadataTab({
 
       <div>
         <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-          Official Category / Department (Taxonomy)
+          Category / Department
         </label>
         <ModernSelect
           disabled={!canEdit}

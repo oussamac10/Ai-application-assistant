@@ -313,7 +313,7 @@ export default function DocumentUploadForm({
                     "Drag and drop any official PDF form here, or click to browse"}
                 </p>
                 <p className="mt-1.5 text-xs text-slate-400">
-                  {t("maximum_size") || "PDF up to 10MB (max 20 pages) • AcroForm, Digital Text & Scanned PDFs"}
+                  {t("maximum_size") || "PDF, JPG, or PNG • Official forms or clear photos (up to 10 MB)"}
                 </p>
               </>
             ) : (
@@ -397,25 +397,25 @@ export default function DocumentUploadForm({
         </div>
       )}
 
-      {/* Analyzing & Automatic processing screens with Aikido Laser Scan Beam & Field Detection Radar */}
+      {/* Analyzing & Automatic processing screens with Scan Beam */}
       {(stage === "analyzing" || stage === "processing") && (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-[#0A0E17] p-6 sm:p-8 space-y-5 text-start shadow-2xl relative overflow-hidden">
           {/* Top Status Header */}
           <div className="w-full flex items-center justify-between border-b border-white/[0.08] pb-3">
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse motion-reduce:animate-none" />
-              <span className="font-mono text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
-                DOCUMENT SCANNER • PIPELINE ACTIVE
+              <span className="text-xs font-bold text-emerald-400">
+                Reading Your Form
               </span>
             </div>
-            <span className="font-mono text-[10px] text-slate-500 uppercase tracking-widest hidden sm:inline-block">
-              300 DPI • ACROFORM HYBRID
+            <span className="text-[11px] text-slate-400 hidden sm:inline-block">
+              Preparing Guided Questions
             </span>
           </div>
 
-          {/* Simulated Document Preview Canvas with Sweeping Laser Beam & Pulsating Bounding Boxes */}
+          {/* Simulated Document Preview Canvas with Sweeping Laser Beam & Pulsating Boxes */}
           <div className="relative mx-auto w-full max-w-sm aspect-[1/1.25] bg-[#0F1522] border border-white/10 rounded-xl overflow-hidden shadow-inner p-4 select-none">
-            {/* Subtle background matrix lines */}
+            {/* Subtle background dot grid */}
             <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px] opacity-40 pointer-events-none" />
 
             {/* Document Header Skeleton */}
@@ -424,55 +424,55 @@ export default function DocumentUploadForm({
               <div className="h-1.5 w-40 bg-slate-800/60 rounded" />
             </div>
 
-            {/* Pulsating Detected Field Bounding Boxes */}
+            {/* Pulsating Detected Boxes */}
             <div className="absolute top-[18%] inset-x-4 h-[12%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
-              <span className="font-mono text-[9px] font-bold text-emerald-300 tracking-tight">
-                FIELD_01: APPLICANT_NAME
+              <span className="text-[10px] font-bold text-emerald-300">
+                Full Name
               </span>
-              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/30">
-                TEXT
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-semibold">
+                Text
               </span>
             </div>
 
             <div className="absolute top-[35%] start-4 w-[43%] h-[11%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
-              <span className="font-mono text-[9px] font-bold text-emerald-300 truncate">
-                DOB_DATE
+              <span className="text-[10px] font-bold text-emerald-300 truncate">
+                Date of Birth
               </span>
-              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/30 shrink-0">
-                DATE
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1 py-0.5 rounded border border-emerald-500/30 shrink-0 font-semibold">
+                Date
               </span>
             </div>
 
             <div className="absolute top-[35%] end-4 w-[43%] h-[11%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
-              <span className="font-mono text-[9px] font-bold text-emerald-300 truncate">
-                NATIONALITY
+              <span className="text-[10px] font-bold text-emerald-300 truncate">
+                Nationality
               </span>
-              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/30 shrink-0">
-                ISO
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1 py-0.5 rounded border border-emerald-500/30 shrink-0 font-semibold">
+                Country
               </span>
             </div>
 
             <div className="absolute top-[52%] inset-x-4 h-[12%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
-              <span className="font-mono text-[9px] font-bold text-emerald-300 tracking-tight">
-                FIELD_04: RESIDENCE_ADDRESS
+              <span className="text-[10px] font-bold text-emerald-300">
+                Home Address
               </span>
-              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.2 rounded border border-emerald-500/30">
-                GEO
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-semibold">
+                Address
               </span>
             </div>
 
             <div className="absolute bottom-4 inset-x-4 h-[18%] rounded border border-emerald-500/80 bg-emerald-500/10 animate-pulse motion-reduce:animate-none flex items-center justify-between px-2.5 z-10 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
               <div className="flex items-center gap-1.5">
-                <span className="font-mono text-[9px] font-bold text-emerald-300 tracking-tight">
-                  FIELD_05: SIGNATURE_PAD
+                <span className="text-[10px] font-bold text-emerald-300">
+                  Signature
                 </span>
               </div>
-              <span className="font-mono text-[8px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-bold">
-                BIOMETRIC
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-semibold">
+                Sign
               </span>
             </div>
 
-            {/* Animated Emerald Laser Scan Beam sweeping down */}
+            {/* Animated Emerald Scan Beam sweeping down */}
             <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_16px_#10B981,0_0_8px_#34D399] animate-laser-scan motion-reduce:animate-none pointer-events-none z-20" />
           </div>
 
@@ -482,25 +482,25 @@ export default function DocumentUploadForm({
               <Loader2 className="h-4 w-4 animate-spin text-emerald-400 shrink-0" />
               <p className="text-sm font-semibold text-white tracking-tight">
                 {stage === "analyzing"
-                  ? t("analyzing") || "Reading the document…"
+                  ? t("analyzing") || "Reading your form..."
                   : processingMessage()}
               </p>
             </div>
             {debugUiEnabled && pendingDocumentId && (
               <a
-                className="text-xs text-emerald-400 hover:text-emerald-300 underline font-mono mt-1"
+                className="text-xs text-emerald-400 hover:text-emerald-300 underline mt-1"
                 href={`/application/document/${pendingDocumentId}/detect-fields`}
               >
-                {t("debug_open_review") || "Open technical review (debug)"}
+                {t("debug_open_review") || "Review detected questions"}
               </a>
             )}
           </div>
 
-          {/* Technical Telemetry Strip */}
-          <div className="w-full flex items-center justify-between text-[10px] font-mono text-slate-500 border-t border-white/[0.08] pt-3">
-            <span>OCR: NATIVE + TESSERACT</span>
-            <span>MODEL: ZERO-PII HYBRID</span>
-            <span className="text-emerald-400">LATENCY &lt; 1.5S</span>
+          {/* Simple Status Strip */}
+          <div className="w-full flex items-center justify-between text-[11px] text-slate-400 border-t border-white/[0.08] pt-3">
+            <span>Checking pages</span>
+            <span>Private &amp; encrypted</span>
+            <span className="text-emerald-400 font-medium">Almost ready</span>
           </div>
         </div>
       )}

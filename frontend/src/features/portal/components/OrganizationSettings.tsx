@@ -353,7 +353,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
           }`}
         >
           <FolderTree className="w-4 h-4" />
-          Categories & Taxonomy
+          Form Categories
         </button>
       </div>
 
@@ -424,8 +424,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
               <div className="space-y-1.5 flex-1 min-w-0 text-start">
                 <h3 className="text-base font-bold text-white break-words">{org.name}</h3>
-                <p className="text-xs text-slate-400 font-mono break-all">
-                  Slug: <span className="text-emerald-400">/organizations/{org.slug}</span>
+                <p className="text-xs text-slate-400 break-all">
+                  Public Link: <span className="text-emerald-400 font-medium">/organizations/{org.slug}</span>
                 </p>
                 <p className="text-xs text-slate-400">
                   This official identity and logo will appear on your public citizen portal, printable QR counter posters, and PDF instructions.
@@ -864,17 +864,17 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                 </h3>
               </div>
               <p className="mt-1 text-xs text-slate-400">
-                Customize your municipal authority workspace, heraldic brand colors, component ordering, and public portal appearance.
+                Customize your organization workspace, brand colors, layout sections, and public portal appearance.
               </p>
             </div>
 
-            {/* 1. Official Authority Brand Colors & Palettes */}
+            {/* 1. Authority Brand Colors & Palettes */}
             <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-sm font-bold text-white">Authority Brand Colors</h4>
                   <p className="text-xs text-slate-400">
-                    Choose your official municipal heraldic color or select from official German authority palettes.
+                    Choose your main brand color or pick from preset color palettes.
                   </p>
                 </div>
                 <button
@@ -1036,8 +1036,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                   },
                   {
                     id: "heraldic" as SidebarTheme,
-                    title: "Heraldic Tint",
-                    desc: "Deep tone tinted with authority brand color",
+                    title: "Brand Color Tint",
+                    desc: "Dark sidebar tinted with your brand color",
                     previewBg: "bg-[#0b1329] border border-white/10",
                     previewText: "text-amber-300",
                   },
@@ -1056,7 +1056,10 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                           : "border-white/10 hover:border-white/20 bg-[#0F1522]"
                       }`}
                     >
-                      <div className={`h-8 w-full rounded-lg mb-2.5 flex items-center px-2.5 gap-1.5 ${st.previewBg}`}>
+                      <div
+                        data-theme-locked={st.id !== "light" ? "dark" : undefined}
+                        className={`h-8 w-full rounded-lg mb-2.5 flex items-center px-2.5 gap-1.5 ${st.previewBg}`}
+                      >
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                         <span className={`text-[10px] font-bold ${st.previewText}`}>STUTTGART</span>
                       </div>
@@ -1089,8 +1092,8 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                       desc: "Summary cards showing total forms, live forms, needs review, and archived",
                     },
                     actions: {
-                      name: "Action Bar & PDF Ingestion",
-                      desc: "Upload PDF button and Public Citizen Portal link",
+                      name: "Action Bar & Form Upload",
+                      desc: "Upload PDF button and Public Portal link",
                     },
                     forms: {
                       name: "Official Forms & Review Studio Catalog",
@@ -1338,8 +1341,12 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                         themeConfig.sidebar_theme === "dark"
                           ? "#0B0F19"
                           : themeConfig.sidebar_theme === "heraldic"
-                          ? (themeConfig.primary_color || "#10B981") + "15"
+                          ? "#0b1329"
                           : "#FFFFFF",
+                      backgroundImage:
+                        themeConfig.sidebar_theme === "heraldic"
+                          ? `linear-gradient(180deg, ${themeConfig.primary_color || "#10B981"}26 0%, transparent 100%)`
+                          : undefined,
                       borderColor:
                         themeConfig.sidebar_theme === "dark"
                           ? "#1E293B"
@@ -1591,7 +1598,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
                                   <div className="font-semibold text-slate-100">
                                     Landlord Housing Confirmation Form
                                   </div>
-                                  <div className="text-[9px] text-slate-400">Civil Registry • PDF Ingested</div>
+                                  <div className="text-[9px] text-slate-400">Civil Registry • Ready to Fill</div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-[9px] text-slate-400">8 Fields</span>

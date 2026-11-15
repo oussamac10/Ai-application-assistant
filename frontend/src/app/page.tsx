@@ -25,24 +25,20 @@ import {
   Lock,
   Zap,
   ArrowRight,
-  Database,
-  Code2,
-  Cpu,
-  Layers,
   Sparkles,
   Check,
-  Terminal,
+  Languages,
 } from "lucide-react";
 
 const LAUNCH_UI_CODES = ["en", "de", "fr", "ar", "tr", "uk", "es", "ru"] as const;
 
 interface ShowcaseDoc {
   id: string;
+  tabLabel: string;
   title: string;
-  ref: string;
-  jurisdiction: string;
-  fieldId: string;
-  fieldType: string;
+  regionLabel: string;
+  stepTag: string;
+  fieldBadge: string;
   fieldLabel: string;
   sampleValue: string;
   translations: Record<string, { question: string; explanation: string }>;
@@ -51,109 +47,109 @@ interface ShowcaseDoc {
 const SHOWCASE_DOCS: ShowcaseDoc[] = [
   {
     id: "visa",
-    title: "International Visa & Work Permit Intake",
-    ref: "REF: VISA-INT-2026",
-    jurisdiction: "GLOBAL",
-    fieldId: "01_FULL_LEGAL_NAME",
-    fieldType: "TEXT_CANONICAL",
-    fieldLabel: "Applicant Full Legal Name (Passport Standard)",
+    tabLabel: "Visa & Work",
+    title: "Visa & Work Permit Form",
+    regionLabel: "International",
+    stepTag: "Question 1",
+    fieldBadge: "Required",
+    fieldLabel: "Full Legal Name (As Shown on Passport)",
     sampleValue: "Dr. Elena Rostova",
     translations: {
       en: {
         question: "What is your full legal name as shown on your passport?",
-        explanation: "Enter your first name, middle names (if any), and family name in Roman script exactly as they appear in your official travel document.",
+        explanation: "Enter your first name, middle names (if any), and family name in Roman letters exactly as they appear on your passport.",
       },
       ar: {
         question: "ما هو اسمك القانوني الكامل كما هو موضح في جواز السفر؟",
-        explanation: "أدخل اسمك الأول والاسم الأوسط واسم العائلة بالأحرف اللاتينية تماماً كما تظهر في وثيقة السفر الرسمية الخاصة بك.",
+        explanation: "أدخل اسمك الأول والاسم الأوسط واسم العائلة بالأحرف اللاتينية تماماً كما تظهر في جواز سفرك.",
       },
       fr: {
         question: "Quel est votre nom légal complet tel qu'il figure sur votre passeport ?",
-        explanation: "Indiquez votre prénom, vos éventuels autres prénoms et votre nom de famille en caractères latins, exactement tels qu'ils figurent sur votre document officiel.",
+        explanation: "Indiquez votre prénom, vos éventuels autres prénoms et votre nom de famille en caractères latins, exactement tels qu'ils figurent sur votre passeport.",
       },
       de: {
-        question: "Wie lautet Ihr vollständiger amtlicher Name laut Reisepass?",
-        explanation: "Geben Sie Vornamen und Nachnamen exakt so ein, wie sie in Ihrem amtlichen Reisedokument aufgeführt sind.",
+        question: "Wie lautet Ihr vollständiger Name laut Reisepass?",
+        explanation: "Geben Sie Vor- und Nachnamen exakt so ein, wie sie in Ihrem Reisepass stehen.",
       },
       es: {
         question: "¿Cuál es su nombre legal completo según figura en su pasaporte?",
-        explanation: "Escriba su nombre, segundos nombres y apellidos en alfabeto latino exactamente como aparecen en su documento de viaje oficial.",
+        explanation: "Escriba su nombre y apellidos en alfabeto latino exactamente como aparecen en su pasaporte.",
       },
       tr: {
-        question: "Pasaportunuzda görünen tam yasal adınız nedir?",
-        explanation: "Adınızı ve soyadınızı resmi seyahat belgenizde yer aldığı şekilde Latin harfleriyle tam olarak girin.",
+        question: "Pasaportunuzda görünen tam adınız nedir?",
+        explanation: "Adınızı ve soyadınızı pasaportunuzda yer aldığı şekilde Latin harfleriyle girin.",
       },
     },
   },
   {
     id: "residence",
-    title: "Official Address Registration Certificate",
-    ref: "REF: CIV-REG-840",
-    jurisdiction: "EU",
-    fieldId: "04_DATE_OF_MOVE_IN",
-    fieldType: "DATE_ISO8601",
-    fieldLabel: "Official Date of Occupancy / Move-In",
-    sampleValue: "2026-03-01",
+    tabLabel: "Address",
+    title: "Address Registration Form",
+    regionLabel: "Europe",
+    stepTag: "Question 4",
+    fieldBadge: "Date",
+    fieldLabel: "Move-In Date",
+    sampleValue: "01.03.2026",
     translations: {
       en: {
-        question: "On what date did you officially move into this residence?",
-        explanation: "Provide the tenancy start date in ISO format. Deterministic rules verify this matches your landlord confirmation.",
+        question: "On what date did you move into this home?",
+        explanation: "Enter the move-in date from your lease or landlord letter. We check the date format automatically.",
       },
       ar: {
-        question: "في أي تاريخ انتقلت رسمياً إلى هذا السكن؟",
-        explanation: "حدد تاريخ بدء الإقامة بتنسيق تاريخ قياسي. تؤكد القواعد الحسابية تطابق التاريخ مع إفادة المالك.",
+        question: "في أي تاريخ انتقلت إلى هذا السكن؟",
+        explanation: "أدخل تاريخ الانتقال المذكور في عقد الإيجار أو إفادة المالك، وسنضبط تنسيق التاريخ تلقائياً.",
       },
       fr: {
         question: "À quelle date avez-vous emménagé dans ce logement ?",
-        explanation: "Indiquez la date d'emménagement officielle. Nos règles déterministes vérifient la concordance avec l'attestation de bail.",
+        explanation: "Indiquez la date d'emménagement figurant sur votre bail ou attestation. Le format de la date est vérifié automatiquement.",
       },
       de: {
-        question: "An welchem Tag sind Sie offiziell in die Wohnung eingezogen?",
-        explanation: "Geben Sie das Einzugsdatum an. Die Angabe wird deterministisch auf Übereinstimmung mit der Wohnungsgeberbestätigung geprüft.",
+        question: "Wann sind Sie in diese Wohnung eingezogen?",
+        explanation: "Geben Sie das Einzugsdatum laut Mietvertrag oder Wohnungsgeberbestätigung an. Das Datumsformat wird automatisch geprüft.",
       },
       es: {
-        question: "¿En qué fecha se mudó oficialmente a esta residencia?",
-        explanation: "Indique la fecha de inicio del alquiler. Las reglas deterministas verifican que coincida con la confirmación del propietario.",
+        question: "¿En qué fecha se mudó a esta vivienda?",
+        explanation: "Indique la fecha de entrada que figura en su contrato o certificado. Comprobamos el formato automáticamente.",
       },
       tr: {
-        question: "Bu konuta resmi olarak hangi tarihte taşındınız?",
-        explanation: "Kira başlangıç tarihini belirtin. Deterministik kurallar bu tarihin ev sahibi onayıyla eşleştiğini doğrular.",
+        question: "Bu adrese hangi tarihte taşındınız?",
+        explanation: "Kira sözleşmenizde veya ev sahibi belgenizde yazan taşınma tarihini girin; tarih biçimi otomatik kontrol edilir.",
       },
     },
   },
   {
     id: "tax",
-    title: "Tax Registration & Compliance Declaration",
-    ref: "REF: TAX-DEC-991",
-    jurisdiction: "OECD",
-    fieldId: "09_TAX_IDENTIFIER",
-    fieldType: "CHECKSUM_VALIDATED",
-    fieldLabel: "Tax Identification Number / TIN",
-    sampleValue: "TIN 815 423 901",
+    tabLabel: "Tax ID",
+    title: "Tax Registration Form",
+    regionLabel: "International",
+    stepTag: "Question 9",
+    fieldBadge: "Checked",
+    fieldLabel: "Tax Identification Number",
+    sampleValue: "815 423 901",
     translations: {
       en: {
-        question: "What is your primary Tax Identification Number (TIN)?",
-        explanation: "Our deterministic engine verifies MOD-97 checksums immediately. Zero AI guessing is applied to statutory numbers.",
+        question: "What is your Tax Identification Number?",
+        explanation: "We check your number format immediately for typos — nothing is ever guessed for you.",
       },
       ar: {
-        question: "ما هو رقم التعريف الضريبي الأساسي الخاص بك؟",
-        explanation: "يتحقق محركنا الرياضي من صحة أرقام التحقق فوراً دون أي تخمين من الذكاء الاصطناعي.",
+        question: "ما هو رقم التعريف الضريبي الخاص بك؟",
+        explanation: "نتحقق من صيغة الرقم فوراً لاكتشاف أي خطأ إملائي — دون أي تخمين لبياناتك.",
       },
       fr: {
-        question: "Quel est votre numéro d'identification fiscale (NIF) ?",
-        explanation: "Notre moteur mathématique vérifie instantanément les clés de contrôle sans aucune approximation d'intelligence artificielle.",
+        question: "Quel est votre numéro d'identification fiscale ?",
+        explanation: "Nous vérifions aussitôt le format du numéro pour éviter toute faute de frappe — rien n'est jamais deviné.",
       },
       de: {
-        question: "Wie lautet Ihre steuerliche Identifikationsnummer (IdNr)?",
-        explanation: "Unsere Prüfengine validiert die Prüfziffer deterministisch ohne spekulative KI-Eingriffe.",
+        question: "Wie lautet Ihre steuerliche Identifikationsnummer?",
+        explanation: "Wir prüfen die Nummernstruktur sofort auf Tippfehler — amtliche Nummern werden niemals erraten.",
       },
       es: {
-        question: "¿Cuál es su número de identificación fiscal (NIF/TIN)?",
-        explanation: "Nuestro motor algorítmico verifica los dígitos de control de inmediato sin conjeturas de IA.",
+        question: "¿Cuál es su número de identificación fiscal?",
+        explanation: "Comprobamos al instante el formato del número para evitar errores; nunca adivinamos sus datos.",
       },
       tr: {
-        question: "Vergi Kimlik Numaranız (VKN) nedir?",
-        explanation: "Algoritmik motorumuz kontrol basamaklarını anında doğrular; resmi rakamlar asla yapay zeka ile tahmin edilmez.",
+        question: "Vergi kimlik numaranız nedir?",
+        explanation: "Yazım hatalarına karşı numara biçimini anında kontrol ederiz; hiçbir bilgi sizin yerinize tahmin edilmez.",
       },
     },
   },
@@ -295,28 +291,28 @@ export default function Home() {
             SECTION 1: Asymmetric Aikido Split Hero with Live Multilingual Scanner
             ========================================================================= */}
         <section className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center pt-2">
-          {/* Left Column: High-Contrast Technical Command Content */}
+          {/* Left Column: Main Value Proposition & Actions */}
           <div className="lg:col-span-7 space-y-6 text-start">
-            {/* Technical Signal Eyebrow */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-mono font-medium text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>UNIVERSAL ADMINISTRATIVE FORM INTELLIGENCE • 100% DETERMINISTIC</span>
+            {/* Simple Eyebrow Pill */}
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-300">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span>Read in Your Language • Fill Official PDFs Accurately</span>
             </div>
 
-            {/* High-Contrast Geometric Sans Headline */}
+            {/* Headline */}
             <h1 className="max-w-2xl text-3xl font-extrabold tracking-tight text-white sm:text-5xl sm:leading-[1.12]">
               {t("headline")}
             </h1>
 
-            {/* Anti-Slop Architectural Subheadline */}
+            {/* Subheadline */}
             <p className="max-w-xl text-base leading-relaxed text-slate-400">
               {t("subheadline")}
             </p>
 
-            {/* Instant 8-Language Switcher Strip (Flag-Free & Clean) */}
+            {/* Instant 8-Language Switcher Strip */}
             <div className="space-y-2 pt-1">
-              <div className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">
-                Active Interface Language
+              <div className="text-xs font-medium text-slate-400">
+                Choose your language
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 {launchLanguages.map((lang) => {
@@ -333,15 +329,12 @@ export default function Home() {
                           : "border-white/[0.1] bg-[#0F1522] text-slate-300 hover:border-emerald-500/40 hover:bg-[#151D2E] hover:text-white"
                       }`}
                     >
-                      <span className="font-mono text-[10px] uppercase font-bold text-emerald-400">
-                        {lang.code}
-                      </span>
                       <span>{lang.nativeName}</span>
                     </button>
                   );
                 })}
-                <span className="px-2 text-xs font-mono text-slate-500">
-                  <bdi>+{UNIVERSAL_LANGUAGES.length - launchLanguages.length} MORE</bdi>
+                <span className="px-2 text-xs text-slate-400">
+                  <bdi>+{UNIVERSAL_LANGUAGES.length - launchLanguages.length} more languages</bdi>
                 </span>
               </div>
             </div>
@@ -365,38 +358,38 @@ export default function Home() {
             </div>
 
             {/* Trust Indicators Bar */}
-            <div className="pt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono text-slate-400 border-t border-white/[0.08]">
+            <div className="pt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-medium text-slate-400 border-t border-white/[0.08]">
               <span className="inline-flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                <span>0% AI HALLUCINATION</span>
+                <span>Your Exact Answers Only</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                <span>GDPR ART. 17/20</span>
+                <span>Delete Data Anytime</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5 text-emerald-400" />
-                <span>AES-256 FERNET</span>
+                <span>Private &amp; Encrypted</span>
               </span>
             </div>
           </div>
 
-          {/* Right Column: Live Animated Multilingual Form Scanner & Pipeline Card */}
+          {/* Right Column: Interactive Form Preview Card */}
           <div className="lg:col-span-5">
             <div className="relative rounded-2xl border border-white/[0.12] bg-[#0F1522] p-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.85)] space-y-4 backdrop-blur-xl">
-              {/* Terminal Command Header */}
+              {/* Preview Header */}
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
-                  <span className="ms-2 font-mono text-[11px] font-semibold text-slate-300">
-                    REAL-TIME FORM SCANNER
+                  <span className="ms-2 text-xs font-semibold text-slate-300">
+                    Interactive Example
                   </span>
                 </div>
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>BEAM: ACTIVE</span>
+                  <span>Live Preview</span>
                 </div>
               </div>
 
@@ -407,57 +400,57 @@ export default function Home() {
                     key={doc.id}
                     type="button"
                     onClick={() => setSelectedDocId(doc.id)}
-                    className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-mono transition-colors ${
+                    className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
                       selectedDocId === doc.id
                         ? "bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-bold"
                         : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
                     }`}
                   >
-                    {doc.id.toUpperCase()}
+                    {doc.tabLabel}
                   </button>
                 ))}
               </div>
 
-              {/* Simulated Official PDF Viewport with Animated Laser Beam */}
-              <div className="relative rounded-xl border border-white/[0.08] bg-[#0A0E17] p-4 font-mono text-xs overflow-hidden select-none space-y-3">
-                {/* Animated Glowing Laser Scanning Beam */}
+              {/* Simulated Official PDF Viewport with Animated Scan Line */}
+              <div className="relative rounded-xl border border-white/[0.08] bg-[#0A0E17] p-4 text-xs overflow-hidden select-none space-y-3">
+                {/* Animated Glowing Scan Beam */}
                 <div
                   className="pointer-events-none absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_4px_rgba(16,185,129,0.7)] animate-laser-scan z-10"
                   aria-hidden="true"
                 />
 
                 {/* Form Meta Header */}
-                <div className="flex items-center justify-between text-[10px] text-slate-500 border-b border-white/[0.06] pb-2">
-                  <span className="text-slate-300 font-bold">{activeDoc.title}</span>
-                  <span className="rounded bg-[#151D2E] px-1.5 py-0.5 text-emerald-400 border border-white/[0.06]">
-                    {activeDoc.jurisdiction}
+                <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-white/[0.06] pb-2">
+                  <span className="text-slate-200 font-bold">{activeDoc.title}</span>
+                  <span className="rounded bg-[#151D2E] px-2 py-0.5 text-emerald-400 border border-white/[0.06]">
+                    {activeDoc.regionLabel}
                   </span>
                 </div>
 
-                {/* Detected Bounding Box Field 1 (Scanned) */}
+                {/* Detected Field 1 */}
                 <div className="relative rounded-lg border border-emerald-500/60 bg-emerald-500/5 p-2.5 space-y-1 shadow-[0_0_12px_rgba(16,185,129,0.1)]">
-                  <div className="flex items-center justify-between text-[9px] text-emerald-400">
-                    <span className="font-bold">[{activeDoc.fieldId}]</span>
-                    <span className="bg-emerald-500/20 px-1 py-0.2 rounded text-[8px] font-bold">
-                      {activeDoc.fieldType}
+                  <div className="flex items-center justify-between text-[10px] text-emerald-400">
+                    <span className="font-bold">{activeDoc.stepTag}</span>
+                    <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-semibold">
+                      {activeDoc.fieldBadge}
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-300 font-sans font-medium">
+                  <div className="text-xs text-slate-200 font-medium">
                     {activeDoc.fieldLabel}
                   </div>
-                  <div className="text-[10px] text-emerald-300 font-mono bg-[#0A0E17]/80 rounded px-2 py-0.5 border border-white/[0.06]">
+                  <div className="text-xs text-emerald-300 bg-[#0A0E17]/80 rounded px-2.5 py-1 border border-white/[0.06] font-medium">
                     {activeDoc.sampleValue}
                   </div>
                 </div>
 
-                {/* Detected Bounding Box Field 2 (Passive context) */}
-                <div className="rounded-lg border border-white/[0.08] bg-[#0F1522]/60 p-2 space-y-1 opacity-60">
-                  <div className="flex items-center justify-between text-[9px] text-slate-500">
-                    <span>[FIELD: 08_VERIFICATION_STATUS]</span>
-                    <span>DETERMINISTIC_PASS</span>
+                {/* Detected Field 2 (Signature Preview) */}
+                <div className="rounded-lg border border-white/[0.08] bg-[#0F1522]/60 p-2.5 space-y-1 opacity-75">
+                  <div className="flex items-center justify-between text-[10px] text-slate-400">
+                    <span>Final Step</span>
+                    <span className="text-emerald-400 font-medium">Ready to Sign</span>
                   </div>
-                  <div className="text-[10px] text-slate-400 font-sans">
-                    Authority Signature & Official Seal Placeholder
+                  <div className="text-[11px] text-slate-400">
+                    Signature &amp; Date Placement on Official Form
                   </div>
                 </div>
               </div>
@@ -465,8 +458,8 @@ export default function Home() {
               {/* Bottom Real-Time Guided Translation Output */}
               <div className="rounded-xl border border-white/[0.08] bg-[#151D2E] p-3.5 space-y-2.5 text-start">
                 <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-                    Live Multilingual Guided Question
+                  <span className="text-xs font-semibold text-slate-300">
+                    Question in Your Language
                   </span>
                   {/* Language switch tabs for live showcase */}
                   <div className="flex items-center gap-1">
@@ -475,7 +468,7 @@ export default function Home() {
                         key={lang}
                         type="button"
                         onClick={() => setScannerLang(lang)}
-                        className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase transition-colors ${
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
                           scannerLang === lang
                             ? "bg-emerald-500 text-slate-950 font-bold"
                             : "bg-[#0A0E17] text-slate-400 hover:text-white"
@@ -505,139 +498,147 @@ export default function Home() {
         </section>
 
         {/* =========================================================================
-            SECTION 2: Aikido Asymmetric Modular Bento Grid Architecture
+            SECTION 2: How It Helps You (Plain-Language Feature Cards)
             ========================================================================= */}
         <section className="space-y-6">
           <div className="max-w-2xl space-y-2 text-start">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.1] bg-[#0F1522] px-3 py-1 font-mono text-xs text-slate-300">
-              <Cpu className="h-3.5 w-3.5 text-emerald-400" />
-              <span>CORE ARCHITECTURAL INVARIANTS</span>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.1] bg-[#0F1522] px-3 py-1 text-xs font-medium text-slate-300">
+              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+              <span>How It Helps You</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Zero AI Hallucinations. Sovereign Compliance.
+              Understand Every Question. Fill Every Page Accurately.
             </h2>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Standard LLM wrappers fail on official civic documents because they guess missing numbers and mutate legal records. FormFlow enforces mathematical determinism.
+              No confusing legal wording or manual copying. FormFlow guides you question by question in plain language and fills your exact answers onto the official form.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Tile 1 (Large - Col Span 2): 3-Language Isolated Engine */}
+            {/* Tile 1 (Large - Col Span 2): Clear 3-Step Language Flow */}
             <div className="md:col-span-2 rounded-2xl border border-white/[0.1] bg-[#0F1522] p-6 sm:p-8 space-y-6 flex flex-col justify-between hover:border-emerald-500/30 transition-all duration-200">
               <div className="space-y-3 text-start">
                 <div className="flex items-center justify-between">
-                  <div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-mono font-semibold text-emerald-300">
-                    <Layers className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>3-LANGUAGE ISOLATED ENGINE</span>
+                  <div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                    <Languages className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>3 Clear Steps</span>
                   </div>
-                  <span className="font-mono text-xs text-slate-500">ISO 639-1 BOUND</span>
+                  <span className="text-xs font-medium text-slate-400">8+ Languages</span>
                 </div>
                 <h3 className="text-xl font-bold text-white">
-                  Strict 3-Language Layer Separation
+                  Read in Your Language. Export in the Office&apos;s Language.
                 </h3>
                 <p className="text-xs sm:text-sm leading-relaxed text-slate-400 max-w-xl">
-                  Unlike naive translation tools that collapse state into one string, FormFlow tracks three immutable language dimensions across every workflow: the source document language, the applicant&apos;s native guidance language, and the target official PDF output.
+                  Even if an application is only in German, French, or English, you see every question and helpful explanation in the language you know best — while your final PDF matches what the office expects.
                 </p>
               </div>
 
-              {/* Visual Pipeline Diagram */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-start font-mono text-xs">
+              {/* Visual 3-Step Diagram */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-start text-xs">
                 <div className="rounded-xl border border-white/[0.08] bg-[#0A0E17] p-3.5 space-y-1">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold block">01 / Ingestion</span>
-                  <div className="font-bold text-slate-200">sourceLanguage</div>
-                  <p className="text-[11px] text-slate-400 font-sans">
-                    Original untrusted PDF (German, French, Spanish, etc.)
+                  <span className="text-[11px] text-slate-400 font-semibold block">Step 1</span>
+                  <div className="font-bold text-slate-200">Original Form</div>
+                  <p className="text-[11px] text-slate-400">
+                    Upload your PDF or photo, or pick a ready-made official form.
                   </p>
                 </div>
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 space-y-1">
-                  <span className="text-[10px] text-emerald-400 uppercase font-bold block">02 / Citizen UI</span>
-                  <div className="font-bold text-emerald-300">userLanguage</div>
-                  <p className="text-[11px] text-slate-300 font-sans">
-                    Plain-language questions & RTL support in applicant&apos;s tongue
+                  <span className="text-[11px] text-emerald-400 font-semibold block">Step 2</span>
+                  <div className="font-bold text-emerald-300">Your Language</div>
+                  <p className="text-[11px] text-slate-300">
+                    Answer clear, everyday questions one at a time in your own language.
                   </p>
                 </div>
                 <div className="rounded-xl border border-white/[0.08] bg-[#0A0E17] p-3.5 space-y-1">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold block">03 / PDF Output</span>
-                  <div className="font-bold text-slate-200">outputLanguage</div>
-                  <p className="text-[11px] text-slate-400 font-sans">
-                    100% compliant AcroForm compilation ready for authority signature
+                  <span className="text-[11px] text-slate-400 font-semibold block">Step 3</span>
+                  <div className="font-bold text-slate-200">Ready-to-Sign PDF</div>
+                  <p className="text-[11px] text-slate-400">
+                    Download a neat, checked PDF ready to sign and submit.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Tile 2: Deterministic Python Validator */}
+            {/* Tile 2: Automatic Mistake Checks */}
             <div className="rounded-2xl border border-white/[0.1] bg-[#0F1522] p-6 space-y-5 flex flex-col justify-between hover:border-emerald-500/30 transition-all duration-200">
               <div className="space-y-3 text-start">
-                <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-[#151D2E] px-2.5 py-1 text-xs font-mono font-semibold text-slate-300">
-                  <Code2 className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>DETERMINISTIC VALIDATION</span>
+                <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-[#151D2E] px-2.5 py-1 text-xs font-semibold text-slate-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Built-In Checks</span>
                 </div>
                 <h3 className="text-lg font-bold text-white">
-                  Zero AI Guesswork
+                  Automatic Format Checks
                 </h3>
                 <p className="text-xs leading-relaxed text-slate-400">
-                  IBANs, dates, tax numbers, and postal codes are strictly verified by deterministic code algorithms — never guessed by generative models.
+                  Dates, bank IBAN numbers, email addresses, and postal codes are checked automatically for typos before you download.
                 </p>
               </div>
 
-              {/* Code Snippet Tile */}
-              <div className="rounded-xl border border-white/[0.08] bg-[#0A0E17] p-3 font-mono text-[10px] text-slate-300 space-y-1 select-none">
-                <div className="text-slate-500"># Verification Gate</div>
-                <div><span className="text-emerald-400">assert</span> iban_checksum(val)</div>
-                <div><span className="text-emerald-400">assert</span> date_iso8601(val)</div>
-                <div className="text-emerald-300 pt-1">STATUS: 100% DETERMINISTIC</div>
+              {/* Clean Visual Checklist Tile (No Python Code) */}
+              <div className="rounded-xl border border-white/[0.08] bg-[#0A0E17] p-3.5 text-xs text-slate-300 space-y-2 select-none">
+                <div className="flex items-center gap-2 text-emerald-400 font-medium">
+                  <Check className="h-3.5 w-3.5 shrink-0" />
+                  <span>Date format checked</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-400 font-medium">
+                  <Check className="h-3.5 w-3.5 shrink-0" />
+                  <span>Bank IBAN number verified</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-400 font-medium">
+                  <Check className="h-3.5 w-3.5 shrink-0" />
+                  <span>Required boxes completed</span>
+                </div>
               </div>
             </div>
 
-            {/* Tile 3: Fernet Profile Vault & Art. 17 Shredder */}
+            {/* Tile 3: Saved Details & Privacy */}
             <div className="rounded-2xl border border-white/[0.1] bg-[#0F1522] p-6 space-y-5 flex flex-col justify-between hover:border-emerald-500/30 transition-all duration-200">
               <div className="space-y-3 text-start">
-                <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-[#151D2E] px-2.5 py-1 text-xs font-mono font-semibold text-slate-300">
+                <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-[#151D2E] px-2.5 py-1 text-xs font-semibold text-slate-300">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>FERNET PROFILE VAULT</span>
+                  <span>Private &amp; Under Your Control</span>
                 </div>
                 <h3 className="text-lg font-bold text-white">
-                  GDPR Art. 17 Data Shredder
+                  Save Details for Next Time — Delete Anytime
                 </h3>
                 <p className="text-xs leading-relaxed text-slate-400">
-                  Client-side Fernet encryption guarantees zero plaintext exposure. 1-click permanent data destruction erases all answers, documents, and tokens instantly.
+                  Guest sessions remove themselves automatically after 24 hours. Registered users can reuse saved contact details safely and erase everything in one click.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-white/[0.08] bg-[#0A0E17] p-3 text-xs font-mono flex items-center justify-between text-slate-400">
-                <span className="text-emerald-400 font-bold">AES-256-CBC</span>
-                <span>0-PII RETENTION</span>
+              <div className="rounded-xl border border-white/[0.08] bg-[#0A0E17] p-3 text-xs flex items-center justify-between text-slate-300 font-medium">
+                <span className="text-emerald-400 font-semibold">Encrypted Storage</span>
+                <span>1-Click Delete</span>
               </div>
             </div>
 
-            {/* Tile 4 (Col Span 2): Pixel-Perfect AcroForm Unicode Export */}
+            {/* Tile 4 (Col Span 2): Clean Multi-Page PDF Download */}
             <div className="md:col-span-2 rounded-2xl border border-white/[0.1] bg-[#0F1522] p-6 sm:p-8 space-y-5 flex flex-col justify-between hover:border-emerald-500/30 transition-all duration-200">
               <div className="space-y-3 text-start">
-                <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-[#151D2E] px-2.5 py-1 text-xs font-mono font-semibold text-slate-300">
+                <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-[#151D2E] px-2.5 py-1 text-xs font-semibold text-slate-300">
                   <FileText className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>ACROFORM UNICODE COMPILATION</span>
+                  <span>Ready-to-Print Official PDFs</span>
                 </div>
                 <h3 className="text-xl font-bold text-white">
-                  Multi-Page AcroForm & Vector Signature Export
+                  Multi-Page Forms &amp; Hand-Drawn Signatures
                 </h3>
                 <p className="text-xs sm:text-sm leading-relaxed text-slate-400 max-w-xl">
-                  FormFlow compiles official PDFs across all pages with embedded Unicode font shaping (NotoSans / NotoSansArabic), coordinate overlays, and isolated biometric signature placement.
+                  Every answer, checkbox, and signature goes neatly into the right spot on every page — supporting international letters, accents, and Arabic scripts cleanly.
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono text-slate-300">
+              <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-medium text-slate-300">
                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-[#0A0E17] px-3 py-1.5">
                   <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>All-Pages AcroForm Widget Fill</span>
+                  <span>Every PDF Page Filled</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-[#0A0E17] px-3 py-1.5">
                   <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>NotoSans Arabic Font Shaping</span>
+                  <span>International &amp; Arabic Text</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-[#0A0E17] px-3 py-1.5">
                   <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Watermarked Review Studio</span>
+                  <span>Side-by-Side Answer Review</span>
                 </span>
               </div>
             </div>
@@ -645,7 +646,7 @@ export default function Home() {
         </section>
 
         {/* =========================================================================
-            SECTION 3: Official Forms Architectural Catalog
+            SECTION 3: Popular Ready-to-Use Official Forms
             ========================================================================= */}
         <section
           id="german-forms"
@@ -655,9 +656,9 @@ export default function Home() {
           <div className="border-b border-white/[0.08] bg-[#151D2E]/80 p-6 sm:p-8 space-y-5">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="space-y-1 text-start">
-                <div className="inline-flex items-center gap-2 font-mono text-xs text-emerald-400 font-bold uppercase tracking-wider">
-                  <Database className="h-3.5 w-3.5" />
-                  <span>VERIFIED REGISTRY</span>
+                <div className="inline-flex items-center gap-2 text-xs text-emerald-400 font-bold">
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Ready-to-Use Forms</span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                   {t("quickStartTitle")}
@@ -674,7 +675,7 @@ export default function Home() {
                   type="text"
                   value={catalogSearch}
                   onChange={(e) => setCatalogSearch(e.target.value)}
-                  placeholder="Filter forms or jurisdiction..."
+                  placeholder="Search forms by topic or country..."
                   className="w-full rounded-xl border border-white/[0.1] bg-[#0A0E17] py-2 ps-9 pe-3 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
                 />
               </div>
@@ -683,10 +684,10 @@ export default function Home() {
             {/* Category Filter Pills */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
               {[
-                { key: "all", label: "All Templates" },
-                { key: "residence", label: "Civil & Residence" },
-                { key: "family", label: "Family & Social" },
-                { key: "business", label: "Tax & Business" },
+                { key: "all", label: "All Forms" },
+                { key: "residence", label: "Home & Residence" },
+                { key: "family", label: "Family & Benefits" },
+                { key: "business", label: "Work & Taxes" },
               ].map((cat) => (
                 <button
                   key={cat.key}
@@ -715,7 +716,7 @@ export default function Home() {
 
           {/* Form Grid List */}
           {loadingForms ? (
-            <div className="px-6 py-12 text-center text-sm font-mono text-slate-500">
+            <div className="px-6 py-12 text-center text-sm text-slate-500">
               {tc("loading")}
             </div>
           ) : filteredForms.length === 0 ? (
@@ -736,14 +737,15 @@ export default function Home() {
                 const colBorder = index % 2 === 1 ? "md:border-s md:border-white/[0.08]" : "";
 
                 const getJurisdictionBadge = (key: string) => {
-                  if (key.startsWith("eu-")) return { code: "EU", name: "European Union" };
-                  if (key.startsWith("us-")) return { code: "US", name: "United States" };
-                  if (key.startsWith("uk-")) return { code: "UK", name: "United Kingdom" };
-                  if (key.startsWith("ca-")) return { code: "CA", name: "Canada" };
-                  if (key.startsWith("de-")) return { code: "DE", name: "Germany" };
-                  return { code: "GLOBAL", name: "Universal Form" };
+                  if (key.startsWith("eu-")) return "European Union";
+                  if (key.startsWith("us-")) return "United States";
+                  if (key.startsWith("uk-")) return "United Kingdom";
+                  if (key.startsWith("ca-")) return "Canada";
+                  if (key.startsWith("de-")) return "Germany";
+                  return "International";
                 };
-                const badge = getJurisdictionBadge(form.templateKey);
+                const regionName = getJurisdictionBadge(form.templateKey);
+                const formLangName = getLanguageByCode(form.sourceLanguage).nativeName;
 
                 return (
                   <div
@@ -752,15 +754,11 @@ export default function Home() {
                   >
                     <div className="space-y-2 text-start">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded border border-white/[0.1] bg-[#0A0E17] px-2 py-0.5 text-[10px] font-mono font-semibold text-emerald-400">
-                          <span className="font-bold">{badge.code}</span>
-                          <span className="text-slate-400">• {badge.name}</span>
+                        <span className="inline-flex items-center gap-1.5 rounded border border-white/[0.1] bg-[#0A0E17] px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400">
+                          {regionName}
                         </span>
-                        <span
-                          className="rounded border border-white/[0.08] bg-[#0A0E17] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-slate-400"
-                          dir="ltr"
-                        >
-                          {form.sourceLanguage.toUpperCase()} • OFFICIAL PDF
+                        <span className="rounded border border-white/[0.08] bg-[#0A0E17] px-2.5 py-0.5 text-[11px] font-medium text-slate-400">
+                          Form in {formLangName}
                         </span>
                       </div>
                       <h3 className="text-sm font-bold text-white">
@@ -799,13 +797,13 @@ export default function Home() {
         </section>
 
         {/* =========================================================================
-            SECTION 4: Three Trust & Regulatory Guardrails (High-Contrast Aikido Cards)
+            SECTION 4: Three Simple Promises (Privacy, Accuracy, Clarity)
             ========================================================================= */}
         <section className="grid grid-cols-1 gap-6 md:grid-cols-3 border-y border-white/[0.08] py-12">
           <div className="space-y-2 text-start">
-            <div className="inline-flex items-center gap-1.5 font-mono text-xs text-emerald-400 font-bold">
+            <div className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
               <ShieldCheck className="h-4 w-4" />
-              <span>EU & GLOBAL PRIVACY</span>
+              <span>Your Privacy First</span>
             </div>
             <h2 className="text-sm font-bold text-white">
               {t("trustEuTitle")}
@@ -815,9 +813,9 @@ export default function Home() {
             </p>
           </div>
           <div className="space-y-2 text-start">
-            <div className="inline-flex items-center gap-1.5 font-mono text-xs text-emerald-400 font-bold">
+            <div className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
               <CheckCircle2 className="h-4 w-4" />
-              <span>DETERMINISTIC ACCURACY</span>
+              <span>Built-In Checks</span>
             </div>
             <h2 className="text-sm font-bold text-white">
               {t("trustAccuracyTitle")}
@@ -827,9 +825,9 @@ export default function Home() {
             </p>
           </div>
           <div className="space-y-2 text-start">
-            <div className="inline-flex items-center gap-1.5 font-mono text-xs text-emerald-400 font-bold">
+            <div className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
               <Lock className="h-4 w-4" />
-              <span>COMPLIANCE BOUNDARY</span>
+              <span>Honest Guidance</span>
             </div>
             <h2 className="text-sm font-bold text-white">
               {t("trustRdgTitle")}
@@ -841,13 +839,13 @@ export default function Home() {
         </section>
 
         {/* =========================================================================
-            SECTION 5: Transparent Pricing Architecture (High-Contrast Dark Cards)
+            SECTION 5: Simple Pricing Preview
             ========================================================================= */}
         <section className="space-y-8 pb-8">
           <div className="max-w-2xl space-y-2 text-start">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.1] bg-[#0F1522] px-3 py-1 font-mono text-xs text-slate-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.1] bg-[#0F1522] px-3 py-1 text-xs font-medium text-slate-300">
               <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-              <span>COMMERCIAL LICENSING & PACKAGES</span>
+              <span>Simple, Clear Pricing</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
               {t("pricingTitle")}
@@ -858,10 +856,10 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {/* Free Sandbox */}
+            {/* Free Starter */}
             <div className="rounded-2xl border border-white/[0.1] bg-[#0F1522] p-6 sm:p-7 flex flex-col justify-between gap-6 hover:border-white/[0.2] transition-colors">
               <div className="space-y-3.5 text-start">
-                <span className="font-mono text-xs uppercase text-slate-400 font-bold block">EVALUATION</span>
+                <span className="text-xs text-slate-400 font-semibold block">Free Starter</span>
                 <h3 className="text-lg font-bold text-white">
                   {t("planFreeName")}
                 </h3>
@@ -869,7 +867,7 @@ export default function Home() {
                   <span className="text-3xl font-extrabold text-white tabular-nums">
                     <bdi>{t("planFreePrice")}</bdi>
                   </span>
-                  <span className="text-xs text-slate-400 font-mono">
+                  <span className="text-xs text-slate-400">
                     {t("planFreeUnit")}
                   </span>
                 </div>
@@ -885,10 +883,10 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Single Document / Agency Pro */}
+            {/* Agency Pro */}
             <div className="rounded-2xl border border-white/[0.1] bg-[#0F1522] p-6 sm:p-7 flex flex-col justify-between gap-6 hover:border-white/[0.2] transition-colors">
               <div className="space-y-3.5 text-start">
-                <span className="font-mono text-xs uppercase text-emerald-400 font-bold block">PROFESSIONAL</span>
+                <span className="text-xs text-emerald-400 font-semibold block">For Agencies &amp; Teams</span>
                 <h3 className="text-lg font-bold text-white">
                   {t("planSingleName")}
                 </h3>
@@ -896,7 +894,7 @@ export default function Home() {
                   <span className="text-3xl font-extrabold text-white tabular-nums">
                     <bdi>{t("planSinglePrice")}</bdi>
                   </span>
-                  <span className="text-xs text-slate-400 font-mono">
+                  <span className="text-xs text-slate-400">
                     {t("planSingleUnit")}
                   </span>
                 </div>
@@ -912,12 +910,12 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Enterprise & Public Sector (Highlighted) */}
+            {/* Teams & Offices (Highlighted) */}
             <div className="relative rounded-2xl border-2 border-emerald-500 bg-[#0F1522] p-6 sm:p-7 flex flex-col justify-between gap-6 shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)]">
               <div className="space-y-3.5 text-start">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs uppercase text-emerald-400 font-bold block">GOVERNMENT & B2B</span>
-                  <span className="rounded-full bg-emerald-500/20 border border-emerald-500/50 px-2.5 py-0.5 text-[10px] font-mono font-bold text-emerald-300">
+                  <span className="text-xs text-emerald-400 font-semibold block">For Larger Offices</span>
+                  <span className="rounded-full bg-emerald-500/20 border border-emerald-500/50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
                     {t("planPackBadge")}
                   </span>
                 </div>
@@ -928,7 +926,7 @@ export default function Home() {
                   <span className="text-3xl font-extrabold text-white tabular-nums">
                     <bdi>{t("planPackPrice")}</bdi>
                   </span>
-                  <span className="text-xs text-slate-400 font-mono">
+                  <span className="text-xs text-slate-400">
                     {t("planPackUnit")}
                   </span>
                 </div>
@@ -945,7 +943,7 @@ export default function Home() {
             </div>
           </div>
 
-          <p className="text-xs font-mono text-slate-500 text-start">
+          <p className="text-xs text-slate-400 text-start">
             {t("planAgencyNote")}
           </p>
         </section>

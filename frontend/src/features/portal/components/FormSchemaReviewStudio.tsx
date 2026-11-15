@@ -272,17 +272,17 @@ export function FormSchemaReviewStudio({
       setAutoMapResults(result);
       if (result.suggestions.length > 0) {
         setSuccessMessage(
-          `AI Auto-Map suggested canonical mappings for ${result.suggestions.length} of ${result.total_fields} fields.`
+          `Found saved-detail matches for ${result.suggestions.length} of ${result.total_fields} questions.`
         );
       } else {
         setSuccessMessage(
-          "Auto-Map analyzed the form fields, but found no new high-confidence mappings."
+          "Checked all questions, but found no new automatic matches."
         );
       }
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : "Failed to run schema auto-map";
+        err instanceof Error ? err.message : "Failed to auto-match questions";
       setError(msg);
     } finally {
       setAutoMapping(false);
@@ -315,7 +315,7 @@ export function FormSchemaReviewStudio({
         })
       );
       setSuccessMessage(
-        `Successfully applied ${mappings.length} canonical Profile Vault mappings.`
+        `Matched ${mappings.length} questions to saved personal details.`
       );
       setAutoMapResults(null);
       setTimeout(() => setSuccessMessage(null), 4000);
@@ -479,10 +479,10 @@ export function FormSchemaReviewStudio({
       await reorderFormFields(templateId, orderedIds);
 
       setReview(updatedReview);
-      setSuccessMessage("Form schema draft saved successfully.");
+      setSuccessMessage("Form draft saved successfully.");
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to save draft schema";
+      const msg = err instanceof Error ? err.message : "Failed to save form draft";
       setError(msg);
     } finally {
       setSaving(false);
@@ -499,7 +499,7 @@ export function FormSchemaReviewStudio({
   };
 
   const handleDeleteField = useCallback(async (fieldId: string) => {
-    if (!confirm("Are you sure you want to remove this field from the schema?")) return;
+    if (!confirm("Are you sure you want to remove this question from the form?")) return;
     try {
       await deleteFormField(templateId, fieldId);
       setFields((prev) => prev.filter((f) => f.id !== fieldId));
@@ -791,7 +791,7 @@ export function FormSchemaReviewStudio({
       setNewFieldQuestionKey("");
       setNewFieldBbox(null);
       setHighlightedFieldId(created.id);
-      setSuccessMessage(`Field "${newFieldLabel.trim()}" added to schema.`);
+      setSuccessMessage(`Question "${newFieldLabel.trim()}" added to form.`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to add new field";
       setModalError(msg);
@@ -849,7 +849,7 @@ export function FormSchemaReviewStudio({
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-4 bg-[#0A0E17]">
         <Loader2 className="w-8 h-8 text-emerald-400 animate-spin motion-reduce:animate-none" />
-        <p className="text-sm font-medium text-slate-400">Loading form schema & coordinates...</p>
+        <p className="text-sm font-medium text-slate-400">Loading form questions and PDF preview...</p>
       </div>
     );
   }
@@ -900,13 +900,13 @@ export function FormSchemaReviewStudio({
               >
                 {review.status === "published" ? "Live" : "Review"}
               </span>
-              <span className="text-[11px] text-slate-500 font-mono hidden sm:inline shrink-0">
-                v{review.versionNumber} • {fields.length} Fields
+              <span className="text-[11px] text-slate-400 hidden sm:inline shrink-0">
+                {fields.length} {fields.length === 1 ? "Question" : "Questions"}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-mono hidden sm:flex items-center gap-1.5 mt-0.5 truncate">
+            <p className="text-[11px] text-slate-400 hidden sm:flex items-center gap-1.5 mt-0.5 truncate">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Dual-Pane Verification Studio</span>
+              <span>Side-by-Side Form Editor</span>
             </p>
           </div>
         </div>
@@ -947,7 +947,7 @@ export function FormSchemaReviewStudio({
                 ? "bg-slate-800 text-emerald-400 shadow-2xs border border-slate-700"
                 : "text-slate-400 hover:text-white"
             }`}
-            title="Fields & Schema Editor Only"
+            title="Questions Editor Only"
           >
             <Layers className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Fields</span>
@@ -1165,20 +1165,20 @@ export function FormSchemaReviewStudio({
                   <span>Add Field</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleRunAutoMap}
-                  disabled={autoMapping || fields.length === 0}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-                  title="Automatically map detected form fields to canonical citizen vault keys"
-                >
-                  {autoMapping ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3.5 h-3.5" />
-                  )}
-                  <span>Auto-Map Schema</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleRunAutoMap}
+                    disabled={autoMapping || fields.length === 0}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    title="Automatically match questions to saved personal details"
+                  >
+                    {autoMapping ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    <span>Auto-Match Saved Details</span>
+                  </button>
 
                 {/* Schema Tools & Options Dropdown */}
                 <div ref={toolsMenuRef} className="relative">
@@ -1188,7 +1188,7 @@ export function FormSchemaReviewStudio({
                     aria-expanded={showToolsMenu}
                     aria-haspopup="menu"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors cursor-pointer"
-                    title="Schema tools & options"
+                    title="Form tools & options"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-slate-400" />
                     <span>Tools</span>
@@ -1215,7 +1215,7 @@ export function FormSchemaReviewStudio({
                         ) : (
                           <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                         )}
-                        <span>AI Auto-Map Schema</span>
+                        <span>Auto-Match Saved Details</span>
                       </button>
 
                       <button
@@ -1268,9 +1268,9 @@ export function FormSchemaReviewStudio({
                 <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs flex items-start gap-2.5">
                   <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold text-white">AcroForm Widgets & Profile Vault Mapping:</span>
+                    <span className="font-semibold text-white">PDF Fields & Saved Personal Details:</span>
                     <p className="text-slate-400 text-[11px] mt-0.5">
-                      Verify each question label and select its canonical profile vault key. Citizens with existing encrypted vaults will be able to complete mapped fields with a single click.
+                      Check each question label and link it to a saved detail (like First Name or Date of Birth) so returning applicants can fill it in 1 click.
                     </p>
                   </div>
                 </div>
@@ -1281,10 +1281,10 @@ export function FormSchemaReviewStudio({
                       <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                       <div>
                         <span className="font-semibold text-white">
-                          AI Auto-Mapping Ready: {autoMapResults.suggestions.length} of {autoMapResults.total_fields} fields matched
+                          Auto-Match Ready: {autoMapResults.suggestions.length} of {autoMapResults.total_fields} questions matched
                         </span>
                         <p className="text-emerald-300 text-[11px] mt-0.5">
-                          Review suggestions below. Apply all canonical vault keys at once, or accept them individually.
+                          Review the suggestions below. Apply all matches at once, or accept them one by one.
                         </p>
                       </div>
                     </div>

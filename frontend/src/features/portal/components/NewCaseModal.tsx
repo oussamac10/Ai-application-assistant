@@ -256,17 +256,14 @@ export function NewCaseModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1.5">
-                Destination Jurisdiction
+              <label className="block text-xs font-semibold text-slate-200 mb-1.5">
+                Country / Form Office
               </label>
               {(() => {
                 const selected = templates.find((t) => t.id === selectedFormId);
                 const info = getJurisdictionInfo(selected);
                 return (
                   <div className="flex items-center gap-2 h-10 px-3.5 rounded-xl border border-white/10 bg-[#0A0E17] text-xs font-medium text-slate-200">
-                    <span className="font-mono font-bold text-[10px] uppercase tracking-wider rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-400">
-                      {info.code}
-                    </span>
                     <span className="truncate">{info.label}</span>
                   </div>
                 );

@@ -162,7 +162,7 @@ describe("B2B & B2G Platform — Portal & Case Management", () => {
     fireEvent.click(uploadBtns[0]);
 
     await waitFor(() => {
-      expect(screen.getByText("Upload & Ingest Official Form")).toBeDefined();
+      expect(screen.getByText("Upload PDF Form")).toBeDefined();
     });
   });
 

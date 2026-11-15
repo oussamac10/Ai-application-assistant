@@ -187,10 +187,10 @@ export function ReviewStudioFieldCard({
           />
         </div>
 
-        {/* Profile Vault Mapping */}
+        {/* Saved Details Auto-Fill Link */}
         <div>
-          <label className="block text-[11px] font-mono font-semibold text-slate-400 mb-1 uppercase tracking-wider">
-            Profile Vault Pre-fill
+          <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+            Auto-Fill from Saved Details
           </label>
           <ModernSelect
             disabled={!canEdit}
@@ -201,41 +201,54 @@ export function ReviewStudioFieldCard({
               })
             }
             options={[
-              { value: "", label: "No prefill (custom field)" },
+              { value: "", label: "No auto-fill (custom question)" },
               ...CANONICAL_VAULT_KEYS.map((k) => ({
                 value: k.key,
                 label: k.label,
               })),
             ]}
             searchable
-            searchPlaceholder="Search vault keys..."
+            searchPlaceholder="Search saved details..."
             size="sm"
-            aria-label="Profile Vault Pre-fill"
+            aria-label="Auto-Fill from Saved Details"
           />
-          {autoMapSuggestion && autoMapSuggestion.suggested_question_key && (
-            <div className="mt-1.5 flex items-center justify-between text-[11px] bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded-lg">
-              <span className="text-emerald-300 flex items-center gap-1 font-medium truncate mr-1">
-                <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
-                <span className="truncate">
-                  AI: <code className="font-mono text-emerald-300 font-bold">{autoMapSuggestion.suggested_question_key}</code> ({Math.round(autoMapSuggestion.confidence * 100)}%)
+          {autoMapSuggestion && autoMapSuggestion.suggested_question_key && (() => {
+            const suggestedHumanLabel =
+              CANONICAL_VAULT_KEYS.find((k) => k.key === autoMapSuggestion.suggested_question_key)?.label ||
+              (autoMapSuggestion.suggested_question_key === "person.date_of_birth"
+                ? "Date of Birth"
+                : autoMapSuggestion.suggested_question_key
+                    .split(".")
+                    .pop()
+                    ?.replace(/_/g, " ")
+                    .replace(/\b\w/g, (c) => c.toUpperCase()) ||
+                  autoMapSuggestion.suggested_question_key);
+
+            return (
+              <div className="mt-1.5 flex items-center justify-between text-[11px] bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded-lg">
+                <span className="text-emerald-300 flex items-center gap-1 font-medium truncate mr-1">
+                  <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <span className="truncate">
+                    Suggested: <span className="text-emerald-300 font-bold">{suggestedHumanLabel}</span> ({Math.round(autoMapSuggestion.confidence * 100)}%)
+                  </span>
                 </span>
-              </span>
-              {canEdit && field.questionKey !== autoMapSuggestion.suggested_question_key && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onFieldChange(field.id, {
-                      questionKey: autoMapSuggestion.suggested_question_key,
-                    })
-                  }
-                  className="shrink-0 text-[10px] font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 px-2 py-0.5 rounded cursor-pointer transition-colors shadow-2xs"
-                  title={autoMapSuggestion.match_reason}
-                >
-                  Apply
-                </button>
-              )}
-            </div>
-          )}
+                {canEdit && field.questionKey !== autoMapSuggestion.suggested_question_key && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onFieldChange(field.id, {
+                        questionKey: autoMapSuggestion.suggested_question_key,
+                      })
+                    }
+                    className="shrink-0 text-[10px] font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 px-2 py-0.5 rounded cursor-pointer transition-colors shadow-2xs"
+                    title={autoMapSuggestion.match_reason}
+                  >
+                    Apply
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -249,10 +262,10 @@ export function ReviewStudioFieldCard({
               expandedTranslationsFieldId === field.id ? null : field.id
             );
           }}
-          className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors"
         >
           <Globe className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Citizen Guidance Translations</span>
+          <span>Question Translations</span>
           <span className="text-[10px] bg-slate-800 text-emerald-400 font-bold px-1.5 py-0.5 rounded-full border border-slate-700">
             {field.translations?.length || 1}
           </span>
@@ -272,14 +285,14 @@ export function ReviewStudioFieldCard({
               onAutoTranslateField(field.id);
             }}
             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg transition disabled:opacity-50 cursor-pointer"
-            title="Auto-translate to all supported citizen guidance languages"
+            title="Translate this question into all supported languages"
           >
             {translatingFieldId === field.id ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
             )}
-            <span>Auto-Translate All</span>
+            <span>Translate All</span>
           </button>
         )}
       </div>
@@ -291,8 +304,8 @@ export function ReviewStudioFieldCard({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400">
-              Guidance Language for Citizens
+            <span className="text-[11px] font-bold text-slate-400">
+              Applicant Language
             </span>
             <span className="text-[10px] text-slate-500 font-mono">
               Original Form: {sourceLanguage.toUpperCase() || "EN"}
@@ -408,15 +421,10 @@ export function ReviewStudioFieldCard({
         </div>
       )}
 
-      {/* Internal Technical Key & Coordinates Readout */}
-      <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 font-mono pt-2 border-t border-slate-800">
-        <span>AcroForm Key: {field.key}</span>
-        <span>
-          Page {fPage}
-          {hasBbox
-            ? ` • [${(field.configuration.bbox as number[]).map(Math.round).join(", ")}] pt`
-            : ""}
-        </span>
+      {/* Page & PDF Placement */}
+      <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
+        <span>Page {fPage}</span>
+        <span>{hasBbox ? "Placed on PDF" : "Not placed yet"}</span>
       </div>
     </div>
   );

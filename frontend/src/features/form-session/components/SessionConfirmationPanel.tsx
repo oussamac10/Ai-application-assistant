@@ -41,13 +41,13 @@ export function SessionConfirmationPanel({
       <div className="space-y-1">
         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          Value Standardized
+          Formatted for Your Form
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-2">
           {t("confirmTitle")}
         </h2>
         <p className="text-xs text-slate-400">
-          Please confirm that the standardized value matches your intention
+          Please check that this formatted answer matches what you want on your form
         </p>
       </div>
 
@@ -145,10 +145,7 @@ export function SessionConfirmationPanel({
           className="btn-primary flex-1 py-3.5 text-sm font-semibold"
         >
           <span>{tc("confirm")}</span>
-          <kbd
-            data-theme-locked="dark"
-            className="hidden sm:inline-block rounded bg-emerald-700/90 border border-emerald-900/40 px-1.5 py-0.5 text-[10px] font-mono text-white"
-          >
+          <kbd className="hidden sm:inline-block rounded bg-slate-950/15 border border-slate-950/20 px-1.5 py-0.5 text-[10px] font-semibold text-slate-950">
             ↵ Enter
           </kbd>
         </button>

@@ -223,28 +223,28 @@ export default function SessionComplete() {
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
                 <div className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-200">
-                    DOCUMENT EXPORT RECEIPT
+                  <span className="text-xs font-semibold text-slate-200">
+                    Your Completed Form
                   </span>
                 </div>
-                <span className="font-mono text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded uppercase">
-                  OFFICIAL ACROFORM
+                <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-md">
+                  Official PDF
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                 <div>
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500 block">Session ID</span>
-                  <span className="font-mono text-white font-bold truncate block mt-0.5 tabular-nums">{sessionId.slice(0, 8)}…</span>
+                  <span className="text-[11px] font-medium text-slate-500 block">Status</span>
+                  <span className="text-white font-semibold block mt-0.5">Ready to Download</span>
                 </div>
                 <div>
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500 block">Compilation Engine</span>
-                  <span className="font-mono text-white font-semibold text-xs block mt-0.5">Deterministic PyMuPDF</span>
+                  <span className="text-[11px] font-medium text-slate-500 block">Format</span>
+                  <span className="text-white font-semibold text-xs block mt-0.5">Print & Submit PDF</span>
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500 block">GDPR Compliance</span>
-                  <span className="font-mono text-emerald-400 font-semibold text-xs flex items-center gap-1 mt-0.5">
+                  <span className="text-[11px] font-medium text-slate-500 block">Privacy</span>
+                  <span className="text-emerald-400 font-semibold text-xs flex items-center gap-1 mt-0.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    Zero-PII Retained
+                    Private & Encrypted
                   </span>
                 </div>
               </div>

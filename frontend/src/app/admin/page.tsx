@@ -154,15 +154,15 @@ export default function AdminPage() {
                 <Flame className="w-5 h-5" />
               </span>
               <h1 className="text-2xl font-bold tracking-tight text-white">
-                Founder Admin Control Tower
+                Platform Admin Overview
               </h1>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Live Engine
+                Active
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Global multi-tenant governance, live AI cost firewall, and tenant roster.
+              Manage organizations, monthly usage limits, and active workspaces.
             </p>
           </div>
 
@@ -241,36 +241,36 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* AI Cost Firewall & Reliability Guard */}
+            {/* Usage & Service Status */}
             <div className="bg-[#0F1522] rounded-2xl border border-white/10 p-6 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="w-5 h-5 text-emerald-400" />
                   <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                    AI Spend Circuit Breaker & Pipeline Health
+                    AI Usage Limits & Service Health
                   </h2>
                 </div>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-                  Hard Limit: €0.25 / Session
+                  Max Limit: €0.25 / Form Session
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs pt-1">
                 <div className="p-3.5 bg-[#0A0E17] rounded-xl border border-white/[0.08]">
-                  <span className="text-slate-400 block mb-1">Reasoning Provider</span>
-                  <span className="font-semibold text-slate-100 font-mono">{data.firewall.ai_provider}</span>
+                  <span className="text-slate-400 block mb-1">Language Assistant</span>
+                  <span className="font-semibold text-slate-100">{data.firewall.ai_provider}</span>
                 </div>
                 <div className="p-3.5 bg-[#0A0E17] rounded-xl border border-white/[0.08]">
-                  <span className="text-slate-400 block mb-1">Translation Engine</span>
-                  <span className="font-semibold text-slate-100 font-mono">{data.firewall.translation_provider}</span>
+                  <span className="text-slate-400 block mb-1">Translation Service</span>
+                  <span className="font-semibold text-slate-100">{data.firewall.translation_provider}</span>
                 </div>
                 <div className="p-3.5 bg-[#0A0E17] rounded-xl border border-white/[0.08]">
-                  <span className="text-slate-400 block mb-1">Field Detection</span>
-                  <span className="font-semibold text-slate-100 font-mono">{data.firewall.field_detection_provider}</span>
+                  <span className="text-slate-400 block mb-1">PDF Field Reader</span>
+                  <span className="font-semibold text-slate-100">{data.firewall.field_detection_provider}</span>
                 </div>
                 <div className="p-3.5 bg-[#0A0E17] rounded-xl border border-white/[0.08]">
-                  <span className="text-slate-400 block mb-1">Budget Breaker</span>
-                  <span className="font-semibold text-emerald-400">Enforced Fail-Safe</span>
+                  <span className="text-slate-400 block mb-1">Spending Protection</span>
+                  <span className="font-semibold text-emerald-400">Active</span>
                 </div>
               </div>
             </div>

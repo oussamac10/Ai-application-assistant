@@ -15,7 +15,6 @@ import {
   Settings,
   ShieldCheck,
   X,
-  Activity,
 } from "lucide-react";
 import { useLanguage } from "@/features/form-session/components/LanguageProvider";
 import {
@@ -144,9 +143,6 @@ export default function Navbar() {
               <span className="text-[15px] font-bold tracking-tight text-white">
                 FormFlow
               </span>
-              <span className="hidden rounded-md border border-white/[0.1] bg-[#0F1522] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-400 xl:inline-block">
-                GLOBAL
-              </span>
             </div>
           </Link>
 
@@ -198,19 +194,13 @@ export default function Navbar() {
                   : "font-medium text-slate-300 hover:bg-white/[0.05] hover:text-white"
               }`}
             >
-              Public Portals
+              Public Forms
             </Link>
           </nav>
         </div>
 
         {/* Right Controls: Theme Switcher, Unified Language Switcher & Auth */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          {/* Technical Status Badge */}
-          <div className="hidden xl:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-mono text-emerald-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>ONLINE</span>
-          </div>
-
           <ThemeToggle variant="icon" />
 
           <div className="relative" ref={popoverRef}>
@@ -231,9 +221,6 @@ export default function Navbar() {
               <span className="font-bold text-slate-100">
                 {activeLanguage.nativeName}
               </span>
-              <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase leading-none text-emerald-400">
-                {activeLanguage.code}
-              </span>
               <ChevronDown
                 className={`h-3.5 w-3.5 text-slate-400 transition-transform ${
                   langPopoverOpen ? "rotate-180 text-emerald-400" : ""
@@ -245,12 +232,12 @@ export default function Navbar() {
             {langPopoverOpen && (
               <div className="absolute end-0 z-50 mt-2 w-80 space-y-3 rounded-2xl border border-white/[0.12] bg-[#0F1522] p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] sm:w-96 backdrop-blur-xl">
                 <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono">
+                  <span className="text-xs font-bold text-slate-300">
                     {tNav("selectLanguageTitle", {
                       count: UNIVERSAL_LANGUAGES.length,
                     })}
                   </span>
-                  <span className="text-[11px] font-medium text-emerald-400 font-mono">
+                  <span className="text-[11px] font-medium text-emerald-400">
                     {tNav("activeLanguage", {
                       name: activeLanguage.nativeName,
                     })}
@@ -326,29 +313,13 @@ export default function Navbar() {
                         }`}
                       >
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="truncate text-xs font-bold">
-                              {lang.nativeName}
-                            </span>
-                            {lang.dir === "rtl" && (
-                              <span className="rounded bg-amber-500/20 border border-amber-500/40 px-1 font-mono text-[8px] font-bold text-amber-300">
-                                RTL
-                              </span>
-                            )}
-                          </div>
+                          <span className="block truncate text-xs font-bold">
+                            {lang.nativeName}
+                          </span>
                           <span className="block truncate text-[10px] text-slate-400">
                             {lang.englishName}
                           </span>
                         </div>
-                        <span
-                          className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase ${
-                            isSelected
-                              ? "bg-emerald-500 text-slate-950"
-                              : "bg-[#151D2E] text-slate-400 border border-white/[0.06]"
-                          }`}
-                        >
-                          {lang.code}
-                        </span>
                       </button>
                     );
                   })}
@@ -402,7 +373,7 @@ export default function Navbar() {
                     >
                       {/* Identity & Workspace Role Header */}
                       <div className="px-3.5 py-2.5 text-start">
-                        <p className="text-[11px] font-medium text-slate-400 font-mono">Signed in as</p>
+                        <p className="text-[11px] font-medium text-slate-400">Signed in as</p>
                         <p className="truncate text-xs font-bold text-white mt-0.5" title={user.email}>
                           {user.email}
                         </p>
@@ -412,7 +383,7 @@ export default function Navbar() {
                           </span>
                           {user.organizationRole && (
                             <span className="inline-flex items-center rounded-md bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 capitalize">
-                              Role: {user.organizationRole.replace("_", " ")}
+                              {user.organizationRole.replace(/_/g, " ")}
                             </span>
                           )}
                         </div>
@@ -557,7 +528,7 @@ export default function Navbar() {
                 : "text-slate-200 hover:bg-[#151D2E]"
             }`}
           >
-            Public Portals
+            Public Forms
           </Link>
           {user ? (
             <>

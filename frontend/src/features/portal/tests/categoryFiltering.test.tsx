@@ -236,11 +236,10 @@ describe("TYPO3-Inspired Multilingual Form Categories & Public Portal Filtering"
     render(<OrganizationCategoryManager />);
 
     await waitFor(() => {
-      expect(screen.getByText("Form Categories & Taxonomy")).toBeInTheDocument();
+      expect(screen.getByText("Form Categories")).toBeInTheDocument();
     });
 
     expect(screen.getByText("Wohnen & Meldewesen")).toBeInTheDocument();
-    expect(screen.getByText("housing-residence")).toBeInTheDocument();
     expect(screen.getByText(/2 Forms/i)).toBeInTheDocument();
   });
 });

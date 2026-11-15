@@ -120,12 +120,12 @@ describe("FormSchemaReviewStudio Translations & ModernSelect", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Citizen Guidance Translations")).toBeInTheDocument();
+      expect(screen.getByText("Question Translations")).toBeInTheDocument();
     });
 
     // Expand translations drawer
     const expandBtn = screen.getByRole("button", {
-      name: /Citizen Guidance Translations/i,
+      name: /Question Translations/i,
     });
     fireEvent.click(expandBtn);
 
@@ -134,9 +134,9 @@ describe("FormSchemaReviewStudio Translations & ModernSelect", () => {
       expect(screen.getByText(/العربية/i)).toBeInTheDocument();
     });
 
-    // Click Auto-Translate All
+    // Click Translate All
     const autoTranslateAllBtn = screen.getByRole("button", {
-      name: /Auto-Translate All/i,
+      name: /Translate All/i,
     });
     fireEvent.click(autoTranslateAllBtn);
 

@@ -17,20 +17,20 @@ export default function PricingPage() {
   const plans = [
     {
       key: "pilot",
-      name: "Free Pilot",
-      badge: "Sandbox",
+      name: "Free Trial",
+      badge: "Free",
       priceMonthly: "€0",
       priceAnnual: "€0",
-      period: "forever",
-      description: "For relocation consultants and small agencies testing cross-border candidate intake.",
+      period: "to start",
+      description: "For independent advisers and small teams trying guided form help with clients.",
       features: [
-        "Up to 5 candidate cases / month",
-        "Worldwide standard templates (Schengen, US, UK, DE)",
-        "8-language candidate interview studio",
-        "AcroForm PDF autofill with Unicode & RTL",
-        "1 Case Manager seat",
+        "Up to 5 client forms / month",
+        "Popular standard forms included (EU, US, UK, Germany)",
+        "Guided questions in 8+ languages",
+        "Automatic PDF form filling",
+        "1 team member",
       ],
-      ctaText: "Start Free Pilot",
+      ctaText: "Start Free Trial",
       ctaHref: "/portal",
       popular: false,
     },
@@ -41,40 +41,40 @@ export default function PricingPage() {
       priceMonthly: "€199",
       priceAnnual: "€159",
       period: "/ month",
-      description: "For established immigration law firms, corporate HR teams, and relocation bureaus.",
+      description: "For relocation agencies, HR teams, and immigration offices helping clients daily.",
       features: [
-        "100 candidate cases / month",
-        "Unlimited case manager & staff seats",
-        "1-click Candidate Magic-Link intake",
-        "Dual-Pane Verification Studio",
-        "Official AcroForm & coordinate PDF overlays",
-        "Real-time candidate progress tracking",
-        "GDPR Art. 17/20 compliance controls",
+        "100 client forms / month",
+        "Unlimited team members",
+        "1-click private client invite links",
+        "Side-by-side answer check before download",
+        "Works with fillable & scanned PDF forms",
+        "Live client progress tracking",
+        "Easy data export & 1-click deletion",
         "Priority email & chat support",
       ],
-      ctaText: "Upgrade to Pro",
+      ctaText: "Choose Agency Pro",
       ctaHref: "/portal",
       popular: true,
     },
     {
       key: "gov_enterprise",
-      name: "Enterprise Gov",
-      badge: "Municipalities & Gov",
+      name: "Organizations & Public Offices",
+      badge: "Large Teams",
       priceMonthly: "€899",
       priceAnnual: "€749",
       period: "/ month",
-      description: "For government authorities, city immigration offices, and global enterprise mobility.",
+      description: "For public offices, city centers, and large employers supporting many applicants.",
       features: [
-        "1,000 candidate cases / month",
-        "Custom municipality form onboarding",
-        "Dedicated onboarding manager & custom SLAs",
-        "EU data sovereignty & self-hosted option",
-        "Custom SSO & SAML 2.0 integration",
-        "Audit trail & compliance reporting",
-        "Invoice billing (SEPA / Wire Transfer)",
+        "1,000 client forms / month",
+        "Custom form setup for your local office",
+        "Dedicated onboarding specialist",
+        "EU hosting & private deployment options",
+        "Custom single sign-on support",
+        "Clear activity history & privacy tools",
+        "Invoice billing (bank transfer)",
       ],
-      ctaText: "Contact Gov Sales",
-      ctaHref: "mailto:sales@ai-form-assistant.com?subject=Enterprise%20Gov%20Inquiry",
+      ctaText: "Contact Our Team",
+      ctaHref: "mailto:sales@ai-form-assistant.com?subject=Enterprise%20Inquiry",
       popular: false,
     },
   ];
@@ -90,21 +90,20 @@ export default function PricingPage() {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4">
-          <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-mono font-semibold bg-[#0F1522] text-slate-300 border border-slate-800">
+          <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold bg-[#0F1522] text-slate-300 border border-slate-800">
             <Globe2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Worldwide B2B & B2G Infrastructure</span>
+            <span>Plans for Individuals, Agencies &amp; Offices</span>
           </span>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight">
-            Transparent Pricing for Relocation Agencies & Public Authorities
+            Simple, Transparent Pricing
           </h1>
           <p className="text-base text-slate-400 leading-relaxed">
-            Eliminate hours of manual translation and administrative back-and-forth.
-            Empower international candidates to complete official forms in their native language.
+            Save hours of back-and-forth explaining complicated forms. Help international clients complete official paperwork clearly in their own language.
           </p>
 
           {/* Billing Toggle */}
           <div className="pt-4 flex items-center justify-center gap-3">
-            <span className={`text-xs font-mono font-semibold transition-colors ${!annual ? "text-white" : "text-slate-500"}`}>
+            <span className={`text-xs font-semibold transition-colors ${!annual ? "text-white" : "text-slate-500"}`}>
               Monthly
             </span>
             <button
@@ -123,9 +122,9 @@ export default function PricingPage() {
                 }`}
               />
             </button>
-            <span className={`text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors ${annual ? "text-white" : "text-slate-500"}`}>
+            <span className={`text-xs font-semibold flex items-center gap-1.5 transition-colors ${annual ? "text-white" : "text-slate-500"}`}>
               Yearly
-              <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] px-2 py-0.5 font-mono font-bold">
+              <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] px-2 py-0.5 font-bold">
                 Save 20%
               </span>
             </span>
@@ -144,7 +143,7 @@ export default function PricingPage() {
               }`}
             >
               {p.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 text-[10px] font-mono font-extrabold uppercase tracking-wider px-3.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 text-[11px] font-bold px-3.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
                   <Sparkles className="w-3 h-3 fill-current" />
                   <span>{p.badge}</span>
                 </div>
@@ -152,10 +151,10 @@ export default function PricingPage() {
 
               <div className="space-y-6">
                 <div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <h2 className="text-xl font-bold text-white">{p.name}</h2>
                     {!p.popular && (
-                      <span className="text-[10px] font-mono font-semibold uppercase text-slate-500 border border-slate-800 bg-[#0A0E17] px-2 py-0.5 rounded">
+                      <span className="text-[11px] font-semibold text-slate-400 border border-slate-800 bg-[#0A0E17] px-2 py-0.5 rounded shrink-0">
                         {p.badge}
                       </span>
                     )}
@@ -164,10 +163,10 @@ export default function PricingPage() {
                 </div>
 
                 <div className="flex items-baseline gap-1.5 border-y border-slate-800/80 py-4">
-                  <span className="text-4xl font-extrabold text-white tracking-tight font-mono">
+                  <span className="text-4xl font-extrabold text-white tracking-tight tabular-nums">
                     {annual ? p.priceAnnual : p.priceMonthly}
                   </span>
-                  <span className="text-xs text-slate-400 font-mono font-medium">
+                  <span className="text-xs text-slate-400 font-medium">
                     {p.period}
                   </span>
                 </div>
@@ -199,16 +198,15 @@ export default function PricingPage() {
           ))}
         </div>
 
-        {/* Enterprise & Security Badges */}
-        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-[#0F1522] via-[#151D2E] to-[#0F1522] text-white p-8 sm:p-10 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+        {/* Security & Privacy Card */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-[#0F1522] p-8 sm:p-10 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl text-start">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-emerald-400" />
-              <h2 className="text-lg font-bold text-white">Government & Enterprise Security Standards</h2>
+              <h2 className="text-lg font-bold text-white">Built for European Privacy &amp; Trust</h2>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Hosted in EU Frankfurt (ISO 27001 certified data centers). Zero training on applicant data,
-              strict client data isolation, and 1-click GDPR Art. 17/20 rights.
+              Hosted in Europe (Frankfurt). Applicant data is never used to train AI models, every organization&apos;s workspace stays separated, and users can download or delete their details anytime.
             </p>
           </div>
           <div className="flex items-center gap-4 shrink-0">
@@ -216,7 +214,7 @@ export default function PricingPage() {
               href="/portal"
               className="btn-primary font-bold px-5 py-3 rounded-xl text-xs transition-all shadow-md hover:shadow-lg inline-flex items-center gap-2"
             >
-              <span>Open Agency Portal</span>
+              <span>Open Team Workspace</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -226,28 +224,27 @@ export default function PricingPage() {
         <div className="max-w-3xl mx-auto space-y-6 pt-4">
           <div className="text-center space-y-1">
             <h2 className="text-2xl font-bold text-white">Frequently Asked Questions</h2>
-            <p className="text-xs text-slate-400">Everything you need to know about our B2B & B2G platform.</p>
+            <p className="text-xs text-slate-400">Quick answers about working with FormFlow.</p>
           </div>
 
           <div className="space-y-4 pt-4">
             <div className="p-5 bg-[#0F1522] rounded-2xl border border-slate-800 space-y-2 hover:border-slate-700 transition-colors">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <HelpCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                How does Candidate Magic-Link intake work?
+                How do private client invite links work?
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                When you create a case in the Agency Studio, the platform generates a unique, secure link for your applicant.
-                They open the link on mobile or desktop and complete the form in their preferred language (Arabic, English, French, Turkish, etc.) while the platform maps answers directly into the official government PDF fields.
+                When you invite a client from your workspace, FormFlow creates a personal, email-verified link for them. They open it on their phone or computer, answer clear questions in their own language, and you receive the neatly filled official PDF.
               </p>
             </div>
 
             <div className="p-5 bg-[#0F1522] rounded-2xl border border-slate-800 space-y-2 hover:border-slate-700 transition-colors">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <HelpCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                Can we add custom forms for our specific city or consulate?
+                Can we add custom forms for our city or office?
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Yes. Under Enterprise Gov or custom agency onboarding, we ingest and fingerprint your official PDFs, map all AcroForm widgets and coordinate overlays, and make them available to your case managers immediately.
+                Yes. You can upload any PDF form right in your workspace and adjust its questions with our visual form editor — or let our onboarding team set up your local forms for you.
               </p>
             </div>
 

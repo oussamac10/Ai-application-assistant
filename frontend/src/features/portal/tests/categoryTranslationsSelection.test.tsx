@@ -108,7 +108,7 @@ describe("Category Translation Selection Flow", () => {
     });
 
     // Fill in Primary Name and Arabic Translation
-    const primaryNameInput = screen.getByLabelText("Category Name (Primary) *");
+    const primaryNameInput = screen.getByLabelText("Category Name *");
     fireEvent.change(primaryNameInput, { target: { value: "Familie & Kinder" } });
 
     const arNameInput = screen.getByLabelText("Translated Category Name (AR) *");
