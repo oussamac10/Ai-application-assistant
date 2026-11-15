@@ -286,21 +286,32 @@ def _text_between(
     second question's *text* is printed between the two rows — and a genuinely
     wrapped list has nothing between its lines but the options themselves.
 
-    Only text starting to the left of the options counts. The option labels
-    themselves sit beside their widgets and must not be mistaken for a new
-    question.
+    Text either starts to the left of the options, or sits strictly on an
+    intermediate vertical line between `previous`'s bottom and `run`'s top
+    (e.g. a sub-heading like "Vermieter/-in" directly above the next group).
     """
     if not tokens:
         return False
     previous_bottom = max(w.rect.y + w.rect.height for w in previous)
     run_top = min(w.rect.y for w in run)
     left_edge = min(w.rect.x for w in previous)
+    right_edge = max(w.rect.x + w.rect.width for w in previous + run) + 120.0
 
-    return any(
-        previous_bottom <= token.bounding_box.y < run_top
-        and token.bounding_box.x < left_edge - 1
-        for token in tokens
-    )
+    for token in tokens:
+        if marker_type(token.text) is not None:
+            continue
+        box = token.bounding_box
+        # Text starting to the left of the option block on a row between them
+        if previous_bottom <= box.y < run_top and box.x < left_edge - 1:
+            return True
+        # Non-marker heading sitting strictly between the two option rows
+        if (
+            box.y >= previous_bottom + 1.0
+            and box.y + box.height <= run_top + 1.0
+            and left_edge - 20.0 <= box.x <= right_edge
+        ):
+            return True
+    return False
 
 
 def _is_wrapped_continuation(
@@ -407,7 +418,9 @@ def _is_generic_checkbox_tooltip(text: str) -> bool:
 
 
 def _nearest_label_left(
-    box: BoundingBox, tokens: tuple[DetectionToken, ...]
+    box: BoundingBox,
+    tokens: tuple[DetectionToken, ...],
+    baseline_widget_rects: tuple[BoundingBox, ...] = (),
 ) -> str | None:
     """The question text immediately to the left of a horizontal checkbox row."""
     if not tokens:
@@ -433,8 +446,19 @@ def _nearest_label_left(
         reverse=True,
     )
     nearest = ordered[0]
-    if box.x - (nearest.bounding_box.x + nearest.bounding_box.width) > 35.0:
+    nearest_right = nearest.bounding_box.x + nearest.bounding_box.width
+    gap = box.x - nearest_right
+    if gap > 140.0:
         return None
+    if gap > 35.0:
+        has_intervening_widget = any(
+            abs((rect.y + rect.height / 2.0) - row_center_y) <= tolerance
+            and rect.x + rect.width > nearest_right
+            and rect.x < box.x
+            for rect in baseline_widget_rects
+        )
+        if has_intervening_widget:
+            return None
 
     # Stop at any marker token on the same baseline (e.g. a preceding
     # "[_] ja [_] nein" group to the left on the same row).
@@ -480,6 +504,8 @@ def _nearest_label_left(
     ).strip()
     if not text or not any(ch.isalpha() for ch in text):
         return None
+    if gap > 35.0 and not text.endswith(("?", ":")) and len(collected) < 2:
+        return None
     return text
 
 
@@ -488,17 +514,29 @@ def _nearest_label_above(
 ) -> str | None:
     """The text line closest above the group, which is its question.
 
-    Deliberately simple and deliberately conservative: a wrong group *name* is
-    a cosmetic problem, while a wrong group is a broken form. When nothing
-    plausible sits above, the group keeps no label and is flagged for review
-    rather than being given an invented one.
+    Scoped horizontally to tokens near or overlapping `box`'s x-span (extending
+    to the left edge when a heading begins at the margin above a right-shifted
+    checkbox row) so unrelated column headers to the right never contaminate it.
     """
+    x_min = 0.0
+    x_max = box.x + box.width + 20.0
     candidates = [
         token
         for token in tokens
-        if token.bounding_box.y + token.bounding_box.height <= box.y + 2
+        if marker_type(token.text) is None
+        and token.bounding_box.y + token.bounding_box.height <= box.y + 2
         and box.y - (token.bounding_box.y + token.bounding_box.height) < 40
+        and token.bounding_box.x + token.bounding_box.width >= x_min
+        and token.bounding_box.x <= x_max
     ]
+    if not candidates:
+        candidates = [
+            token
+            for token in tokens
+            if marker_type(token.text) is None
+            and token.bounding_box.y + token.bounding_box.height <= box.y + 2
+            and box.y - (token.bounding_box.y + token.bounding_box.height) < 40
+        ]
     if not candidates:
         return None
     highest = max(candidates, key=lambda t: t.bounding_box.y + t.bounding_box.height)
@@ -508,9 +546,29 @@ def _nearest_label_above(
         for token in candidates
         if abs(token.bounding_box.y - baseline) <= token.bounding_box.height
     ]
-    text = " ".join(
-        token.text for token in sorted(line, key=lambda t: t.bounding_box.x)
-    ).strip()
+    # Stop at a wide horizontal gap (> 28pt) so separate column headers on the
+    # same baseline do not merge together.
+    ordered = sorted(line, key=lambda t: t.bounding_box.x)
+    # Pick the contiguous segment closest to box.x
+    segments: list[list[DetectionToken]] = [[ordered[0]]]
+    for tok in ordered[1:]:
+        prev_right = (
+            segments[-1][-1].bounding_box.x + segments[-1][-1].bounding_box.width
+        )
+        if tok.bounding_box.x - prev_right > 28.0:
+            segments.append([tok])
+        else:
+            segments[-1].append(tok)
+
+    def _segment_distance(seg: list[DetectionToken]) -> float:
+        seg_x0 = seg[0].bounding_box.x
+        seg_x1 = seg[-1].bounding_box.x + seg[-1].bounding_box.width
+        if seg_x1 >= box.x and seg_x0 <= box.x + box.width:
+            return 0.0
+        return min(abs(seg_x0 - box.x), abs(seg_x1 - box.x))
+
+    best_segment = min(segments, key=_segment_distance)
+    text = " ".join(token.text for token in best_segment).strip()
     return text or None
 
 
@@ -841,6 +899,9 @@ def group_checkbox_widgets(
     for page_number, page_widgets in sorted(by_page.items()):
         claimed: set[tuple[str, int, float, float]] = set()
         page_tokens = tokens_by_page.get(page_number, ())
+        all_page_widget_rects = tuple(
+            w.rect for w in widgets if w.page_number == page_number
+        )
 
         for orientation in ("row", "column"):
             remaining = [w for w in page_widgets if widget_identity(w) not in claimed]
@@ -894,7 +955,9 @@ def group_checkbox_widgets(
                             row_label
                             or shared_question
                             or (
-                                _nearest_label_left(box, page_tokens)
+                                _nearest_label_left(
+                                    box, page_tokens, all_page_widget_rects
+                                )
                                 if orientation == "row"
                                 else None
                             )

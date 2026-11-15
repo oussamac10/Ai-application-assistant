@@ -557,25 +557,132 @@ class LocalFieldDetectionProvider:
             for page_num, groups in line_groups_by_page.items()
         }
 
+        clean_phrases_by_page = {
+            page_num: [
+                phrase
+                for phrase in phrases
+                if not any(marker_type(tok.text) is not None for tok in phrase.tokens)
+            ]
+            for page_num, phrases in phrases_by_page.items()
+        }
+        checkbox_y_spans_by_page: dict[int, tuple[tuple[float, float], ...]] = {}
+        for page_num in {w.page_number for w in document.acroform_widgets}:
+            checkbox_y_spans_by_page[page_num] = tuple(
+                (w.rect.y - 2.0, w.rect.y + w.rect.height + 2.0)
+                for w in document.acroform_widgets
+                if w.page_number == page_num
+                and _ACROFORM_TYPE_MAP.get(w.field_type, "text") == "checkbox"
+            )
+
         for index, widget in enumerate(document.acroform_widgets):
             if widget_identity(widget) in claimed:
                 # Already part of a group; emitting it again would resurrect
                 # exactly the per-widget questions this replaces.
                 continue
-            page_phrases = phrases_by_page.get(widget.page_number, [])
+            mapped_type = _ACROFORM_TYPE_MAP.get(widget.field_type, "text")
+            page_phrases = clean_phrases_by_page.get(widget.page_number, [])
             nearest_label = find_nearest_label_for_box(widget.rect, page_phrases)
 
-            mapped_type = _ACROFORM_TYPE_MAP.get(widget.field_type, "text")
-            humanized_widget_name = _humanize_field_name(widget.field_name)
-            if nearest_label and nearest_label.text:
-                if any(ch.isalpha() for ch in nearest_label.text):
+            if mapped_type != "checkbox":
+                is_above_label = (
+                    nearest_label is not None
+                    and nearest_label.bounding_box.y + nearest_label.bounding_box.height
+                    <= widget.rect.y + 4.0
+                )
+                spans_wider_than_widget = (
+                    nearest_label is not None
+                    and is_above_label
+                    and (
+                        nearest_label.bounding_box.x < widget.rect.x - 18.0
+                        or nearest_label.bounding_box.x
+                        + nearest_label.bounding_box.width
+                        > widget.rect.x + widget.rect.width + 25.0
+                    )
+                )
+                is_weak_unit = (
+                    nearest_label is not None
+                    and nearest_label.text.strip().lower()
+                    in {"euro", "eur", "person", "m²"}
+                )
+                if nearest_label is None or spans_wider_than_widget or is_weak_unit:
+                    page_tokens = tokens_by_page.get(widget.page_number, ())
+                    col_caption = self._column_caption_above_widget(
+                        widget.rect,
+                        page_tokens,
+                        checkbox_y_spans_by_page.get(widget.page_number, ()),
+                    )
+                    if col_caption:
+                        label = col_caption
+                    elif nearest_label and nearest_label.text:
+                        label = nearest_label.text
+                    else:
+                        label = ""
+                elif nearest_label and nearest_label.text:
                     label = nearest_label.text
-                elif any(ch.isalpha() for ch in humanized_widget_name):
-                    label = humanized_widget_name
                 else:
-                    label = nearest_label.text
+                    label = ""
+            else:
+                label = (
+                    nearest_label.text if nearest_label and nearest_label.text else ""
+                )
+
+            humanized_widget_name = _humanize_field_name(widget.field_name)
+            tooltip = (widget.field_label or "").strip()
+            generic_tooltips = {
+                "ja",
+                "nein",
+                "yes",
+                "no",
+                "datum",
+                "date",
+                "name",
+                "anzahl",
+                "text",
+                "field",
+                "feld",
+            }
+            if label and any(ch.isalpha() for ch in label):
+                pass
+            elif (
+                tooltip
+                and any(ch.isalpha() for ch in tooltip)
+                and (tooltip.lower() not in generic_tooltips)
+            ):
+                label = tooltip
+            elif any(ch.isalpha() for ch in humanized_widget_name):
+                label = humanized_widget_name
+            elif nearest_label and nearest_label.text:
+                label = nearest_label.text
             else:
                 label = humanized_widget_name
+
+            # When geometric text is only a column stub / unit ("Euro", "Person"),
+            # a clipped parenthetical header ("Miete (ohne ..."), or an
+            # uninformative fallback while the widget carries a rich author
+            # tooltip, prefer the author's descriptive tooltip.
+            if (
+                tooltip
+                and tooltip.lower() not in generic_tooltips
+                and any(ch.isalpha() for ch in tooltip)
+                and (
+                    (
+                        mapped_type != "checkbox"
+                        and (
+                            label.strip().lower() in {"euro", "eur", "person", "m²"}
+                            or label.count("(") > label.count(")")
+                            or (
+                                len(tooltip.split()) >= 2
+                                and (
+                                    label == humanized_widget_name
+                                    or label.rstrip(":").strip().lower() == "sonstige"
+                                )
+                            )
+                        )
+                    )
+                    or (mapped_type == "checkbox" and len(tooltip.split()) >= 2)
+                )
+            ):
+                label = tooltip
 
             page_groups = line_groups_by_page.get(widget.page_number, [])
             page_context_map = context_maps_by_page.get(widget.page_number, {})
@@ -782,6 +889,79 @@ class LocalFieldDetectionProvider:
             )
 
         return candidates
+
+    @staticmethod
+    def _column_caption_above_widget(
+        rect: BoundingBox,
+        tokens: tuple[DetectionToken, ...],
+        checkbox_y_spans: tuple[tuple[float, float], ...] = (),
+    ) -> str | None:
+        """Extracts a multi-line header strictly inside a widget's horizontal span."""
+        if not tokens:
+            return None
+        x0 = rect.x - 6.0
+        x1 = rect.x + rect.width + 8.0
+        above = [
+            t
+            for t in tokens
+            if marker_type(t.text) is None
+            and t.bounding_box.y + t.bounding_box.height <= rect.y + 3.0
+            and rect.y - (t.bounding_box.y + t.bounding_box.height) <= 28.0
+            and x0 <= (t.bounding_box.x + t.bounding_box.width / 2.0) <= x1
+            and not any(
+                span_y0 <= (t.bounding_box.y + t.bounding_box.height / 2.0) <= span_y1
+                for span_y0, span_y1 in checkbox_y_spans
+            )
+        ]
+        if not above:
+            return None
+
+        # Cluster into baseline rows sorted top-to-bottom.
+        above.sort(key=lambda t: (round(t.bounding_box.y / 3.0), t.bounding_box.x))
+        lines: list[list[DetectionToken]] = []
+        for tok in above:
+            if not lines or abs(tok.bounding_box.y - lines[-1][0].bounding_box.y) > 4.0:
+                lines.append([tok])
+            else:
+                lines[-1].append(tok)
+
+        # Walk upward from the closest line above the widget, stopping on a gap > 4.5pt
+        # (so wrapped multi-line column headers join while a previous field row is excluded).
+        kept: list[str] = []
+        prev_y0: float | None = None
+        for line in reversed(lines):
+            y0 = min(t.bounding_box.y for t in line)
+            y1 = max(t.bounding_box.y + t.bounding_box.height for t in line)
+            if prev_y0 is not None and prev_y0 - y1 > 4.5:
+                break
+            kept.append(
+                " ".join(
+                    t.text.strip()
+                    for t in sorted(line, key=lambda t: t.bounding_box.x)
+                    if t.text.strip()
+                )
+            )
+            prev_y0 = y0
+
+        kept.reverse()
+        # Drop any leading option noise ("ja", "nein") carried over from an
+        # unrelated checkbox row above.
+        if len(kept) >= 2 and kept[0].strip().lower() in {"ja", "nein", "yes", "no"}:
+            kept = kept[1:]
+        text = ""
+        for part in kept:
+            if not part:
+                continue
+            if text.endswith("-") and part[0].islower():
+                text = f"{text[:-1]}{part}"
+            elif text:
+                text = f"{text} {part}"
+            else:
+                text = part
+        cleaned = text.strip()
+        if not cleaned or not any(ch.isalpha() for ch in cleaned):
+            return None
+        return cleaned
 
     @staticmethod
     def _context_for_y(

@@ -673,3 +673,165 @@ def test_consecutive_yes_no_rows_never_merge_into_four_option_group() -> None:
     assert len(groups) == 2
     assert [o.label for o in groups[0].options] == ["ja", "nein"]
     assert [o.label for o in groups[1].options] == ["ja", "nein"]
+
+
+def test_adjacent_groups_with_between_heading_do_not_merge_or_grab_right_column() -> (
+    None
+):
+    """Sub-headings inside a wrapped row's vertical band prevent merging even when
+    they start slightly inside the previous row's left edge, and horizontal column
+    headers to the right must not leak into a narrower checkbox group's label."""
+    widgets = [
+        _checkbox("chkUG", "Untergeschoss", 67.6, 250.6),
+        _checkbox("chkEG", "Erdgeschoss", 118.4, 250.6),
+        _checkbox("chkOG", "Obergeschoss", 164.2, 250.6),
+        _checkbox("chkDG", "Dachgeschoss", 255.1, 250.6),
+        _checkbox("chkPrivat", "privat", 67.6, 283.3),
+        _checkbox("chkSWSG", "SWSG", 118.4, 283.3),
+        _checkbox("chkGenossen", "Genossenschaft", 164.2, 283.3),
+        _checkbox("chkStadt", "Stadt Stuttgart", 255.1, 283.3),
+    ]
+    tokens = (
+        _token("Stockwerk", 70.0, 231.0),
+        _token("Miete", 306.3, 231.0),
+        _token("und", 347.1, 240.0),
+        _token("ohne", 361.7, 240.0),
+        _token("Vermieter/-in", 70.0, 270.0),
+    )
+
+    groups = group_checkbox_widgets(widgets, {1: tokens})
+
+    assert len(groups) == 2
+    assert groups[0].label == "Stockwerk"
+    assert groups[1].label == "Vermieter/-in"
+
+
+def test_widely_spaced_yes_no_left_question_without_intervening_widgets() -> None:
+    """Right-aligned ja/nein checkbox pairs separated by 50-110pt of blank space
+    still resolve their left-hand question when no text widget sits in between."""
+    widgets = [
+        _checkbox("chkKlage1", "ja", 280.8, 669.1),
+        _checkbox("chkKlage2", "nein", 323.0, 669.1),
+        _checkbox("chkUrteil1", "ja", 280.8, 686.3),
+        _checkbox("chkUrteil2", "nein", 323.0, 686.3),
+    ]
+    tokens = (
+        _token("Wurde", 70.0, 670.2),
+        _token("bereits", 102.0, 670.2),
+        _token("Räumungsklage", 140.0, 670.2),
+        _token("erhoben?", 190.0, 670.2),
+        _token("ja", 296.0, 670.2),
+        _token("nein", 338.0, 670.2),
+        _token("Liegt", 70.0, 688.2),
+        _token("ein", 96.0, 688.2),
+        _token("Räumungsurteil", 114.0, 688.2),
+        _token("vor?", 168.0, 688.2),
+        _token("ja", 296.0, 688.2),
+        _token("nein", 338.0, 688.2),
+    )
+
+    groups = group_checkbox_widgets(widgets, {1: tokens})
+
+    assert len(groups) == 2
+    assert groups[0].label == "Wurde bereits Räumungsklage erhoben?"
+    assert groups[1].label == "Liegt ein Räumungsurteil vor?"
+
+
+def test_side_by_side_text_columns_ignore_sibling_checkboxes_and_keep_column_captions() -> (
+    None
+):
+    """Adjacent text columns isolate multi-line column captions instead of merging
+    neighbors, skip sibling checkbox-row noise, and fall back to descriptive tooltips
+    when headers are clipped."""
+    from app.field_detection.providers.base import (
+        DetectionDocumentInput,
+        DetectionPageInput,
+    )
+    from app.field_detection.providers.local import LocalFieldDetectionProvider
+
+    widgets = (
+        AcroFormWidgetInput(
+            field_name="C_chkBad1",
+            field_type="checkbox",
+            rect=BoundingBox(x=439.0, y=213.4, width=13.0, height=13.0),
+            page_number=1,
+            field_label="ja",
+            export_value="Ja",
+        ),
+        AcroFormWidgetInput(
+            field_name="C_chkBad2",
+            field_type="checkbox",
+            rect=BoundingBox(x=479.4, y=213.4, width=13.0, height=13.0),
+            page_number=1,
+            field_label="nein",
+            export_value="Ja",
+        ),
+        AcroFormWidgetInput(
+            field_name="C_txt_Miete",
+            field_type="text",
+            rect=BoundingBox(x=305.1, y=247.4, width=75.5, height=18.3),
+            page_number=1,
+            field_label="Miete ohne Heizung, ohne Betriebskosten, ohne Garage",
+        ),
+        AcroFormWidgetInput(
+            field_name="c_txtDatum1",
+            field_type="text",
+            rect=BoundingBox(x=410.7, y=247.4, width=68.4, height=18.3),
+            page_number=1,
+            field_label="Datum",
+        ),
+        AcroFormWidgetInput(
+            field_name="c_txtAnzahl1",
+            field_type="text",
+            rect=BoundingBox(x=481.4, y=247.4, width=66.8, height=18.3),
+            page_number=1,
+            field_label="Anzahl",
+        ),
+    )
+
+    def _hdr(text: str, x: float, y: float) -> DetectionToken:
+        return DetectionToken(
+            text=text,
+            confidence=1.0,
+            bounding_box=BoundingBox(x=x, y=y, width=len(text) * 4.5, height=7.0),
+            source="native",
+        )
+
+    tokens = (
+        _token("Bad/Dusche?", 381.8, 216.9),
+        _token("ja", 454.8, 216.9),
+        _token("nein", 496.0, 216.9),
+        _hdr("Miete", 306.3, 231.0),
+        _hdr("(ohne", 326.7, 231.0),
+        _hdr("Heizung", 347.1, 231.0),
+        _hdr("Garage)", 380.0, 240.0),
+        _hdr("Seit", 412.1, 231.0),
+        _hdr("wann", 425.8, 231.0),
+        _hdr("in", 445.8, 231.0),
+        _hdr("der", 453.7, 231.0),
+        _hdr("aktuellen", 412.2, 240.0),
+        _hdr("Wohnung", 443.4, 240.0),
+        _hdr("Personenzahl", 481.8, 231.0),
+        _hdr("in", 526.0, 231.0),
+        _hdr("der", 533.9, 231.0),
+        _hdr("aktuellen", 482.1, 240.0),
+        _hdr("Wohnung", 513.4, 240.0),
+    )
+    doc = DetectionDocumentInput(
+        page_count=1,
+        language="de",
+        pages=(
+            DetectionPageInput(page_number=1, width=595.0, height=842.0, tokens=tokens),
+        ),
+        acroform_widgets=widgets,
+    )
+
+    detected = LocalFieldDetectionProvider().detect(doc)
+    by_name = {f.normalized_name: f.label for f in detected.fields}
+
+    assert (
+        by_name["c_txt_miete"] == "Miete ohne Heizung, ohne Betriebskosten, ohne Garage"
+    )
+    assert by_name["c_txtdatum1"] == "Seit wann in der aktuellen Wohnung"
+    assert "Bad/Dusche?" not in by_name["c_txtdatum1"]
+    assert by_name["c_txtanzahl1"] == "Personenzahl in der aktuellen Wohnung"
