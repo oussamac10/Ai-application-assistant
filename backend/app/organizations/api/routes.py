@@ -321,6 +321,23 @@ async def upload_organization_form(
     )
 
 
+@router.post("/organizations/current/forms/starter-templates")
+def provision_starter_templates(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+    _csrf: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Idempotently provision ready-to-send German starter templates for the org."""
+    from app.forms.starter_templates import provision_starter_templates_for_organization
+
+    org, _ = OrganizationFormService(db)._require_org_editor(user)
+    created = provision_starter_templates_for_organization(db, org)
+    return {
+        "provisionedCount": len(created),
+        "templateKeys": [t.key for t in created],
+    }
+
+
 @router.post(
     "/organizations/current/forms/{template_id}/auto-detect",
     response_model=FormReviewDetailResponse,

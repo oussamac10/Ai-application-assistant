@@ -20,6 +20,7 @@ B2B_PLANS: dict[str, dict[str, Any]] = {
         "plan_key": "agency_sandbox",
         "name": "Agency Sandbox",
         "monthly_cases": 3,
+        "max_published_templates": 5,
         "price_eur": 0,
         "is_paid": False,
         "features": [
@@ -33,6 +34,7 @@ B2B_PLANS: dict[str, dict[str, Any]] = {
         "plan_key": "agency_pro",
         "name": "Agency Pro",
         "monthly_cases": 50,
+        "max_published_templates": 25,
         "price_eur": 149,
         "is_paid": True,
         "features": [
@@ -48,6 +50,7 @@ B2B_PLANS: dict[str, dict[str, Any]] = {
         "plan_key": "enterprise",
         "name": "Enterprise & Public Sector",
         "monthly_cases": 200,
+        "max_published_templates": 200,
         "price_eur": 499,
         "is_paid": True,
         "features": [
@@ -60,6 +63,22 @@ B2B_PLANS: dict[str, dict[str, Any]] = {
         ],
     },
 }
+
+
+_PLAN_ALIASES: dict[str, str] = {
+    "free": "agency_sandbox",
+    "starter": "agency_sandbox",
+    "agency_starter": "agency_sandbox",
+    "pro": "agency_pro",
+}
+
+
+def get_published_template_limit(plan_key: str | None) -> int:
+    """Return the active published template slot limit for a subscription plan."""
+    normalized = (plan_key or "agency_sandbox").strip().lower()
+    canonical_key = _PLAN_ALIASES.get(normalized, normalized)
+    plan = B2B_PLANS.get(canonical_key, B2B_PLANS["agency_sandbox"])
+    return int(plan["max_published_templates"])
 
 
 class BillingService:

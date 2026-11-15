@@ -7,6 +7,7 @@ class SubscriptionPlanInfo(BaseModel):
     plan_key: str
     name: str
     monthly_cases: int
+    max_published_templates: int = 5
     price_eur: int
     is_paid: bool
     features: list[str] = Field(default_factory=list)

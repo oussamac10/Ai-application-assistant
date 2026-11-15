@@ -39,9 +39,11 @@ function createSamplePdf(name: string): string {
 
 async function startUploadedSession(page: Page, filename: string): Promise<string> {
   const pdf = createSamplePdf(filename);
-  await page.goto("/application");
+  await page.goto("/application", { waitUntil: "networkidle" });
   await page.locator("input[type='file']").setInputFiles(pdf);
-  await page.getByRole("checkbox").check();
+  const checkbox = page.getByRole("checkbox");
+  await checkbox.waitFor({ state: "visible" });
+  await checkbox.check();
   await page.getByRole("button", { name: /Upload and Analyze/i }).click();
   await page.waitForURL(/\/application\/session\/([a-f0-9-]+)$/, {
     timeout: 60_000,
@@ -70,7 +72,7 @@ test.describe("Phase 12 - User accounts and persistent sessions", () => {
 
     // 3. It should already be owned by the account (no claim banner) and
     // show up in My Applications immediately.
-    await expect(page.getByText("Save this application?")).not.toBeVisible();
+    await expect(page.getByText("Save progress to resume later")).not.toBeVisible();
     await page.goto("/applications");
     await expect(page.getByRole("button", { name: "Rename" })).toBeVisible();
 
@@ -100,8 +102,8 @@ test.describe("Phase 12 - User accounts and persistent sessions", () => {
     const sessionId = await startUploadedSession(page, "anonymous-claim-form.pdf");
 
     // 2. The claim prompt should appear since we're anonymous.
-    await expect(page.getByText("Save this application?")).toBeVisible();
-    await page.getByRole("link", { name: "Log in to save" }).click();
+    await expect(page.getByText("Save progress to resume later")).toBeVisible();
+    await page.getByRole("link", { name: "Log in", exact: true }).click();
 
     // 3. Register from the login page's link, ending back on /applications.
     await page.waitForURL(/\/login$/);
@@ -114,10 +116,8 @@ test.describe("Phase 12 - User accounts and persistent sessions", () => {
     await page.getByRole("button", { name: "Create Account" }).click();
     await page.waitForURL(/\/applications$/);
 
-    // 4. Go back to the anonymous session and claim it now that we're logged in.
+    // 4. Go back to the anonymous session; being logged in auto-claims it.
     await page.goto(`/application/session/${sessionId}`);
-    await expect(page.getByText("Save this application?")).toBeVisible();
-    await page.getByRole("button", { name: "Save to my account" }).click();
     await expect(page.getByText("Saved to your account.")).toBeVisible();
 
     // 5. It now appears in My Applications and is resumable there.

@@ -1014,20 +1014,23 @@ class OrganizationFormService:
                 .scalar()
                 or 0
             )
-            tier_limits: dict[str, int] = {
-                "free": 5,
-                "starter": 5,
-                "agency_starter": 5,
-                "pro": 25,
-                "agency_pro": 25,
-                "enterprise": 200,
-            }
-            max_templates = tier_limits.get(org.billing_plan.lower(), 25)
+            from app.billing.models import OrganizationSubscription
+            from app.billing.services import get_published_template_limit
+
+            subscription = (
+                self.db.query(OrganizationSubscription)
+                .filter(OrganizationSubscription.organization_id == org.id)
+                .first()
+            )
+            effective_plan = (
+                subscription.plan_key if subscription is not None else org.billing_plan
+            )
+            max_templates = get_published_template_limit(effective_plan)
             if published_templates_count >= max_templates:
                 raise HTTPException(
                     status_code=status.HTTP_402_PAYMENT_REQUIRED,
                     detail=(
-                        f"Publishing slot limit reached for your '{org.billing_plan}' plan "
+                        f"Publishing slot limit reached for your '{effective_plan}' plan "
                         f"({published_templates_count}/{max_templates} active templates). "
                         "Please upgrade your workspace plan to publish more form templates."
                     ),

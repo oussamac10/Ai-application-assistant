@@ -9,6 +9,7 @@ import {
   listOrganizationCategories,
   updateFormCategory,
   autoCategorizeForms,
+  provisionStarterTemplates,
 } from "../services/portalClient";
 import {
   Organization,
@@ -40,6 +41,7 @@ import {
   Sparkles,
   Tag,
   Folder,
+  Loader2,
 } from "lucide-react";
 import {
   resolveThemeConfig,
@@ -53,6 +55,7 @@ export function PortalDashboard() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [activeCategoryMenuFormId, setActiveCategoryMenuFormId] = useState<string | null>(null);
   const [autoCategorizing, setAutoCategorizing] = useState(false);
+  const [isProvisioningStarters, setIsProvisioningStarters] = useState(false);
   const [categoryToast, setCategoryToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingForms, setLoadingForms] = useState(false);
@@ -588,7 +591,42 @@ export function PortalDashboard() {
           <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
             Upload your municipality’s official blank PDF forms to auto-detect fields and create interactive multilingual workflows.
           </p>
-          <div className="mt-5">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+            {forms.length === 0 && (
+              <button
+                type="button"
+                disabled={isProvisioningStarters}
+                onClick={async () => {
+                  setIsProvisioningStarters(true);
+                  try {
+                    const res = await provisionStarterTemplates();
+                    const updated = await listOrganizationForms();
+                    setForms(updated);
+                    if (res.provisionedCount > 0) {
+                      setCategoryToast(
+                        `Loaded ${res.provisionedCount} ready-to-send German starter templates.`
+                      );
+                    }
+                  } catch (err) {
+                    setCategoryToast(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to load starter templates."
+                    );
+                  } finally {
+                    setIsProvisioningStarters(false);
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isProvisioningStarters ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                Load 3 German Starter Templates
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setIsUploadFormOpen(true)}

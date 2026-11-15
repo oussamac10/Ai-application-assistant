@@ -857,3 +857,23 @@ export async function semanticSearchOrganizationForms(
   }
   return res.json();
 }
+
+export async function provisionStarterTemplates(): Promise<{
+  provisionedCount: number;
+  templateKeys: string[];
+}> {
+  const csrf = getCsrfToken();
+  const res = await fetch("/api/organizations/current/forms/starter-templates", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to load starter templates.");
+  }
+  return res.json();
+}
