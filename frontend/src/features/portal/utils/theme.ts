@@ -328,7 +328,39 @@ export function generateBrandCssVariables(
   };
 }
 
-/** Applies the brand CSS variables to `:root` (`document.documentElement`) and optionally persists. */
+/** Returns true when a theme config sets a custom primary color different from default emerald. */
+export function isCustomBrandConfig(config?: UIThemeConfig | null): boolean {
+  if (!config?.primary_color) return false;
+  return normalizeHexColor(config.primary_color) !== "#10B981";
+}
+
+/** Removes any legacy `--brand-*` inline overrides from `:root` so public pages keep default emerald. */
+export function clearDocumentRootBrandVariables(): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  Object.keys(CANONICAL_EMERALD_VARS).forEach((key) => {
+    root.style.removeProperty(key);
+  });
+  root.removeAttribute("data-brand-custom");
+}
+
+/** Reads the persisted brand theme config from localStorage, if valid. */
+export function readPersistedBrandTheme(): UIThemeConfig | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(BRAND_THEME_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UIThemeConfig;
+    if (parsed && typeof parsed.primary_color === "string") {
+      return parsed;
+    }
+  } catch {
+    // Ignore malformed JSON or storage errors
+  }
+  return null;
+}
+
+/** Applies brand CSS variables strictly to `[data-system-panel="true"]` containers and optionally persists. */
 export function applyBrandThemeToDocument(
   config?: UIThemeConfig | null,
   options?: { persist?: boolean },
@@ -337,14 +369,17 @@ export function applyBrandThemeToDocument(
   const primaryHex = config?.primary_color
     ? normalizeHexColor(config.primary_color)
     : "#10B981";
-  const isCustom = Boolean(config?.primary_color) && primaryHex !== "#10B981";
+  const isCustom = isCustomBrandConfig(config);
 
   if (typeof document !== "undefined") {
-    const root = document.documentElement;
-    Object.entries(vars).forEach(([key, value]) => {
-      root.style.setProperty(key, value);
+    clearDocumentRootBrandVariables();
+    const panels = document.querySelectorAll<HTMLElement>('[data-system-panel="true"]');
+    panels.forEach((panel) => {
+      Object.entries(vars).forEach(([key, value]) => {
+        panel.style.setProperty(key, value);
+      });
+      panel.dataset.brandCustom = isCustom ? "true" : "false";
     });
-    root.dataset.brandCustom = isCustom ? "true" : "false";
   }
 
   if (options?.persist && typeof window !== "undefined") {
@@ -370,28 +405,13 @@ export function applyBrandThemeToDocument(
   }
 }
 
-/** Hydrates brand CSS variables from localStorage without mutating stored preference. */
+/** Hydrates brand CSS variables onto system panels from localStorage without mutating stored preference. */
 export function hydratePersistedBrandTheme(): void {
-  if (typeof window === "undefined") {
-    applyBrandThemeToDocument(null, { persist: false });
-    return;
-  }
-  try {
-    const raw = window.localStorage.getItem(BRAND_THEME_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as UIThemeConfig;
-      if (parsed && typeof parsed.primary_color === "string") {
-        applyBrandThemeToDocument(parsed, { persist: false });
-        return;
-      }
-    }
-  } catch {
-    // Ignore malformed JSON or storage errors
-  }
-  applyBrandThemeToDocument(null, { persist: false });
+  const persisted = readPersistedBrandTheme();
+  applyBrandThemeToDocument(persisted, { persist: false });
 }
 
-/** Clears persisted brand theme and resets `:root` CSS variables to Aikido Emerald. */
+/** Clears persisted brand theme and resets `[data-system-panel="true"]` CSS variables to Aikido Emerald. */
 export function clearPersistedBrandTheme(): void {
   if (typeof window !== "undefined") {
     try {

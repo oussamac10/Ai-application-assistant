@@ -27,11 +27,7 @@ import {
   verifyCandidateInviteOtp,
 } from "../services/portalClient";
 import { CandidateIntakeInfo, CandidateInviteInspectInfo } from "../types";
-import {
-  applyBrandThemeToDocument,
-  getContrastTextColor,
-  hydratePersistedBrandTheme,
-} from "../utils/theme";
+import { getContrastTextColor } from "../utils/theme";
 
 interface CandidateIntakeLandingProps {
   token: string;
@@ -111,18 +107,6 @@ export function CandidateIntakeLanding({ token }: CandidateIntakeLandingProps) {
       cancelled = true;
     };
   }, [token]);
-
-  const orgThemeConfig =
-    unlockedIntake?.organization?.ui_theme_config ??
-    inspectInfo?.organization?.ui_theme_config;
-
-  useEffect(() => {
-    if (!orgThemeConfig) return;
-    applyBrandThemeToDocument(orgThemeConfig, { persist: false });
-    return () => {
-      hydratePersistedBrandTheme();
-    };
-  }, [orgThemeConfig]);
 
   const handleSendOtp = async () => {
     if (sendingOtp) return;

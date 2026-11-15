@@ -27,33 +27,33 @@ Production-ready, multilingual SaaS platform for **B2B relocation agencies, inte
   - **Aikido-Inspired Obsidian & Emerald Frontend Overhaul**: Unified dark obsidian (`#0A0E17` / `#0F1522`) & emerald (`#10B981`) design system with `prefers-reduced-motion`-safe scan/reveal animations, rebuilt obsidian error/loading/not-found boundaries, and international worldwide copy/defaults across all portals, modals, auth/account, and guided session pages.
   - **Plain-Language UI Overhaul**: Removed version badges, internal keys/slugs, raw coordinates, and developer jargon across all routes/components with 100% key + `{placeholder}` parity across all 8 locale files.
   - **Table-Per-Row Validation Fix, Choice-in-Row Grouping & Zero-PII Continual Schema Learning**: Fixed row validation errors (`fieldId`, multilingual countries/choices/numbers/dates), added atomic `table-rows/submit` & `table-rows/skip`, per-row PDF table & intra-row checkbox extraction with `option_boxes` export, Review Studio multi-select grouping & row sync, and Zero-PII `learned_form_patterns` (migration `i0d1e2f3a4b5`; verified: `1111 passed, 1 skipped`, `318 passed`).
-  - **System-Wide Dynamic Authority Brand Color Engine & WCAG Contrast**: Runtime `--brand-*` CSS variables & Tailwind `emerald-*` token bindings (`theme.ts`, `tailwind.config.ts`, `globals.css`, `layout.tsx`, `OrganizationContext.tsx`, `OrganizationSettings.tsx`, `Sidebar.tsx`, public/intake portals, Review Studio, Session, Upload) enforcing WCAG 2.2 AA Light & Dark contrast + solid-button foreground (`--brand-on-solid`) across all 8 preset palettes and custom hex inputs (`brandThemeEngine.test.tsx`: `3 passed`, `vitest run`: `48 files, 321 tests passed`, `next build`, Playwright `2 passed`).
+  - **System-Panel Scoped Brand Color Engine & WCAG Contrast**: Runtime `--brand-*` CSS variables & Tailwind `emerald-*` token bindings scoped strictly to `[data-system-panel="true"]` (`AppShell.tsx`, `theme.ts`, `tailwind.config.ts`, `globals.css`, `layout.tsx`, `OrganizationContext.tsx`, `OrganizationSettings.tsx`, `Sidebar.tsx`, workspace views) so the public website stays Aikido Emerald (`#10B981`) while the admin/workspace panel enforces WCAG 2.2 AA Light & Dark contrast (`brandThemeEngine.test.tsx`: `3 passed`, `vitest run`: `48 files, 321 tests passed`, `next build`, Playwright `2 passed`).
   - Single Alembic head (`i0d1e2f3a4b5`), `ruff check/format`, `mypy app` (241 files), `pytest` on `ai_form_assistant_test`, `tsc --noEmit`, `next lint`, `vitest run`, `next build`, Playwright E2E `user-accounts-persistent-sessions-flow.spec.ts` (2 passed).
 
 ---
 
-## Current Task: System-Wide Dynamic Authority Brand Color Engine & WCAG Contrast
+## Current Task: System-Panel Scoped Brand Color Engine & WCAG Contrast
 
 - **Goal**:
-  - Make Authority Brand Colors (`ui_theme_config.primary_color` & `accent_color`) control the entire system UI cleanly (Sidebar, ThemeToggle, Account/Settings tabs, Portal Dashboard, Review Studio, Public Portal, Candidate Intake, Guided Session) instead of falling back to hardcoded emerald green, while maintaining WCAG 2.2 AA contrast in both Light and Dark mode.
+  - Apply Authority Brand Colors (`ui_theme_config.primary_color` & `accent_color`) strictly inside the authenticated **System / Admin Panel** (`[data-system-panel="true"]` in `AppShell`) with WCAG 2.2 AA contrast in Light & Dark modes, while keeping the public website (`/`, `/pricing`, legal pages, `/login`, `/register`, `/organizations*`, `/f/*`, `/portal/invite/*`) in default Aikido Emerald (`#10B981`).
 - **Acceptance Criteria**:
-  - Selecting or saving any palette (e.g., Sovereign Gold `#FEDB00`, Civic Navy `#1E3A8A`, Crimson Seal `#E11D48`) or custom hex dynamically updates `--brand-*` RGB tokens across Tailwind `emerald-*` utilities and `globals.css` Light/Dark tokens with live preview while editing.
+  - Selecting or saving any palette (e.g., Sovereign Gold `#FEDB00`, Civic Navy `#1E3A8A`, Crimson Seal `#E11D48`) or custom hex dynamically updates `--brand-*` RGB tokens only on `[data-system-panel="true"]` without mutating `:root` or public pages.
   - Light-mode text (`--brand-700-rgb`), Dark-mode text (`--brand-400-rgb`), Light-mode borders (`--brand-border-light-rgb`), and solid-button foreground (`--brand-on-solid`) meet WCAG 2.2 AA contrast thresholds across all presets.
   - Full frontend verification gate (`typecheck`, `lint`, `vitest`, `next build`, Playwright E2E) passes on `feature/dynamic-authority-brand-theming`.
 - **Planned Steps**:
-  - [x] Build dynamic `--brand-*` palette & WCAG contrast generator + DOM persistence in `frontend/src/features/portal/utils/theme.ts`.
-  - [x] Wire `tailwind.config.ts` (`darkMode: "class"` + dynamic `rgb(var(--brand-...))` tokens), `layout.tsx` anti-flash script, and `globals.css` (`:root` + `html.light` contrast, translucent borders/rings & solid foreground overrides).
-  - [x] Sync `OrganizationContext.tsx`, `OrganizationSettings.tsx` (live preview + top Save Colors button + revert on unsaved unmount), `Sidebar.tsx`, `PublicOrganizationPortal.tsx`, `CandidateIntakeLanding.tsx`, and hardcoded glow/color usages across components.
-  - [x] Add `brandThemeEngine.test.tsx` WCAG & live-preview tests and pass `typecheck`, `lint`, `vitest`, `next build`, Playwright E2E, and `graphify update .`.
+  - [x] Build dynamic `--brand-*` palette, WCAG contrast generator, and `[data-system-panel="true"]` DOM scoping in `frontend/src/features/portal/utils/theme.ts`.
+  - [x] Wire `tailwind.config.ts` (`darkMode: "class"` + `rgb(var(--brand-...))` tokens), `layout.tsx` clean dark/light init, and `globals.css` (`[data-system-panel="true"]` derived accents, `html.light` contrast & solid foreground overrides).
+  - [x] Sync `OrganizationContext.tsx`, `AppShell.tsx` (`[data-system-panel="true"]` + inline style tokens), `OrganizationSettings.tsx` (live preview + top Save Colors button + revert on unsaved unmount), `Sidebar.tsx`, and keep public portals unaffected.
+  - [x] Verify in `brandThemeEngine.test.tsx` (`:root`/public untouched vs `[data-system-panel="true"]` updated) and pass `typecheck`, `lint`, `vitest`, `next build`, Playwright E2E, and `graphify update .`.
 - **Files Changed**:
   - `frontend/src/features/portal/utils/theme.ts`, `frontend/tailwind.config.ts`, `frontend/src/app/layout.tsx`, `frontend/src/app/globals.css`
-  - `frontend/src/features/portal/context/OrganizationContext.tsx`, `frontend/src/features/portal/components/OrganizationSettings.tsx`, `frontend/src/components/Sidebar.tsx`
+  - `frontend/src/features/portal/context/OrganizationContext.tsx`, `frontend/src/components/AppShell.tsx`, `frontend/src/features/portal/components/OrganizationSettings.tsx`, `frontend/src/components/Sidebar.tsx`
   - `frontend/src/features/portal/components/{PublicOrganizationPortal,CandidateIntakeLanding,PortalDashboard,FormSchemaReviewStudio}.tsx`
   - `frontend/src/features/portal/components/review-studio/{ReviewStudioCanvas,ReviewStudioFieldCard}.tsx`
   - `frontend/src/features/form-session/components/SessionContextSidebar.tsx`, `frontend/src/app/application/session/[sessionId]/page.tsx`, `frontend/src/components/Navbar.tsx`, `frontend/src/features/document-upload/components/DocumentUploadForm.tsx`, `frontend/src/app/f/[...slug]/page.tsx`
   - `frontend/src/features/portal/tests/brandThemeEngine.test.tsx`, `TODO.md`
 - **Decisions and Assumptions**:
-  - Semantic CSS variables reuse Tailwind's existing `emerald-*` scale (`rgb(var(--brand-50..950-rgb) / <alpha-value>)`) so all 1,300+ emerald utilities dynamically adopt the organization's brand palette without risky mass class rewrites.
+  - Semantic CSS variables reuse Tailwind's existing `emerald-*` scale (`rgb(var(--brand-50..950-rgb) / <alpha-value>)`) with custom overrides scoped exclusively to `[data-system-panel="true"]`, leaving `:root` and all public pages on Aikido Emerald.
   - Non-brand status semantics (`rose`, `amber`, `sky`) remain unchanged for error/warning/info clarity.
 - **Blockers**: None.
 - **Verification**:
@@ -61,7 +61,7 @@ Production-ready, multilingual SaaS platform for **B2B relocation agencies, inte
   - `cd frontend && npm run lint` (`next lint` — no ESLint warnings or errors)
   - `cd frontend && CI=1 npx vitest run` (`48 test files passed (48)`, `321 tests passed (321)`, including `brandThemeEngine.test.tsx` 3 passed)
   - `cd frontend && npm run build` (`next build` compiled successfully, 18/18 static pages)
-  - `cd frontend && npx playwright test e2e/user-accounts-persistent-sessions-flow.spec.ts` (`2 passed (14.0s)`)
+  - `cd frontend && npx playwright test e2e/user-accounts-persistent-sessions-flow.spec.ts` (`2 passed (13.3s)`)
 
 ---
 

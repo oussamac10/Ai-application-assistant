@@ -10,6 +10,10 @@ import Sidebar from "@/components/Sidebar";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/features/auth/context/AuthProvider";
 import { useOrganization } from "@/features/portal/context/OrganizationContext";
+import {
+  generateBrandCssVariables,
+  isCustomBrandConfig,
+} from "@/features/portal/utils/theme";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -20,7 +24,7 @@ const PUBLIC_MARKETING_PATHS = ["/", "/impressum", "/datenschutz", "/agb", "/pri
 
 export default function AppShell({ children }: AppShellProps) {
   const { user, loading } = useAuth();
-  const { organization: org } = useOrganization();
+  const { organization: org, effectiveThemeConfig } = useOrganization();
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -38,7 +42,9 @@ export default function AppShell({ children }: AppShellProps) {
   // If user is logged in, but on the public marketing landing page, legal pages, or public citizen portals
   const isMarketingPage =
     PUBLIC_MARKETING_PATHS.includes(pathname || "") ||
-    Boolean(pathname?.startsWith("/organizations"));
+    Boolean(pathname?.startsWith("/organizations")) ||
+    Boolean(pathname?.startsWith("/f/")) ||
+    Boolean(pathname?.startsWith("/portal/invite/"));
   if (isMarketingPage) {
     return (
       <div className="flex min-h-screen flex-col bg-[#0A0E17] text-slate-100">
@@ -49,10 +55,18 @@ export default function AppShell({ children }: AppShellProps) {
     );
   }
 
+  const systemBrandVars = generateBrandCssVariables(effectiveThemeConfig);
+  const isCustomBrand = isCustomBrandConfig(effectiveThemeConfig);
+
   // SYSTEM LAYOUT FOR LOGGED-IN USERS:
   // Persistent Left Sidebar + Top Mobile App Bar + Full Height System Workspace
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#0A0E17] text-slate-100">
+    <div
+      data-system-panel="true"
+      data-brand-custom={isCustomBrand ? "true" : "false"}
+      style={systemBrandVars as React.CSSProperties}
+      className="flex h-screen w-full overflow-hidden bg-[#0A0E17] text-slate-100"
+    >
       {/* Side Navigation */}
       <Sidebar
         mobileOpen={mobileSidebarOpen}

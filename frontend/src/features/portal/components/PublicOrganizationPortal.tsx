@@ -39,10 +39,6 @@ import { setSessionToken } from "@/features/form-session/services/sessionCredent
 import { UNIVERSAL_LANGUAGES } from "@/features/form-session/utils/languages";
 import { useLanguage } from "@/features/form-session/components/LanguageProvider";
 import { ModernSelect } from "@/components/ui/ModernSelect";
-import {
-  applyBrandThemeToDocument,
-  hydratePersistedBrandTheme,
-} from "../utils/theme";
 
 interface PublicOrganizationPortalProps {
   slug: string;
@@ -139,15 +135,11 @@ export function PublicOrganizationPortal({ slug }: PublicOrganizationPortalProps
     getPublicOrganizationBySlug(slug)
       .then((data) => {
         setOrg(data);
-        applyBrandThemeToDocument(data.ui_theme_config, { persist: false });
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Public portal could not be loaded.");
       })
       .finally(() => setLoading(false));
-    return () => {
-      hydratePersistedBrandTheme();
-    };
   }, [slug]);
 
   const filteredForms = useMemo<EnhancedFormItem[]>(() => {

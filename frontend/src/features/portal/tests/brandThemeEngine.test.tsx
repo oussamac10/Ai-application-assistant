@@ -21,12 +21,15 @@ vi.mock("next-intl", () => ({
 }));
 
 const refreshOrganizationMock = vi.fn().mockResolvedValue(undefined);
+const setPreviewThemeConfigMock = vi.fn();
 
 vi.mock("../context/OrganizationContext", () => ({
   useOrganization: () => ({
     organization: null,
     loading: false,
     refreshOrganization: refreshOrganizationMock,
+    effectiveThemeConfig: null,
+    setPreviewThemeConfig: setPreviewThemeConfigMock,
   }),
 }));
 
@@ -51,7 +54,7 @@ const baseOrg: Organization = {
   supported_languages: ["de", "en", "fr"],
 };
 
-describe("Dynamic Authority Brand Theme Engine", () => {
+describe("System-Panel Scoped Brand Theme Engine", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
@@ -112,7 +115,19 @@ describe("Dynamic Authority Brand Theme Engine", () => {
     ).toBe("#ffffff");
   });
 
-  it("persists, hydrates, and clears brand CSS variables on documentElement", () => {
+  it("applies, hydrates, and resets brand variables strictly on [data-system-panel='true'] without mutating :root", () => {
+    render(
+      <>
+        <div data-testid="public-site">Public Homepage</div>
+        <div data-testid="system-panel" data-system-panel="true">
+          System Panel
+        </div>
+      </>,
+    );
+
+    const publicSite = screen.getByTestId("public-site");
+    const systemPanel = screen.getByTestId("system-panel");
+
     applyBrandThemeToDocument(
       { primary_color: "#FEDB00", accent_color: "#0F172A" },
       { persist: true },
@@ -120,29 +135,43 @@ describe("Dynamic Authority Brand Theme Engine", () => {
 
     const storedRaw = window.localStorage.getItem(BRAND_THEME_STORAGE_KEY);
     expect(storedRaw).toBeTruthy();
-    expect(document.documentElement.dataset.brandCustom).toBe("true");
+
+    // Public website & documentElement must never receive custom brand overrides
     expect(
       document.documentElement.style.getPropertyValue("--brand-500-rgb"),
-    ).toBe("254 219 0");
+    ).toBe("");
+    expect(document.documentElement.hasAttribute("data-brand-custom")).toBe(
+      false,
+    );
+    expect(publicSite.style.getPropertyValue("--brand-500-rgb")).toBe("");
 
-    document.documentElement.style.removeProperty("--brand-500-rgb");
-    document.documentElement.dataset.brandCustom = "false";
+    // Only the system panel container receives the chosen brand color
+    expect(systemPanel.dataset.brandCustom).toBe("true");
+    expect(systemPanel.style.getPropertyValue("--brand-500-rgb")).toBe(
+      "254 219 0",
+    );
+
+    systemPanel.style.removeProperty("--brand-500-rgb");
+    systemPanel.dataset.brandCustom = "false";
 
     hydratePersistedBrandTheme();
-    expect(document.documentElement.dataset.brandCustom).toBe("true");
+    expect(systemPanel.dataset.brandCustom).toBe("true");
+    expect(systemPanel.style.getPropertyValue("--brand-500-rgb")).toBe(
+      "254 219 0",
+    );
     expect(
       document.documentElement.style.getPropertyValue("--brand-500-rgb"),
-    ).toBe("254 219 0");
+    ).toBe("");
 
     clearPersistedBrandTheme();
     expect(window.localStorage.getItem(BRAND_THEME_STORAGE_KEY)).toBeNull();
-    expect(document.documentElement.dataset.brandCustom).toBe("false");
-    expect(
-      document.documentElement.style.getPropertyValue("--brand-500-rgb"),
-    ).toBe("16 185 129");
+    expect(systemPanel.dataset.brandCustom).toBe("false");
+    expect(systemPanel.style.getPropertyValue("--brand-500-rgb")).toBe(
+      "16 185 129",
+    );
   });
 
-  it("live-previews, saves, and reverts unsaved brand colors in OrganizationSettings", async () => {
+  it("live-previews, saves, and reverts unsaved colors strictly inside [data-system-panel='true']", async () => {
     const updatedOrg: Organization = {
       ...baseOrg,
       ui_theme_config: {
@@ -157,8 +186,12 @@ describe("Dynamic Authority Brand Theme Engine", () => {
     const onOrgUpdated = vi.fn();
 
     const { unmount: unmountSaved } = render(
-      <OrganizationSettings initialOrg={baseOrg} onOrgUpdated={onOrgUpdated} />,
+      <div data-testid="system-panel" data-system-panel="true">
+        <OrganizationSettings initialOrg={baseOrg} onOrgUpdated={onOrgUpdated} />
+      </div>,
     );
+
+    const systemPanel = screen.getByTestId("system-panel");
 
     fireEvent.click(
       screen.getByRole("button", { name: /Layout & Appearance/i }),
@@ -166,10 +199,16 @@ describe("Dynamic Authority Brand Theme Engine", () => {
     fireEvent.click(screen.getByRole("button", { name: /Sovereign Gold/i }));
 
     await waitFor(() => {
-      expect(
-        document.documentElement.style.getPropertyValue("--brand-500-rgb"),
-      ).toBe("254 219 0");
+      expect(systemPanel.style.getPropertyValue("--brand-500-rgb")).toBe(
+        "254 219 0",
+      );
+      expect(setPreviewThemeConfigMock).toHaveBeenCalledWith(
+        expect.objectContaining({ primary_color: "#FEDB00" }),
+      );
     });
+    expect(
+      document.documentElement.style.getPropertyValue("--brand-500-rgb"),
+    ).toBe("");
 
     fireEvent.click(screen.getByRole("button", { name: /Save Colors/i }));
 
@@ -189,9 +228,13 @@ describe("Dynamic Authority Brand Theme Engine", () => {
     unmountSaved();
     clearPersistedBrandTheme();
 
-    const { unmount: unmountUnsaved } = render(
-      <OrganizationSettings initialOrg={baseOrg} onOrgUpdated={vi.fn()} />,
+    const { rerender } = render(
+      <div data-testid="system-panel-unsaved" data-system-panel="true">
+        <OrganizationSettings initialOrg={baseOrg} onOrgUpdated={vi.fn()} />
+      </div>,
     );
+
+    const unsavedPanel = screen.getByTestId("system-panel-unsaved");
 
     fireEvent.click(
       screen.getByRole("button", { name: /Layout & Appearance/i }),
@@ -199,15 +242,17 @@ describe("Dynamic Authority Brand Theme Engine", () => {
     fireEvent.click(screen.getByRole("button", { name: /Sovereign Gold/i }));
 
     await waitFor(() => {
-      expect(
-        document.documentElement.style.getPropertyValue("--brand-500-rgb"),
-      ).toBe("254 219 0");
+      expect(unsavedPanel.style.getPropertyValue("--brand-500-rgb")).toBe(
+        "254 219 0",
+      );
     });
 
-    unmountUnsaved();
+    setPreviewThemeConfigMock.mockClear();
+    rerender(<div data-testid="system-panel-unsaved" data-system-panel="true" />);
 
-    expect(
-      document.documentElement.style.getPropertyValue("--brand-500-rgb"),
-    ).toBe("16 185 129");
+    expect(setPreviewThemeConfigMock).toHaveBeenCalledWith(null);
+    expect(unsavedPanel.style.getPropertyValue("--brand-500-rgb")).toBe(
+      "16 185 129",
+    );
   });
 });

@@ -77,6 +77,18 @@ html.light {
   --shadow-card: 0 1px 2px 0 rgba(15, 23, 42, 0.05), 0 8px 24px -8px rgba(15, 23, 42, 0.09);
 }
 
+[data-system-panel="true"] {
+  --accent-primary: rgb(var(--brand-500-rgb));
+  --accent-hover: rgb(var(--brand-400-rgb));
+  --ring-focus: rgb(var(--brand-500-rgb));
+}
+
+html.light [data-system-panel="true"] {
+  --accent-primary: rgb(var(--brand-700-rgb));
+  --accent-hover: rgb(var(--brand-600-rgb));
+  --ring-focus: rgb(var(--brand-600-rgb));
+}
+
 * {
   box-sizing: border-box;
 }
@@ -758,26 +770,34 @@ html.light .bg-red-600 .text-white {
   color: #FFFFFF;
 }
 
-/* Universal WCAG contrast foreground on dynamic brand-colored solid surfaces */
-.btn-primary:not(:disabled),
-.bg-emerald-400.text-slate-950,
-.bg-emerald-500.text-slate-950,
-.bg-emerald-500.text-slate-900,
-.bg-emerald-500.text-white,
-.bg-emerald-600.text-white,
-.bg-emerald-600.text-slate-950,
-.bg-emerald-700.text-white,
-html.light .btn-primary:not(:disabled),
-html.light .bg-emerald-400.text-slate-950,
-html.light .bg-emerald-500.text-slate-950,
-html.light .bg-emerald-500.text-slate-900,
-html.light .bg-emerald-500.text-white,
-html.light .bg-emerald-500 .text-white,
+/* Preserve white text on saturated emerald-600/700 buttons in Light Mode by default */
 html.light .bg-emerald-600.text-white,
 html.light .bg-emerald-600 .text-white,
-html.light .bg-emerald-600.text-slate-950,
 html.light .bg-emerald-700.text-white,
 html.light .bg-emerald-700 .text-white {
+  color: #FFFFFF;
+}
+
+/* Universal WCAG contrast foreground on custom brand-colored solid surfaces inside System Panel */
+[data-system-panel="true"][data-brand-custom="true"] .btn-primary:not(:disabled),
+[data-system-panel="true"][data-brand-custom="true"] .bg-emerald-400.text-slate-950,
+[data-system-panel="true"][data-brand-custom="true"] .bg-emerald-500.text-slate-950,
+[data-system-panel="true"][data-brand-custom="true"] .bg-emerald-500.text-slate-900,
+[data-system-panel="true"][data-brand-custom="true"] .bg-emerald-500.text-white,
+[data-system-panel="true"][data-brand-custom="true"] .bg-emerald-600.text-white,
+[data-system-panel="true"][data-brand-custom="true"] .bg-emerald-600.text-slate-950,
+[data-system-panel="true"][data-brand-custom="true"] .bg-emerald-700.text-white,
+html.light [data-system-panel="true"][data-brand-custom="true"] .btn-primary:not(:disabled),
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-400.text-slate-950,
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-500.text-slate-950,
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-500.text-slate-900,
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-500.text-white,
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-500 .text-white,
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-600.text-white,
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-600 .text-white,
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-600.text-slate-950,
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-700.text-white,
+html.light [data-system-panel="true"][data-brand-custom="true"] .bg-emerald-700 .text-white {
   color: var(--brand-on-solid);
 }
 

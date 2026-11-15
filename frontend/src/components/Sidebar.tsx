@@ -39,7 +39,7 @@ interface SidebarProps {
 
 export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const { user, logout } = useAuth();
-  const { organization: org } = useOrganization();
+  const { organization: org, effectiveThemeConfig } = useOrganization();
   const { locale, setLocale } = useLanguage();
   const { theme: appTheme } = useTheme();
   const pathname = usePathname();
@@ -97,7 +97,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
-  const theme = resolveThemeConfig(org?.ui_theme_config);
+  const theme = resolveThemeConfig(effectiveThemeConfig ?? org?.ui_theme_config);
   // Always honor the user's global light/dark toggle first
   const isLight = appTheme === "light";
   const isHeraldic = appTheme !== "light" && theme.sidebar_theme === "heraldic";

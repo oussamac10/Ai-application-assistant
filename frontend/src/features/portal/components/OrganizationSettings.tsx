@@ -72,7 +72,7 @@ interface Props {
 }
 
 export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
-  const { refreshOrganization } = useOrganization();
+  const { refreshOrganization, setPreviewThemeConfig } = useOrganization();
   const [activeTab, setActiveTab] = useState<"profile" | "verification" | "team" | "layout" | "categories">("profile");
   const [org, setOrg] = useState<Organization>(initialOrg);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
@@ -90,20 +90,23 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
 
   useEffect(() => {
     if (activeTab !== "layout") {
+      setPreviewThemeConfig(null);
       applyBrandThemeToDocument(savedThemeConfigRef.current, { persist: false });
       return;
     }
     const rawPrimary = themeConfig.primary_color;
     if (!rawPrimary || /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(rawPrimary.trim())) {
+      setPreviewThemeConfig(themeConfig);
       applyBrandThemeToDocument(themeConfig, { persist: false });
     }
-  }, [activeTab, themeConfig]);
+  }, [activeTab, themeConfig, setPreviewThemeConfig]);
 
   useEffect(() => {
     return () => {
+      setPreviewThemeConfig(null);
       applyBrandThemeToDocument(savedThemeConfigRef.current, { persist: false });
     };
-  }, []);
+  }, [setPreviewThemeConfig]);
 
   // Profile Form state
   const [name, setName] = useState(initialOrg.name);
@@ -301,6 +304,7 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
       });
       const persistedTheme = updated.ui_theme_config ?? normalizedThemeConfig;
       savedThemeConfigRef.current = persistedTheme;
+      setPreviewThemeConfig(null);
       applyBrandThemeToDocument(persistedTheme, { persist: true });
       setOrg(updated);
       onOrgUpdated(updated);
@@ -905,9 +909,9 @@ export function OrganizationSettings({ initialOrg, onOrgUpdated }: Props) {
             <div className="rounded-2xl border border-white/10 bg-[#0A0E17] p-6 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h4 className="text-sm font-bold text-white">Authority Brand Colors</h4>
+                  <h4 className="text-sm font-bold text-white">System Panel Colors</h4>
                   <p className="text-xs text-slate-400">
-                    Choose your main brand color or pick from preset color palettes.
+                    Customize the accent color of your admin & workspace panel (the public website remains unchanged).
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
