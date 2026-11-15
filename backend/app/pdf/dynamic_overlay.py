@@ -159,6 +159,115 @@ def map_form_fields_to_detected_fields(
     return matched
 
 
+def extract_table_column_headers_for_page(
+    db: Session,
+    session: FormSession,
+    page_number: int,
+    table_top_y: float,
+    columns: list[tuple[float, float]],
+) -> list[str | None]:
+    """Extract per-column header text directly above row 1 of a table on a PDF page.
+
+    Keeps words strictly within each column's horizontal bounds so narrow adjacent
+    multi-line headers (e.g. 'Geburtsdatum' | 'Ge-schlecht' | 'Verwandtschafts-verhältnis')
+    never bleed into one another.
+    """
+    if not columns:
+        return []
+
+    storage_path: str | None = None
+    source_doc_id = getattr(session, "source_document_id", None)
+    if source_doc_id:
+        source_doc = db.get(SourceDocument, source_doc_id)
+        if source_doc:
+            storage_path = source_doc.storage_path
+    else:
+        version = getattr(session, "version", None) or (
+            db.get(FormVersion, session.form_version_id)
+            if getattr(session, "form_version_id", None)
+            else None
+        )
+        if version:
+            storage_path = getattr(version, "source_pdf_storage_path", None)
+
+    if not storage_path:
+        return [None] * len(columns)
+
+    storage_provider = storage_factory.get_storage_provider()
+    if not storage_provider.exists(storage_path):
+        return [None] * len(columns)
+
+    try:
+        import fitz
+
+        with storage_provider.local_path(storage_path) as local_pdf_path:
+            doc = fitz.open(local_pdf_path)
+            try:
+                page_idx = page_number - 1
+                if not (0 <= page_idx < doc.page_count):
+                    return [None] * len(columns)
+                words = doc[page_idx].get_text("words")
+            finally:
+                doc.close()
+    except Exception:
+        return [None] * len(columns)
+
+    bounds: list[tuple[float, float]] = []
+    for idx, (x0, x1) in enumerate(columns):
+        left = (columns[idx - 1][1] + x0) / 2.0 if idx > 0 else x0 - 4.0
+        right = (
+            (x1 + columns[idx + 1][0]) / 2.0 if idx + 1 < len(columns) else x1 + 20.0
+        )
+        bounds.append((left, right))
+
+    band = [
+        w
+        for w in words
+        if float(w[3]) <= table_top_y + 2.0 and float(w[1]) >= table_top_y - 52.0
+    ]
+
+    headers: list[str | None] = []
+    for bl, br in bounds:
+        col_words = sorted(
+            [w for w in band if bl <= (float(w[0]) + float(w[2])) / 2.0 <= br],
+            key=lambda w: (round(float(w[1]) / 3.0), float(w[0])),
+        )
+        lines: list[list[Any]] = []
+        for w in col_words:
+            if not lines or abs(float(w[1]) - float(lines[-1][0][1])) > 4.0:
+                lines.append([w])
+            else:
+                lines[-1].append(w)
+
+        kept: list[str] = []
+        prev_y0: float | None = None
+        for line in reversed(lines):
+            y0 = min(float(w[1]) for w in line)
+            y1 = max(float(w[3]) for w in line)
+            if prev_y0 is not None and prev_y0 - y1 > 10.0:
+                break
+            kept.append(
+                " ".join(str(w[4]) for w in sorted(line, key=lambda w: float(w[0])))
+            )
+            prev_y0 = y0
+
+        kept.reverse()
+        text = ""
+        for part in kept:
+            part = part.strip()
+            if not part:
+                continue
+            if text.endswith("-") and part[0].islower():
+                text = f"{text[:-1]}{part}"
+            elif text:
+                text = f"{text} {part}"
+            else:
+                text = part
+        headers.append(text.strip() or None)
+
+    return headers
+
+
 def get_all_field_boxes_for_session(
     db: Session,
     session: FormSession,

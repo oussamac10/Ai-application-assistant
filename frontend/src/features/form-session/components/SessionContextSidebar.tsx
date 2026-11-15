@@ -213,11 +213,11 @@ export function SessionContextSidebar({
               );
             })()}
 
-            <p className="text-[11px] text-slate-600 leading-snug text-center">
+            <p className="text-[11px] text-slate-600 leading-snug text-center break-words">
               {currentField.sourceDocumentFilename ? (
                 <>
                   Mapped to{" "}
-                  <span className="font-semibold text-slate-800">
+                  <span className="font-semibold text-slate-800 break-all">
                     {currentField.sourceDocumentFilename}
                   </span>
                 </>

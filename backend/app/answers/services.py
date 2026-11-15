@@ -47,6 +47,7 @@ from app.core.config import settings
 from app.forms.models import FormField
 from app.forms.repositories import FormRepository
 from app.pdf.dynamic_overlay import (
+    extract_table_column_headers_for_page,
     get_all_field_boxes_for_session,
     get_field_location_for_session,
     render_session_page_preview_png,
@@ -64,6 +65,7 @@ from app.translation.factory import (
     build_fallback_translation_provider,
     build_translation_provider,
 )
+from app.translation.service import translate_texts
 
 logger = logging.getLogger(__name__)
 
@@ -404,6 +406,7 @@ class AnswerService:
                 row_index = int(row_str)
                 total_rows = max(len(distinct_rows), 1)
 
+        column_headers: dict[str, str] = {}
         if not row_fields:
             geo = self._detect_geometric_table_row(
                 session=session,
@@ -412,7 +415,36 @@ class AnswerService:
             )
             if geo is None:
                 return None
-            table_key, table_title, row_index, total_rows, row_fields = geo
+            (
+                table_key,
+                table_title,
+                row_index,
+                total_rows,
+                row_fields,
+                column_headers,
+            ) = geo
+
+        translated_headers: dict[str, str] = {}
+        if (
+            column_headers
+            and session.user_language
+            and session.source_language
+            and session.user_language != session.source_language
+        ):
+            try:
+                translated_headers = await translate_texts(
+                    texts=list(dict.fromkeys(column_headers.values())),
+                    target_language=session.user_language,
+                    provider=build_translation_provider(
+                        settings.TRANSLATION_PROVIDER, self.ai_provider
+                    ),
+                    fallback_provider=build_fallback_translation_provider(
+                        settings.TRANSLATION_FALLBACK_PROVIDER, self.ai_provider
+                    ),
+                    source_language=session.source_language,
+                )
+            except Exception:
+                translated_headers = {}
 
         row_items: list[dict[str, Any]] = []
         for rf in row_fields:
@@ -422,12 +454,16 @@ class AnswerService:
                 session.source_language,
                 session.output_language,
             )
+            label = translated.get("label") or rf.key
+            col_header = column_headers.get(rf.key)
+            if col_header:
+                label = translated_headers.get(col_header, col_header)
             ans = answers.get(rf.id)
             row_items.append(
                 {
                     "field_key": rf.key,
                     "field_type": rf.field_type,
-                    "label": translated.get("label") or rf.key,
+                    "label": label,
                     "required": rf.required,
                     "requiredness": field_requiredness(rf),
                     "original_answer": ans.original_answer if ans else None,
@@ -450,7 +486,7 @@ class AnswerService:
         session: Any,
         version: Any,
         current_field: FormField,
-    ) -> tuple[str, str, int, int, list[FormField]] | None:
+    ) -> tuple[str, str, int, int, list[FormField], dict[str, str]] | None:
         """Detect repeated horizontal table rows on a page using field bounding boxes."""
         all_boxes = get_all_field_boxes_for_session(self.db, session)
         current_loc = all_boxes.get(current_field.key)
@@ -555,7 +591,18 @@ class AnswerService:
         row_index = (current_row_idx - start_idx) + 1
         total_rows = len(table_rows)
         row_fields = [item[0] for item in cur_row]
-        return table_key, table_title, row_index, total_rows, row_fields
+
+        table_top_y = min(item[1]["y"] for item in table_rows[0])
+        columns = [(item[1]["x"], item[1]["x"] + item[1]["width"]) for item in cur_row]
+        extracted_headers = extract_table_column_headers_for_page(
+            self.db, session, current_page, table_top_y, columns
+        )
+        column_headers = {
+            item[0].key: header
+            for item, header in zip(cur_row, extracted_headers, strict=False)
+            if header
+        }
+        return table_key, table_title, row_index, total_rows, row_fields, column_headers
 
     def _attach_location_metadata(
         self, field_data: dict[str, Any], session: Any, field: FormField
