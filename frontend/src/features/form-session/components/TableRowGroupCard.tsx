@@ -1,0 +1,211 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { Loader2, Table2, CheckCircle2, SkipForward } from "lucide-react";
+import {
+  TableRowContext,
+  submitAnswer,
+  confirmAnswer,
+  skipField,
+} from "../services/apiClient";
+import { FieldRenderer } from "./FieldRenderer";
+
+interface TableRowGroupCardProps {
+  sessionId: string;
+  tableRow: TableRowContext;
+  onRowCompleted: () => Promise<void>;
+  onSwitchToSingleField: () => void;
+}
+
+export function TableRowGroupCard({
+  sessionId,
+  tableRow,
+  onRowCompleted,
+  onSwitchToSingleField,
+}: TableRowGroupCardProps) {
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const initial: Record<string, string> = {};
+    for (const f of tableRow.fields) {
+      initial[f.fieldKey] = f.originalAnswer ?? "";
+    }
+    setValues(initial);
+    setFieldErrors({});
+    setGlobalError(null);
+  }, [tableRow]);
+
+  const allOptionalOrUnknown = tableRow.fields.every(
+    (f) => !f.required && f.requiredness !== "required",
+  );
+
+  const handleSaveRow = async () => {
+    setGlobalError(null);
+    const errors: Record<string, string> = {};
+    for (const f of tableRow.fields) {
+      const val = (values[f.fieldKey] ?? "").trim();
+      if ((f.required || f.requiredness === "required") && !val) {
+        errors[f.fieldKey] = "This field is required.";
+      }
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      for (const f of tableRow.fields) {
+        const val = (values[f.fieldKey] ?? "").trim();
+        if (!val) {
+          if (f.currentAnswerStatus !== "confirmed" && f.currentAnswerStatus !== "skipped") {
+            await skipField(sessionId, f.fieldKey);
+          }
+          continue;
+        }
+        const res = await submitAnswer(sessionId, f.fieldKey, val);
+        if (res.status === "awaiting_confirmation" && res.id) {
+          await confirmAnswer(sessionId, res.id);
+        } else if (res.status === "invalid" || res.status === "needs_clarification") {
+          setFieldErrors((prev) => ({
+            ...prev,
+            [f.fieldKey]: "Please check or clarify this value.",
+          }));
+          setSubmitting(false);
+          return;
+        }
+      }
+      await onRowCompleted();
+    } catch (err) {
+      setGlobalError(
+        err instanceof Error ? err.message : "Could not save table row.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSkipRow = async () => {
+    setSubmitting(true);
+    setGlobalError(null);
+    try {
+      for (const f of tableRow.fields) {
+        if (f.currentAnswerStatus !== "confirmed" && f.currentAnswerStatus !== "skipped") {
+          await skipField(sessionId, f.fieldKey);
+        }
+      }
+      await onRowCompleted();
+    } catch (err) {
+      setGlobalError(
+        err instanceof Error ? err.message : "Could not skip table row.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5" data-testid="table-row-group-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 shrink-0">
+            <Table2 className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 text-start">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+              {tableRow.tableTitle}
+            </p>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900">
+              Row {tableRow.rowIndex} of {tableRow.totalRows}
+            </h2>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onSwitchToSingleField}
+          className="text-xs font-medium text-slate-500 hover:text-indigo-700 underline underline-offset-2 cursor-pointer"
+        >
+          Fill one-by-one instead
+        </button>
+      </div>
+
+      {globalError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-800 text-start">
+          {globalError}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {tableRow.fields.map((f) => (
+          <div
+            key={f.fieldKey}
+            className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2 text-start"
+          >
+            <label
+              htmlFor={`field-${f.fieldKey}`}
+              className="block text-xs font-semibold text-slate-800"
+            >
+              {f.label}
+              {(f.required || f.requiredness === "required") && (
+                <span className="ms-1 text-rose-600" aria-hidden="true">
+                  *
+                </span>
+              )}
+            </label>
+            <FieldRenderer
+              fieldType={f.fieldType}
+              fieldKey={f.fieldKey}
+              required={f.required || f.requiredness === "required"}
+              configuration={{}}
+              options={f.options || []}
+              value={values[f.fieldKey] ?? ""}
+              error={fieldErrors[f.fieldKey]}
+              enableVoiceInput={false}
+              onChange={(val) => {
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next[f.fieldKey];
+                  return next;
+                });
+                setValues((prev) => ({ ...prev, [f.fieldKey]: val }));
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200">
+        {allOptionalOrUnknown ? (
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={handleSkipRow}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+          >
+            <SkipForward className="h-3.5 w-3.5" />
+            Skip Row
+          </button>
+        ) : (
+          <div />
+        )}
+
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={handleSaveRow}
+          className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold disabled:opacity-50 cursor-pointer"
+        >
+          {submitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4" />
+          )}
+          Save Row &amp; Continue
+        </button>
+      </div>
+    </div>
+  );
+}

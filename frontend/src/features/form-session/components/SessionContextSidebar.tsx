@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React from "react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { CurrentField } from "../services/apiClient";
 
 interface SessionContextSidebarProps {
@@ -10,6 +11,8 @@ interface SessionContextSidebarProps {
   total: number;
   progressPercent: number;
   pagePreviewUrls: Record<number, string>;
+  previewPage?: number;
+  onChangePreviewPage?: (page: number) => void;
   zoomedPreviewOpen: boolean;
   onOpenZoom: () => void;
   onCloseZoom: () => void;
@@ -21,10 +24,17 @@ export function SessionContextSidebar({
   total,
   progressPercent,
   pagePreviewUrls,
+  previewPage,
+  onChangePreviewPage,
   zoomedPreviewOpen,
   onOpenZoom,
   onCloseZoom,
 }: SessionContextSidebarProps) {
+  const fieldPage = currentField?.pageNumber ?? 1;
+  const activePage = previewPage ?? fieldPage;
+  const totalPages = currentField?.sourceDocumentPageCount ?? 1;
+  const canNavigatePages = totalPages > 1 && Boolean(onChangePreviewPage);
+  const showHighlightOnActivePage = activePage === fieldPage;
   return (
     <>
       <aside className="hidden lg:flex lg:col-span-4 flex-col gap-4 sticky top-20">
@@ -102,16 +112,39 @@ export function SessionContextSidebar({
                 </svg>
                 Document Placement
               </span>
-              <span className="rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-700 tabular-nums">
-                Page {currentField.pageNumber ?? 1}
-                {currentField.sourceDocumentPageCount
-                  ? ` / ${currentField.sourceDocumentPageCount}`
-                  : ""}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {canNavigatePages && (
+                  <button
+                    type="button"
+                    aria-label="Previous PDF page"
+                    disabled={activePage <= 1}
+                    onClick={() => onChangePreviewPage?.(Math.max(1, activePage - 1))}
+                    className="rounded border border-slate-200 bg-white p-0.5 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <span className="rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-700 tabular-nums">
+                  Page {activePage}
+                  {totalPages > 1 ? ` / ${totalPages}` : ""}
+                </span>
+                {canNavigatePages && (
+                  <button
+                    type="button"
+                    aria-label="Next PDF page"
+                    disabled={activePage >= totalPages}
+                    onClick={() =>
+                      onChangePreviewPage?.(Math.min(totalPages, activePage + 1))
+                    }
+                    className="rounded border border-slate-200 bg-white p-0.5 text-slate-600 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {(() => {
-              const activePage = currentField.pageNumber ?? 1;
               const previewUrl = pagePreviewUrls[activePage];
               const pageW = currentField.pageWidthPt || 595;
               const pageH = currentField.pageHeightPt || 842;
@@ -148,16 +181,18 @@ export function SessionContextSidebar({
                         alt={`Official PDF page ${activePage}`}
                         className="block w-full h-auto select-none"
                       />
-                      <div
-                        data-testid="pdf-field-highlight-box"
-                        style={{
-                          top: `${topPct}%`,
-                          left: `${leftPct}%`,
-                          width: `${widthPct}%`,
-                          height: `${heightPct}%`,
-                        }}
-                        className="pointer-events-none absolute rounded-[2px] border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all duration-300"
-                      />
+                      {showHighlightOnActivePage && (
+                        <div
+                          data-testid="pdf-field-highlight-box"
+                          style={{
+                            top: `${topPct}%`,
+                            left: `${leftPct}%`,
+                            width: `${widthPct}%`,
+                            height: `${heightPct}%`,
+                          }}
+                          className="pointer-events-none absolute rounded-[2px] border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_2px_rgba(79,70,229,0.25)] transition-all duration-300"
+                        />
+                      )}
                       <span className="absolute bottom-2 end-2 rounded-md bg-slate-900/75 px-2 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
                         Click to enlarge
                       </span>
@@ -266,9 +301,7 @@ export function SessionContextSidebar({
       </aside>
 
       {/* Full-Resolution PDF Page Zoom Modal */}
-      {zoomedPreviewOpen &&
-        currentField &&
-        pagePreviewUrls[currentField.pageNumber ?? 1] && (
+      {zoomedPreviewOpen && currentField && (
           <div
             data-testid="pdf-preview-modal"
             onClick={onCloseZoom}
@@ -278,28 +311,77 @@ export function SessionContextSidebar({
               onClick={(e) => e.stopPropagation()}
               className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
             >
-              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
-                <div className="space-y-0.5 text-start">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-3.5">
+                <div className="space-y-0.5 text-start min-w-0">
                   <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">
-                    Official Document Placement • Page{" "}
-                    {currentField.pageNumber ?? 1}
+                    Official Document Placement • Page {activePage}
+                    {totalPages > 1 ? ` of ${totalPages}` : ""}
                   </p>
                   <p className="text-sm font-bold text-slate-900 truncate">
                     {currentField.label}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={onCloseZoom}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                >
-                  Close
-                </button>
+                <div className="flex items-center gap-2">
+                  {canNavigatePages && (
+                    <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                      <button
+                        type="button"
+                        aria-label="Previous page"
+                        disabled={activePage <= 1}
+                        onClick={() => onChangePreviewPage?.(Math.max(1, activePage - 1))}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white disabled:opacity-40 cursor-pointer"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                        Prev
+                      </button>
+                      <span className="px-2 text-xs font-mono font-semibold text-slate-700 tabular-nums">
+                        {activePage} / {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Next page"
+                        disabled={activePage >= totalPages}
+                        onClick={() =>
+                          onChangePreviewPage?.(Math.min(totalPages, activePage + 1))
+                        }
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white disabled:opacity-40 cursor-pointer"
+                      >
+                        Next
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  {!showHighlightOnActivePage && onChangePreviewPage && (
+                    <button
+                      type="button"
+                      onClick={() => onChangePreviewPage(fieldPage)}
+                      className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 cursor-pointer"
+                    >
+                      Go to field (p. {fieldPage})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onCloseZoom}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
               <div className="overflow-y-auto p-4 sm:p-6 bg-slate-100/70">
                 {(() => {
-                  const activePage = currentField.pageNumber ?? 1;
                   const previewUrl = pagePreviewUrls[activePage];
+                  if (!previewUrl) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-20 text-slate-500 gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                        <span className="text-xs font-medium">
+                          Loading page {activePage} preview...
+                        </span>
+                      </div>
+                    );
+                  }
                   const pageW = currentField.pageWidthPt || 595;
                   const pageH = currentField.pageHeightPt || 842;
                   const box = currentField.inputBoundingBox;
@@ -326,15 +408,17 @@ export function SessionContextSidebar({
                         alt={`Official PDF page ${activePage} enlarged`}
                         className="block max-w-full h-auto rounded-lg select-none"
                       />
-                      <div
-                        style={{
-                          top: `${topPct}%`,
-                          left: `${leftPct}%`,
-                          width: `${widthPct}%`,
-                          height: `${heightPct}%`,
-                        }}
-                        className="pointer-events-none absolute rounded-[2px] border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_4px_rgba(79,70,229,0.28)]"
-                      />
+                      {showHighlightOnActivePage && (
+                        <div
+                          style={{
+                            top: `${topPct}%`,
+                            left: `${leftPct}%`,
+                            width: `${widthPct}%`,
+                            height: `${heightPct}%`,
+                          }}
+                          className="pointer-events-none absolute rounded-[2px] border-2 border-indigo-600 bg-indigo-500/25 shadow-[0_0_0_4px_rgba(79,70,229,0.28)]"
+                        />
+                      )}
                     </div>
                   );
                 })()}

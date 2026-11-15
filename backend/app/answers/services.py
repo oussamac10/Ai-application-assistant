@@ -353,8 +353,78 @@ class AnswerService:
         ]
         field_data["progress"] = self.get_progress(session)
         self._attach_location_metadata(field_data, session, current_field)
+        field_data["table_row"] = await self._build_table_row_context(
+            session=session,
+            version=version,
+            current_field=current_field,
+            answers=answers,
+        )
 
         return field_data
+
+    async def _build_table_row_context(
+        self,
+        *,
+        session: Any,
+        version: Any,
+        current_field: FormField,
+        answers: dict[str, FormAnswer],
+    ) -> dict[str, Any] | None:
+        """Group repeated table row cells (<section>_<row>_<col>) into a row context."""
+        import re
+
+        match = re.match(
+            r"^(?P<table>.+?)_(?P<row>\d+)_(?P<col>.+)$", current_field.key
+        )
+        if not match:
+            return None
+
+        table_key = match.group("table")
+        row_str = match.group("row")
+        row_prefix = f"{table_key}_{row_str}_"
+        table_pattern = re.compile(rf"^{re.escape(table_key)}_(\d+)_.+$")
+
+        distinct_rows: set[int] = set()
+        row_fields: list[FormField] = []
+        for f in sorted(version.fields, key=lambda item: item.position):
+            m = table_pattern.match(f.key)
+            if m:
+                distinct_rows.add(int(m.group(1)))
+            if f.key.startswith(row_prefix):
+                row_fields.append(f)
+
+        if len(row_fields) < 2:
+            return None
+
+        row_items: list[dict[str, Any]] = []
+        for rf in row_fields:
+            translated = await self._get_translated_field(
+                rf,
+                session.user_language,
+                session.source_language,
+                session.output_language,
+            )
+            ans = answers.get(rf.id)
+            row_items.append(
+                {
+                    "field_key": rf.key,
+                    "field_type": rf.field_type,
+                    "label": translated.get("label") or rf.key,
+                    "required": rf.required,
+                    "requiredness": field_requiredness(rf),
+                    "original_answer": ans.original_answer if ans else None,
+                    "current_answer_status": ans.status if ans else None,
+                    "options": translated.get("options"),
+                }
+            )
+
+        return {
+            "table_key": table_key,
+            "table_title": table_key.replace("_", " ").strip().title(),
+            "row_index": int(row_str),
+            "total_rows": max(len(distinct_rows), 1),
+            "fields": row_items,
+        }
 
     def _attach_location_metadata(
         self, field_data: dict[str, Any], session: Any, field: FormField

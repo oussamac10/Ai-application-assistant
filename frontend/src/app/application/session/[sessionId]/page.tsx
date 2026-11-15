@@ -38,6 +38,7 @@ import { SessionContextSidebar } from "@/features/form-session/components/Sessio
 import { SessionClarificationPanel } from "@/features/form-session/components/SessionClarificationPanel";
 import { SessionConfirmationPanel } from "@/features/form-session/components/SessionConfirmationPanel";
 import { SessionFieldExplanation } from "@/features/form-session/components/SessionFieldExplanation";
+import { TableRowGroupCard } from "@/features/form-session/components/TableRowGroupCard";
 import ClaimBanner from "@/features/applications/components/ClaimBanner";
 import { SaveAndResumeModal } from "@/features/applications/components/SaveAndResumeModal";
 import { Bookmark } from "lucide-react";
@@ -76,7 +77,9 @@ export default function GuidedSession() {
   const [prefilling, setPrefilling] = useState<boolean>(false);
   const [vaultNotice, setVaultNotice] = useState<string | null>(null);
   const [pagePreviewUrls, setPagePreviewUrls] = useState<Record<number, string>>({});
+  const [previewPage, setPreviewPage] = useState<number>(1);
   const [zoomedPreviewOpen, setZoomedPreviewOpen] = useState<boolean>(false);
+  const [forceSingleFieldMode, setForceSingleFieldMode] = useState<boolean>(false);
   const [signatureValue, setSignatureValue] = useState<SignatureValue | null>(
     null,
   );
@@ -84,7 +87,14 @@ export default function GuidedSession() {
   const pagePreviewUrlsRef = useRef<Record<number, string>>({});
 
   useEffect(() => {
-    const activePage = currentField?.pageNumber ?? 1;
+    if (currentField?.pageNumber) {
+      setPreviewPage(currentField.pageNumber);
+    }
+    setForceSingleFieldMode(false);
+  }, [currentField?.fieldKey, currentField?.pageNumber]);
+
+  useEffect(() => {
+    const activePage = previewPage || currentField?.pageNumber || 1;
     if (!sessionId) return;
     if (!currentField?.sourceDocumentFilename) return;
     if (typeof fetchSessionPagePreviewBlob !== "function") return;
@@ -105,7 +115,7 @@ export default function GuidedSession() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, currentField?.pageNumber, currentField?.sourceDocumentFilename]);
+  }, [sessionId, previewPage, currentField?.pageNumber, currentField?.sourceDocumentFilename]);
 
   useEffect(() => {
     const urlsRef = pagePreviewUrlsRef;
@@ -505,6 +515,8 @@ export default function GuidedSession() {
             total={total}
             progressPercent={progressPercent}
             pagePreviewUrls={pagePreviewUrls}
+            previewPage={previewPage}
+            onChangePreviewPage={setPreviewPage}
             zoomedPreviewOpen={zoomedPreviewOpen}
             onOpenZoom={() => setZoomedPreviewOpen(true)}
             onCloseZoom={() => setZoomedPreviewOpen(false)}
@@ -623,7 +635,24 @@ export default function GuidedSession() {
                     />
                   )}
 
-                  {(step === "answering" || step === "submitting") && (
+                  {(step === "answering" || step === "submitting") &&
+                    !forceSingleFieldMode &&
+                    currentField.tableRow &&
+                    currentField.tableRow.fields.length >= 2 &&
+                    currentField.fieldType !== "signature" && (
+                      <TableRowGroupCard
+                        sessionId={sessionId}
+                        tableRow={currentField.tableRow}
+                        onRowCompleted={fetchNextQuestion}
+                        onSwitchToSingleField={() => setForceSingleFieldMode(true)}
+                      />
+                    )}
+
+                  {(step === "answering" || step === "submitting") &&
+                    (forceSingleFieldMode ||
+                      !currentField.tableRow ||
+                      currentField.tableRow.fields.length < 2 ||
+                      currentField.fieldType === "signature") && (
                     <form onSubmit={handleSubmitAnswer} className="space-y-6">
                       <div className="space-y-2 text-start">
                         {rowContext && (

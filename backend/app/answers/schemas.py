@@ -58,6 +58,25 @@ class FieldExplanationInfo(BaseSchema):
     example: str
 
 
+class TableRowFieldInfo(BaseSchema):
+    field_key: str
+    field_type: str
+    label: str
+    required: bool
+    requiredness: str = "unknown"
+    original_answer: str | None = None
+    current_answer_status: str | None = None
+    options: list[FieldOptionInfo] | None = None
+
+
+class TableRowContext(BaseSchema):
+    table_key: str
+    table_title: str
+    row_index: int
+    total_rows: int
+    fields: list[TableRowFieldInfo]
+
+
 class CurrentFieldResponse(BaseSchema):
     id: str
     key: str
@@ -92,6 +111,7 @@ class CurrentFieldResponse(BaseSchema):
     input_bounding_box: dict[str, float] | None = None
     source_document_filename: str | None = None
     source_document_page_count: int | None = None
+    table_row: TableRowContext | None = None
 
     @computed_field
     def field_id(self) -> str:

@@ -317,11 +317,11 @@ export default function DocumentUploadForm({
                 </p>
               </>
             ) : (
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 w-full max-w-full min-w-0 px-2 space-y-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">
                   {t("selected_file") || "Selected File:"}
                 </p>
-                <p className="text-sm font-semibold text-slate-900">
+                <p className="text-sm font-semibold text-slate-900 break-all">
                   {file.name}
                 </p>
                 <p className="text-xs text-slate-500 tabular-nums">

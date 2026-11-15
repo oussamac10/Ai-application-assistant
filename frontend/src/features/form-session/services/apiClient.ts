@@ -54,6 +54,27 @@ export const ProgressInfoSchema = z.object({
   percentage: z.number(),
 });
 
+export const TableRowFieldSchema = z.object({
+  fieldKey: z.string(),
+  fieldType: z.string(),
+  label: z.string(),
+  required: z.boolean(),
+  requiredness: z.string().optional(),
+  originalAnswer: z.string().nullable().optional(),
+  currentAnswerStatus: z.string().nullable().optional(),
+  options: z.array(FieldOptionSchema).nullable().optional(),
+});
+
+export const TableRowContextSchema = z.object({
+  tableKey: z.string(),
+  tableTitle: z.string(),
+  rowIndex: z.number(),
+  totalRows: z.number(),
+  fields: z.array(TableRowFieldSchema),
+});
+
+export type TableRowContext = z.infer<typeof TableRowContextSchema>;
+
 export const CurrentFieldResponseSchema = z.object({
   id: z.string(),
   key: z.string(),
@@ -95,6 +116,7 @@ export const CurrentFieldResponseSchema = z.object({
     .optional(),
   sourceDocumentFilename: z.string().nullable().optional(),
   sourceDocumentPageCount: z.number().nullable().optional(),
+  tableRow: TableRowContextSchema.nullable().optional(),
   fieldId: z.string(),
   fieldKey: z.string(),
 });
